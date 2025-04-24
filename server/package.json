@@ -1,0 +1,31 @@
+{
+  "name": "tentix-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build api/index.ts --outdir=dist --target=bun",
+    "dev": "bun --env-file=../.env.local run --hot api/index.ts",
+    "generate": "bun --env-file=../.env.local drizzle-kit generate --config=db/drizzle.config.ts",
+    "migrate": "bun --env-file=../.env.local drizzle-kit migrate --config=db/drizzle.config.ts",
+    "pull": "bun script/drizzle-pull.sh",
+    "studio": "bun --env-file=../.env.local drizzle-kit studio --config=db/drizzle.config.ts",
+    "seed": "bun server/db/seed.ts"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.4.3",
+    "@scalar/hono-api-reference": "^0.8.5",
+    "drizzle-orm": "0.41.0",
+    "drizzle-zod": "^0.7.1",
+    "hono": "^4.7.7",
+    "hono-openapi": "^0.4.6",
+    "pg": "^8.15.1",
+    "zod-openapi": "^4.2.4"
+  },
+  "packageManager": "bun@1.2.10",
+  "devDependencies": {
+    "@types/bun": "^1.2.10",
+    "@types/pg": "8.11.13",
+    "drizzle-kit": "^0.31.0",
+    "drizzle-seed": "^0.3.1"
+  }
+}
