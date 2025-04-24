@@ -19,6 +19,9 @@ jobs:
         
     - name: Install dependencies
       run: bun install
+
+    - name: Install Turbo
+      run: bun add turbo
       
     - name: Build project
       run: turbo build check-types
