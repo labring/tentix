@@ -1,0 +1,17 @@
+{
+  
+  "extends": "../packages/typescript-config/frontend.json",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+    "@/*": ["./*"],
+    "@tentix/ui/*": ["../packages/ui/*"],
+    "@server/*": ["../server/*"],
+  },
+  }
+}
+
+
+
