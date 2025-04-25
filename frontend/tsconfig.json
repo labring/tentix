@@ -1,17 +1,18 @@
 {
-  
   "extends": "../packages/typescript-config/frontend.json",
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-    "@/*": ["./*"],
-    "@tentix/ui/*": ["../packages/ui/*"],
-    "@server/*": ["../server/*"],
+      "@tentix/ui/*": ["../packages/ui/*"],
+      "@server/*": ["../server/*"],
+      "@lib/*": ["./src/lib/*"],
+      "@comp/*": ["./src/components/*"],
+      "@/*": ["./*"]
+    }
   },
-  }
+  "references": [
+    { "path": "../server/tsconfig.json" }
+  ]
 }
-
-
-

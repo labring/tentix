@@ -1,14 +1,10 @@
-import { connectDB } from "@db/utils.js";
+import { connectDB, isContentBlockArray, zs } from "@/utils.ts";
+import * as schema from "@db/schema.ts";
+import { createInsertSchema } from "drizzle-zod";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
-
-import * as schema from "@db/schema.js";
-
-import { zs } from "../common-type.js";
-import { createInsertSchema } from "drizzle-zod";
-import { isContentBlockArray } from "@lib/utils.js";
 
 const createResponseSchema = z.array(
   z.object({
@@ -106,12 +102,6 @@ const ticketRouter = new Hono()
               messages: {
                 orderBy: (messages, { desc }) => desc(messages.createdAt),
                 limit: 1,
-                with: {
-                  contentBlocks: {
-                    orderBy: (contentBlocks, { asc }) =>
-                      asc(contentBlocks.position),
-                  },
-                },
               },
             },
           },

@@ -1,13 +1,12 @@
-import { connectDB } from '@db/utils';
+import { connectDB } from '@/utils.ts';
 import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
 import { resolver, validator as zValidator } from 'hono-openapi/zod';
 import { z } from 'zod';
-
-import * as schema from '@db/schema';
+import * as schema from '@db/schema.ts';
 import { eq } from 'drizzle-orm';
 import crypto from 'node:crypto';
-import { resolveDBSchema } from '../utils';
+import { resolveDBSchema } from "@/utils.ts";
 
 import {
 	getCookie,

@@ -1,15 +1,28 @@
 {
-  "extends": "@workspace/typescript-config/base.json",
   "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "lib": ["es2022", "DOM", "DOM.Iterable"],
+    "module": "NodeNext",
+    "moduleDetection": "force",
+    "moduleResolution": "NodeNext",
+    "noUncheckedIndexedAccess": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "composite": true,
     "strict": true,
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true,
     "baseUrl": ".",
     "paths": {
-    "@/*": ["./*"],
-    "@db/*": ["db/*"],
-    "@api/*": ["api/*"],
-    "@lib/*": ["../frontend/lib/*"],
+      "@/*": ["./*"],
+      "@db/*": ["./db/*"],
+      "@api/*": ["./api/*"]
     }
   }
 }

@@ -1,12 +1,41 @@
-import { connectDB } from '@db/utils.js';
-import { reset, seed } from 'drizzle-seed';
 import { sql, Table } from 'drizzle-orm';
-import { performance } from 'node:perf_hooks';
-import * as schema from './schema.js';
-import type * as relations from './relations.js';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { camelToKebab } from '@lib/utils.js';
 import { PgSchema } from 'drizzle-orm/pg-core';
+import { reset, seed } from 'drizzle-seed';
+import { performance } from 'node:perf_hooks';
+import { camelToKebab, connectDB } from '../utils.js';
+import type * as relations from './relations.js';
+import * as schema from './schema.js';
+
+const contentBlockExample = [
+  {type: "text", meta: "This is a text block."},
+  {type: "image", meta: "https://example.com/image1.jpg"},
+  {type: "code", meta: "console.log('Hello, world!');"},
+  {type: "link", meta: "https://example.com"},
+  {type: "mention", meta: "@username"},
+  {type: "quote", meta: "A famous quote goes here."},
+  {type: "file", meta: "https://example.com/file1.pdf"},
+  {type: "text", meta: "Another text block."},
+  {type: "image", meta: "https://example.com/image2.jpg"},
+  {type: "code", meta: "const x = 5;"},
+  {type: "link", meta: "https://anotherexample.com"},
+  {type: "mention", meta: "@anotheruser"},
+  {type: "quote", meta: "Another quote."},
+  {type: "file", meta: "https://example.com/file2.pdf"},
+  {type: "text", meta: "Final text block."}
+]
+
+const processRandomContentBlock = (num: number) => {
+  const result: Array<string> = [];
+  for (let i = 0; i < num; i++) {
+    const item = Array.from({length: getRandomInt(2, 6)}).map(() => {
+      const randomIndex = getRandomInt(0, contentBlockExample.length - 1);
+      return contentBlockExample[randomIndex];
+    })
+    result.push(JSON.stringify(item));
+  }
+  return result;
+}
 
 // Define schema type
 type AppSchema = typeof schema & typeof relations;
@@ -153,9 +182,7 @@ async function main() {
 						count: 1000,
 						columns: {
 							id: f.intPrimaryKey(),
-              description: f.valuesFromArray({values: [
-                `[{"type": "text", "content": "This is a text block"}, {"type": "image", "content": "https://picsum.photos/200/300"}, {"type": "link", "content": "https://example.com"}]`,
-              ]}),
+              description: f.valuesFromArray({values: processRandomContentBlock(100)}),
 							createdAt: date(f),
 							updatedAt: date(f),
               attachments: f.uuid({arraySize: 2}),
@@ -187,10 +214,7 @@ async function main() {
 							updatedAt: date(f),
 							ticketId: f.int({ minValue: 1, maxValue: 1000 }),
 							senderId: f.int({ minValue: 1, maxValue: 5 }),
-						},
-						with: {
-							messageContentBlocks: msgBlockNum,
-						},
+							content: f.valuesFromArray({values: processRandomContentBlock(2500)}),
 					},
 				}));
 			});

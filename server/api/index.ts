@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { logger } from "hono/logger";
-import { handleError } from "./error.js";
+import { handleError } from "./error.ts";
 
 import { openAPISpecs } from "hono-openapi";
 
-import { ticketRouter } from "./ticket/index.js";
-import { userRouter } from "./user/index.js";
-import { chatRouter } from "./chat/index.js";
+import { ticketRouter } from "./ticket/index.ts";
+import { userRouter } from "./user/index.ts";
+import { chatRouter } from "./chat/index.ts";
 
 import { Scalar } from "@scalar/hono-api-reference";
 

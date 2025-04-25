@@ -12,12 +12,33 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as IndexImport } from './routes/index'
+import { Route as UserNewticketImport } from './routes/user/newticket'
+import { Route as UserDashboardImport } from './routes/user/dashboard'
+import { Route as UserTicketsIndexImport } from './routes/user/tickets/index'
 
 // Create/Update Routes
 
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserNewticketRoute = UserNewticketImport.update({
+  id: '/user/newticket',
+  path: '/user/newticket',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserDashboardRoute = UserDashboardImport.update({
+  id: '/user/dashboard',
+  path: '/user/dashboard',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserTicketsIndexRoute = UserTicketsIndexImport.update({
+  id: '/user/tickets/',
+  path: '/user/tickets/',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -32,6 +53,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
+    '/user/dashboard': {
+      id: '/user/dashboard'
+      path: '/user/dashboard'
+      fullPath: '/user/dashboard'
+      preLoaderRoute: typeof UserDashboardImport
+      parentRoute: typeof rootRoute
+    }
+    '/user/newticket': {
+      id: '/user/newticket'
+      path: '/user/newticket'
+      fullPath: '/user/newticket'
+      preLoaderRoute: typeof UserNewticketImport
+      parentRoute: typeof rootRoute
+    }
+    '/user/tickets/': {
+      id: '/user/tickets/'
+      path: '/user/tickets'
+      fullPath: '/user/tickets'
+      preLoaderRoute: typeof UserTicketsIndexImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -39,32 +81,52 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/user/dashboard': typeof UserDashboardRoute
+  '/user/newticket': typeof UserNewticketRoute
+  '/user/tickets': typeof UserTicketsIndexRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/user/dashboard': typeof UserDashboardRoute
+  '/user/newticket': typeof UserNewticketRoute
+  '/user/tickets': typeof UserTicketsIndexRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
+  '/user/dashboard': typeof UserDashboardRoute
+  '/user/newticket': typeof UserNewticketRoute
+  '/user/tickets/': typeof UserTicketsIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/user/dashboard' | '/user/newticket' | '/user/tickets'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/user/dashboard' | '/user/newticket' | '/user/tickets'
+  id:
+    | '__root__'
+    | '/'
+    | '/user/dashboard'
+    | '/user/newticket'
+    | '/user/tickets/'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  UserDashboardRoute: typeof UserDashboardRoute
+  UserNewticketRoute: typeof UserNewticketRoute
+  UserTicketsIndexRoute: typeof UserTicketsIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  UserDashboardRoute: UserDashboardRoute,
+  UserNewticketRoute: UserNewticketRoute,
+  UserTicketsIndexRoute: UserTicketsIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -77,11 +139,23 @@ export const routeTree = rootRoute
     "__root__": {
       "filePath": "__root.tsx",
       "children": [
-        "/"
+        "/",
+        "/user/dashboard",
+        "/user/newticket",
+        "/user/tickets/"
       ]
     },
     "/": {
       "filePath": "index.tsx"
+    },
+    "/user/dashboard": {
+      "filePath": "user/dashboard.tsx"
+    },
+    "/user/newticket": {
+      "filePath": "user/newticket.tsx"
+    },
+    "/user/tickets/": {
+      "filePath": "user/tickets/index.tsx"
     }
   }
 }

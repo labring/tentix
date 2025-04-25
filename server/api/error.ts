@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { ValidationError } from '@lib/utils.js';
+import { ValidationError } from './common-type.ts';
 
 export function handleError(err: Error, c: Context): Response {
 	if (err instanceof z.ZodError) {

@@ -3,14 +3,13 @@ import {
 	ticketSessionMembers,
 	ticketSession,
 	chatMessages,
-	messageContentBlocks,
 	messageReadStatus,
 	tags,
 	ticketHistory,
 	ticketsTags,
 	users,
   userSession,
-} from './schema.js';
+} from './schema.ts';
 
 // Define relations for detailed tickets
 export const ticketSessionRelations = relations(
@@ -54,10 +53,10 @@ export const ticketSessionMembersRelations = relations(
 	}),
 );
 
-export const chatMessageRelations = relations(
+
+export const chatMessagesRelations = relations(
 	chatMessages,
 	({ one, many }) => ({
-		contentBlocks: many(messageContentBlocks), // ref to messageContentBlockRelations
 		sender: one(users, {
 			fields: [chatMessages.senderId],
 			references: [users.id],
@@ -66,42 +65,7 @@ export const chatMessageRelations = relations(
 			fields: [chatMessages.ticketId],
 			references: [ticketSession.id],
 		}), // ref to ticketSessionRelations
-	}),
-);
-
-export const messageContentBlockRelations = relations(
-	messageContentBlocks,
-	({ one }) => ({
-		message: one(chatMessages, {
-			fields: [messageContentBlocks.messageId],
-			references: [chatMessages.id],
-		}), // ref to chatMessagesRelations
-	}),
-);
-
-export const chatMessagesRelations = relations(
-	chatMessages,
-	({ one, many }) => ({
-		ticket: one(ticketSession, {
-			fields: [chatMessages.ticketId],
-			references: [ticketSession.id],
-		}),
-		sender: one(users, {
-			fields: [chatMessages.senderId],
-			references: [users.id],
-		}),
-		contentBlocks: many(messageContentBlocks),
 		readStatus: many(messageReadStatus),
-	}),
-);
-
-export const messageContentBlocksRelations = relations(
-	messageContentBlocks,
-	({ one }) => ({
-		message: one(chatMessages, {
-			fields: [messageContentBlocks.messageId],
-			references: [chatMessages.id],
-		}),
 	}),
 );
 

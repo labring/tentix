@@ -1,9 +1,8 @@
-import { connectDB } from '@db/utils.js';
+import { connectDB } from '@/utils.js';
 import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
 import { resolver, validator as zValidator } from 'hono-openapi/zod';
 import { z } from 'zod';
-
 import * as schema from '@db/schema.js';
 import {
 	eq,
@@ -16,8 +15,7 @@ import {
 	getTableColumns,
 	asc,
 } from 'drizzle-orm';
-
-import { resolveDBSchema } from '../utils.js';
+import { resolveDBSchema } from '../../utils.js';
 import { userIdValidator } from '../common-type.js';
 import { createSelectSchema } from 'drizzle-zod';
 
@@ -143,6 +141,64 @@ const chatRouter = new Hono()
 				conversation: res[0],
 				msg: res[1],
 			});
+		},
+	)
+	.get(
+		'/getRoomMembers',
+		describeRoute({
+			tags: ['Chat'],
+			description: 'Get members of a chat room',
+			responses: {
+				200: {
+					description: 'Return room members',
+					content: {
+						'application/json': {
+							schema: z.array(z.object({
+								userId: z.number(),
+								name: z.string(),
+								avatar: z.string(),
+								joinedAt: z.string(),
+								lastViewedAt: z.string(),
+							})),
+						},
+					},
+				},
+			},
+		}),
+		zValidator(
+			'query',
+			z.object({
+				roomId: z.string(),
+			}),
+		),
+		async (c) => {
+			const db = connectDB();
+			const { roomId } = c.req.valid('query');
+
+			const members = await db.query.ticketSessionMembers.findMany({
+				where: (members, { eq }) => eq(members.ticketId, Number.parseInt(roomId)),
+				with: {
+					user: {
+						columns: {
+							id: true,
+							name: true,
+							avatar: true,
+						},
+					},
+				},
+				orderBy: (members, { asc }) => asc(members.joinedAt),
+			});
+
+			// Transform to expected format
+			const result = members.map(member => ({
+				userId: member.userId,
+				name: member.user.name,
+				avatar: member.user.avatar,
+				joinedAt: member.joinedAt,
+				lastViewedAt: member.lastViewedAt,
+			}));
+
+			return c.json(result);
 		},
 	)
 	.get(
