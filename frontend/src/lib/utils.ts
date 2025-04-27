@@ -5,6 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export { isContentBlockArray, contentBlockType } from "@server/api/common-type.ts";
+export { isContentBlockArray, contentBlockType } from "@server/utils/types.ts";
 
 

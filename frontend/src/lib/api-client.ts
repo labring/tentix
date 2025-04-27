@@ -1,5 +1,4 @@
-import type { AppType } from "@server/api";
-import { type ClientRequestOptions, hc } from "hono/client";
+import { initClient } from "@server/utils/rpc";
 import ky from "ky";
 
 // const baseUrl = import.meta.env.DEV
@@ -19,12 +18,8 @@ export const fetch = ky.extend({
   },
 });
 
-// this is a trick to calculate the type when compiling
-const api = hc<AppType>("");
 
-const initClient = (args?: ClientRequestOptions): typeof api =>
-  hc<AppType>(import.meta.env.BASE_URL, args);
 
-export const apiClient = initClient({
+export const apiClient = initClient(import.meta.env.BASE_URL, {
   fetch: fetch,
-}).api;
+});

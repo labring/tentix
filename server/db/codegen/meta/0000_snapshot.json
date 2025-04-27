@@ -1,0 +1,805 @@
+{
+  "id": "acc1eb8d-1e15-438e-9b6a-ec94153da561",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "tentix.chat_messages": {
+      "name": "chat_messages",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "ticket_id": {
+          "name": "ticket_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sender_id": {
+          "name": "sender_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chat_messages_ticket_id_ticket_session_id_fk": {
+          "name": "chat_messages_ticket_id_ticket_session_id_fk",
+          "tableFrom": "chat_messages",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "chat_messages_sender_id_users_id_fk": {
+          "name": "chat_messages_sender_id_users_id_fk",
+          "tableFrom": "chat_messages",
+          "tableTo": "users",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "sender_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "chat_messages_ticket_id_fk": {
+          "name": "chat_messages_ticket_id_fk",
+          "tableFrom": "chat_messages",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.message_read_status": {
+      "name": "message_read_status",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "message_read_status_message_id_chat_messages_id_fk": {
+          "name": "message_read_status_message_id_chat_messages_id_fk",
+          "tableFrom": "message_read_status",
+          "tableTo": "chat_messages",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "message_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "message_read_status_user_id_users_id_fk": {
+          "name": "message_read_status_user_id_users_id_fk",
+          "tableFrom": "message_read_status",
+          "tableTo": "users",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.tags": {
+      "name": "tags",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.ticket_history": {
+      "name": "ticket_history",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "ticket_history_type",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_target": {
+          "name": "event_target",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "varchar(190)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ticket_id": {
+          "name": "ticket_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ticket_history_ticket_id_ticket_session_id_fk": {
+          "name": "ticket_history_ticket_id_ticket_session_id_fk",
+          "tableFrom": "ticket_history",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ticket_history_ticket_id_detailed_tickets_id_fk": {
+          "name": "ticket_history_ticket_id_detailed_tickets_id_fk",
+          "tableFrom": "ticket_history",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.ticket_session": {
+      "name": "ticket_session",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "ticket_status",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "module": {
+          "name": "module",
+          "type": "module",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "area": {
+          "name": "area",
+          "type": "area",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurrence_time": {
+          "name": "occurrence_time",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "ticket_category",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "priority": {
+          "name": "priority",
+          "type": "ticket_priority",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attachments": {
+          "name": "attachments",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.ticket_session_members": {
+      "name": "ticket_session_members",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "ticket_id": {
+          "name": "ticket_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_viewed_at": {
+          "name": "last_viewed_at",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ticket_session_members_ticket_id_ticket_session_id_fk": {
+          "name": "ticket_session_members_ticket_id_ticket_session_id_fk",
+          "tableFrom": "ticket_session_members",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ticket_session_members_user_id_users_id_fk": {
+          "name": "ticket_session_members_user_id_users_id_fk",
+          "tableFrom": "ticket_session_members",
+          "tableTo": "users",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ticket_session_members_ticket_id_ticket_sessions_id_fk": {
+          "name": "ticket_session_members_ticket_id_ticket_sessions_id_fk",
+          "tableFrom": "ticket_session_members",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ticket_session_members_unique_active_member": {
+          "name": "ticket_session_members_unique_active_member",
+          "nullsNotDistinct": false,
+          "columns": [
+            "ticket_id",
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.tickets_tags": {
+      "name": "tickets_tags",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tag_id": {
+          "name": "tag_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ticket_id": {
+          "name": "ticket_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tickets_tags_tag_id_tags_id_fk": {
+          "name": "tickets_tags_tag_id_tags_id_fk",
+          "tableFrom": "tickets_tags",
+          "tableTo": "tags",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "tag_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tickets_tags_ticket_id_ticket_session_id_fk": {
+          "name": "tickets_tags_ticket_id_ticket_session_id_fk",
+          "tableFrom": "tickets_tags",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "ticket_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.user_session": {
+      "name": "user_session",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "login_time": {
+          "name": "login_time",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cookie": {
+          "name": "cookie",
+          "type": "char(128)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_session_user_id_users_id_fk": {
+          "name": "user_session_user_id_users_id_fk",
+          "tableFrom": "user_session",
+          "tableTo": "users",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "user_session": {
+          "name": "user_session",
+          "tableFrom": "user_session",
+          "tableTo": "users",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.users": {
+      "name": "users",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identity": {
+          "name": "identity",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "avatar": {
+          "name": "avatar",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "register_time": {
+          "name": "register_time",
+          "type": "timestamp(6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "name": "level",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cc_emails": {
+          "name": "cc_emails",
+          "type": "varchar(254)[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_time_start": {
+          "name": "contact_time_start",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'08:00:00'"
+        },
+        "contact_time_end": {
+          "name": "contact_time_end",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'18:00:00'"
+        },
+        "send_progress": {
+          "name": "send_progress",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_identity_key": {
+          "name": "users_identity_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "identity"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "tentix.area": {
+      "name": "area",
+      "schema": "tentix",
+      "values": [
+        "bja",
+        "hzh",
+        "gzg",
+        "io",
+        "usw",
+        "test"
+      ]
+    },
+    "tentix.module": {
+      "name": "module",
+      "schema": "tentix",
+      "values": [
+        "All",
+        "applaunchpad",
+        "costcenter",
+        "appmarket",
+        "db",
+        "account_center",
+        "aiproxy",
+        "devbox",
+        "task",
+        "cloudserver",
+        "objectstorage",
+        "laf",
+        "kubepanel",
+        "terminal",
+        "workorder",
+        "other"
+      ]
+    },
+    "tentix.ticket_category": {
+      "name": "ticket_category",
+      "schema": "tentix",
+      "values": [
+        "bug",
+        "feature",
+        "task",
+        "other"
+      ]
+    },
+    "tentix.ticket_history_type": {
+      "name": "ticket_history_type",
+      "schema": "tentix",
+      "values": [
+        "create",
+        "update",
+        "assign",
+        "upgrade",
+        "transfer",
+        "makeRequest",
+        "resolve",
+        "close"
+      ]
+    },
+    "tentix.ticket_priority": {
+      "name": "ticket_priority",
+      "schema": "tentix",
+      "values": [
+        "normal",
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ]
+    },
+    "tentix.ticket_status": {
+      "name": "ticket_status",
+      "schema": "tentix",
+      "values": [
+        "Pending",
+        "In Progress",
+        "Resolved",
+        "Scheduled"
+      ]
+    },
+    "tentix.user_role": {
+      "name": "user_role",
+      "schema": "tentix",
+      "values": [
+        "system",
+        "customer",
+        "agent",
+        "technician",
+        "admin",
+        "ai"
+      ]
+    }
+  },
+  "schemas": {
+    "tentix": "tentix"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

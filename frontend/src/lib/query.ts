@@ -2,12 +2,14 @@ import {
   type UseSuspenseQueryResult,
   useSuspenseQuery as useSuspenseQueryTanStack,
 } from "@tanstack/react-query";
-import type { InferRequestType, InferResponseType } from "hono/client";
+
 import { apiClient } from "@lib/api-client";
+import type { InferResponseType } from "@server/utils/rpc";
 
 type ErrorMessage = {
+  code: string;
   message: string;
-  reason: string;
+  timeISO: string;
   stack: string;
 };
 
@@ -25,13 +27,13 @@ const handler = {
 export const useSuspenseQuery = new Proxy(useSuspenseQueryTanStack, handler);
 
 export const useUserGetTickets = (id: string) => {
-  const func = apiClient.user.getTickets.$get;
+  const func = apiClient.user.getUserTickets.$get;
   type ResponseType = InferResponseType<typeof func>;
   return useSuspenseQuery({
-    queryKey: ["getTickets", id],
+    queryKey: ["getUserTickets", id],
     queryFn: async () => {
-      const data = await (await func({ query: { id } })).json();
+      const data = await (await func({ query: { userId: id } })).json();
       return data.data;
     },
-  }) as UseSuspenseQueryResult<ResponseType["data"], Error>;
+  }) as UseSuspenseQueryResult<ResponseType["data"], ErrorMessage>;
 };

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Context } from 'hono';
-import { ValidationError } from './common-type.ts';
+import { ValidationError } from '@/utils/index.ts';
 
 export function handleError(err: Error, c: Context): Response {
 	if (err instanceof z.ZodError) {

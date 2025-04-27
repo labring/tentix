@@ -8,6 +8,7 @@ import { routeTree } from './routeTree.gen'
 import './styles.css'
 import reportWebVitals from './reportWebVitals.ts'
 import { router } from './router.tsx'
+import AppProviders from './_provider/index.tsx'
 
 
 // Render the app
@@ -16,7 +17,9 @@ if (rootElement && !rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)
   root.render(
     <StrictMode>
-      <RouterProvider router={router} />
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>
     </StrictMode>,
   )
 }

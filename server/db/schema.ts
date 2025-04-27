@@ -1,4 +1,4 @@
-import { ContentBlock } from "@/api/common-type.ts";
+import { ContentBlock } from "../utils/index.ts";
 import { eq, sql } from "drizzle-orm";
 import {
   alias,
@@ -81,11 +81,15 @@ export const ticketStatus = tentix.enum("ticket_status", [
 export const userRole = tentix.enum("user_role", [
   "system",
   "customer",
-  "assignee",
+  "agent",
   "technician",
   "admin",
   "ai",
 ]);
+import { z } from "zod";
+import { createSelectSchema } from "drizzle-zod";
+const zodUserRole = createSelectSchema(userRole);
+export type userRoleType = z.infer<typeof zodUserRole>;
 
 // Core tables with no dependencies
 export const users = tentix.table(
@@ -94,6 +98,7 @@ export const users = tentix.table(
     id: serial("id").primaryKey().notNull(),
     name: varchar("name", { length: 32 }).notNull(),
     identity: varchar("identity", { length: 32 }).notNull(),
+    role: userRole("role").notNull(),
     avatar: text("avatar").default("").notNull(),
     registerTime: timestamp("register_time", {
       precision: 6,

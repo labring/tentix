@@ -1,4 +1,4 @@
-import { connectDB } from "@/utils.ts";
+import { connectDB } from '@/utils/index.ts';
 import * as schema from "@db/schema.ts";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";

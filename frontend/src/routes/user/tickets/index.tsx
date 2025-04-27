@@ -1,12 +1,14 @@
 
-import { useUserGetTickets } from "@/src/lib";
-import { SiteHeader } from "@comp/site-header";
-import { DataTable } from "@comp/tickets-table/table";
-import { SidebarInset, SidebarProvider } from "@comp/ui/sidebar";
-import { UserDashboardSidebar } from "@comp/user/dashboard-sidebar";
+import { useUserGetTickets } from "@lib/index";
+
 
 import { createFileRoute } from "@tanstack/react-router";
+import { DataTable } from "@tentix/ui/comp/tickets-table/table";
+import { SiteHeader } from "@tentix/ui/comp/site-header";
+import { SidebarInset, SidebarProvider } from "@tentix/ui/comp/ui/sidebar";
+import { UserDashboardSidebar } from "@tentix/ui/comp/user/dashboard-sidebar";
 import { Suspense } from "react";
+
 
 export const Route = createFileRoute("/user/tickets/")({
   // loader: async ({ context: { apiClient, queryClient } }) => {
@@ -21,7 +23,7 @@ export const Route = createFileRoute("/user/tickets/")({
 });
 
 function RouteComponent() {
-  const { data } = useUserGetTickets("1");
+  const { data } = useUserGetTickets("12");
 
   return (
     <SidebarProvider>

@@ -1,115 +1,13 @@
-import { connectDB } from '@/utils.ts';
+import { connectDB } from '@/utils/index.ts';
 import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
-import { resolver, validator as zValidator } from 'hono-openapi/zod';
+import { validator as zValidator } from 'hono-openapi/zod';
 import { z } from 'zod';
 import * as schema from '@db/schema.ts';
-import { eq } from 'drizzle-orm';
-import crypto from 'node:crypto';
-import { resolveDBSchema } from "@/utils.ts";
+import { eq, sql, desc, and, inArray } from 'drizzle-orm';
 
-import {
-	getCookie,
-	getSignedCookie,
-	setCookie,
-	setSignedCookie,
-	deleteCookie,
-} from 'hono/cookie';
 
 const userRouter = new Hono()
-	.post(
-		'/login',
-		describeRoute({
-			description: 'Login',
-			tags: ['User'],
-		}),
-		zValidator(
-			'query',
-			z.object({
-				id: z.string(),
-				callback: z.string(),
-				timestamp: z.string(),
-			}),
-		),
-		zValidator(
-			'form',
-			z.object({
-				identity: z.string(),
-				avatar: z.string(),
-				name: z.string(),
-				email: z.string(),
-				level: z.number(),
-				registerTime: z.string(),
-				sign: z.string(),
-			}),
-		),
-		async (c, remote) => {
-			const db = connectDB();
-			const query = c.req.valid('query');
-			const form = c.req.valid('form');
-
-			const payload = Object.assign(form, {
-				timestamp: query.timestamp,
-				secret: process.env.SECRET,
-			});
-
-			const concated = Object.entries(payload)
-				.sort()
-				.map(([key, value]) => `${key}=${value}`)
-				.join('&');
-
-			// sign = md5(identity + avatar + name + email + level + timestamp + secret)
-			const sign = crypto.createHash('md5').update(concated).digest('hex');
-			if (sign !== form.sign) {
-				return c.json({ error: 'Invalid sign' }, 400);
-			}
-
-			const { id: newUserId } = (
-				await db
-					.insert(schema.users)
-					.values({
-						name: form.name,
-						identity: form.identity,
-						avatar: form.avatar,
-						registerTime: form.registerTime, // should be ISO string
-						level: form.level,
-						email: form.email,
-					})
-					.returning({
-						id: schema.users.id,
-					})
-			)[0];
-
-			if (!newUserId) {
-				throw new Error('Failed to create user');
-			}
-
-			// const ipAddress = remote.addr;
-
-			// const data = await db
-			// 	.insert(schema.userSession)
-			// 	.values({
-			// 		userId: newUserId,
-			// 		loginTime: new Date().toISOString(),
-			// 		ipAddress: query.ipAddress,
-			// 		userAgent: query.userAgent,
-			// 		device: query.device,
-			// 		cookie: query.cookie,
-			// 	});
-
-			setCookie(c, 'great_cookie', 'banana', {
-				path: '/',
-				secure: true,
-				domain: 'localhost:3000',
-				httpOnly: true,
-				maxAge: 1000,
-				expires: new Date(Date.UTC(2000, 11, 24, 10, 30, 59, 900)),
-				sameSite: 'Strict',
-			});
-
-			return c.json({});
-		},
-	)
 	.get(
 		'/getTickets',
 		describeRoute({
@@ -134,11 +32,147 @@ const userRouter = new Hono()
 		async (c) => {
 			const query = c.req.valid('query');
 			const db = connectDB();
+      
 			const data = await db
-				.select()
-				.from(schema.ticketSession)
-				.where(eq(schema.ticketSession.id, Number(query.id)));
+				.query.ticketSession.findMany({
+					where: eq(schema.ticketSession.id, Number(query.id)),
+					with: {
+						members: {
+              extras: {
+                role: sql<schema.userRoleType>`
+                  SELECT ${schema.users.role}
+                  FROM ${schema.users}
+                  WHERE ${schema.users.id} = ${schema.ticketSessionMembers.userId}
+                `.as('role'),
+              },
+            }
+					},
+				});
+        const mm = data[0]?.members;
 			return c.json({ data });
+		},
+	)
+	.get(
+		'/getUserTickets',
+		describeRoute({
+			description: 'Get all tickets for a user with customer info and last message',
+			responses: {
+				200: {
+					description: 'All tickets with related information',
+					content: {
+						'application/json': {
+							// schema will be defined here
+						},
+					},
+				},
+			},
+		}),
+		zValidator(
+			'query',
+			z.object({
+				userId: z.string(),
+			}),
+		),
+		async (c) => {
+			const query = c.req.valid('query');
+			const userId = Number(query.userId);
+			const db = connectDB();
+    
+			const userTicketIdsResult = await db
+				.select({ ticketId: schema.ticketSessionMembers.ticketId })
+				.from(schema.ticketSessionMembers)
+				.where(eq(schema.ticketSessionMembers.userId, userId));
+			
+			const userTicketIds = userTicketIdsResult.map(t => t.ticketId);
+			
+			if (userTicketIds.length === 0) {
+				return c.json({ data: [] });
+			}
+
+			const userTickets = await db
+				.query.ticketSession.findMany({
+					where: inArray(schema.ticketSession.id, userTicketIds),
+					orderBy: [desc(schema.ticketSession.updatedAt)]
+				});
+
+			const customersPromises = userTickets.map(async (ticket) => {
+				const members = (await db
+					.select({
+						ticketId: schema.ticketSessionMembers.ticketId,
+						userId: schema.users.id,
+						userName: schema.users.name,
+						userEmail: schema.users.email,
+						userAvatar: schema.users.avatar
+					})
+					.from(schema.ticketSessionMembers)
+					.innerJoin(
+						schema.users,
+						eq(schema.ticketSessionMembers.userId, schema.users.id)
+					)
+					.where(
+						and(
+							eq(schema.ticketSessionMembers.ticketId, ticket.id),
+							eq(schema.users.role, 'customer')
+						)
+					)
+					.limit(1))[0]!;
+				
+				return { 
+					ticketId: ticket.id, 
+					customer: {
+						...members
+					}
+				};
+			});
+			
+			const customersResults = await Promise.all(customersPromises);
+			
+			const lastMessagesPromises = userTickets.map(async (ticket) => {
+				const messages = await db
+					.select({
+						messageId: schema.chatMessages.id,
+						content: schema.chatMessages.content,
+						createdAt: schema.chatMessages.createdAt,
+						senderId: schema.users.id,
+						senderName: schema.users.name
+					})
+					.from(schema.chatMessages)
+					.innerJoin(
+						schema.users,
+						eq(schema.chatMessages.senderId, schema.users.id)
+					)
+					.where(eq(schema.chatMessages.ticketId, ticket.id))
+					.orderBy(desc(schema.chatMessages.createdAt))
+					.limit(1);
+				
+				return { 
+					ticketId: ticket.id, 
+					lastMessage: messages.length > 0 ? {
+						id: messages[0]?.messageId ?? 0,
+						content: messages[0]?.content ?? [],
+						createdAt: messages[0]?.createdAt ?? new Date().toISOString(),
+						sender: {
+							id: messages[0]?.senderId ?? 0,
+							name: messages[0]?.senderName ?? ''
+						}
+					} : null 
+				};
+			});
+			
+			const lastMessagesResults = await Promise.all(lastMessagesPromises);
+			
+			const result = userTickets.map(ticket => {
+				const customerInfo = customersResults.find(c => c.ticketId === ticket.id)!;
+				const messageInfo = lastMessagesResults.find(m => m.ticketId === ticket.id);
+				
+				return {
+					...ticket,
+					customer: customerInfo.customer,
+					lastMessage: messageInfo?.lastMessage || null
+				};
+			});
+
+			return c.json({ data: result });
 		},
 	);
 

@@ -15,7 +15,7 @@
     "server"
   ],
   "devDependencies": {
-    "@tentix/ui": "workspace:*",
+    "tentix-ui": "workspace:*",
     "@types/bun": "^1.2.10",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",

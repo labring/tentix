@@ -9,7 +9,7 @@
     "migrate": "bun --env-file=../.env.local drizzle-kit migrate --config=db/drizzle.config.ts",
     "pull": "bun script/drizzle-pull.sh",
     "studio": "bun --env-file=../.env.local drizzle-kit studio --config=db/drizzle.config.ts",
-    "seed": "bun server/db/seed.ts"
+    "seed": "bun  --env-file=../.env.local ./db/seed.ts"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.4.3",

@@ -1,11 +1,10 @@
 {
   "extends": "../packages/typescript-config/frontend.json",
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "../packages/ui/src/hooks/use-mobile.ts", "../packages/ui/src/hooks/use-priority-modal.tsx", "../packages/ui/src/hooks/use-requirements-modal.tsx", "../packages/ui/src/hooks/use-resizable-panel.ts", "../packages/ui/src/hooks/use-solution-modal.tsx", "../packages/ui/src/hooks/use-toast.ts", "../packages/ui/src/hooks/use-transfer-modal.tsx", "../packages/ui/src/components/app-sidebar.tsx", "../packages/ui/src/components/chart-area-interactive.tsx", "../packages/ui/src/components/dashboard-sidebar.tsx", "../packages/ui/src/components/data-table.tsx", "../packages/ui/src/components/Header.tsx", "../packages/ui/src/components/knowledge-base.tsx", "../packages/ui/src/components/nav-documents.tsx", "../packages/ui/src/components/nav-main.tsx", "../packages/ui/src/components/nav-secondary.tsx", "../packages/ui/src/components/nav-user.tsx", "../packages/ui/src/components/priority-modal.tsx", "../packages/ui/src/components/requirements-modal.tsx", "../packages/ui/src/components/resizable-panel.tsx", "../packages/ui/src/components/role-toggle.tsx", "../packages/ui/src/components/section-cards.tsx", "../packages/ui/src/components/site-header.tsx", "../packages/ui/src/components/solution-modal.tsx", "../packages/ui/src/components/staff-sidebar.tsx", "../packages/ui/src/components/staff-ticket-sidebar.tsx", "../packages/ui/src/components/template-replies.tsx", "../packages/ui/src/components/theme-provider.tsx", "../packages/ui/src/components/ticket-info-box.tsx", "../packages/ui/src/components/transfer-modal.tsx", "../packages/ui/src/components/user-sidebar.tsx", "../packages/ui/src/components/user-ticket-sidebar.tsx"],
   "exclude": ["node_modules"],
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": {
-      "@tentix/ui/*": ["../packages/ui/*"],
+    "paths": { 
       "@server/*": ["../server/*"],
       "@lib/*": ["./src/lib/*"],
       "@comp/*": ["./src/components/*"],

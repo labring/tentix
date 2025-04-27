@@ -18,9 +18,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@frontend": resolve(__dirname, "./src"),
       "@comp": resolve(__dirname, "./src/components"),
       "@lib": resolve(__dirname, "./src/lib"),
-      "@tentix/ui": resolve(__dirname, "../packages/ui/src"),
       "@server": resolve(__dirname, "../server"),
       "@db": resolve(__dirname, "../server/db"),
       "@api": resolve(__dirname, "../server/api"),

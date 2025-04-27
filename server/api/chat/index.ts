@@ -1,4 +1,4 @@
-import { connectDB } from '@/utils.js';
+import { connectDB } from '@/utils/index.ts';
 import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
 import { resolver, validator as zValidator } from 'hono-openapi/zod';
@@ -15,9 +15,9 @@ import {
 	getTableColumns,
 	asc,
 } from 'drizzle-orm';
-import { resolveDBSchema } from '../../utils.js';
-import { userIdValidator } from '../common-type.js';
-import { createSelectSchema } from 'drizzle-zod';
+import { resolveDBSchema } from '@/utils/index.ts';
+  import { userIdValidator } from '@/utils/index.ts';
+  import { createSelectSchema } from 'drizzle-zod';
 
 const getConversationResSchema = z.object({
 	userId: z.string(),
@@ -227,33 +227,33 @@ const chatRouter = new Hono()
 			const db = connectDB();
 			const { id } = c.req.valid('query');
 
-			const data = await db
-				.select({
-					...getTableColumns(schema.chatMessages),
-					content: sql<
-						{
-							id: number;
-							type: string;
-							content: string;
-							position: number;
-							metadata: string;
-						}[]
-					>`json_agg(json_build_object(
-        'id', ${schema.messageContentBlocks.id},
-        'type', ${schema.messageContentBlocks.type},
-        'content', ${schema.messageContentBlocks.content},
-        'position', ${schema.messageContentBlocks.position},
-        'metadata', ${schema.messageContentBlocks.metadata}
-      ) ORDER BY ${schema.messageContentBlocks.position})`,
-				})
-				.from(schema.chatMessages)
-				.where(eq(schema.chatMessages.id, Number.parseInt(id)))
-				.leftJoin(
-					schema.messageContentBlocks,
-					eq(schema.chatMessages.id, schema.messageContentBlocks.messageId),
-				)
-				.groupBy((t) => [t.id]);
-			return c.json(data);
+			// const data = await db
+			// 	.select({
+			// 		...getTableColumns(schema.chatMessages),
+			// 		content: sql<
+			// 			{
+			// 				id: number;
+			// 				type: string;
+			// 				content: string;
+			// 				position: number;
+			// 				metadata: string;
+			// 			}[]
+			// 		>`json_agg(json_build_object(
+      //   'id', ${schema.messageContentBlocks.id},
+      //   'type', ${schema.messageContentBlocks.type},
+      //   'content', ${schema.messageContentBlocks.content},
+      //   'position', ${schema.messageContentBlocks.position},
+      //   'metadata', ${schema.messageContentBlocks.metadata}
+      // ) ORDER BY ${schema.messageContentBlocks.position})`,
+			// 	})
+			// 	.from(schema.chatMessages)
+			// 	.where(eq(schema.chatMessages.id, Number.parseInt(id)))
+			// 	.leftJoin(
+			// 		schema.messageContentBlocks,
+			// 		eq(schema.chatMessages.id, schema.messageContentBlocks.messageId),
+			// 	)
+			// 	.groupBy((t) => [t.id]);
+			return c.json([]);
 		},
 	);
 

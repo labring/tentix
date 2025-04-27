@@ -1,4 +1,4 @@
-import { connectDB, ContentBlock, contentBlockType, type AppSchema } from "@/utils.ts";
+import { connectDB, ContentBlock, contentBlockType, type AppSchema } from '@/utils/index.ts';
 import * as schema from "@db/schema.ts";
 import { zValidator } from "@hono/zod-validator";
 import { type ServerWebSocket } from "bun";

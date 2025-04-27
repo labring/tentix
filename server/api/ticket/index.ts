@@ -1,6 +1,7 @@
-import { connectDB, isContentBlockArray, zs } from "@/utils.ts";
+import { connectDB, isContentBlockArray, zs } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { createInsertSchema } from "drizzle-zod";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
@@ -93,29 +94,66 @@ const ticketRouter = new Hono()
       const db = connectDB();
       const { userId } = c.req.valid("query");
 
-      const data = await db.query.ticketSessionMembers.findMany({
-        where: (members, { eq }) => eq(members.userId, Number.parseInt(userId)),
-        orderBy: (members, { desc }) => desc(members.joinedAt),
-        with: {
-          ticket: {
-            with: {
-              messages: {
-                orderBy: (messages, { desc }) => desc(messages.createdAt),
-                limit: 1,
-              },
-            },
-          },
-        },
-      });
+      // const data = await db.query.ticketSessionMembers.findMany({
+      //   where: (members, { eq }) => eq(members.userId, Number.parseInt(userId)),
+      //   orderBy: (members, { desc }) => desc(members.joinedAt),
+      //   extras: {
+      //   with: {
+      //     ticket: {
+      //       with: {
+      //         messages: {
+      //           orderBy: (messages, { desc }) => desc(messages.createdAt),
+      //           limit: 1,
+      //         },
+      //       },
+      //     },
+      //   },
+      // });
 
-      const res = data
-        .filter((item) => item.ticket.messages.length > 0)
-        .sort((a, b) => {
-          return (
-            new Date(b.ticket.messages[0].createdAt).getTime() -
-            new Date(a.ticket.messages[0].createdAt).getTime()
-          );
-        });
+      const userTickets = db
+        .select()
+        .from(schema.ticketSessionMembers)
+        .where(eq(schema.ticketSessionMembers.userId, Number.parseInt(userId)))
+        .as("user_tickets");
+
+      const ticketCustomers = db
+        .selectDistinctOn([schema.users.id])
+        .from(schema.users)
+        .where(eq(schema.users.role, "customer"))
+        .orderBy(schema.users.id)
+        .as("ticket_customers");
+
+      const lastMessage = db
+        .select()
+        .from(schema.chatMessages)
+        .where(eq(schema.chatMessages.ticketId, sql`${userTickets}.ticketId`))
+        .orderBy(schema.chatMessages.createdAt, "desc")
+        .limit(1)
+        .as("last_message");
+
+      const p = await db.select().from(ticketCustomers);
+
+      const data2 = await db
+        .select()
+        .from(schema.ticketSession)
+        .leftJoin(
+          userTickets,
+          eq(schema.ticketSession.id, userTickets.ticketId),
+        )
+        .leftJoin(
+          lastMessage,
+          eq(schema.ticketSession.id, lastMessage.ticketId),
+        );
+
+      where(inArray(schema.ticketSession.id));
+      // const res = data
+      //   .filter((item) => item.ticket.messages.length > 0)
+      //   .sort((a, b) => {
+      //     return (
+      //       new Date(b.ticket.messages[0].createdAt).getTime() -
+      //       new Date(a.ticket.messages[0].createdAt).getTime()
+      //     );
+      //   });
 
       return c.json(res);
     },
