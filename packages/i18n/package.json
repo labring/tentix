@@ -1,0 +1,13 @@
+{
+  "name": "i18n",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "i18next": "^25.1.1",
+    "react-i18next": "^15.5.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

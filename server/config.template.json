@@ -1,0 +1,19 @@
+{
+  "$schema": "./config.schema.json",
+  "FEISHU_BOT_WEBHOOK_ID": "0ae733f3-xxxx-xxxx-xxxx-621004c02411",
+  "1": 1,
+  "staff_map": [
+    {
+      "identity": "UNC123dasxFuD3_",
+      "role": "agent",
+      "comment": "A example agent",
+      "feishu_id": "on_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "identity": "UNC1213121_",
+      "role": "technician",
+      "comment": "A example technician",
+      "feishu_id": "on_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ]
+}

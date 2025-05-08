@@ -5,7 +5,7 @@ import { CheckIcon, CopyIcon } from "lucide-react"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism"
 
-import { cn } from "@tentix/ui/lib/utils"
+import { cn } from "tentix-ui/lib/utils"
 import { Button } from "./ui/button.tsx"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.tsx"
 

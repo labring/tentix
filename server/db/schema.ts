@@ -1,111 +1,69 @@
-import { ContentBlock } from "../utils/index.ts";
-import { eq, sql } from "drizzle-orm";
+import { JSONContentZod } from "@/utils/types.ts";
+import { sql } from "drizzle-orm";
 import {
-  alias,
+  boolean,
+  char,
   foreignKey,
   integer,
-  pgMaterializedView,
+  jsonb,
   pgSchema,
-  pgView,
+  serial,
   smallint,
   text,
   time,
   timestamp,
   unique,
-  uuid,
-  varchar,
-  serial,
-  boolean,
-  json,
-  char,
-  jsonb,
+  varchar
 } from "drizzle-orm/pg-core";
+import {
+  areaEnumArray,
+  moduleEnumArray,
+  ticketCategoryEnumArray,
+  ticketHistoryTypeEnumArray,
+  ticketPriorityEnumArray,
+  ticketStatusEnumArray,
+  userRoleEnumArray,
+} from "../utils/const.ts";
 export const tentix = pgSchema("tentix");
-export const area = tentix.enum("area", [
-  "bja",
-  "hzh",
-  "gzg",
-  "io",
-  "usw",
-  "test",
-]);
-export const module = tentix.enum("module", [
-  "All",
-  "applaunchpad",
-  "costcenter",
-  "appmarket",
-  "db",
-  "account_center",
-  "aiproxy",
-  "devbox",
-  "task",
-  "cloudserver",
-  "objectstorage",
-  "laf",
-  "kubepanel",
-  "terminal",
-  "workorder",
-  "other",
-]);
-export const ticketCategory = tentix.enum("ticket_category", [
-  "bug",
-  "feature",
-  "task",
-  "other",
-]);
-export const ticketHistoryType = tentix.enum("ticket_history_type", [
-  "create",
-  "update",
-  "assign",
-  "upgrade",
-  "transfer",
-  "makeRequest",
-  "resolve",
-  "close",
-]);
+export const area = tentix.enum("area", areaEnumArray);
+export const module = tentix.enum("module", moduleEnumArray);
+export const ticketCategory = tentix.enum(
+  "ticket_category",
+  ticketCategoryEnumArray,
+);
+export const ticketHistoryType = tentix.enum(
+  "ticket_history_type",
+  ticketHistoryTypeEnumArray,
+);
 
-export const ticketPriority = tentix.enum("ticket_priority", [
-  "normal" /* normal consultation */,
-  "low" /* operation experience problem */,
-  "medium" /* business/system exception affects use */,
-  "high" /* business completely unavailable */,
-  "urgent" /* urgent */,
-]);
+export const ticketPriority = tentix.enum(
+  "ticket_priority",
+  ticketPriorityEnumArray,
+);
 
-export const ticketStatus = tentix.enum("ticket_status", [
-  "Pending",
-  "In Progress",
-  "Resolved",
-  "Scheduled",
-]);
-export const userRole = tentix.enum("user_role", [
-  "system",
-  "customer",
-  "agent",
-  "technician",
-  "admin",
-  "ai",
-]);
-import { z } from "zod";
-import { createSelectSchema } from "drizzle-zod";
-const zodUserRole = createSelectSchema(userRole);
-export type userRoleType = z.infer<typeof zodUserRole>;
+export const ticketStatus = tentix.enum("ticket_status", ticketStatusEnumArray);
+export const userRole = tentix.enum("user_role", userRoleEnumArray);
 
 // Core tables with no dependencies
 export const users = tentix.table(
   "users",
   {
     id: serial("id").primaryKey().notNull(),
-    name: varchar("name", { length: 32 }).notNull(),
-    identity: varchar("identity", { length: 32 }).notNull(),
-    role: userRole("role").notNull(),
+    uid: varchar("uid", { length: 64 }).notNull(),
+    name: varchar("name", { length: 64 }).notNull(),
+    nickname: varchar("nickname", { length: 64 }).notNull(),
+    realName: varchar("real_name", { length: 64 }).notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    phoneNum: varchar("phone_num", { length: 64 }).default("").notNull(),
+    identity: varchar("identity", { length: 64 }).notNull(),
+    role: userRole("role").default("customer").notNull(),
     avatar: text("avatar").default("").notNull(),
     registerTime: timestamp("register_time", {
       precision: 6,
       mode: "string",
     }).notNull(),
     level: smallint("level").default(0).notNull(),
-    email: varchar("email", { length: 254 }).notNull(),
+    email: varchar("email", { length: 254 }).default("").notNull(),
     ccEmails: varchar("cc_emails", { length: 254 }).array(),
     contactTimeStart: time("contact_time_start").notNull().default("08:00:00"),
     contactTimeEnd: time("contact_time_end").notNull().default("18:00:00"),
@@ -117,10 +75,7 @@ export const users = tentix.table(
 export const ticketSession = tentix.table("ticket_session", {
   id: serial("id").primaryKey().notNull(),
   title: varchar("title", { length: 254 }).notNull(),
-  description:
-    jsonb().$type<
-      Array<ContentBlock>
-    >(),
+  description: jsonb().$type<JSONContentZod>().notNull(),
   status: ticketStatus("status")
     .notNull()
     .$default(() => "In Progress"),
@@ -133,11 +88,10 @@ export const ticketSession = tentix.table("ticket_session", {
   category: ticketCategory("category").notNull(),
   priority: ticketPriority("priority").notNull(),
   errorMessage: text("error_message"),
-  attachments: uuid("attachments").array().notNull(),
-  createdAt: timestamp("created_at", { precision: 6, mode: "string" })
+  createdAt: timestamp("created_at", { precision: 3, mode: "string" })
     .defaultNow()
     .notNull(),
-  updatedAt: timestamp("updated_at", { precision: 6, mode: "string" })
+  updatedAt: timestamp("updated_at", { precision: 3, mode: "string" })
     .defaultNow()
     .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
     .notNull(),
@@ -155,8 +109,8 @@ export const ticketHistory = tentix.table(
     id: serial("id").primaryKey().notNull(),
     type: ticketHistoryType("type").notNull(),
     eventTarget: integer("event_target").notNull(),
-    description: varchar("description", { length: 190 }).notNull(),
-    createdAt: timestamp("created_at", { precision: 6, mode: "string" })
+    description: varchar("description", { length: 190 }),
+    createdAt: timestamp("created_at", { precision: 3, mode: "string" })
       .defaultNow()
       .notNull(),
     ticketId: integer("ticket_id")
@@ -193,10 +147,11 @@ export const chatMessages = tentix.table(
     senderId: integer("sender_id")
       .notNull()
       .references(() => users.id),
-    content: jsonb().$type<Array<ContentBlock>>().notNull(),
-    createdAt: timestamp("created_at", { precision: 6, mode: "string" })
+    content: jsonb().$type<JSONContentZod>().notNull(),
+    createdAt: timestamp("created_at", { precision: 3, mode: "string" })
       .defaultNow()
       .notNull(),
+    isInternal: boolean("is_internal").default(false).notNull(),
   },
   (table) => [
     foreignKey({
@@ -223,7 +178,7 @@ export const messageReadStatus = tentix.table(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id),
-    readAt: timestamp("read_at", { precision: 6, mode: "string" })
+    readAt: timestamp("read_at", { precision: 3, mode: "string" })
       .defaultNow()
       .notNull(),
   },
@@ -254,10 +209,10 @@ export const ticketSessionMembers = tentix.table(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id),
-    joinedAt: timestamp("joined_at", { precision: 6, mode: "string" })
+    joinedAt: timestamp("joined_at", { precision: 3, mode: "string" })
       .defaultNow()
       .notNull(),
-    lastViewedAt: timestamp("last_viewed_at", { precision: 6, mode: "string" })
+    lastViewedAt: timestamp("last_viewed_at", { precision: 3, mode: "string" })
       .defaultNow()
       .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
       .notNull(),
@@ -288,11 +243,11 @@ export const userSession = tentix.table(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id),
-    loginTime: timestamp("login_time", { precision: 6, mode: "string" })
+    loginTime: timestamp("login_time", { precision: 3, mode: "string" })
       .defaultNow()
       .notNull(),
     userAgent: text("user_agent").notNull(),
-    cookie: char("cookie", { length: 128 }).notNull(),
+    ip: text("ip").notNull(),
   },
   (table) => [
     foreignKey({
@@ -303,5 +258,27 @@ export const userSession = tentix.table(
   ],
 );
 
+export const requirements = tentix.table("requirements", {
+  id: serial("id").primaryKey().notNull(),
+  title: varchar("title", { length: 254 }).notNull(),
+  description: jsonb().$type<JSONContentZod>().notNull(),
+  module: module("module").notNull(),
+  priority: ticketPriority("priority").notNull(),
+  relatedTicket: integer("related_ticket").references(() => ticketSession.id),
+  createAt: timestamp("create_at", { precision: 3, mode: "string" })
+    .defaultNow()
+    .notNull(),
+  updateAt: timestamp("update_at", { precision: 3, mode: "string" })
+    .defaultNow()
+    .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+},
+(table) => [
+  foreignKey({
+    columns: [table.relatedTicket],
+    foreignColumns: [ticketSession.id],
+    name: "requirements_related_ticket_ticket_sessions_id_fk",
+  }),
+]);
 // Add a constant for the AI user, used to identify the AI assistant in the system
 export const AI_USER_ID = 0; // Assuming 0 is the ID of the AI user

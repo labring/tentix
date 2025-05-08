@@ -1,12 +1,19 @@
-import { SiteHeader } from "@tentix/ui/comp/site-header";
-import { Input } from "@tentix/ui/comp/ui/input";
-import { SidebarInset, SidebarProvider } from "@tentix/ui/comp/ui/sidebar";
-import { UserDashboardSidebar } from "@tentix/ui/comp/user/dashboard-sidebar";
-import { SupportCategories } from "@tentix/ui/comp/user/support-categories";
+import { SiteHeader } from "tentix-ui/comp/site-header";
+import { Input } from "tentix-ui/comp/ui/input";
+import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
+import { UserDashboardSidebar } from "tentix-ui/comp/user/dashboard-sidebar";
+import { SupportCategories } from "tentix-ui/comp/user/support-categories";
 import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 
 export const Route = createFileRoute("/user/dashboard")({
+  head: () => ({
+    meta: [
+      {
+        title: "Ten11tix Ticket System",
+      }
+    ],
+  }),
   component: RouteComponent,
 });
 

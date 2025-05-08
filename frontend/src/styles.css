@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import '@tentix/ui/globals.css';
+@import 'tentix-ui/globals.css';
 
 @custom-variant dark (&:is(.dark *));
 

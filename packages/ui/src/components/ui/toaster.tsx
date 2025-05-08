@@ -1,4 +1,4 @@
-import { useToast } from "@tentix/ui/hooks/use-toast"
+import { useToast } from "tentix-ui/hooks/use-toast"
 import {
   Toast,
   ToastClose,

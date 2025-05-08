@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
-import { useIsMobile } from "@tentix/ui/hooks/use-mobile"
+import { useIsMobile } from "tentix-ui/hooks/use-mobile"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card.tsx"
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "../ui/chart.tsx"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select.tsx"

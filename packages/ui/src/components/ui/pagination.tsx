@@ -1,7 +1,7 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 
-import { cn } from "@tentix/ui/lib/utils"
+import { cn } from "tentix-ui/lib/utils"
 import { ButtonProps, buttonVariants } from "./button.tsx"
 
 const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (

@@ -1,7 +1,7 @@
 import { GripVertical } from "lucide-react"
 import * as ResizablePrimitive from "react-resizable-panels"
 
-import { cn } from "@tentix/ui/lib/utils"
+import { cn } from "tentix-ui/lib/utils"
 
 const ResizablePanelGroup = ({
   className,

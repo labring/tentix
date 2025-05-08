@@ -1,0 +1,80 @@
+{
+  "type": "object",
+  "required": ["FEISHU_BOT_WEBHOOK_ID", "staff_map"],
+  "properties": {
+    "FEISHU_BOT_WEBHOOK_ID": {
+      "type": "string",
+      "description": "Feishu bot webhook ID",
+      "example": "0ae733f3-xxxx-xxxx-xxxx-621004c02411"
+    },
+    "aiProfile": {
+      "type": "object",
+      "required": ["uid", "name", "nickname", "realName", "status", "phoneNum", "identity", "role", "avatar", "registerTime"],
+      "properties": {
+        "uid": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "realName": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "phoneNum": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["ai"]
+
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "registerTime": {
+          "type": "string"
+        }
+      }
+    },
+    "staff_map": {
+      "type": "array",
+      "description": "Staff map. When a user login, the system will use this map to ensure the user is a valid staff. Then the system will use the this properties' value to determine the user's role.",
+      "items": {
+        "type": "object",
+        "required": ["identity", "role", "feishu_id"],
+        "properties": {
+          "identity": {
+            "type": "string",
+            "description": "unique identity in platform",
+            "example": "UNXxxFuD3_"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["agent", "technician", "admin"],
+            "description": "role in platform",
+            "example": "agent"
+          },
+          "comment": {
+            "type": "string",
+            "description": "comment",
+            "example": "Some comment here"
+          },
+          "feishu_id": {
+            "type": "string",
+            "description": "Feishu Union ID. Used to mention the staff in Feishu by robot.",
+            "example": "on_xxxxxfc5be8226e5fdcxxxxx31ba73a9"
+          }
+        }
+      }
+    }
+  }
+}

@@ -7,6 +7,11 @@ import ky from "ky";
 
 export const fetch = ky.extend({
   hooks: {
+    // beforeRequest: [
+    //   async (request) => {
+    //     request.headers.set("Authorization", `Bearer ${token}`);
+    //   },
+    // ],
     afterResponse: [
       async (_, __, response: Response) => {
         if (response.ok) {
@@ -17,8 +22,6 @@ export const fetch = ky.extend({
     ],
   },
 });
-
-
 
 export const apiClient = initClient(import.meta.env.BASE_URL, {
   fetch: fetch,

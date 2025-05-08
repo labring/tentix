@@ -1,7 +1,7 @@
 import type React from "react"
 import { AlertCircleIcon, AlertTriangleIcon, CheckCircleIcon, InfoIcon } from "lucide-react"
 
-import { cn } from "@tentix/ui/lib/utils"
+import { cn } from "tentix-ui/lib/utils"
 
 interface CalloutProps {
   type?: "info" | "warning" | "error" | "success"

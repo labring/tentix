@@ -7,7 +7,8 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "start": "bun server/index.ts",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "clean": "rm -rf ./**/node_modules && rm -rf ./**/dist"
   },
   "workspaces": [
     "packages/*",
@@ -15,8 +16,11 @@
     "server"
   ],
   "devDependencies": {
+    "drizzle-orm": "0.41.0",
+    "@types/node": "^20",
     "tentix-ui": "workspace:*",
-    "@types/bun": "^1.2.10",
+    "i18n": "workspace:*",
+    "@types/bun": "^1.2.12",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "prettier": "^3.5.1",
@@ -24,11 +28,12 @@
     "turbo": "^2.5.1",
     "typescript": "5.8.3"
   },
-  "packageManager": "bun@1.2.10",
+  "packageManager": "bun@1.2.12",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@types/node": "^20"
+    "ahooks": "^3.8.4",
+    "zustand": "^5.0.3"
   }
 }

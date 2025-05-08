@@ -1,76 +1,78 @@
-import { Link } from '@tanstack/react-router'
-import { usePathname } from "next/navigation"
-import { cn } from "@tentix/ui/lib/utils"
+import { Link, useLocation } from '@tanstack/react-router'
+
+import { cn } from "tentix-ui/lib/utils"
 import { ScrollArea } from "../ui/scroll-area.tsx"
 import { LayoutDashboard, Ticket, Settings, Users, FileText, BarChart, MessageSquare } from "lucide-react"
-
+import { useTranslation } from "i18n"
 export function StaffDashboardSidebar() {
-  const pathname = usePathname()
+  const pathname = useLocation().pathname;
+  const { t, i18n } = useTranslation();
+
 
   return (
-    <div className="border-r bg-background">
+    <div className="border-r bg-background capitalize">
       <ScrollArea className="h-full">
         <div className="flex h-full flex-col gap-2 p-2">
           <div className="flex h-14 items-center border-b px-4">
-            <Link href="/staff/dashboard" className="flex items-center gap-2 font-semibold">
+            <Link to="/staff/dashboard" className="flex items-center gap-2 font-semibold">
               <LayoutDashboard className="h-5 w-5" />
-              <span>Work Order System</span>
+              <span>{t("tkt_system")}</span>
             </Link>
           </div>
           <div className="flex-1 py-2">
             <nav className="grid gap-1 px-2">
               <Link
-                href="/staff/dashboard"
+                to="/staff/dashboard"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
                   pathname === "/staff/dashboard" ? "bg-accent" : "transparent",
                 )}
               >
                 <LayoutDashboard className="h-4 w-4" />
-                Dashboard
+                {t("dashboard")}
               </Link>
               <Link
-                href="/staff/tickets"
+                to="/staff/tickets/list"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
                   pathname === "/staff/tickets" || pathname.startsWith("/staff/tickets/") ? "bg-accent" : "transparent",
                 )}
               >
                 <Ticket className="h-4 w-4" />
-                Tickets
+                {t("tkt_list")}
               </Link>
               <Link
-                href="/staff/team"
+                to="/staff/team"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
                   pathname === "/staff/team" ? "bg-accent" : "transparent",
                 )}
               >
                 <Users className="h-4 w-4" />
-                Team
+                {t("team")}
               </Link>
               <Link
-                href="/staff/reports"
+                to="/staff/reports"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
                   pathname === "/staff/reports" ? "bg-accent" : "transparent",
                 )}
               >
                 <BarChart className="h-4 w-4" />
-                Reports
+                {t("reports")}
               </Link>
               <Link
-                href="/staff/knowledge-base"
+                to="/staff/knowledge-base"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
                   pathname === "/staff/knowledge-base" ? "bg-accent" : "transparent",
                 )}
               >
                 <FileText className="h-4 w-4" />
-                Knowledge Base
+                {t("klg_base")}
               </Link>
               <Link
-                href="/staff/docs-management"
+                to="/staff/docs-management"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
                   pathname === "/staff/docs-management" || pathname.startsWith("/staff/docs-management/")
@@ -79,27 +81,27 @@ export function StaffDashboardSidebar() {
                 )}
               >
                 <FileText className="h-4 w-4" />
-                Documentation
+                {t("docs_management")}
               </Link>
               <Link
-                href="/staff/messages"
+                to="/staff/notifications"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/messages" ? "bg-accent" : "transparent",
+                  pathname === "/staff/notifications" ? "bg-accent" : "transparent",
                 )}
               >
                 <MessageSquare className="h-4 w-4" />
-                Messages
+                {t("ntfcs")}
               </Link>
               <Link
-                href="/staff/settings"
+                to="/staff/settings"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
                   pathname === "/staff/settings" ? "bg-accent" : "transparent",
                 )}
               >
                 <Settings className="h-4 w-4" />
-                Settings
+                {t("settings")}
               </Link>
             </nav>
           </div>

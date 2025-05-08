@@ -1,64 +1,158 @@
 import { eq, inArray, sql, Table } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { PgSchema } from "drizzle-orm/pg-core";
-import { reset, seed } from "drizzle-seed";
+import { reset } from "drizzle-seed";
 import { performance } from "node:perf_hooks";
 import { camelToKebab, connectDB } from "../utils/index.ts";
 import type * as relations from "./relations.js";
 import * as schema from "./schema.js";
-
-const contentBlockExample = [
-  { type: "text", meta: "This is a text block." },
-  { type: "image", meta: "https://example.com/image1.jpg" },
-  { type: "code", meta: "console.log('Hello, world!');" },
-  { type: "link", meta: "https://example.com" },
-  { type: "mention", meta: "@username" },
-  { type: "quote", meta: "A famous quote goes here." },
-  { type: "file", meta: "https://example.com/file1.pdf" },
-  { type: "text", meta: "Another text block." },
-  { type: "image", meta: "https://example.com/image2.jpg" },
-  { type: "code", meta: "const x = 5;" },
-  { type: "link", meta: "https://anotherexample.com" },
-  { type: "mention", meta: "@anotheruser" },
-  { type: "quote", meta: "Another quote." },
-  { type: "file", meta: "https://example.com/file2.pdf" },
-  { type: "text", meta: "Final text block." },
-];
-
-const processRandomContentBlock = (num: number) => {
-  const result: Array<string> = [];
-  for (let i = 0; i < num; i++) {
-    const item = Array.from({ length: getRandomInt(2, 6) }).map(() => {
-      const randomIndex = getRandomInt(0, contentBlockExample.length - 1);
-      return contentBlockExample[randomIndex];
-    });
-    result.push(JSON.stringify(item));
-  }
-  return result;
-};
-
-// Define schema type
-type AppSchema = typeof schema & typeof relations;
+import { faker } from "@faker-js/faker";
+import type { JSONContent } from "@tiptap/core";
+import {
+  areaEnumArray,
+  moduleEnumArray,
+  ticketCategoryEnumArray,
+  ticketHistoryTypeEnumArray,
+  ticketPriorityEnumArray,
+  ticketStatusEnumArray,
+  userRoleEnumArray,
+} from "../utils/const.ts";
 
 // Configuration
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
-const smallRandom = [
-  { weight: 0.3, count: 2 },
-  { weight: 0.3, count: 3 },
-  { weight: 0.4, count: [4, 5, 6] },
-];
+// Define schema type
+type AppSchema = typeof schema & typeof relations;
 
+// Helper functions
 function getRandomInt(min: number, max: number) {
-  const minCeiled = Math.ceil(min);
-  const maxFloored = Math.floor(max);
-  return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-/**
- * Checks if database already has data
- */
+function getRandomEnum<T>(enumArray: readonly T[]): T {
+  const index = Math.floor(Math.random() * enumArray.length);
+  return enumArray[index] as T;
+}
+
+function generateContentBlock(): JSONContent {
+  const content: JSONContent[] = [];
+  const numBlocks = getRandomInt(1, 5);
+
+  for (let i = 0; i < numBlocks; i++) {
+    const blockType = getRandomEnum([
+      "paragraph",
+      "image",
+      "codeBlock",
+      "orderedList",
+      "bulletList",
+    ]);
+
+    switch (blockType) {
+      case "paragraph": {
+        const marks = [];
+
+        if (Math.random() > 0.5) marks.push({ type: "bold" });
+        if (Math.random() > 0.5) marks.push({ type: "italic" });
+        if (Math.random() > 0.5) marks.push({ type: "underline" });
+
+        content.push({
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              marks,
+              text: faker.lorem.paragraph(),
+            },
+          ],
+        });
+        break;
+      }
+      case "image":
+        content.push({
+          type: "image",
+          attrs: {
+            src: faker.image.url(),
+            alt: faker.lorem.sentence(),
+            title: faker.lorem.sentence(),
+            width: getRandomInt(200, 500),
+            height: getRandomInt(150, 300),
+          },
+        });
+        break;
+      case "codeBlock":
+        content.push({
+          type: "codeBlock",
+          attrs: {
+            language: getRandomEnum([
+              "javascript",
+              "typescript",
+              "python",
+              "java",
+            ]),
+          },
+          content: [
+            {
+              type: "text",
+              text: faker.lorem.sentence(),
+            },
+          ],
+        });
+        break;
+      case "orderedList": {
+        const items = Array.from({ length: getRandomInt(2, 4) }, () => ({
+          type: "listItem",
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                {
+                  type: "text",
+                  text: faker.lorem.sentence(),
+                },
+              ],
+            },
+          ],
+        }));
+
+        content.push({
+          type: "orderedList",
+          attrs: { start: 1 },
+          content: items,
+        });
+        break;
+      }
+      case "bulletList": {
+        const items = Array.from({ length: getRandomInt(2, 4) }, () => ({
+          type: "listItem",
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                {
+                  type: "text",
+                  text: faker.lorem.sentence(),
+                },
+              ],
+            },
+          ],
+        }));
+
+        content.push({
+          type: "bulletList",
+          content: items,
+        });
+        break;
+      }
+    }
+  }
+
+  return {
+    type: "doc",
+    content,
+  };
+}
+
 async function checkDatabaseHasData(
   db: NodePgDatabase<AppSchema>,
 ): Promise<boolean> {
@@ -86,11 +180,7 @@ async function checkDatabaseHasData(
 async function serialSequenceReset(
   db: NodePgDatabase<AppSchema>,
 ): Promise<boolean> {
-  // [BUG]: drizzle seed breaks serial sequence sync with Postgres serial type #3915
-  console.log(
-    "ℹ️ Resetting serial sequences... Refer to https://github.com/drizzle-team/drizzle-orm/issues/3915",
-  );
-
+  console.log("ℹ️ Resetting serial sequences...");
   const tables = Object.entries(schema)
     .filter(([_, value]) => value instanceof Table)
     .map(([key]) => camelToKebab(key));
@@ -104,7 +194,6 @@ async function serialSequenceReset(
     try {
       await db.execute(sql.raw(cmd));
     } catch (error) {
-      console.log(sql.raw(cmd));
       console.warn(
         `⚠️ Error Reset Serial Sequence for '${table}': ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -114,9 +203,6 @@ async function serialSequenceReset(
   return true;
 }
 
-/**
- * Main seeding function with advanced data generation
- */
 async function main() {
   const startTime = performance.now();
   const log = (message: string) => console.log(message);
@@ -143,147 +229,214 @@ async function main() {
         log("🧹 Resetting database...");
         await reset(tx, schema);
 
-        // biome-ignore lint/suspicious/noExplicitAny:
-        const date = (f: any) =>
-          f.date({
-            minDate: "2024-01-01",
-            maxDate: "2024-5-31",
+        // Step 2: Generate and insert users
+        log("👥 Generating users...");
+
+        const aiUser = {
+          id: 1,
+          uid: faker.string.uuid(),
+          name: faker.person.fullName(),
+          nickname: faker.internet.username(),
+          realName: faker.person.fullName(),
+          status: "active",
+          phoneNum: faker.phone.number(),
+          identity: faker.string.uuid(),
+          role: "ai" as const,
+          avatar: faker.image.avatar(),
+          registerTime: faker.date.past().toUTCString(),
+          level: getRandomInt(1, 10),
+          sendProgress: faker.datatype.boolean(),
+        };
+        const users = Array.from({ length: 100 }, (_, i) => {
+          let role: (typeof userRoleEnumArray)[number];
+          if (i < 5) {
+            role = "agent";
+          } else if (i < 10) {
+            role = "technician";
+          } else {
+            role = "customer";
+          }
+
+          return {
+            id: i + 2,
+            uid: faker.string.uuid(),
+            name: faker.person.fullName(),
+            nickname: faker.internet.username(),
+            realName: faker.person.fullName(),
+            status: "active",
+            phoneNum: faker.phone.number(),
+            identity: faker.string.uuid(),
+            role,
+            avatar: faker.image.avatar(),
+            registerTime: faker.date.past().toUTCString(),
+            level: getRandomInt(1, 10),
+            email: faker.internet.email(),
+            ccEmails: faker.datatype.boolean(0.2)
+              ? [faker.internet.email()]
+              : [],
+            contactTimeStart: "08:00:00",
+            contactTimeEnd: "18:00:00",
+            sendProgress: faker.datatype.boolean(),
+          };
+        });
+
+        await tx.insert(schema.users).values([aiUser, ...users]);
+
+        // Step 3: Generate and insert tags
+        log("🏷️ Generating tags...");
+        const tags = Array.from({ length: 80 }, (_, i) => ({
+          id: i + 1,
+          name: faker.word.sample(),
+          description: faker.lorem.sentence(),
+        }));
+
+        await tx.insert(schema.tags).values(tags);
+
+        // Step 4: Generate and insert ticket sessions
+        log("🎫 Generating ticket sessions...");
+        const ticketSessions = Array.from({ length: 1000 }, (_, index) => ({
+          id: index + 1,
+          title: faker.lorem.sentence(),
+          description: generateContentBlock(),
+          status: getRandomEnum(ticketStatusEnumArray),
+          module: getRandomEnum(moduleEnumArray),
+          area: getRandomEnum(areaEnumArray),
+          occurrenceTime: faker.date.past().toUTCString(),
+          category: getRandomEnum(ticketCategoryEnumArray),
+          priority: getRandomEnum(ticketPriorityEnumArray),
+          errorMessage: faker.lorem.sentence(),
+          createdAt: faker.date.past().toUTCString(),
+          updatedAt: faker.date.recent().toUTCString(),
+        }));
+
+        await tx.insert(schema.ticketSession).values(ticketSessions);
+
+        // Step 5: Generate and insert ticket session members
+        log("👥 Generating ticket session members...");
+        const ticketSessionMembers = [];
+        for (let i = 0; i < 1000; i++) {
+          // Each ticket has at least one customer and one agent
+          const customerId = getRandomInt(12, 101); // Customer ID range
+          const agentId = getRandomInt(2, 6); // Agent ID range
+          const technicianId = getRandomInt(7, 11); // Technician ID range
+
+          // Add customer
+          ticketSessionMembers.push({
+            ticketId: i + 1,
+            userId: customerId,
+            joinedAt: faker.date.past().toUTCString(),
+            lastViewedAt: faker.date.recent().toUTCString(),
           });
 
-        const msgBlockNum = [
-          { weight: 0.3, count: 1 },
-          { weight: 0.3, count: [2, 3, 4] },
-          { weight: 0.4, count: [5, 6, 7] },
-        ];
+          // Add agent
+          ticketSessionMembers.push({
+            ticketId: i + 1,
+            userId: agentId,
+            joinedAt: faker.date.past().toUTCString(),
+            lastViewedAt: faker.date.recent().toUTCString(),
+          });
 
-        // Step 2: Generate seed data using drizzle-seed
-        log("🌱 Generating seed data...");
-        await seed(tx, schema).refine((f) => ({
-          users: {
-            count: 100,
-            columns: {
-              name: f.fullName(),
-              email: f.email(),
-              registerTime: date(f),
-              level: f.int({ minValue: 1, maxValue: 10 }),
-            },
-          },
-          tags: {
-            count: 80,
-            columns: {
-              name: f.firstName(),
-              description: f.weightedRandom([
-                { weight: 0.3, value: f.loremIpsum({ sentencesCount: 3 }) },
-                { weight: 0.7, value: f.loremIpsum({ sentencesCount: 1 }) },
-              ]),
-            },
-          },
-          ticketSession: {
-            count: 1000,
-            columns: {
-              id: f.intPrimaryKey(),
-              description: f.valuesFromArray({
-                values: processRandomContentBlock(100),
-              }),
-              createdAt: date(f),
-              updatedAt: date(f),
-              attachments: f.uuid({ arraySize: 2 }),
-            },
-            with: {
-              ticketHistory: [
-                { weight: 0.3, count: 4 },
-                { weight: 0.3, count: 5 },
-                { weight: 0.4, count: [6, 7, 8] },
-              ],
-              ticketsTags: smallRandom,
-            },
-          },
+          // 70% probability add technician
+          if (Math.random() < 0.7) {
+            ticketSessionMembers.push({
+              ticketId: i + 1,
+              userId: technicianId,
+              joinedAt: faker.date.past().toUTCString(),
+              lastViewedAt: faker.date.recent().toUTCString(),
+            });
+          }
+        }
 
-          // seed Agent
-          ticketSessionMembers: {
-            count: 1000,
-            columns: {
-              joinedAt: date(f),
-              lastViewedAt: date(f),
-              ticketId: f.intPrimaryKey(),
-              userId: f.int({ minValue: 1, maxValue: 5 }),
-            },
-          },
-          chatMessages: {
-            count: 2500,
-            columns: {
-              createdAt: date(f),
-              updatedAt: date(f),
-              ticketId: f.int({ minValue: 1, maxValue: 1000 }),
-              senderId: f.int({ minValue: 1, maxValue: 5 }),
-              content: f.valuesFromArray({
-                values: processRandomContentBlock(2500),
-              }),
-            },
-          },
-        }));
+        await tx
+          .insert(schema.ticketSessionMembers)
+          .values(ticketSessionMembers)
+          .onConflictDoNothing();
+
+        // Step 6: Generate and insert ticket history
+        log("📜 Generating ticket history...");
+        const ticketHistory = [];
+        for (let i = 0; i < 1000; i++) {
+          const ticketId = i + 1;
+          const numHistory = getRandomInt(3, 8); // Each ticket has 3-8 history records
+
+          for (let j = 0; j < numHistory; j++) {
+            ticketHistory.push({
+              type: getRandomEnum(ticketHistoryTypeEnumArray),
+              eventTarget: getRandomInt(1, 100),
+              description: faker.lorem.sentence(),
+              createdAt: faker.date.past().toUTCString(),
+              ticketId,
+            });
+          }
+        }
+
+        await tx.insert(schema.ticketHistory).values(ticketHistory);
+
+        // Step 7: Generate and insert chat messages
+        log("💬 Generating chat messages...");
+        const chatMessages = [];
+        for (let i = 0; i < 1000; i++) {
+          const ticketId = i + 1;
+          
+          // First add AI message for each ticket
+          chatMessages.push({
+            id: chatMessages.length + 1,
+            ticketId,
+            senderId: 1, // AI user id
+            content: generateContentBlock(),
+            createdAt: faker.date.past().toUTCString(),
+            isInternal: false,
+          });
+
+          const numMessages = getRandomInt(5, 10); // Each ticket has 5-15 messages
+          const members = ticketSessionMembers.filter(
+            (m) => m.ticketId === ticketId,
+          );
+
+          for (let j = 0; j < numMessages; j++) {
+            const sender = members[Math.floor(Math.random() * members.length)];
+            if (!sender) continue; // Skip if no sender is found
+            chatMessages.push({
+              id: chatMessages.length + 1,
+              ticketId,
+              senderId: sender.userId,
+              content: generateContentBlock(),
+              createdAt: faker.date.past().toUTCString(),
+              isInternal: faker.datatype.boolean({ probability: 0.15 }),
+            });
+          }
+        }
+
+        await tx.insert(schema.chatMessages).values(chatMessages);
+
+        // Step 8: Generate and insert message read status
+        log("📖 Generating message read status...");
+        const messageReadStatus = [];
+        for (const message of chatMessages) {
+          const ticketId = message.ticketId;
+          const members = ticketSessionMembers.filter(
+            (m) => m.ticketId === ticketId,
+          );
+
+          for (const member of members) {
+            // 80% probability read
+            if (Math.random() < 0.8) {
+              messageReadStatus.push({
+                messageId: message.id,
+                userId: member.userId,
+                readAt: faker.date.recent().toUTCString(),
+              });
+            }
+          }
+        }
+
+        await tx
+          .insert(schema.messageReadStatus)
+          .values(messageReadStatus)
+          .onConflictDoNothing();
       });
 
       await serialSequenceReset(db);
-
-      // Step 3: Add custom relations or data that couldn't be handled by the refine method
-      // biome-ignore lint/correctness/noConstantCondition: Example of custom relations
-      if (true) {
-        log("🔍 Adding custom relations...");
-
-        const technician = (() => {
-          const used = new Set<string>();
-          const result: { ticketId: number; userId: number }[] = [];
-          while (result.length < 500) {
-            const ticketId = getRandomInt(1, 1000);
-            const userId = getRandomInt(6, 10);
-            const key = `${ticketId}-${userId}`;
-            if (!used.has(key)) {
-              used.add(key);
-              result.push({ ticketId, userId });
-            }
-          }
-          return result;
-        })();
-        const customer = Array.from({ length: 1000 }).map((_, i) => ({
-          ticketId: i + 1,
-          userId: getRandomInt(11, 100),
-        }));
-
-        await db
-          .insert(schema.ticketSessionMembers)
-          .values([...technician, ...customer]);
-
-
-        log("ℹ️  Resetting user roles...");
-        await db
-          .update(schema.users)
-          .set({
-            role: "agent",
-          })
-          .where(inArray(schema.users.id, [1, 2, 3, 4, 5]));
-        await db
-          .update(schema.users)
-          .set({
-            role: "technician",
-          })
-          .where(inArray(schema.users.id, [6, 7, 8, 9, 10]));
-        await db
-          .update(schema.users)
-          .set({
-            role: "customer",
-          })
-          .where(
-            inArray(
-              schema.users.id,
-              Array.from({ length: 90 }, (_, i) => i + 11),
-            ),
-          );
-
-        log("✅ Adding custom ticket data");
-
-        log("✅ Custom data added");
-      }
 
       const totalTime = performance.now() - startTime;
       log(`🎉 Seeding completed in ${Math.round(totalTime)}ms`);
@@ -307,7 +460,6 @@ async function main() {
     }
   }
 
-  // Fallback (shouldn't reach here)
   throw new Error("Unexpected exit from retry loop");
 }
 

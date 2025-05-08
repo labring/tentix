@@ -4,40 +4,13 @@ import { Badge } from "../ui/badge.tsx"
 import { Button } from "../ui/button.tsx"
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card.tsx"
 import { ScrollArea } from "../ui/scroll-area.tsx"
-import { CheckCircleIcon, ClockIcon, MessageSquareIcon } from "lucide-react"
+import { CheckCircleIcon, ClockIcon, MessageSquareIcon, PhoneIcon } from "lucide-react"
+import { TicketType } from "tentix-ui/store";
+import { timeAgo } from "tentix-ui/lib/utils"
 
-interface TicketDetailsSidebarProps {
-  ticket: {
-    id: string
-    title: string
-    status: string
-    priority: string
-    createdAt: string
-    category: string
-    assignedTo: string
-    messages: Array<{
-      id: string
-      sender: {
-        name: string
-        role: string
-      }
-      timestamp: string
-    }>
-    expectedResolution: string
-    ticketDetails: {
-      location: string
-      reportedOn: string
-      lastUpdated: string
-      category: string
-      subcategory: string
-    }
-  }
-  formatDate: (dateString: string) => string
-  getTimeRemaining: () => string
-  PhoneIcon: React.FC<React.SVGProps<SVGSVGElement>>
-}
-
-export function TicketDetailsSidebar({ ticket, formatDate, getTimeRemaining, PhoneIcon }: TicketDetailsSidebarProps) {
+export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
+  const lastAssignee  = ticket.members.sort((a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime())[0];
+  if (lastAssignee)
   return (
     <div className="hidden md:block border-l">
       <ScrollArea className="h-[calc(100vh-48px)]">
@@ -51,7 +24,7 @@ export function TicketDetailsSidebar({ ticket, formatDate, getTimeRemaining, Pho
                 <span>Current Status</span>
                 <Badge
                   className={
-                    ticket.status === "Completed"
+                    ticket.status === "Resolved"
                       ? "bg-green-500"
                       : ticket.status === "In Progress"
                         ? "bg-amber-500"
@@ -66,11 +39,11 @@ export function TicketDetailsSidebar({ ticket, formatDate, getTimeRemaining, Pho
                 <Badge
                   variant="outline"
                   className={
-                    ticket.priority === "Critical"
+                    ticket.priority === "urgent"
                       ? "border-red-500 text-red-500"
-                      : ticket.priority === "High"
+                      : ticket.priority === "high"
                         ? "border-orange-500 text-orange-500"
-                        : ticket.priority === "Medium"
+                        : ticket.priority === "medium"
                           ? "border-amber-500 text-amber-500"
                           : "border-green-500 text-green-500"
                   }
@@ -82,23 +55,10 @@ export function TicketDetailsSidebar({ ticket, formatDate, getTimeRemaining, Pho
                 <span>Assigned To</span>
                 <div className="flex items-center gap-2">
                   <Avatar className="h-5 w-5">
-                    <AvatarFallback>{ticket.assignedTo.charAt(0)}</AvatarFallback>
+                    <AvatarFallback>{lastAssignee.user.name.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <span className="font-medium">{ticket.assignedTo}</span>
+                  <span className="font-medium">{lastAssignee.user.name}</span>
                 </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Expected Resolution</span>
-                <div className="flex items-center gap-1">
-                  <ClockIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{formatDate(ticket.expectedResolution)}</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Time Remaining</span>
-                <Badge variant="outline" className="font-mono">
-                  {getTimeRemaining()}
-                </Badge>
               </div>
             </CardContent>
           </Card>
@@ -111,26 +71,26 @@ export function TicketDetailsSidebar({ ticket, formatDate, getTimeRemaining, Pho
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <span className="text-xs text-muted-foreground">Location</span>
-                  <p>{ticket.ticketDetails.location}</p>
+                  <p>{ticket.area}</p>
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground">Category</span>
-                  <p>{ticket.ticketDetails.category}</p>
+                  <p>{ticket.category}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div>
+                {/* <div>
                   <span className="text-xs text-muted-foreground">Subcategory</span>
                   <p>{ticket.ticketDetails.subcategory}</p>
-                </div>
+                </div> */}
                 <div>
                   <span className="text-xs text-muted-foreground">Reported On</span>
-                  <p>{new Date(ticket.ticketDetails.reportedOn).toLocaleDateString()}</p>
+                  <p>{timeAgo(ticket.createdAt)}</p>
                 </div>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Last Updated</span>
-                <p>{formatDate(ticket.ticketDetails.lastUpdated)}</p>
+                <p>{timeAgo(ticket.updatedAt)}</p>
               </div>
             </CardContent>
           </Card>
@@ -150,7 +110,7 @@ export function TicketDetailsSidebar({ ticket, formatDate, getTimeRemaining, Pho
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <span>Eddie Lake</span>
                       <span>•</span>
-                      <span>{formatDate(ticket.messages[ticket.messages.length - 1].timestamp)}</span>
+                      <span>{timeAgo(ticket.ticketHistory[0].createdAt)}</span>
                     </div>
                   </div>
                 </div>
@@ -163,7 +123,7 @@ export function TicketDetailsSidebar({ ticket, formatDate, getTimeRemaining, Pho
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <span>System</span>
                       <span>•</span>
-                      <span>{formatDate(ticket.messages[1].timestamp)}</span>
+                      <span>{timeAgo(ticket.ticketHistory[1].createdAt)}</span>
                     </div>
                   </div>
                 </div>
@@ -176,7 +136,7 @@ export function TicketDetailsSidebar({ ticket, formatDate, getTimeRemaining, Pho
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <span>You</span>
                       <span>•</span>
-                      <span>{formatDate(ticket.createdAt)}</span>
+                      <span>{timeAgo(ticket.createdAt)}</span>
                     </div>
                   </div>
                 </div>

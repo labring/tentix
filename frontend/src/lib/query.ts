@@ -1,10 +1,9 @@
 import {
-  type UseSuspenseQueryResult,
-  useSuspenseQuery as useSuspenseQueryTanStack,
+  useSuspenseQuery as useSuspenseQueryTanStack
 } from "@tanstack/react-query";
 
 import { apiClient } from "@lib/api-client";
-import type { InferResponseType } from "@server/utils/rpc";
+import { WS_TOKEN_EXPIRY_TIME } from "@server/utils/const";
 
 type ErrorMessage = {
   code: string;
@@ -26,14 +25,41 @@ const handler = {
 
 export const useSuspenseQuery = new Proxy(useSuspenseQueryTanStack, handler);
 
-export const useUserGetTickets = (id: string) => {
-  const func = apiClient.user.getUserTickets.$get;
-  type ResponseType = InferResponseType<typeof func>;
-  return useSuspenseQuery({
+
+import {
+  queryOptions,
+} from "@tanstack/react-query";
+
+
+export const userTicketsQueryOptions = (id: string) =>
+  queryOptions({
     queryKey: ["getUserTickets", id],
     queryFn: async () => {
-      const data = await (await func({ query: { userId: id } })).json();
+      const data = await (
+        await apiClient.user.getUserTickets.$get({ query: { userId: id } })
+      ).json();
       return data.data;
     },
-  }) as UseSuspenseQueryResult<ResponseType["data"], ErrorMessage>;
-};
+  });
+
+
+export const ticketsQueryOptions = (id: string) =>
+  queryOptions({
+    queryKey: ["getTicket", id],
+    queryFn: async () => {
+      const data = await (await apiClient.ticket.info.$get({ query: { id } })).json();
+      return data;
+    },
+  });
+
+export const wsTokenQueryOptions = (testUserId?: string) =>
+  queryOptions({
+    queryKey: ["getWsToken"],
+    queryFn: async () => {
+      const data = await (await apiClient.ws.token.$get({ query: { testUserId } })).json();
+      return data;
+    },
+    staleTime: WS_TOKEN_EXPIRY_TIME,
+  });
+
+

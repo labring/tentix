@@ -1,5 +1,5 @@
 import { defineConfig } from "drizzle-kit";
-import { getCntFromEnv } from "../utils/index.ts";
+import { getCntFromEnv } from "../utils/env.ts";
 
 
 export default defineConfig({

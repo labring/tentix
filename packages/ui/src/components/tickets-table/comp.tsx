@@ -28,7 +28,7 @@ import {
 	SheetTrigger,
 } from '../ui/sheet.tsx';
 import { TableCell, TableRow } from '../ui/table.tsx';
-import { useIsMobile } from '@tentix/ui/hooks/use-mobile';
+import { useIsMobile } from 'tentix-ui/hooks/use-mobile';
 // Import the hooks
 
 export function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {

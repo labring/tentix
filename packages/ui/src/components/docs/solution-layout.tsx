@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Link } from '@tanstack/react-router'
 import { ChevronRightIcon, CopyIcon, ExternalLinkIcon, InfoIcon, FileTextIcon } from "lucide-react"
 
-import { cn } from "@tentix/ui/lib/utils"
+import { cn } from "tentix-ui/lib/utils"
 import { Button } from "../ui/button.tsx"
 import { ScrollArea } from "../ui/scroll-area.tsx"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs.tsx"

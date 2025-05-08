@@ -1,5 +1,5 @@
 {
-  "id": "acc1eb8d-1e15-438e-9b6a-ec94153da561",
+  "id": "2ffb5e6f-5887-460a-8c96-086554b83822",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -34,10 +34,17 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp(6)",
+          "type": "timestamp(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "is_internal": {
+          "name": "is_internal",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {},
@@ -115,7 +122,7 @@
         },
         "read_at": {
           "name": "read_at",
-          "type": "timestamp(6)",
+          "type": "timestamp(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -144,6 +151,100 @@
           "schemaTo": "tentix",
           "columnsFrom": [
             "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "tentix.requirements": {
+      "name": "requirements",
+      "schema": "tentix",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "module": {
+          "name": "module",
+          "type": "module",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "priority": {
+          "name": "priority",
+          "type": "ticket_priority",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "related_ticket": {
+          "name": "related_ticket",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "create_at": {
+          "name": "create_at",
+          "type": "timestamp(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_at": {
+          "name": "update_at",
+          "type": "timestamp(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "requirements_related_ticket_ticket_session_id_fk": {
+          "name": "requirements_related_ticket_ticket_session_id_fk",
+          "tableFrom": "requirements",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "related_ticket"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "requirements_related_ticket_ticket_sessions_id_fk": {
+          "name": "requirements_related_ticket_ticket_sessions_id_fk",
+          "tableFrom": "requirements",
+          "tableTo": "ticket_session",
+          "schemaTo": "tentix",
+          "columnsFrom": [
+            "related_ticket"
           ],
           "columnsTo": [
             "id"
@@ -216,11 +317,11 @@
           "name": "description",
           "type": "varchar(190)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp(6)",
+          "type": "timestamp(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -289,7 +390,7 @@
           "name": "description",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "status": {
           "name": "status",
@@ -338,22 +439,16 @@
           "primaryKey": false,
           "notNull": false
         },
-        "attachments": {
-          "name": "attachments",
-          "type": "uuid[]",
-          "primaryKey": false,
-          "notNull": true
-        },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp(6)",
+          "type": "timestamp(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp(6)",
+          "type": "timestamp(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -391,14 +486,14 @@
         },
         "joined_at": {
           "name": "joined_at",
-          "type": "timestamp(6)",
+          "type": "timestamp(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "last_viewed_at": {
           "name": "last_viewed_at",
-          "type": "timestamp(6)",
+          "type": "timestamp(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -542,7 +637,7 @@
         },
         "login_time": {
           "name": "login_time",
-          "type": "timestamp(6)",
+          "type": "timestamp(3)",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -553,9 +648,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "cookie": {
-          "name": "cookie",
-          "type": "char(128)",
+        "ip": {
+          "name": "ip",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         }
@@ -607,15 +702,46 @@
           "primaryKey": true,
           "notNull": true
         },
-        "name": {
-          "name": "name",
-          "type": "varchar(32)",
+        "uid": {
+          "name": "uid",
+          "type": "varchar(64)",
           "primaryKey": false,
           "notNull": true
         },
+        "name": {
+          "name": "name",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nickname": {
+          "name": "nickname",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "real_name": {
+          "name": "real_name",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone_num": {
+          "name": "phone_num",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
         "identity": {
           "name": "identity",
-          "type": "varchar(32)",
+          "type": "varchar(64)",
           "primaryKey": false,
           "notNull": true
         },
@@ -624,7 +750,8 @@
           "type": "user_role",
           "typeSchema": "tentix",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'customer'"
         },
         "avatar": {
           "name": "avatar",
@@ -650,7 +777,8 @@
           "name": "email",
           "type": "varchar(254)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "''"
         },
         "cc_emails": {
           "name": "cc_emails",
@@ -714,7 +842,7 @@
       "name": "module",
       "schema": "tentix",
       "values": [
-        "All",
+        "all",
         "applaunchpad",
         "costcenter",
         "appmarket",
@@ -738,7 +866,7 @@
       "values": [
         "bug",
         "feature",
-        "task",
+        "question",
         "other"
       ]
     },
@@ -753,7 +881,8 @@
         "transfer",
         "makeRequest",
         "resolve",
-        "close"
+        "close",
+        "other"
       ]
     },
     "tentix.ticket_priority": {
@@ -771,10 +900,10 @@
       "name": "ticket_status",
       "schema": "tentix",
       "values": [
-        "Pending",
-        "In Progress",
-        "Resolved",
-        "Scheduled"
+        "pending",
+        "in_progress",
+        "resolved",
+        "scheduled"
       ]
     },
     "tentix.user_role": {

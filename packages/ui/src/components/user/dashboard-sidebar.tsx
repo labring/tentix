@@ -1,4 +1,11 @@
-import { FileText, Home, MessageSquare, PlusCircle, Settings, Users } from "lucide-react"
+import {
+  FileText,
+  Home,
+  MessageSquare,
+  PlusCircle,
+  Settings,
+  Users,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -8,82 +15,104 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "../ui/sidebar.tsx"
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar.tsx"
-import { Button } from "../ui/button.tsx"
-
+} from "../ui/sidebar.tsx";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar.tsx";
+import { Button } from "../ui/button.tsx";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useTranslation } from "i18n";
+import useLocalUser from "tentix-ui/hooks/use-local-user.tsx";
 export function UserDashboardSidebar() {
+  const { t } = useTranslation();
+  const pathname = useLocation().pathname;
+  const user = useLocalUser();
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-6 py-3">
         <div className="flex items-center gap-2">
           <Avatar className="h-6 w-6">
-            <AvatarImage src="/placeholder.svg?height=32&width=32" />
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarImage src={user.avatar} />
+            <AvatarFallback>{user.name.slice(0, 2)}</AvatarFallback>
           </Avatar>
-          <div className="text-sm font-medium">User Portal</div>
+          <div className="text-sm font-medium">{user.name}</div>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive>
-              <a href="/user/dashboard">
-                <Home />
-                <span>Dashboard</span>
-              </a>
+          <Link to="/user/dashboard">
+          <SidebarMenuButton
+              asChild
+              isActive={pathname === "/user/dashboard"}
+            >
+              <Home />
+              <span>{t("dashboard")}</span>
             </SidebarMenuButton>
+              </Link>
+            
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <a href="/user/tickets">
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === "/user/tickets/list"}
+            >
+              <Link to="/user/tickets/list">
                 <MessageSquare />
-                <span>My Tickets</span>
-              </a>
+                <span>{t("tkt_list")}</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <a href="/user/newticket">
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === "/user/newticket"}
+            >
+              <Link to="/user/newticket">
                 <PlusCircle />
-                <span>New Ticket</span>
-              </a>
+                <span>{t("tkt_create")}</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
+          {/* <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="#">
+              <Link to="/user/knowledge-base">
                 <FileText />
-                <span>Knowledge Base</span>
-              </a>
+                <span>{t("knowledge_base")}</span>
+              </Link>
             </SidebarMenuButton>
-          </SidebarMenuItem>
+          </SidebarMenuItem> */}
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <a href="#">
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === "/user/community"}
+            >
+              <a
+                href="https://forum.sealos.run"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Users />
-                <span>Community</span>
+                <span>{t("community")}</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <a href="#">
+          {/* <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/user/settings"}>
+              <Link to="/user/settings">
                 <Settings />
-                <span>Settings</span>
-              </a>
+                <span>{t("settings")}</span>
+              </Link>
             </SidebarMenuButton>
-          </SidebarMenuItem>
+          </SidebarMenuItem> */}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="border-t p-4">
         <Button variant="outline" className="w-full justify-start" asChild>
-          <a href="/user/newticket">
+          <Link to="/user/newticket">
             <PlusCircle className="mr-2 h-4 w-4" />
-            Create New Ticket
-          </a>
+            {t("tkt_create")}
+          </Link>
         </Button>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

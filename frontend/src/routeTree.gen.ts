@@ -11,23 +11,28 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as PlaygroundImport } from './routes/playground'
 import { Route as IndexImport } from './routes/index'
-import { Route as UserNewticketImport } from './routes/user/newticket'
 import { Route as UserDashboardImport } from './routes/user/dashboard'
-import { Route as UserTicketsIndexImport } from './routes/user/tickets/index'
+import { Route as StaffDashboardImport } from './routes/staff/dashboard'
+import { Route as UserSettingIndexImport } from './routes/user/setting/index'
+import { Route as UserNewticketIndexImport } from './routes/user/newticket/index'
+import { Route as UserTicketsListImport } from './routes/user/tickets/list'
 import { Route as UserTicketsIdImport } from './routes/user/tickets/$id'
+import { Route as StaffTicketsListImport } from './routes/staff/tickets/list'
+import { Route as StaffTicketsIdImport } from './routes/staff/tickets/$id'
 
 // Create/Update Routes
+
+const PlaygroundRoute = PlaygroundImport.update({
+  id: '/playground',
+  path: '/playground',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const UserNewticketRoute = UserNewticketImport.update({
-  id: '/user/newticket',
-  path: '/user/newticket',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -37,15 +42,45 @@ const UserDashboardRoute = UserDashboardImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const UserTicketsIndexRoute = UserTicketsIndexImport.update({
-  id: '/user/tickets/',
-  path: '/user/tickets/',
+const StaffDashboardRoute = StaffDashboardImport.update({
+  id: '/staff/dashboard',
+  path: '/staff/dashboard',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserSettingIndexRoute = UserSettingIndexImport.update({
+  id: '/user/setting/',
+  path: '/user/setting/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserNewticketIndexRoute = UserNewticketIndexImport.update({
+  id: '/user/newticket/',
+  path: '/user/newticket/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UserTicketsListRoute = UserTicketsListImport.update({
+  id: '/user/tickets/list',
+  path: '/user/tickets/list',
   getParentRoute: () => rootRoute,
 } as any)
 
 const UserTicketsIdRoute = UserTicketsIdImport.update({
   id: '/user/tickets/$id',
   path: '/user/tickets/$id',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const StaffTicketsListRoute = StaffTicketsListImport.update({
+  id: '/staff/tickets/list',
+  path: '/staff/tickets/list',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const StaffTicketsIdRoute = StaffTicketsIdImport.update({
+  id: '/staff/tickets/$id',
+  path: '/staff/tickets/$id',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -60,6 +95,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundImport
+      parentRoute: typeof rootRoute
+    }
+    '/staff/dashboard': {
+      id: '/staff/dashboard'
+      path: '/staff/dashboard'
+      fullPath: '/staff/dashboard'
+      preLoaderRoute: typeof StaffDashboardImport
+      parentRoute: typeof rootRoute
+    }
     '/user/dashboard': {
       id: '/user/dashboard'
       path: '/user/dashboard'
@@ -67,11 +116,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserDashboardImport
       parentRoute: typeof rootRoute
     }
-    '/user/newticket': {
-      id: '/user/newticket'
-      path: '/user/newticket'
-      fullPath: '/user/newticket'
-      preLoaderRoute: typeof UserNewticketImport
+    '/staff/tickets/$id': {
+      id: '/staff/tickets/$id'
+      path: '/staff/tickets/$id'
+      fullPath: '/staff/tickets/$id'
+      preLoaderRoute: typeof StaffTicketsIdImport
+      parentRoute: typeof rootRoute
+    }
+    '/staff/tickets/list': {
+      id: '/staff/tickets/list'
+      path: '/staff/tickets/list'
+      fullPath: '/staff/tickets/list'
+      preLoaderRoute: typeof StaffTicketsListImport
       parentRoute: typeof rootRoute
     }
     '/user/tickets/$id': {
@@ -81,11 +137,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserTicketsIdImport
       parentRoute: typeof rootRoute
     }
-    '/user/tickets/': {
-      id: '/user/tickets/'
-      path: '/user/tickets'
-      fullPath: '/user/tickets'
-      preLoaderRoute: typeof UserTicketsIndexImport
+    '/user/tickets/list': {
+      id: '/user/tickets/list'
+      path: '/user/tickets/list'
+      fullPath: '/user/tickets/list'
+      preLoaderRoute: typeof UserTicketsListImport
+      parentRoute: typeof rootRoute
+    }
+    '/user/newticket/': {
+      id: '/user/newticket/'
+      path: '/user/newticket'
+      fullPath: '/user/newticket'
+      preLoaderRoute: typeof UserNewticketIndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/user/setting/': {
+      id: '/user/setting/'
+      path: '/user/setting'
+      fullPath: '/user/setting'
+      preLoaderRoute: typeof UserSettingIndexImport
       parentRoute: typeof rootRoute
     }
   }
@@ -95,68 +165,108 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/playground': typeof PlaygroundRoute
+  '/staff/dashboard': typeof StaffDashboardRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/user/newticket': typeof UserNewticketRoute
+  '/staff/tickets/$id': typeof StaffTicketsIdRoute
+  '/staff/tickets/list': typeof StaffTicketsListRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
-  '/user/tickets': typeof UserTicketsIndexRoute
+  '/user/tickets/list': typeof UserTicketsListRoute
+  '/user/newticket': typeof UserNewticketIndexRoute
+  '/user/setting': typeof UserSettingIndexRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/playground': typeof PlaygroundRoute
+  '/staff/dashboard': typeof StaffDashboardRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/user/newticket': typeof UserNewticketRoute
+  '/staff/tickets/$id': typeof StaffTicketsIdRoute
+  '/staff/tickets/list': typeof StaffTicketsListRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
-  '/user/tickets': typeof UserTicketsIndexRoute
+  '/user/tickets/list': typeof UserTicketsListRoute
+  '/user/newticket': typeof UserNewticketIndexRoute
+  '/user/setting': typeof UserSettingIndexRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
+  '/playground': typeof PlaygroundRoute
+  '/staff/dashboard': typeof StaffDashboardRoute
   '/user/dashboard': typeof UserDashboardRoute
-  '/user/newticket': typeof UserNewticketRoute
+  '/staff/tickets/$id': typeof StaffTicketsIdRoute
+  '/staff/tickets/list': typeof StaffTicketsListRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
-  '/user/tickets/': typeof UserTicketsIndexRoute
+  '/user/tickets/list': typeof UserTicketsListRoute
+  '/user/newticket/': typeof UserNewticketIndexRoute
+  '/user/setting/': typeof UserSettingIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/playground'
+    | '/staff/dashboard'
     | '/user/dashboard'
-    | '/user/newticket'
+    | '/staff/tickets/$id'
+    | '/staff/tickets/list'
     | '/user/tickets/$id'
-    | '/user/tickets'
+    | '/user/tickets/list'
+    | '/user/newticket'
+    | '/user/setting'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/playground'
+    | '/staff/dashboard'
     | '/user/dashboard'
-    | '/user/newticket'
+    | '/staff/tickets/$id'
+    | '/staff/tickets/list'
     | '/user/tickets/$id'
-    | '/user/tickets'
+    | '/user/tickets/list'
+    | '/user/newticket'
+    | '/user/setting'
   id:
     | '__root__'
     | '/'
+    | '/playground'
+    | '/staff/dashboard'
     | '/user/dashboard'
-    | '/user/newticket'
+    | '/staff/tickets/$id'
+    | '/staff/tickets/list'
     | '/user/tickets/$id'
-    | '/user/tickets/'
+    | '/user/tickets/list'
+    | '/user/newticket/'
+    | '/user/setting/'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PlaygroundRoute: typeof PlaygroundRoute
+  StaffDashboardRoute: typeof StaffDashboardRoute
   UserDashboardRoute: typeof UserDashboardRoute
-  UserNewticketRoute: typeof UserNewticketRoute
+  StaffTicketsIdRoute: typeof StaffTicketsIdRoute
+  StaffTicketsListRoute: typeof StaffTicketsListRoute
   UserTicketsIdRoute: typeof UserTicketsIdRoute
-  UserTicketsIndexRoute: typeof UserTicketsIndexRoute
+  UserTicketsListRoute: typeof UserTicketsListRoute
+  UserNewticketIndexRoute: typeof UserNewticketIndexRoute
+  UserSettingIndexRoute: typeof UserSettingIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PlaygroundRoute: PlaygroundRoute,
+  StaffDashboardRoute: StaffDashboardRoute,
   UserDashboardRoute: UserDashboardRoute,
-  UserNewticketRoute: UserNewticketRoute,
+  StaffTicketsIdRoute: StaffTicketsIdRoute,
+  StaffTicketsListRoute: StaffTicketsListRoute,
   UserTicketsIdRoute: UserTicketsIdRoute,
-  UserTicketsIndexRoute: UserTicketsIndexRoute,
+  UserTicketsListRoute: UserTicketsListRoute,
+  UserNewticketIndexRoute: UserNewticketIndexRoute,
+  UserSettingIndexRoute: UserSettingIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -170,26 +280,46 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
+        "/playground",
+        "/staff/dashboard",
         "/user/dashboard",
-        "/user/newticket",
+        "/staff/tickets/$id",
+        "/staff/tickets/list",
         "/user/tickets/$id",
-        "/user/tickets/"
+        "/user/tickets/list",
+        "/user/newticket/",
+        "/user/setting/"
       ]
     },
     "/": {
       "filePath": "index.tsx"
     },
+    "/playground": {
+      "filePath": "playground.tsx"
+    },
+    "/staff/dashboard": {
+      "filePath": "staff/dashboard.tsx"
+    },
     "/user/dashboard": {
       "filePath": "user/dashboard.tsx"
     },
-    "/user/newticket": {
-      "filePath": "user/newticket.tsx"
+    "/staff/tickets/$id": {
+      "filePath": "staff/tickets/$id.tsx"
+    },
+    "/staff/tickets/list": {
+      "filePath": "staff/tickets/list.tsx"
     },
     "/user/tickets/$id": {
       "filePath": "user/tickets/$id.tsx"
     },
-    "/user/tickets/": {
-      "filePath": "user/tickets/index.tsx"
+    "/user/tickets/list": {
+      "filePath": "user/tickets/list.tsx"
+    },
+    "/user/newticket/": {
+      "filePath": "user/newticket/index.tsx"
+    },
+    "/user/setting/": {
+      "filePath": "user/setting/index.tsx"
     }
   }
 }

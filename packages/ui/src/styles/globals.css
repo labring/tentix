@@ -3,7 +3,6 @@
 
 @source "../../../frontend/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
-
 @plugin '@tailwindcss/container-queries';
 
 @custom-variant dark (&:is(.dark *));
@@ -187,3 +186,5 @@
   animation-duration: 0.5s;
   animation-fill-mode: both;
 }
+
+

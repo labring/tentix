@@ -16,33 +16,16 @@ import {
 	asc,
 } from 'drizzle-orm';
 import { resolveDBSchema } from '@/utils/index.ts';
-  import { userIdValidator } from '@/utils/index.ts';
-  import { createSelectSchema } from 'drizzle-zod';
+import { userIdValidator } from '@/utils/index.ts';
+import { createSelectSchema } from 'drizzle-zod';
+import { getSignedCookie } from '@/utils/index.ts';
+import { authMiddleware, factory } from '../middleware.ts';
 
 const getConversationResSchema = z.object({
 	userId: z.string(),
 });
 
-const testSchema = z.array(
-	z.object({
-		id: z.number(),
-		createdAt: z.string(),
-		conversationId: z.number(),
-		senderId: z.number(),
-		attachment: z.string().nullable(),
-		content: z.array(
-			z.object({
-				id: z.number(),
-				type: z.string(),
-				content: z.string(),
-				position: z.number(),
-				metadata: z.string(),
-			}),
-		),
-	}),
-);
-
-const chatRouter = new Hono()
+const chatRouter = factory.createApp().use(authMiddleware)
 	.get(
 		'/getConversationList',
 		describeRoute({
@@ -66,8 +49,8 @@ const chatRouter = new Hono()
 			}),
 		),
 		async (c) => {
-			const db = connectDB();
-			const { userId } = c.req.valid('query');
+			const db = c.var.db;
+			const userId = c.var.userId;
 
 			const data = await db.query.ticketSessionMembers.findMany({
 				where: (members, { eq }) => eq(members.userId, Number.parseInt(userId)),
@@ -110,8 +93,10 @@ const chatRouter = new Hono()
 			}),
 		),
 		async (c) => {
-			const db = connectDB();
+			const db = c.var.db;
 			const { id } = c.req.valid('query');
+			const userId = c.var.userId;
+      const role = c.var.role;
 
 			const data = db.query.ticketSession.findFirst({
 				where: (conversations, { eq }) =>
@@ -122,20 +107,12 @@ const chatRouter = new Hono()
 			const msg = db.query.chatMessages.findMany({
 				where: (messages, { eq }) => eq(messages.ticketId, Number.parseInt(id)),
 				orderBy: (messages, { asc }) => asc(messages.createdAt),
-				with: {
-					contentBlocks: {
-						orderBy: (messageContent, { asc }) => asc(messageContent.position),
-						columns: {
-							type: true,
-							content: true,
-							position: true,
-							metadata: true,
-						},
-					},
-				},
 			});
 
 			const res = await Promise.all([data, msg]);
+      if (role === 'customer') {
+        res[1] = res[1].filter((message) => !message.isInternal);
+      }
 
 			return c.json({
 				conversation: res[0],
@@ -211,7 +188,7 @@ const chatRouter = new Hono()
 					description: 'Return message content blocks',
 					content: {
 						'application/json': {
-							schema: resolver(testSchema),
+							// schema: resolver(testSchema),
 						},
 					},
 				},
@@ -256,7 +233,5 @@ const chatRouter = new Hono()
 			return c.json([]);
 		},
 	);
-
-
 
 export { chatRouter };

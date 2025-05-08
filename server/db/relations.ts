@@ -9,6 +9,7 @@ import {
 	ticketsTags,
 	users,
   userSession,
+  requirements,
 } from './schema.ts';
 
 // Define relations for detailed tickets
@@ -19,6 +20,7 @@ export const ticketSessionRelations = relations(
 		ticketsTags: many(ticketsTags), // ref to ticketsTagsRelations
     members: many(ticketSessionMembers), // ref to ticketSessionMembersRelations
 		messages: many(chatMessages), // ref to chatMessagesRelations.conversation
+    requirements: many(requirements), // ref to requirementsRelations
 	}),
 );
 
@@ -103,4 +105,11 @@ export const userSessionRelations = relations(userSession, ({ one }) => ({
 		fields: [userSession.userId],
 		references: [users.id],
 	}), // ref to usersRelations
+}));
+
+export const requirementsRelations = relations(requirements, ({ one }) => ({
+	relatedTicket: one(ticketSession, {
+		fields: [requirements.relatedTicket],
+		references: [ticketSession.id],
+	}), // ref to ticketSessionRelations
 }));
