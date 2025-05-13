@@ -1,19 +1,44 @@
 {
   "$schema": "./config.schema.json",
-  "FEISHU_BOT_WEBHOOK_ID": "0ae733f3-xxxx-xxxx-xxxx-621004c02411",
-  "1": 1,
-  "staff_map": [
+  "feishu_app_id": "cli_a8xxxxxxx7be100e",
+  "feishu_app_secret": "BoUeVk4E3ObT9xxxxxxxxxxxaR1mWvNR",
+  "feishu_bot_webhook_id": "0ae733f3-xxxx-xxxx-xxxx-621xxxxx2411",
+  "aiProfile": {
+    "uid": "0",
+    "name": "Tentix AI",
+    "nickname": "Tentix AI",
+    "realName": "Tentix AI",
+    "phoneNum": "",
+    "identity": "Tentix AI",
+    "role": "ai",
+    "avatar": "https://s1-imfile.feishucdn.com/static-resource/v1/v3_00m2_48b6bd51-ead6-472a-91eb-4d953416667g",
+    "registerTime": "2025-04-11T02:00:00.000Z"
+  },
+  "department_ids": [
+    "od-xxxxa2aaf9c3xxxxxxxxx8ef6db45a0a"
+  ],
+  "agents_ids": [
+    "on_49xxxxxxxxxxxxx5f316fb415367d3d5"
+  ],
+  "admin_ids": [],
+  "staffs": [
     {
-      "identity": "UNC123dasxFuD3_",
-      "role": "agent",
-      "comment": "A example agent",
-      "feishu_id": "on_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    },
+      "avatar": "https://s1-imfile.feishucdn.com/static-resource/v1/v2_7f68dfbc-xxxx-4xxxx-xxxx-de143d90982g~?image_size=72x72&cut_type=&quality=&format=png&sticker_format=.webp",
+      "description": "",
+      "name": "XXXX",
+      "open_id": "ou_8ba8xxxxxxxxxxxxaea6ba0e1b9032b28",
+      "union_id": "on_003112c0xxxxxxx309eec9fcfe90e9dc",
+      "user_id": "f7xxxx7e"
+    }
+  ],
+  "departments": [
     {
-      "identity": "UNC1213121_",
-      "role": "technician",
-      "comment": "A example technician",
-      "feishu_id": "on_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      "openId": "od-651fcxxxxaaf9xxxx15dc8ef6db45a0a",
+      "id": "39f7d4e9a9xxxxxx",
+      "name": "XX组",
+      "members": [
+        "ou_xxxx5fe532xxxxxaea6ba0e1b9032b28"
+      ]
     }
   ]
 }

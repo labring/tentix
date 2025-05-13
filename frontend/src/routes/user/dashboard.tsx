@@ -2,7 +2,7 @@ import { SiteHeader } from "tentix-ui/comp/site-header";
 import { Input } from "tentix-ui/comp/ui/input";
 import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
 import { UserDashboardSidebar } from "tentix-ui/comp/user/dashboard-sidebar";
-import { SupportCategories } from "tentix-ui/comp/user/support-categories";
+// import { SupportCategories } from "tentix-ui/comp/user/support-categories";
 import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 
@@ -75,7 +75,7 @@ function RouteComponent() {
               <p className="mt-2 text-muted-foreground">
                 Explore our curated resources to find what you're looking for.
               </p>
-              <SupportCategories />
+              {/* <SupportCategories /> */}
             </div>
           </div>
         </div>

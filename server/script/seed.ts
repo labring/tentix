@@ -1,11 +1,11 @@
-import { eq, inArray, sql, Table } from "drizzle-orm";
+import { and, eq, inArray, sql, Table } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { PgSchema } from "drizzle-orm/pg-core";
 import { reset } from "drizzle-seed";
-import { performance } from "node:perf_hooks";
+import { performance } from "perf_hooks";
 import { camelToKebab, connectDB } from "../utils/index.ts";
-import type * as relations from "./relations.js";
-import * as schema from "./schema.js";
+import type * as relations from "../db/relations.ts";
+import * as schema from "../db/schema.ts";
 import { faker } from "@faker-js/faker";
 import type { JSONContent } from "@tiptap/core";
 import {
@@ -17,6 +17,7 @@ import {
   ticketStatusEnumArray,
   userRoleEnumArray,
 } from "../utils/const.ts";
+import { readConfig } from "../utils/env.ts";
 
 // Configuration
 const MAX_RETRIES = 3;
@@ -28,6 +29,11 @@ type AppSchema = typeof schema & typeof relations;
 // Helper functions
 function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getRandomElement<T>(array: readonly T[]): T {
+  const index = Math.floor(Math.random() * array.length);
+  return array[index] as T;
 }
 
 function getRandomEnum<T>(enumArray: readonly T[]): T {
@@ -69,14 +75,20 @@ function generateContentBlock(): JSONContent {
         break;
       }
       case "image":
+        // prevent Cumulative Layout Shift
+        const width = getRandomInt(200, 500);
+        const height = getRandomInt(150, 300);
         content.push({
           type: "image",
           attrs: {
-            src: faker.image.url(),
+            src: faker.image.url({
+              width,
+              height,
+            }),
             alt: faker.lorem.sentence(),
             title: faker.lorem.sentence(),
-            width: getRandomInt(200, 500),
-            height: getRandomInt(150, 300),
+            width,
+            height,
           },
         });
         break;
@@ -159,6 +171,7 @@ async function checkDatabaseHasData(
   const tables = Object.entries(schema)
     .filter(([_, value]) => value instanceof Table)
     .map(([key]) => camelToKebab(key));
+
   for (const table of tables) {
     try {
       const result = await db.execute<{ exists: boolean }>(sql`
@@ -183,7 +196,8 @@ async function serialSequenceReset(
   console.log("ℹ️ Resetting serial sequences...");
   const tables = Object.entries(schema)
     .filter(([_, value]) => value instanceof Table)
-    .map(([key]) => camelToKebab(key));
+    .map(([key]) => camelToKebab(key))
+    .filter((table) => table !== "technicians_to_tickets");
   const schemaName = Object.entries(schema).find(
     ([_, value]) => value instanceof PgSchema,
   )?.[0];
@@ -221,6 +235,8 @@ async function main() {
   log("ℹ️  No data found - proceeding with seeding");
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    await serialSequenceReset(db);
+
     try {
       log(`🚀 Seeding database (attempt ${attempt + 1}/${MAX_RETRIES})...`);
 
@@ -232,41 +248,54 @@ async function main() {
         // Step 2: Generate and insert users
         log("👥 Generating users...");
 
-        const aiUser = {
-          id: 1,
-          uid: faker.string.uuid(),
-          name: faker.person.fullName(),
-          nickname: faker.internet.username(),
-          realName: faker.person.fullName(),
-          status: "active",
-          phoneNum: faker.phone.number(),
-          identity: faker.string.uuid(),
-          role: "ai" as const,
-          avatar: faker.image.avatar(),
-          registerTime: faker.date.past().toUTCString(),
-          level: getRandomInt(1, 10),
-          sendProgress: faker.datatype.boolean(),
-        };
-        const users = Array.from({ length: 100 }, (_, i) => {
-          let role: (typeof userRoleEnumArray)[number];
-          if (i < 5) {
-            role = "agent";
-          } else if (i < 10) {
-            role = "technician";
-          } else {
-            role = "customer";
-          }
+        // Read config
+        const config = await readConfig();
+
+        type NewUser = typeof schema.users.$inferInsert;
+
+        // Create AI user
+        const aiUser: NewUser = config.aiProfile;
+        const aiUserId = (
+          await tx.insert(schema.users).values(aiUser).returning()
+        ).at(0)!.id;
+        // Create staff users from config
+        const staffUsers: NewUser[] = config.staffs.map((staff) => {
+          const role = (() => {
+            if (config.agents_ids.includes(staff.union_id)) {
+              return "agent" as const;
+            }
+            if (config.admin_ids.includes(staff.union_id)) {
+              return "admin" as const;
+            }
+            return "technician" as const;
+          })();
 
           return {
-            id: i + 2,
+            uid: staff.union_id,
+            name: staff.name,
+            nickname: staff.nickname ?? staff.name,
+            realName: staff.name,
+            phoneNum: staff.user_id,
+            identity: staff.open_id,
+            role,
+            avatar: staff.avatar,
+            registerTime: new Date().toISOString(),
+            level: getRandomInt(1, 10),
+            email: "",
+          };
+        });
+
+        // Generate additional customer users
+        const customerUsersInsert: NewUser[] = Array.from(
+          { length: 80 },
+          () => ({
             uid: faker.string.uuid(),
             name: faker.person.fullName(),
             nickname: faker.internet.username(),
             realName: faker.person.fullName(),
-            status: "active",
             phoneNum: faker.phone.number(),
             identity: faker.string.uuid(),
-            role,
+            role: "customer" as const,
             avatar: faker.image.avatar(),
             registerTime: faker.date.past().toUTCString(),
             level: getRandomInt(1, 10),
@@ -274,13 +303,16 @@ async function main() {
             ccEmails: faker.datatype.boolean(0.2)
               ? [faker.internet.email()]
               : [],
-            contactTimeStart: "08:00:00",
-            contactTimeEnd: "18:00:00",
             sendProgress: faker.datatype.boolean(),
-          };
-        });
+          }),
+        );
 
-        await tx.insert(schema.users).values([aiUser, ...users]);
+        await tx.insert(schema.users).values(staffUsers);
+
+        const customerUsers = await tx
+          .insert(schema.users)
+          .values(customerUsersInsert)
+          .returning();
 
         // Step 3: Generate and insert tags
         log("🏷️ Generating tags...");
@@ -292,9 +324,58 @@ async function main() {
 
         await tx.insert(schema.tags).values(tags);
 
+        // Step 5: Generate ticket session members
+        log("👥 Generating ticket session members...");
+        const agents = (
+          await tx.query.users.findMany({
+            where: and(inArray(schema.users.role, ["agent"])),
+          })
+        ).map((user) => user.id);
+        const technicians = (
+          await tx.query.users.findMany({
+            where: and(inArray(schema.users.role, ["technician"])),
+          })
+        ).map((user) => user.id);
+
+        const memberCache = new Map<
+          number,
+          {
+            customerId: number;
+            agentId: number;
+            technicianIds: number[];
+          }
+        >();
+        for (let i = 0; i < 1000; i++) {
+          // Each ticket has at least one customer and one agent
+          const customerId = getRandomElement(customerUsers).id; // Customer ID range
+          const agentId = getRandomElement(agents); // Agent ID range
+          // 70% probability add technician
+          function addTechnician() {
+            const technicianId = getRandomElement(technicians);
+            return technicianId;
+          }
+          let technicianIds: number[] = [];
+          if (Math.random() < 0.7) {
+            const technicianId = addTechnician();
+            technicianIds.push(technicianId);
+            if (Math.random() < 0.5) {
+              const technicianId2 = addTechnician();
+              if (technicianId2 !== technicianId) {
+                technicianIds.push(technicianId2);
+              }
+            }
+          }
+
+          memberCache.set(i + 1, {
+            customerId,
+            agentId,
+            technicianIds,
+          });
+        }
+
         // Step 4: Generate and insert ticket sessions
         log("🎫 Generating ticket sessions...");
-        const ticketSessions = Array.from({ length: 1000 }, (_, index) => ({
+        const tickets = Array.from({ length: 1000 }, (_, index) => ({
           id: index + 1,
           title: faker.lorem.sentence(),
           description: generateContentBlock(),
@@ -305,125 +386,139 @@ async function main() {
           category: getRandomEnum(ticketCategoryEnumArray),
           priority: getRandomEnum(ticketPriorityEnumArray),
           errorMessage: faker.lorem.sentence(),
+          customerId: memberCache.get(index + 1)!.customerId,
+          agentId: memberCache.get(index + 1)!.agentId,
+          technicianIds: memberCache.get(index + 1)!.technicianIds,
           createdAt: faker.date.past().toUTCString(),
           updatedAt: faker.date.recent().toUTCString(),
         }));
 
-        await tx.insert(schema.ticketSession).values(ticketSessions);
+        await tx.insert(schema.tickets).values(tickets);
 
-        // Step 5: Generate and insert ticket session members
-        log("👥 Generating ticket session members...");
-        const ticketSessionMembers = [];
-        for (let i = 0; i < 1000; i++) {
-          // Each ticket has at least one customer and one agent
-          const customerId = getRandomInt(12, 101); // Customer ID range
-          const agentId = getRandomInt(2, 6); // Agent ID range
-          const technicianId = getRandomInt(7, 11); // Technician ID range
-
-          // Add customer
-          ticketSessionMembers.push({
-            ticketId: i + 1,
-            userId: customerId,
-            joinedAt: faker.date.past().toUTCString(),
-            lastViewedAt: faker.date.recent().toUTCString(),
-          });
-
-          // Add agent
-          ticketSessionMembers.push({
-            ticketId: i + 1,
-            userId: agentId,
-            joinedAt: faker.date.past().toUTCString(),
-            lastViewedAt: faker.date.recent().toUTCString(),
-          });
-
-          // 70% probability add technician
-          if (Math.random() < 0.7) {
-            ticketSessionMembers.push({
-              ticketId: i + 1,
-              userId: technicianId,
-              joinedAt: faker.date.past().toUTCString(),
-              lastViewedAt: faker.date.recent().toUTCString(),
-            });
-          }
-        }
-
-        await tx
-          .insert(schema.ticketSessionMembers)
-          .values(ticketSessionMembers)
-          .onConflictDoNothing();
-
-        // Step 6: Generate and insert ticket history
-        log("📜 Generating ticket history...");
-        const ticketHistory = [];
+        // Step 6: Insert ticket technicians
+        log("👥 Inserting ticket technicians...");
+        const techniciansToTicketsInsert = [];
         for (let i = 0; i < 1000; i++) {
           const ticketId = i + 1;
-          const numHistory = getRandomInt(3, 8); // Each ticket has 3-8 history records
+          const technicianIds = memberCache.get(ticketId)!.technicianIds;
+          techniciansToTicketsInsert.push(
+            ...technicianIds.map((technicianId) => ({
+              ticketId,
+              userId: technicianId,
+            })),
+          );
+        }
+        await tx
+          .insert(schema.techniciansToTickets)
+          .values(techniciansToTicketsInsert);
+
+        // Step 7: Generate and insert ticket history
+        log("📜 Generating ticket history...");
+        type NewTicketHistory = typeof schema.ticketHistory.$inferInsert;
+        const ticketHistory: NewTicketHistory[] = [];
+        for (let i = 0; i < 1000; i++) {
+          const ticketId = i + 1;
+          const numHistory = getRandomInt(3, 5); // Each ticket has 3-8 history records
+          const { customerId, agentId, technicianIds } =
+            memberCache.get(ticketId)!;
+
+          const assigneeIds = [...technicianIds, agentId];
+
+          // Generate timestamps for this ticket's history
+          const timestamps = Array.from({ length: numHistory }, () =>
+            faker.date.past().toUTCString(),
+          ).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
           for (let j = 0; j < numHistory; j++) {
+            const type = (() => {
+              if (j === 0) return "create";
+              if (j === numHistory - 1) return "close";
+              return getRandomEnum(ticketHistoryTypeEnumArray);
+            })();
+            const createdAt = timestamps[j];
+
+            // Handle special cases for create and close
+            let meta = getRandomInt(1, 100);
+            let operatorId = getRandomElement(assigneeIds);
+
+            if (type === "create") {
+              meta = agentId; // assigneeId for create
+              operatorId = customerId; // customer's id for create
+            } else if (type === "close") {
+              operatorId = agentId; // agent closes the ticket
+            }
+
             ticketHistory.push({
-              type: getRandomEnum(ticketHistoryTypeEnumArray),
-              eventTarget: getRandomInt(1, 100),
+              type,
+              meta,
               description: faker.lorem.sentence(),
-              createdAt: faker.date.past().toUTCString(),
+              createdAt,
               ticketId,
+              operatorId,
             });
           }
         }
 
         await tx.insert(schema.ticketHistory).values(ticketHistory);
 
-        // Step 7: Generate and insert chat messages
+        // Step 8: Generate and insert chat messages
         log("💬 Generating chat messages...");
         const chatMessages = [];
+
         for (let i = 0; i < 1000; i++) {
           const ticketId = i + 1;
-          
+          const { customerId, agentId, technicianIds } =
+            memberCache.get(ticketId)!;
+
+          const members = [customerId, ...technicianIds, agentId];
+
           // First add AI message for each ticket
           chatMessages.push({
-            id: chatMessages.length + 1,
             ticketId,
-            senderId: 1, // AI user id
+            senderId: aiUserId, // AI user id
             content: generateContentBlock(),
             createdAt: faker.date.past().toUTCString(),
             isInternal: false,
           });
 
           const numMessages = getRandomInt(5, 10); // Each ticket has 5-15 messages
-          const members = ticketSessionMembers.filter(
-            (m) => m.ticketId === ticketId,
-          );
 
           for (let j = 0; j < numMessages; j++) {
-            const sender = members[Math.floor(Math.random() * members.length)];
+            const sender = getRandomElement(members);
             if (!sender) continue; // Skip if no sender is found
             chatMessages.push({
-              id: chatMessages.length + 1,
               ticketId,
-              senderId: sender.userId,
+              senderId: sender,
               content: generateContentBlock(),
               createdAt: faker.date.past().toUTCString(),
-              isInternal: faker.datatype.boolean({ probability: 0.15 }),
+              isInternal:
+                sender === customerId
+                  ? false
+                  : faker.datatype.boolean({ probability: 0.15 }),
             });
           }
         }
 
-        await tx.insert(schema.chatMessages).values(chatMessages);
+        const chatMessagesInsert = await tx
+          .insert(schema.chatMessages)
+          .values(chatMessages)
+          .returning();
 
-        // Step 8: Generate and insert message read status
+        // Step 9: Generate and insert message read status
         log("📖 Generating message read status...");
         const messageReadStatus = [];
-        for (const message of chatMessages) {
+        for (const message of chatMessagesInsert) {
           const ticketId = message.ticketId;
-          const members = ticketSessionMembers.filter(
-            (m) => m.ticketId === ticketId,
-          );
+          const { customerId, agentId, technicianIds } =
+            memberCache.get(ticketId)!;
+          const members = [customerId, ...technicianIds, agentId];
 
           for (const member of members) {
             // 80% probability read
             if (Math.random() < 0.8) {
               messageReadStatus.push({
                 messageId: message.id,
-                userId: member.userId,
+                userId: member,
                 readAt: faker.date.recent().toUTCString(),
               });
             }
@@ -434,9 +529,16 @@ async function main() {
           .insert(schema.messageReadStatus)
           .values(messageReadStatus)
           .onConflictDoNothing();
-      });
 
-      await serialSequenceReset(db);
+        // Step 10: Generate and insert ticket tags
+        log("📖 Generating ticket tags...");
+        const ticketTagsInsert = Array.from({ length: 2300 }, () => ({
+          ticketId: getRandomInt(1, 1000),
+          tagId: getRandomInt(1, 80),
+        }));
+
+        await tx.insert(schema.ticketsTags).values(ticketTagsInsert);
+      });
 
       const totalTime = performance.now() - startTime;
       log(`🎉 Seeding completed in ${Math.round(totalTime)}ms`);
@@ -451,6 +553,7 @@ async function main() {
         return {
           success: false,
           error: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
           time: performance.now() - startTime,
         };
       }

@@ -38,7 +38,7 @@ export const userTicketsQueryOptions = (id: string) =>
       const data = await (
         await apiClient.user.getUserTickets.$get({ query: { userId: id } })
       ).json();
-      return data.data;
+      return data;
     },
   });
 

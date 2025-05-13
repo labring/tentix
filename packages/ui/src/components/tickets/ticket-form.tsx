@@ -1,6 +1,6 @@
 import {
   JSONContentZod,
-  ticketSessionInsertType,
+  ticketInsertType,
 } from "@server/utils/types.ts";
 import {
   BugIcon,
@@ -63,6 +63,7 @@ export function TicketForm() {
   const { area } = useLocalUser();
   const [agreementChecked, setAgreementChecked] = useState<boolean>(true);
   const [agreementOpen, setAgreementOpen] = useState<boolean>(false);
+  
 
   const handleAgreementClick = () => {
     if (!agreementChecked) {
@@ -81,17 +82,24 @@ export function TicketForm() {
     register,
     control,
     formState: { errors, isValid },
-  } = useForm<ticketSessionInsertType>({
+  } = useForm<ticketInsertType>({
     mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
       area: area,
+      category: "bug",
     },
   });
 
-  const onSubmit: SubmitHandler<ticketSessionInsertType> = (data) => {
-    console.log(data);
-    apiClient.ticket.create.$post({ json: data });
+  const onSubmit: SubmitHandler<ticketInsertType> = async (data) => {
+    const res = await apiClient.ticket.create.$post({ json: data });
+    if (res.ok) {
+      toast({
+        title: t("ticket_created"),
+      });
+      router.push(`/staff/tickets/${res.data.id}`);
+    }
+
   };
 
   const [date, setDate] = useState<Date>();
@@ -115,7 +123,6 @@ export function TicketForm() {
         name="ticket-form"
         onSubmit={(e) => {
           e.preventDefault();
-          console.log("error:", errors, isValid);
           if (!isValid) {
             toast({
               title: t("plz_fill_all_fields"),
@@ -126,7 +133,6 @@ export function TicketForm() {
             });
           }
           handleSubmit(onSubmit)();
-          console.log(handleSubmit(onSubmit));
         }}
       >
         <div className="grid gap-6 p-1">
@@ -158,7 +164,9 @@ export function TicketForm() {
                     render={({ field }) => (
                       <Select {...field} onValueChange={field.onChange}>
                         <SelectTrigger id="module">
-                          <SelectValue placeholder={joinTrans([t("select"), t("module")])} />
+                          <SelectValue
+                            placeholder={joinTrans([t("select"), t("module")])}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {moduleEnumArray.map((module) => (

@@ -63,7 +63,7 @@ export const ticketStatusEnumArray = [
  * Ticket history type enum array
  * 
  * @description
- * | **history_type** | **eventTarget**            |
+ * | **history_type** | **meta(integer)**            |
  * |:----------------:|:--------------------------:|
  * | create           | customer user Id           |
  * | update           | who modify the information |
@@ -77,8 +77,8 @@ export const ticketStatusEnumArray = [
  */
 export const ticketHistoryTypeEnumArray = [
   "create",
+  "first_reply",
   "update",
-  "assign",
   "upgrade",
   "transfer",
   "makeRequest",

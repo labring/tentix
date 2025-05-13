@@ -40,4 +40,42 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    outDir: 'dist',
+    chunkSizeWarningLimit: 600,
+    sourcemap: false,
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom','@tanstack/react-router',
+            '@tanstack/react-router-devtools',
+            '@tanstack/router-plugin'],
+          'tiptap-editor': [
+            '@tiptap/extension-blockquote',
+            '@tiptap/extension-bold',
+            '@tiptap/extension-bullet-list',
+            '@tiptap/extension-code',
+            '@tiptap/extension-code-block',
+            '@tiptap/extension-document',
+            '@tiptap/extension-horizontal-rule',
+            '@tiptap/extension-italic',
+            '@tiptap/extension-ordered-list',
+            '@tiptap/extension-paragraph',
+            '@tiptap/extension-strike',
+            '@tiptap/extension-text',
+            '@tiptap/html'
+          ],
+          'ui-vendor': [
+            'class-variance-authority',
+            'clsx',
+            'lucide-react',
+            'tailwind-merge',
+            'tailwindcss-animate',
+            'tentix-ui'
+          ]
+        }
+      }
+    }
+  }
 });

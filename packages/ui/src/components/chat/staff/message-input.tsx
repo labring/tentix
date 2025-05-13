@@ -2,7 +2,7 @@ import { JSONContentZod } from "@server/utils/types.ts";
 import { Loader2Icon, SendIcon } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
-import ChatEditor from "../../minimal-tiptap/staff-chat-editor.js";
+import ChatEditor, { EditorRef } from "../../minimal-tiptap/staff-chat-editor.js";
 import { Button } from "../../ui/button.js";
 
 interface MessageInputProps {
@@ -11,7 +11,7 @@ interface MessageInputProps {
   isLoading: boolean;
 }
 
-export function MessageInput({
+export function StaffMessageInput({
   onSendMessage,
   onTyping,
   isLoading,
@@ -20,12 +20,14 @@ export function MessageInput({
     type: "doc",
     content: [],
   });
+  const editorRef = useRef<EditorRef>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage || isLoading) return;
     onSendMessage(newMessage);
     setNewMessage({ type: "doc", content: [] });
+    editorRef.current?.clearContent();
     console.log(newMessage);
   };
 
@@ -34,6 +36,7 @@ export function MessageInput({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="flex gap-2">
           <ChatEditor
+            ref={editorRef}
             value={newMessage}
             onChange={(value) => {
               onTyping?.();

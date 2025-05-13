@@ -3,7 +3,7 @@ export * from "./tools.ts";
 export * from "./rpc.ts";
 export * from "./minio.ts";
 export * from "./dbAction.ts";
-export * from "./platform.ts";
+export * from "./platform/index.ts";
 export * from "./log.ts";
 
 /**   Notice:

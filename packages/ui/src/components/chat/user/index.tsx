@@ -23,7 +23,7 @@ export function UserChat({
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
-  const [localTicket, setLocalTicket] = useState<TicketType>(ticket);
+  const [localMessages, setLocalMessages] = useState<TicketType["messages"]>(ticket.messages);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { sessionMembers, setSessionMembers } = useSessionMembersStore();
   const { id: userId } = useLocalUser();
@@ -36,10 +36,7 @@ export function UserChat({
 
   // Handle new message
   const handleNewMessage = (newMessage: any) => {
-    setLocalTicket((prev) => ({
-      ...prev,
-      messages: [...prev.messages, newMessage],
-    }));
+    setLocalMessages((prev) => [...prev, newMessage]);
   };
 
   // Handle message sent confirmation
@@ -48,8 +45,12 @@ export function UserChat({
   };
 
   // Handle user typing
-  const handleUserTyping = (typingUserId: number) => {
-    setOtherTyping(typingUserId);
+  const handleUserTyping = (typingUserId: number, status: "start" | "stop") => {
+    if (status === "start") {
+      setOtherTyping(typingUserId);
+    } else {
+      setOtherTyping(false);
+    }
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
@@ -77,17 +78,20 @@ export function UserChat({
 
   useEffect(() => {
     setIsLoading(wsLoading);
+  }, [wsLoading]);
+
+  useEffect(() => {
     setSessionMembers(ticket);
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       closeConnection();
     };
-  }, [wsLoading, ticket, closeConnection]);
+  }, [ticket.id, closeConnection]);
 
   // Track unread messages
   useEffect(() => {
     const newUnreadMessages = new Set<number>();
-    localTicket.messages.forEach((message) => {
+    localMessages.forEach((message) => {
       if (
         message.senderId !== userId &&
         !message.readStatus.some((status) => status.userId === userId) &&
@@ -97,7 +101,7 @@ export function UserChat({
       }
     });
     setUnreadMessages(newUnreadMessages);
-  }, [localTicket.messages, userId]);
+  }, [localMessages.length, userId]);
 
   // Send read status when messages come into view
   const handleMessageInView = (messageId: number) => {
@@ -129,14 +133,12 @@ export function UserChat({
       ).toUTCString(),
       readStatus: [],
       isInternal: false,
+      withdrawn: false,
     };
 
     // Add to local state immediately
-    setLocalTicket((prevTicket) => {
-      return {
-        ...prevTicket,
-        messages: [...prevTicket.messages, optimisticMessage],
-      };
+    setLocalMessages((prevMessages) => {
+      return [...prevMessages, optimisticMessage];
     });
 
     // Add to sending messages set
@@ -149,13 +151,13 @@ export function UserChat({
   return (
     <PhotoProvider>
       <div className="overflow-y-auto h-full">
-        <TicketInfoBox ticket={localTicket} />
+        <TicketInfoBox ticket={ticket} />
         <MessageList
-          messages={localTicket.messages}
+          messages={localMessages}
           isLoading={isLoading}
           typingUser={sessionMembers?.find(
             (member) => member.id === otherTyping,
-          )}
+          )?.id}
           onMessageInView={handleMessageInView}
         />
       </div>

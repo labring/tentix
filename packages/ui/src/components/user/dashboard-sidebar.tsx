@@ -38,18 +38,17 @@ export function UserDashboardSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          <SidebarMenuItem>
-          <Link to="/user/dashboard">
-          <SidebarMenuButton
+          {/* <SidebarMenuItem>
+            <SidebarMenuButton
               asChild
               isActive={pathname === "/user/dashboard"}
             >
-              <Home />
-              <span>{t("dashboard")}</span>
-            </SidebarMenuButton>
+              <Link to="/user/dashboard">
+                <Home />
+                <span>{t("dashboard")}</span>
               </Link>
-            
-          </SidebarMenuItem>
+            </SidebarMenuButton>
+          </SidebarMenuItem> */}
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild

@@ -2,9 +2,33 @@ import React, { ReactNode, useMemo } from 'react';
 import { JSONContent } from '@tiptap/react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/github.css'; // 可以选择其他样式
+import hljs from 'highlight.js/lib/core';
+
+import 'highlight.js/styles/github.css';
 import './content-styles.css';
+
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import python from 'highlight.js/lib/languages/python';
+import java from 'highlight.js/lib/languages/java';
+import csharp from 'highlight.js/lib/languages/csharp';
+import cpp from 'highlight.js/lib/languages/cpp';
+import go from 'highlight.js/lib/languages/go';
+import bash from 'highlight.js/lib/languages/bash';
+import sql from 'highlight.js/lib/languages/sql';
+import json from 'highlight.js/lib/languages/json';
+
+
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('java', java);
+hljs.registerLanguage('csharp', csharp);
+hljs.registerLanguage('cpp', cpp);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('json', json);
 
 // 创建代码块组件进行高亮
 const CodeBlock = ({ language, content }: { language: string; content: string }) => {
@@ -26,28 +50,25 @@ const CodeBlock = ({ language, content }: { language: string; content: string })
   );
 };
 
-export const renderContent = (content: JSONContent): ReactNode => {
+export const RenderContent = ({content}: {content: JSONContent}): ReactNode => {
   if (!content) return null;
 
-  // 处理文档根节点
   if (content.type === 'doc') {
     return (
-      <div className="content-doc">
-        {content.content?.map((node, index) => renderContent(node))}
-      </div>
+      <>
+        {content.content?.map((node, index) => <RenderContent key={index} content={node} />)}
+      </>
     );
   }
 
-  // 处理段落
   if (content.type === 'paragraph') {
     return (
       <p key={Math.random()} className="content-paragraph">
-        {content.content?.map((node, index) => renderContent(node))}
+        {content.content?.map((node, index) => <RenderContent key={index} content={node} />)}
       </p>
     );
   }
 
-  // 处理代码块
   if (content.type === 'codeBlock') {
     const language = content.attrs?.language || '';
     const codeContent = content.content?.map((node) => node.text).join('') || '';
@@ -61,11 +82,10 @@ export const renderContent = (content: JSONContent): ReactNode => {
     );
   }
 
-  // 处理无序列表
   if (content.type === 'bulletList') {
     return (
       <ul key={Math.random()} className="content-bullet-list">
-        {content.content?.map((node, index) => renderContent(node))}
+        {content.content?.map((node, index) => <RenderContent key={index} content={node} />)}
       </ul>
     );
   }
@@ -73,7 +93,7 @@ export const renderContent = (content: JSONContent): ReactNode => {
   if (content.type === 'listItem') {
     return (
       <li key={Math.random()} className="content-list-item">
-        {content.content?.map((node, index) => renderContent(node))}
+        {content.content?.map((node, index) => <RenderContent key={index} content={node} />)}
       </li>
     );
   }
@@ -81,7 +101,7 @@ export const renderContent = (content: JSONContent): ReactNode => {
   if (content.type === 'blockquote') {
     return (
       <blockquote key={Math.random()} className="content-blockquote">
-        {content.content?.map((node, index) => renderContent(node))}
+        {content.content?.map((node, index) => <RenderContent key={index} content={node} />)}
       </blockquote>
     );
   }
@@ -133,8 +153,10 @@ export const renderContent = (content: JSONContent): ReactNode => {
   return null;
 };
 
-export const ContentRenderer = ({ content }: { content: JSONContent }) => {
-  return <div className="content-renderer">{renderContent(content)}</div>;
+export const ContentRenderer = ({ doc, isMine = false }: { doc: JSONContent, isMine?: boolean }) => {
+  return <div className={`content-renderer ${isMine ? 'my-msg' : 'other-msg'}`}>
+    <RenderContent content={doc} />
+  </div>;
 };
 
 export default ContentRenderer; 

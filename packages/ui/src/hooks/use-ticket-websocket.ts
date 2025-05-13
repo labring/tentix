@@ -14,7 +14,7 @@ interface UseTicketWebSocketProps {
   userId: number;
   onNewMessage: (message: TicketType["messages"][number]) => void;
   onMessageSent: (tempId: number) => void;
-  onUserTyping: (userId: number) => void;
+  onUserTyping: (userId: number, status: "start" | "stop") => void;
   onError?: (error: any) => void;
 }
 
@@ -28,6 +28,7 @@ interface UseTicketWebSocketReturn {
   sendTypingIndicator: () => void;
   sendReadStatus: (messageId: number) => void;
   closeConnection: () => void;
+  sendCustomMsg: (props: WSMessage) => void;
 }
 
 export function useTicketWebSocket({
@@ -105,32 +106,31 @@ export function useTicketWebSocket({
         `Attempting to reconnect (${reconnectAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})`,
       );
       reconnectAttemptsRef.current += 1;
-      connectWebSocket();
+      connectWebSocket(ticket.id);
     }, WS_RECONNECT_INTERVAL);
   }, []);
 
   // Establish WebSocket connection
-  const connectWebSocket = useCallback(() => {
+  const connectWebSocket = useCallback((id: number) => {
     if (
       !token ||
-      !ticket.id ||
       reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS
     )
       return;
 
     // Create WebSocket connection
-    const ws = new WebSocket(
-      `ws://localhost:3000/api/ws?token=${token}&ticketId=${ticket.id}`,
+
+    const ws = wsRef.current ? wsRef.current : new WebSocket(
+      `ws://${window.location.host}/api/ws?ticketId=${id}&token=${token}`,
     );
+    
     wsRef.current = ws;
 
     // WebSocket event handling
     ws.onopen = () => {
       setIsLoading(false);
-      reconnectAttemptsRef.current = 0; // 连接成功后重置重连尝试次数
+      reconnectAttemptsRef.current = 0;
       isConnectingRef.current = false;
-
-      // 启动心跳检测
       startHeartbeat();
     };
 
@@ -153,9 +153,12 @@ export function useTicketWebSocket({
                 createdAt: new Date(data.timestamp).toUTCString(),
                 readStatus: [],
                 isInternal: data.isInternal,
+                withdrawn: false,
               };
               onNewMessage(newMessage);
+              onUserTyping(data.userId, "stop");
             }
+
             break;
 
           case "message_sent":
@@ -164,7 +167,7 @@ export function useTicketWebSocket({
 
           case "user_typing":
             if (data.userId !== userId) {
-              onUserTyping(data.userId);
+              onUserTyping(data.userId, "start");
             }
             break;
 
@@ -207,7 +210,7 @@ export function useTicketWebSocket({
       if (onError) onError(event);
       setIsLoading(false);
     };
-  }, [ticket.id, token, userId]);
+  }, [token, userId]);
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -215,7 +218,7 @@ export function useTicketWebSocket({
 
     isConnectingRef.current = true;
     setIsLoading(true);
-    connectWebSocket();
+    connectWebSocket(ticket.id);
 
     // Cleanup function
     return () => {
@@ -223,14 +226,13 @@ export function useTicketWebSocket({
         clearInterval(heartbeatIntervalRef.current);
       if (reconnectTimeoutRef.current)
         clearTimeout(reconnectTimeoutRef.current);
-
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
       isConnectingRef.current = false;
     };
-  }, [token, connectWebSocket]);
+  }, [token, connectWebSocket, ticket.id]);
 
   // Send message
   const sendMessage = useCallback(
@@ -280,14 +282,18 @@ export function useTicketWebSocket({
     if (heartbeatIntervalRef.current)
       clearInterval(heartbeatIntervalRef.current);
     if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
 
-    setTimeout(() => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    }, 1000);
   }, []);
+
+  function sendCustomMsg(props: WSMessage) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(props));
+    }
+  }
 
   return {
     isLoading,
@@ -295,5 +301,6 @@ export function useTicketWebSocket({
     sendTypingIndicator,
     sendReadStatus,
     closeConnection,
+    sendCustomMsg,
   };
 }

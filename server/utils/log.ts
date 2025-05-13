@@ -3,17 +3,30 @@ import { styleText } from "util";
 type LogLevel = "info" | "success" | "warning" | "error" | "debug" | "start";
 
 interface LogStyle {
-  bg: string[];
   text: string[];
+  bg?: string[];
 }
 
 const LOG_STYLES: Record<LogLevel, LogStyle> = {
-  info: { bg: ["bgBlue"], text: ["white"] },
-  success: { bg: ["bgGreenBright"], text: ["black"] },
-  warning: { bg: ["bgYellow"], text: ["black"] },
-  error: { bg: ["bgRedBright"], text: ["white"] },
-  debug: { bg: ["bgMagenta"], text: ["white"] },
-  start: { bg: ["bgCyan"], text: ["black"] },
+  info: { 
+    text: ["blueBright", "bold"]
+  },
+  success: { 
+    text: ["green", "bold"]
+  },
+  warning: { 
+    text: ["yellow", "bold"]
+  },
+  error: { 
+    text: ["white", "bold"],
+    bg: ["bgRed"]
+  },
+  debug: { 
+    text: ["magentaBright", "bold"]
+  },
+  start: { 
+    text: ["cyanBright", "bold"]
+  },
 };
 
 /**
@@ -21,23 +34,27 @@ const LOG_STYLES: Record<LogLevel, LogStyle> = {
  */
 function logWithStyle(level: LogLevel, message: string, prefix?: string) {
   const style = LOG_STYLES[level];
-  const formattedMessage = prefix ? `${prefix} ${message}` : message;
+  const timestamp = new Date().toLocaleTimeString();
+  const formattedMessage = prefix 
+    ? `[${timestamp}] ${prefix} ${message}`
+    : `[${timestamp}] ${message}`;
+  
   // @ts-ignore
-  console.log(styleText([...style.bg, ...style.text], formattedMessage));
+  console.log(styleText([...(style.bg || []), ...style.text], formattedMessage));
 }
 
 /**
  * Log an informational message
  */
 export function logInfo(message: string) {
-  logWithStyle("info", message, "ℹ️");
+  logWithStyle("info", message, "📘");
 }
 
 /**
  * Log a success message
  */
 export function logSuccess(message: string) {
-  logWithStyle("success", message, "✅");
+  logWithStyle("success", message, "✨");
 }
 
 /**
@@ -51,7 +68,7 @@ export function logWarning(message: string) {
  * Log an error message
  */
 export function logError(message: string, error?: unknown) {
-  logWithStyle("error", message, "❌");
+  logWithStyle("error", message, "💥");
   if (error) {
     console.error(error);
   }
@@ -62,7 +79,7 @@ export function logError(message: string, error?: unknown) {
  */
 export function logDebug(message: string) {
   if (process.env.NODE_ENV === "development") {
-    logWithStyle("debug", message, "🔍");
+    logWithStyle("debug", message, "🔧");
   }
 }
 
@@ -77,7 +94,7 @@ export function logStart(message: string) {
  * Log a process completion message
  */
 export function logComplete(message: string) {
-  logSuccess(`✨ ${message}`);
+  logSuccess(`${message}`);
 }
 
 /**

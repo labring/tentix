@@ -42,38 +42,24 @@ export function validateJSONContent(data: any): data is JSONContent {
   return validationResult.success;
 }
 
-export function extractText(doc: JSONContentZod): string[] {
-  const texts: string[] = [];
+export function extractText(json: JSONContentZod) {
+  let result = "";
 
-  // Handle array of nodes
-  if (Array.isArray(doc)) {
-    doc.forEach((node) => {
-      texts.push(...extractText(node));
-    });
-    return texts;
+  function traverse(node: JSONContentZod) {
+    if (node.type === "text") {
+      result += node.text;
+    } else if (node.content) {
+      for (const child of node.content) {
+        traverse(child);
+      }
+    }
   }
-
-  // Handle single node
-  if (doc.text) {
-    texts.push(doc.text);
-  }
-
-  // Recursively process child content
-  if (doc.content) {
-    doc.content.forEach((node) => {
-      texts.push(...extractText(node));
-    });
-  }
-
-  return texts;
-}
-
-export function extractTextAsString(doc: JSONContentZod): string {
-  return extractText(doc).join("");
+  traverse(json);
+  return result;
 }
 
 export function getAbbreviatedText(doc: JSONContentZod, maxLength: number = 100): string {
-  const text = extractTextAsString(doc);
+  const text = extractText(doc);
   if (text.length <= maxLength) {
     return text;
   }
@@ -83,15 +69,17 @@ export function getAbbreviatedText(doc: JSONContentZod, maxLength: number = 100)
 const zodUserRole = createSelectSchema(schema.userRole);
 export type userRoleType = z.infer<typeof zodUserRole>;
 
-export const ticketSessionInsertSchema = createInsertSchema(
-  schema.ticketSession,
+export const ticketInsertSchema = createInsertSchema(
+  schema.tickets,
 ).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  customerId: true,
+  agentId: true,
 });
 
-export type ticketSessionInsertType = z.infer<typeof ticketSessionInsertSchema>;
+export type ticketInsertType = z.infer<typeof ticketInsertSchema>;
 
 export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
@@ -153,6 +141,11 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     timestamp: z.number(),
   }),
   z.object({
+    type: z.literal("agent_first_message"),
+    roomId: z.number(),
+    timestamp: z.number(),
+  }),
+  z.object({
     type: z.literal("error"),
     error: z.string(),
     details: z.string(),
@@ -162,11 +155,38 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
 export type WSMessage = z.infer<typeof wsMessageSchema>;
 
 export type AppConfig = {
-  FEISHU_BOT_WEBHOOK_ID: string;
-  staff_map: {
+  feishu_bot_webhook_id: string;
+  feishu_app_id: `cli_${string}`;
+  feishu_app_secret: string;
+  feishu_chat_id: `oc_${string}`;
+  department_ids: `od-${string}`[];
+  agents_ids: `on_${string}`[];
+  admin_ids: `on_${string}`[];
+  aiProfile: {
+    uid: string;
+    name: string;
+    nickname: string;
+    realName: string;
+    status: string;
+    phoneNum: string;
     identity: string;
-    role: "agent" | "technician" | "admin" | "ai";
-    feishu_id: string;
-    comment?: string;
+    role: "ai";
+    avatar: string;
+    registerTime: string;
+  };
+  departments: {
+    openId: `ou_${string}`;
+    id: string;
+    name: string;
+    members: `on_${string}`[];
+  }[];
+  staffs: {
+    name: string;
+    nickname?: string;
+    description: string;
+    open_id: `ou_${string}`;
+    union_id: `on_${string}`;
+    user_id: string;
+    avatar: string;
   }[];
 };

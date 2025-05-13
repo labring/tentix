@@ -18,16 +18,14 @@ function getCk() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ck, setCk] = React.useState<AuthContext["ck"]>(getCk());
   const [user, setUser] = React.useState<AuthContext["user"]>(null);
-  const isAuthenticated = Boolean(ck);
+  const isAuthenticated = Boolean(user);
   const { data: userData } = useSuspenseQuery(userInfoQueryOptions());
 
   React.useEffect(() => {
     const area = window.localStorage.getItem(
       "area",
-    ) as (typeof areaEnumArray)[number];
-    if (area) {
-      setUser({ ...userData, area });
-    }
+    ) as (typeof areaEnumArray)[number] ?? 'hzh';
+    setUser({ ...userData, area });
     setCk(getCk());
   }, [userData]);
 

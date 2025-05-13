@@ -14,7 +14,7 @@ interface SiteHeaderProps {
   toggleSidebar?: () => void;
 }
 
-export function SiteHeader({
+export function StaffSiteHeader({
   ticket,
   sidebarVisible,
   toggleSidebar,
@@ -24,7 +24,6 @@ export function SiteHeader({
     useTransferModal();
   const { openUpdateStatusModal, updateStatusModal, isUpdatingStatus } =
     useUpdateStatusModal();
-  const { id: userId } = useLocalUser();
 
 
   
@@ -44,7 +43,7 @@ export function SiteHeader({
           Raise Request
         </Button>
         <Button
-          onClick={() => openTransferModal(ticket.id, userId, userId)}
+          onClick={() => openTransferModal(ticket.id)}
           disabled={isTransferring}
         >
           Transfer

@@ -1,11 +1,36 @@
-import { CalendarIcon, ClockIcon, TagIcon } from "lucide-react";
-import { Badge } from "../ui/badge.tsx";
+import { CalendarIcon, ClockIcon, TagIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { Card, CardContent } from "../ui/card.tsx";
 import { Separator } from "../ui/separator.tsx";
 import type { TicketType } from "tentix-ui/lib/types";
 import ContentRenderer from "./content-renderer.tsx";
+import { PriorityBadge, StatusBadge } from "../basic/index.tsx";
+import { useState, useRef, useEffect } from "react";
+import { Button } from "../ui/button.tsx";
 
 export function TicketInfoBox({ ticket }: { ticket: TicketType }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showButton, setShowButton] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkHeight = () => {
+      if (contentRef.current) {
+        const contentHeight = contentRef.current.scrollHeight;
+        const maxHeight = 15 * 16; // 15rem to pixels (1rem = 16px)
+        setShowButton(contentHeight > maxHeight);
+      }
+    };
+
+    checkHeight();
+    // Add resize observer to handle dynamic content changes
+    const resizeObserver = new ResizeObserver(checkHeight);
+    if (contentRef.current) {
+      resizeObserver.observe(contentRef.current);
+    }
+
+    return () => resizeObserver.disconnect();
+  }, [ticket.description]);
+
   return (
     <Card className="m-12 overflow-hidden border bg-muted/30">
       <CardContent className="p-4">
@@ -34,36 +59,38 @@ export function TicketInfoBox({ ticket }: { ticket: TicketType }) {
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                className={
-                  ticket.status === "Resolved"
-                    ? "bg-green-500"
-                    : ticket.status === "In Progress"
-                      ? "bg-amber-500"
-                      : "bg-blue-500"
-                }
-              >
-                {ticket.status}
-              </Badge>
-              <Badge
-                variant="outline"
-                className={
-                  ticket.priority === "urgent"
-                    ? "border-red-500 text-red-500"
-                    : ticket.priority === "high"
-                      ? "border-orange-500 text-orange-500"
-                      : ticket.priority === "medium"
-                        ? "border-amber-500 text-amber-500"
-                        : "border-green-500 text-green-500"
-                }
-              >
-                {ticket.priority} Priority
-              </Badge>
+              <StatusBadge status={ticket.status} />
+              <PriorityBadge priority={ticket.priority} />
             </div>
           </div>
         </div>
-        <div className="mt-2 max-h-[100px] overflow-y-auto">
-          <ContentRenderer content={ticket.description} />
+        <div className="mt-2">
+          <div 
+            ref={contentRef}
+            className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'max-h-none' : 'max-h-[15rem]'}`}
+          >
+            <ContentRenderer doc={ticket.description} />
+          </div>
+          {showButton && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full mt-2 flex items-center justify-center gap-1"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUpIcon className="h-4 w-4" />
+                  Show Less
+                </>
+              ) : (
+                <>
+                  <ChevronDownIcon className="h-4 w-4" />
+                  Show More
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -8,6 +8,7 @@ import { SectionTwo } from "./components/section/two.tsx";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import { MeasuredContainer } from "./components/measured-container.tsx";
+import { forwardRef, useImperativeHandle } from "react";
 
 export interface MinimalTiptapProps
   extends Omit<UseMinimalTiptapEditorProps, "onUpdate"> {
@@ -15,6 +16,10 @@ export interface MinimalTiptapProps
   onChange?: (value: Content) => void;
   className?: string;
   editorContentClassName?: string;
+}
+
+export interface EditorRef {
+  clearContent: () => void;
 }
 
 export const Toolbar = ({ editor }: { editor: Editor }) => (
@@ -30,42 +35,47 @@ export const Toolbar = ({ editor }: { editor: Editor }) => (
   </div>
 );
 
-export function ChatEditor({
-  value,
-  onChange,
-  className,
-  editorContentClassName,
-  ...props
-}: MinimalTiptapProps) {
-  const editor = useMinimalTiptapEditor({
-    value,
-    onUpdate: onChange,
-    output: "json",
-    ...props,
-  });
+export const ChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
+  function ChatEditor(
+    { value, onChange, className, editorContentClassName, ...props },
+    ref
+  ) {
+    const editor = useMinimalTiptapEditor({
+      value,
+      onUpdate: onChange,
+      output: "json",
+      ...props,
+    });
 
-  if (!editor) {
-    return null;
+    useImperativeHandle(ref, () => ({
+      clearContent: () => {
+        editor?.commands.clearContent();
+      },
+    }));
+
+    if (!editor) {
+      return null;
+    }
+
+    return (
+      <MeasuredContainer
+        as="div"
+        name="editor"
+        className={cn(
+          "border-input focus-within:border-primary flex flex-col rounded-md border shadow-xs max-h-96 h-auto w-full",
+          className,
+        )}
+      >
+        <EditorContent
+          editor={editor}
+          className={cn("minimal-tiptap-editor", editorContentClassName)}
+        />
+        <Toolbar editor={editor} />
+        <LinkBubbleMenu editor={editor} />
+      </MeasuredContainer>
+    );
   }
-
-  return (
-    <MeasuredContainer
-      as="div"
-      name="editor"
-      className={cn(
-        "border-input focus-within:border-primary flex flex-col rounded-md border shadow-xs max-h-96 h-auto w-full",
-        className,
-      )}
-    >
-      <EditorContent
-        editor={editor}
-        className={cn("minimal-tiptap-editor", editorContentClassName)}
-      />
-      <Toolbar editor={editor} />
-      <LinkBubbleMenu editor={editor} />
-    </MeasuredContainer>
-  );
-}
+);
 
 ChatEditor.displayName = "ChatEditor";
 

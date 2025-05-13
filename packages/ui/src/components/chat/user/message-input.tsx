@@ -2,7 +2,7 @@ import { JSONContentZod } from "@server/utils/types.ts";
 import { Loader2Icon, SendIcon } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
-import ChatEditor from "../../minimal-tiptap/chat-editor.js";
+import ChatEditor, { EditorRef } from "../../minimal-tiptap/chat-editor.js";
 import { Button } from "../../ui/button.js";
 
 interface MessageInputProps {
@@ -17,12 +17,14 @@ export function MessageInput({
   isLoading,
 }: MessageInputProps) {
   const [newMessage, setNewMessage] = useState<JSONContentZod>({type: 'doc', content: []});
+  const editorRef = useRef<EditorRef>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage || isLoading) return;
     onSendMessage(newMessage);
     setNewMessage({type: 'doc', content: []});
+    editorRef.current?.clearContent();
   };
 
   return (
@@ -30,6 +32,7 @@ export function MessageInput({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="flex gap-2">
           <ChatEditor
+            ref={editorRef}
             value={newMessage}
             onChange={(value) => {
               onTyping?.();
@@ -42,16 +45,6 @@ export function MessageInput({
             editable={true}
             editorClassName="focus:outline-none px-5 py-4 h-full"
           />
-          {/* <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
-          >
-            <PaperclipIcon className="h-4 w-4" />
-            <span className="sr-only">Attach file</span>
-          </Button> */}
           <Button
             type="submit"
             size="icon"
@@ -65,11 +58,6 @@ export function MessageInput({
             <span className="sr-only">Send message</span>
           </Button>
         </div>
-        {/* {ticketStatus === "Completed" && (
-          <p className="text-center text-sm text-muted-foreground">
-            This ticket has been resolved. You cannot send more messages.
-          </p>
-        )} */}
       </form>
     </div>
   );

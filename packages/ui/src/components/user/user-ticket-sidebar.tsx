@@ -32,21 +32,6 @@ import { StatusBadge } from "../basic/index.tsx"
 import { TicketsListItemType } from "tentix-ui/lib/types"
 
 
-function getStatusIcon(status: string) {
-  switch (status) {
-    case "Completed":
-      return <CheckCircleIcon className="text-green-500 dark:text-green-400" />
-    case "In Progress":
-      return <Loader2Icon className="text-amber-500 dark:text-amber-400" />
-    case "Pending":
-      return <ClockIcon className="text-blue-500 dark:text-blue-400" />
-    case "Scheduled":
-      return <ClockIcon className="text-purple-500 dark:text-purple-400" />
-    default:
-      return <AlertTriangleIcon className="text-red-500 dark:text-red-400" />
-  }
-}
-
 function getPriorityColor(priority: TicketsListItemType["priority"]) {
   switch (priority) {
     case "urgent":
@@ -62,7 +47,6 @@ function getPriorityColor(priority: TicketsListItemType["priority"]) {
   }
 }
 
-;
 
 export function UserTicketSidebar({ data, currentTicketId }: { data: InferResponseType<typeof apiClient.user.getUserTickets.$get>["data"], currentTicketId: number }) {
   const [searchQuery, setSearchQuery] = useState("")
@@ -82,7 +66,6 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
         (filter === "active" && ticket.status !== "resolved") ||
         (filter === "completed" && ticket.status === "resolved")),
   ) || []
-
 
 
   // Sort tickets by updated time

@@ -25,13 +25,18 @@ declare module '@tanstack/react-query' {
   }
 }
 
+
+
+
 const handler = {
   apply: function (
     target: typeof useSuspenseQueryTanStack,
     _this: unknown,
     argumentsList: Parameters<typeof useSuspenseQueryTanStack>,
   ) {
-    console.log(`suspenseQuery`, new Date().toTimeString(), argumentsList[0]);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`suspenseQuery`, new Date().toTimeString(), argumentsList[0]);
+    }
     return target(...argumentsList);
   },
 };
@@ -56,7 +61,7 @@ export const userTicketsQueryOptions = () =>
       const data = await (
         await apiClient.user.getUserTickets.$get()
       ).json();
-      return data.data;
+      return data;
     },
   });
 

@@ -311,7 +311,7 @@ export function DataTable({
       baseColumns.splice(3, 0, {
         accessorKey: "submittedBy",
         header: t("rqst_by"),
-        cell: ({ row }) => <div>{row.original.customer.userName}</div>,
+        cell: ({ row }) => <div>{row.original.customer.nickname}</div>,
       });
     }
 
@@ -364,10 +364,10 @@ export function DataTable({
 
   const getStatusCounts = React.useMemo(() => {
     return {
-      pending: data.filter((item) => item.status === "Pending").length,
-      inProgress: data.filter((item) => item.status === "In Progress").length,
-      completed: data.filter((item) => item.status === "Resolved").length,
-      scheduled: data.filter((item) => item.status === "Scheduled").length,
+      pending: data.filter((item) => item.status === "pending").length,
+      inProgress: data.filter((item) => item.status === "in_progress").length,
+      completed: data.filter((item) => item.status === "resolved").length,
+      scheduled: data.filter((item) => item.status === "scheduled").length,
     };
   }, [data]);
 
@@ -561,8 +561,7 @@ export function DataTable({
       value={tabValue}
       onValueChange={(value) => {
         setTabValue(value as typeof tabValue);
-        // 当切换标签时重置到第一页
-        // table.resetPageIndex();
+        table.resetPageIndex();
       }}
       defaultValue="all"
       className="flex w-full flex-col justify-start gap-6"
@@ -580,27 +579,27 @@ export function DataTable({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("all")}</SelectItem>
-            <SelectItem value="Pending">{t("pending")}</SelectItem>
-            <SelectItem value="In Progress">{t("in_progress")}</SelectItem>
-            <SelectItem value="Resolved">{t("completed")}</SelectItem>
-            <SelectItem value="Scheduled">{t("scheduled")}</SelectItem>
+            <SelectItem value="pending">{t("pending")}</SelectItem>
+            <SelectItem value="in_progress">{t("in_progress")}</SelectItem>
+            <SelectItem value="resolved">{t("completed")}</SelectItem>
+            <SelectItem value="scheduled">{t("scheduled")}</SelectItem>
           </SelectContent>
         </Select>
         <TabsList className="@4xl/main:flex hidden">
           <TabsTrigger value="all">{t("all")}</TabsTrigger>
-          <TabsTrigger value="Pending" className="gap-1">
+          <TabsTrigger value="pending" className="gap-1">
             {t("pending") + " "}
             <StatusTabBadge count={getStatusCounts.pending} />
           </TabsTrigger>
-          <TabsTrigger value="In Progress" className="gap-1">
+          <TabsTrigger value="in_progress" className="gap-1">
             {t("in_progress") + " "}
             <StatusTabBadge count={getStatusCounts.inProgress} />
           </TabsTrigger>
-          <TabsTrigger value="Resolved" className="gap-1">
+          <TabsTrigger value="resolved" className="gap-1">
             {t("completed") + " "}
             <StatusTabBadge count={getStatusCounts.completed} />
           </TabsTrigger>
-          <TabsTrigger value="Scheduled" className="gap-1">
+          <TabsTrigger value="scheduled" className="gap-1">
             {t("scheduled") + " "}
             <StatusTabBadge count={getStatusCounts.scheduled} />
           </TabsTrigger>

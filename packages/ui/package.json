@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "lint": "eslint . --max-warnings 0"
   },
@@ -93,7 +96,11 @@
     "typescript": "^5.7.3",
     "@tailwindcss/container-queries": "latest"
   },
+  "files": [
+    "dist"
+  ],
   "exports": {
+    ".": "./src/index.ts",
     "./globals.css": "./src/styles/globals.css",
     "./postcss.config": "./postcss.config.mjs",
     "./lib/*": "./src/lib/*.ts",

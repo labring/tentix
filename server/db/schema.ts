@@ -7,13 +7,14 @@ import {
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   serial,
   smallint,
   text,
   time,
   timestamp,
   unique,
-  varchar
+  varchar,
 } from "drizzle-orm/pg-core";
 import {
   areaEnumArray,
@@ -53,7 +54,6 @@ export const users = tentix.table(
     name: varchar("name", { length: 64 }).notNull(),
     nickname: varchar("nickname", { length: 64 }).notNull(),
     realName: varchar("real_name", { length: 64 }).notNull(),
-    status: varchar("status", { length: 64 }).notNull(),
     phoneNum: varchar("phone_num", { length: 64 }).default("").notNull(),
     identity: varchar("identity", { length: 64 }).notNull(),
     role: userRole("role").default("customer").notNull(),
@@ -72,13 +72,13 @@ export const users = tentix.table(
   (table) => [unique("users_identity_key").on(table.identity)],
 );
 
-export const ticketSession = tentix.table("ticket_session", {
+export const tickets = tentix.table("tickets", {
   id: serial("id").primaryKey().notNull(),
   title: varchar("title", { length: 254 }).notNull(),
   description: jsonb().$type<JSONContentZod>().notNull(),
   status: ticketStatus("status")
     .notNull()
-    .$default(() => "In Progress"),
+    .$default(() => "in_progress"),
   module: module("module").notNull(),
   area: area("area").notNull(),
   occurrenceTime: timestamp("occurrence_time", {
@@ -88,6 +88,13 @@ export const ticketSession = tentix.table("ticket_session", {
   category: ticketCategory("category").notNull(),
   priority: ticketPriority("priority").notNull(),
   errorMessage: text("error_message"),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => users.id),
+  agentId: integer("agent_id")
+    .default(0)
+    .notNull()
+    .references(() => users.id),
   createdAt: timestamp("created_at", { precision: 3, mode: "string" })
     .defaultNow()
     .notNull(),
@@ -95,7 +102,19 @@ export const ticketSession = tentix.table("ticket_session", {
     .defaultNow()
     .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
     .notNull(),
-});
+}, (table) => [
+  foreignKey({
+    columns: [table.customerId],
+    foreignColumns: [users.id],
+    name: "tickets_customer_id_users_id_fk",
+  }),
+  foreignKey({
+    columns: [table.agentId],
+    foreignColumns: [users.id],
+    name: "tickets_agent_id_users_id_fk",
+  }),
+  
+]);
 
 export const tags = tentix.table("tags", {
   id: serial("id").primaryKey().notNull(),
@@ -108,20 +127,28 @@ export const ticketHistory = tentix.table(
   {
     id: serial("id").primaryKey().notNull(),
     type: ticketHistoryType("type").notNull(),
-    eventTarget: integer("event_target").notNull(),
+    meta: integer("meta"),
     description: varchar("description", { length: 190 }),
+    ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => tickets.id),
+    operatorId: integer("operator_id")
+      .notNull()
+      .references(() => users.id),
     createdAt: timestamp("created_at", { precision: 3, mode: "string" })
       .defaultNow()
       .notNull(),
-    ticketId: integer("ticket_id")
-      .notNull()
-      .references(() => ticketSession.id),
   },
   (table) => [
     foreignKey({
       columns: [table.ticketId],
-      foreignColumns: [ticketSession.id],
+      foreignColumns: [tickets.id],
       name: "ticket_history_ticket_id_detailed_tickets_id_fk",
+    }),
+    foreignKey({
+      columns: [table.operatorId],
+      foreignColumns: [users.id],
+      name: "ticket_history_operator_id_users_id_fk",
     }),
   ],
 );
@@ -133,7 +160,7 @@ export const ticketsTags = tentix.table("tickets_tags", {
     .references(() => tags.id),
   ticketId: integer("ticket_id")
     .notNull()
-    .references(() => ticketSession.id),
+    .references(() => tickets.id),
 });
 
 // Chat Messages
@@ -143,7 +170,7 @@ export const chatMessages = tentix.table(
     id: serial("id").primaryKey().notNull(),
     ticketId: integer("ticket_id")
       .notNull()
-      .references(() => ticketSession.id),
+      .references(() => tickets.id),
     senderId: integer("sender_id")
       .notNull()
       .references(() => users.id),
@@ -152,6 +179,7 @@ export const chatMessages = tentix.table(
       .defaultNow()
       .notNull(),
     isInternal: boolean("is_internal").default(false).notNull(),
+    withdrawn: boolean("withdrawn").default(false).notNull(),
   },
   (table) => [
     foreignKey({
@@ -161,7 +189,7 @@ export const chatMessages = tentix.table(
     }),
     foreignKey({
       columns: [table.ticketId],
-      foreignColumns: [ticketSession.id],
+      foreignColumns: [tickets.id],
       name: "chat_messages_ticket_id_fk",
     }),
   ],
@@ -193,47 +221,62 @@ export const messageReadStatus = tentix.table(
       foreignColumns: [users.id],
       name: "message_read_status_user_id_users_id_fk",
     }),
-    // unique('message_read_status_unique').on(table.messageId, table.userId),
-    // seed kit not support unique
+    unique('message_read_status_unique').on(table.messageId, table.userId),
   ],
 );
 
-// Chat ticket Members
-export const ticketSessionMembers = tentix.table(
-  "ticket_session_members",
+// // Chat ticket Members
+// export const ticketMembers = tentix.table(
+//   "ticket_session_members",
+//   {
+//     id: serial("id").primaryKey().notNull(),
+//     ticketId: integer("ticket_id")
+//       .notNull()
+//       .references(() => ticket.id),
+//     userId: integer("user_id")
+//       .notNull()
+//       .references(() => users.id),
+//     joinedAt: timestamp("joined_at", { precision: 3, mode: "string" })
+//       .defaultNow()
+//       .notNull(),
+//     lastViewedAt: timestamp("last_viewed_at", { precision: 3, mode: "string" })
+//       .defaultNow()
+//       .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+//       .notNull(),
+//   },
+//   (table) => [
+//     foreignKey({
+//       columns: [table.ticketId],
+//       foreignColumns: [ticket.id],
+//       name: "ticket_session_members_ticket_id_ticket_sessions_id_fk",
+//     }),
+//     foreignKey({
+//       columns: [table.userId],
+//       foreignColumns: [users.id],
+//       name: "ticket_session_members_user_id_users_id_fk",
+//     }),
+//     unique("ticket_session_members_unique_active_member").on(
+//       table.ticketId,
+//       table.userId,
+//     ),
+//     // seed kit not support unique
+//   ],
+// );
+
+
+export const techniciansToTickets = tentix.table(
+  'technicians_to_tickets',
   {
-    id: serial("id").primaryKey().notNull(),
-    ticketId: integer("ticket_id")
-      .notNull()
-      .references(() => ticketSession.id),
-    userId: integer("user_id")
+    userId: integer('user_id')
       .notNull()
       .references(() => users.id),
-    joinedAt: timestamp("joined_at", { precision: 3, mode: "string" })
-      .defaultNow()
-      .notNull(),
-    lastViewedAt: timestamp("last_viewed_at", { precision: 3, mode: "string" })
-      .defaultNow()
-      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
-      .notNull(),
+    ticketId: integer('ticket_id')
+      .notNull()
+      .references(() => tickets.id),
   },
-  (table) => [
-    foreignKey({
-      columns: [table.ticketId],
-      foreignColumns: [ticketSession.id],
-      name: "ticket_session_members_ticket_id_ticket_sessions_id_fk",
-    }),
-    foreignKey({
-      columns: [table.userId],
-      foreignColumns: [users.id],
-      name: "ticket_session_members_user_id_users_id_fk",
-    }),
-    unique("ticket_session_members_unique_active_member").on(
-      table.ticketId,
-      table.userId,
-    ),
-    // seed kit not support unique
-  ],
+  (t) => [
+		primaryKey({ columns: [t.userId, t.ticketId] })
+	],
 );
 
 export const userSession = tentix.table(
@@ -258,27 +301,30 @@ export const userSession = tentix.table(
   ],
 );
 
-export const requirements = tentix.table("requirements", {
-  id: serial("id").primaryKey().notNull(),
-  title: varchar("title", { length: 254 }).notNull(),
-  description: jsonb().$type<JSONContentZod>().notNull(),
-  module: module("module").notNull(),
-  priority: ticketPriority("priority").notNull(),
-  relatedTicket: integer("related_ticket").references(() => ticketSession.id),
-  createAt: timestamp("create_at", { precision: 3, mode: "string" })
-    .defaultNow()
-    .notNull(),
-  updateAt: timestamp("update_at", { precision: 3, mode: "string" })
-    .defaultNow()
-    .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-},
-(table) => [
-  foreignKey({
-    columns: [table.relatedTicket],
-    foreignColumns: [ticketSession.id],
-    name: "requirements_related_ticket_ticket_sessions_id_fk",
-  }),
-]);
+export const requirements = tentix.table(
+  "requirements",
+  {
+    id: serial("id").primaryKey().notNull(),
+    title: varchar("title", { length: 254 }).notNull(),
+    description: jsonb().$type<JSONContentZod>().notNull(),
+    module: module("module").notNull(),
+    priority: ticketPriority("priority").notNull(),
+    relatedTicket: integer("related_ticket").references(() => tickets.id),
+    createAt: timestamp("create_at", { precision: 3, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updateAt: timestamp("update_at", { precision: 3, mode: "string" })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.relatedTicket],
+      foreignColumns: [tickets.id],
+      name: "requirements_related_tickets_id_fk",
+    }),
+  ],
+);
 // Add a constant for the AI user, used to identify the AI assistant in the system
 export const AI_USER_ID = 0; // Assuming 0 is the ID of the AI user

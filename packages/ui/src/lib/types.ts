@@ -6,7 +6,7 @@ export type UserType = InferResponseType<
 
 export type TicketsListItemType = InferResponseType<
   typeof apiClient.user.getUserTickets.$get
->["data"][number];
+>[number];
 
 export type TicketType = InferResponseType<
   typeof apiClient.ticket.info.$get

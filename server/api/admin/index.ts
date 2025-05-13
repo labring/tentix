@@ -1,10 +1,11 @@
 import * as schema from "@db/schema.ts";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { authMiddleware, factory } from "../middleware.ts";
+import { basicUserCols } from "../queryParams.ts";
 const transferTicketSchema = z.object({
   ticketId: z.number(),
   targetStaffId: z.number(),
@@ -52,25 +53,24 @@ const adminRouter = factory
     async (c) => {
       const db = c.var.db;
       const data = await db.query.users.findMany({
+        ...basicUserCols,
         where: inArray(schema.users.role, [
           "agent",
           "technician",
         ]),
-        with: {
-          ticketSession: {
-            // where: ne(schema.ticketSession.status, "Resolved"),
-          },
-        },
+        
       });
+      const staffMap = c.var.staffMap();
       const res = data.map((staff) => {
         return {
           ...staff,
           workload: (() => {
-            const num = staff.ticketSession.length;
-            if (num < 2) return "Low";
-            if (num < 5) return "Medium";
+            const num = staffMap.get(staff.id)?.remainingTickets || 0;
+            if (num < 5) return "Low";
+            if (num < 10) return "Medium";
             return "High";
           })(),
+          department: staffMap.get(staff.id)?.department || "Unknown",
         };
       });
 
@@ -156,11 +156,11 @@ const adminRouter = factory
         // If there is a related ticket, add history record
         if (relatedTicket) {
           await db.insert(schema.ticketHistory).values({
-            type: "other",
-            eventTarget: userId,
-            description: `Requirement raised: ${title}`,
+            type: "makeRequest",
+            meta: userId,
+            description: title,
             ticketId: relatedTicket,
-            createdAt: new Date().toISOString(),
+            operatorId: userId,
           });
         }
 

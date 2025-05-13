@@ -50,6 +50,8 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { TicketsListItemType } from "tentix-ui/lib/types";
 import { useTicketFavorites } from "../../store/ticket-favorites.ts";
 import { joinTrans, useTranslation } from "i18n";
+import { StatusBadge } from "../basic/index.tsx";
+import { timeAgo } from "tentix-ui/lib/utils";
 
 export function groupTickets<T extends Record<string, unknown>>(
   tickets: T[] | undefined = [],
@@ -106,39 +108,23 @@ function getPriorityColor(priority: string) {
   }
 }
 
-// Format date for display
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
 
-  if (date.toDateString() === today.toDateString()) {
-    return `Today at ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-  } else if (date.toDateString() === yesterday.toDateString()) {
-    return `Yesterday at ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-  } else {
-    return date.toLocaleDateString();
-  }
-};
 
 type TicketItemProps = {
   ticket: TicketsListItemType;
   currentTicketId: number;
-  isPinned: (id: number) => boolean;
-  isStarred: (id: number) => boolean;
-  handleTogglePin: (id: number, event: React.MouseEvent) => void;
-  handleToggleStar: (id: number, event: React.MouseEvent) => void;
 };
 
 const TicketItem = ({ 
   ticket, 
   currentTicketId, 
-  isPinned, 
-  isStarred, 
-  handleTogglePin, 
-  handleToggleStar 
 }: TicketItemProps) => {
+  const {
+    isStarred,
+    isPinned,
+    toggleStarred,
+    togglePinned,
+  } = useTicketFavorites();
   return (
     <SidebarMenuItem key={ticket.id}>
       <SidebarMenuButton
@@ -152,16 +138,16 @@ const TicketItem = ({
               <div className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
                   <AvatarImage
-                    src={ticket.customer?.userAvatar || "/placeholder.svg"}
-                    alt={ticket.customer?.userName || ""}
+                    src={ticket.customer.avatar || "/placeholder.svg"}
+                    alt={ticket.customer.nickname || ""}
                   />
                   <AvatarFallback>
-                    {ticket.customer?.userName?.charAt(0) || "?"}
+                    {ticket.customer.nickname.charAt(0) || "?"}
                   </AvatarFallback>
                 </Avatar>
                 <span className="font-medium line-clamp-1">{ticket.title}</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="items-center gap-1 group-data-[collapsible=icon]:flex hidden">
                 {isStarred(ticket.id) && (
                   <StarIcon className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                 )}
@@ -173,35 +159,25 @@ const TicketItem = ({
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
                 <span className="line-clamp-1">
-                  {ticket.customer?.userName || "Unknown"}
+                  {ticket.customer.nickname || "Unknown"}
                 </span>
                 <span>•</span>
-                <Badge
-                  variant="outline"
-                  className="flex h-5 items-center gap-1 px-1.5 py-0 text-[10px] border-none bg-background/50"
-                >
-                  {getStatusIcon(ticket.status)}
-                  <span className="ml-0.5">{ticket.status}</span>
-                </Badge>
+                <StatusBadge status={ticket.status} />
               </div>
-              <span>{formatDate(ticket.updatedAt)}</span>
+              <span>{timeAgo(ticket.updatedAt)}</span>
             </div>
             <p className="line-clamp-2 text-xs text-muted-foreground">
-              {typeof ticket.lastMessage === "string"
-                ? ticket.lastMessage
-                : ticket.lastMessage
-                  ? JSON.stringify(ticket.lastMessage)
-                  : ""}
+              {ticket.messages.at(-1)?.content}
             </p>
           </div>
-          <div className="absolute right-2 top-2 hidden gap-1 group-hover:flex">
+          <div className="absolute right-2 top-2 hidden gap-1 group-hover:flex group-data-[collapsible=icon]:hidden">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-xs"
-                  onClick={(e) => handleTogglePin(ticket.id, e)}
+                  onClick={(e) => togglePinned(ticket.id)}
                 >
                   <PinIcon
                     className={`h-3 w-3 ${isPinned(ticket.id) ? "text-blue-500" : "text-muted-foreground"}`}
@@ -221,7 +197,7 @@ const TicketItem = ({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-xs"
-                  onClick={(e) => handleToggleStar(ticket.id, e)}
+                  onClick={(e) => toggleStarred(ticket.id)}
                 >
                   <StarIcon
                     className={`h-3 w-3 ${
@@ -261,11 +237,10 @@ export function StaffTicketSidebar({
   >("all");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
+
   const {
     isStarred,
     isPinned,
-    toggleStarred,
-    togglePinned,
     expandedGroups,
     setExpandedGroups,
     toggleGroup,
@@ -298,17 +273,17 @@ export function StaffTicketSidebar({
     return tickets.filter(
       (ticket) =>
         (ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          ticket.customer?.userName
+          ticket.customer?.nickname
             ?.toLowerCase()
             .includes(searchQuery.toLowerCase()) ||
-          JSON.stringify(ticket.lastMessage)
+          JSON.stringify(ticket.messages.at(-1)?.content)
             ?.toLowerCase()
             .includes(searchQuery.toLowerCase())) &&
         (statusFilter === null || ticket.status === statusFilter) &&
         (viewMode !== "pinned" || isPinned(ticket.id)) &&
         (viewMode !== "starred" || isStarred(ticket.id)),
     );
-  }, [tickets, searchQuery, statusFilter, viewMode, isPinned, isStarred]);
+  }, [tickets, searchQuery, statusFilter, viewMode]);
 
   // Sort tickets: pinned first, then by updated time
   const sortedTickets = useMemo(() => {
@@ -345,17 +320,6 @@ export function StaffTicketSidebar({
     }
   };
 
-  // Toggle pin status
-  const handleTogglePin = (ticketId: number, event: React.MouseEvent) => {
-    event.stopPropagation();
-    togglePinned(ticketId);
-  };
-
-  // Toggle star status
-  const handleToggleStar = (ticketId: number, event: React.MouseEvent) => {
-    event.stopPropagation();
-    toggleStarred(ticketId);
-  };
 
   // Clear all filters
   const clearFilters = () => {
@@ -396,7 +360,7 @@ export function StaffTicketSidebar({
             <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
               <TagIcon className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">
-                Tickets
+                {t("tkt_other")}
               </h2>
             </div>
             <div className="flex items-center gap-1 group-data-[collapsible=icon]:hidden">
@@ -449,12 +413,12 @@ export function StaffTicketSidebar({
                       <CheckCircleIcon className="ml-2 h-4 w-4 text-primary" />
                     )}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setViewMode("grouped")}>
+                  {/* <DropdownMenuItem onClick={() => setViewMode("grouped")}>
                     <span className="flex-1">Grouped by Category</span>
                     {viewMode === "grouped" && (
                       <CheckCircleIcon className="ml-2 h-4 w-4 text-primary" />
                     )}
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                   <DropdownMenuItem onClick={() => setViewMode("pinned")}>
                     <span className="flex-1">Pinned Only</span>
                     {viewMode === "pinned" && (
@@ -470,15 +434,15 @@ export function StaffTicketSidebar({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setStatusFilter("Pending")}>
                     <span className="flex-1">Pending Status</span>
-                    {statusFilter === "Pending" && (
+                    {statusFilter === "pending" && (
                       <CheckCircleIcon className="ml-2 h-4 w-4 text-primary" />
                     )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => setStatusFilter("In Progress")}
+                    onClick={() => setStatusFilter("in_progress")}
                   >
                     <span className="flex-1">In Progress</span>
-                    {statusFilter === "In Progress" && (
+                    {statusFilter === "in_progress" && (
                       <CheckCircleIcon className="ml-2 h-4 w-4 text-primary" />
                     )}
                   </DropdownMenuItem>
@@ -486,7 +450,7 @@ export function StaffTicketSidebar({
                     onClick={() => setStatusFilter("Completed")}
                   >
                     <span className="flex-1">Completed</span>
-                    {statusFilter === "Completed" && (
+                    {statusFilter === "completed" && (
                       <CheckCircleIcon className="ml-2 h-4 w-4 text-primary" />
                     )}
                   </DropdownMenuItem>
@@ -578,10 +542,6 @@ export function StaffTicketSidebar({
                       key={ticket.id}
                       ticket={ticket}
                       currentTicketId={currentTicketId}
-                      isPinned={isPinned}
-                      isStarred={isStarred}
-                      handleTogglePin={handleTogglePin}
-                      handleToggleStar={handleToggleStar}
                     />
                   ))
                 ) : renderEmptyState()}
@@ -595,10 +555,10 @@ export function StaffTicketSidebar({
                       (ticket.title
                         .toLowerCase()
                         .includes(searchQuery.toLowerCase()) ||
-                        ticket.customer?.userName
+                        ticket.customer?.nickname
                           ?.toLowerCase()
                           .includes(searchQuery.toLowerCase()) ||
-                        JSON.stringify(ticket.lastMessage)
+                        JSON.stringify(ticket.messages.at(-1)?.content)
                           ?.toLowerCase()
                           .includes(searchQuery.toLowerCase())) &&
                       (statusFilter === null || ticket.status === statusFilter),
@@ -640,10 +600,6 @@ export function StaffTicketSidebar({
                                 key={ticket.id}
                                 ticket={ticket}
                                 currentTicketId={currentTicketId}
-                                isPinned={isPinned}
-                                isStarred={isStarred}
-                                handleTogglePin={handleTogglePin}
-                                handleToggleStar={handleToggleStar}
                               />
                             ))}
                         </SidebarMenu>

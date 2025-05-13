@@ -1,4 +1,4 @@
-import { connectDB } from "@/utils/index.ts";
+import { connectDB, getAbbreviatedText } from "@/utils/index.ts";
 import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
@@ -17,6 +17,7 @@ const userRouter = factory
     "/info",
     describeRoute({
       description: "Get self info",
+      tags: ["User"],
       responses: {
         200: {
           description: "Self info",
@@ -42,7 +43,6 @@ const userRouter = factory
           identity: schema.users.identity,
           registerTime: schema.users.registerTime,
           level: schema.users.level,
-          
         })
         .from(schema.users)
         .where(eq(schema.users.id, userId));
@@ -59,6 +59,7 @@ const userRouter = factory
     describeRoute({
       description:
         "Get all tickets for a user with customer info and last message",
+      tags: ["User", "Ticket"],
       responses: {
         200: {
           description: "All tickets with related information",
@@ -72,110 +73,72 @@ const userRouter = factory
     }),
     async (c) => {
       const userId = c.var.userId;
+      const role = c.var.role;
       const db = c.var.db;
-      const userTicketIdsResult = await db
-        .select({ ticketId: schema.ticketSessionMembers.ticketId })
-        .from(schema.ticketSessionMembers)
-        .where(eq(schema.ticketSessionMembers.userId, userId));
 
-      const userTicketIds = userTicketIdsResult.map((t) => t.ticketId);
+      const basicUserCols = {
+        columns: {
+          id: true,
+          name: true,
+          nickname: true,
+          avatar: true,
+        },
+      } as const;
 
-      if (userTicketIds.length === 0) {
-        return c.json({ data: [] });
-      }
 
-      const userTickets = await db.query.ticketSession.findMany({
-        where: inArray(schema.ticketSession.id, userTicketIds),
-        orderBy: [desc(schema.ticketSession.updatedAt)],
-      });
-
-      const customersPromises = userTickets.map(async (ticket) => {
-        const members = (
-          await db
-            .select({
-              ticketId: schema.ticketSessionMembers.ticketId,
-              userId: schema.users.id,
-              userName: schema.users.name,
-              userEmail: schema.users.email,
-              userAvatar: schema.users.avatar,
-            })
-            .from(schema.ticketSessionMembers)
-            .innerJoin(
-              schema.users,
-              eq(schema.ticketSessionMembers.userId, schema.users.id),
-            )
-            .where(
-              and(
-                eq(schema.ticketSessionMembers.ticketId, ticket.id),
-                eq(schema.users.role, "customer"),
-              ),
-            )
-            .limit(1)
-        )[0]!;
-
-        return {
-          ticketId: ticket.id,
-          customer: {
-            ...members,
+      if (role === "customer" || role === "agent") {
+        const data = await db.query.tickets.findMany({
+          where: role === "customer" ? eq(schema.tickets.customerId, userId) : eq(schema.tickets.agentId, userId),
+          orderBy: [desc(schema.tickets.updatedAt)],
+          with: {
+            agent: basicUserCols,
+            customer: basicUserCols,
+            messages: {
+              orderBy: [desc(schema.chatMessages.createdAt)],
+              limit: 1,
+            },
           },
-        };
-      });
+        });
 
-      const customersResults = await Promise.all(customersPromises);
 
-      const lastMessagesPromises = userTickets.map(async (ticket) => {
-        const messages = await db
-          .select({
-            messageId: schema.chatMessages.id,
-            content: schema.chatMessages.content,
-            createdAt: schema.chatMessages.createdAt,
-            senderId: schema.users.id,
-            senderName: schema.users.name,
-          })
-          .from(schema.chatMessages)
-          .innerJoin(
-            schema.users,
-            eq(schema.chatMessages.senderId, schema.users.id),
-          )
-          .where(eq(schema.chatMessages.ticketId, ticket.id))
-          .orderBy(desc(schema.chatMessages.createdAt))
-          .limit(1);
-
-        return {
-          ticketId: ticket.id,
-          lastMessage:
-            messages.length > 0
-              ? {
-                  id: messages[0]?.messageId ?? 0,
-                  content: messages[0]?.content!,
-                  createdAt: messages[0]?.createdAt ?? new Date().toUTCString(),
-                  sender: {
-                    id: messages[0]?.senderId ?? 0,
-                    name: messages[0]?.senderName ?? "",
-                  },
-                }
-              : null,
-        };
-      });
-
-      const lastMessagesResults = await Promise.all(lastMessagesPromises);
-
-      const result = userTickets.map((ticket) => {
-        const customerInfo = customersResults.find(
-          (c) => c.ticketId === ticket.id,
-        )!;
-        const messageInfo = lastMessagesResults.find(
-          (m) => m.ticketId === ticket.id,
-        );
-
+        const res = data.map((ticket) => {
+          return {
+            ...ticket,
+            messages: ticket.messages.map((message) => ({
+              ...message,
+              content: getAbbreviatedText(message.content, 100),
+            })),
+          };
+        });
+        return c.json(res);
+      }
+      const data = (
+        await db.query.techniciansToTickets.findMany({
+          where: eq(schema.techniciansToTickets.userId, userId),
+          with: {
+            ticket: {
+              with: {
+                agent: basicUserCols,
+                customer: basicUserCols,
+                messages: {
+                  orderBy: [desc(schema.chatMessages.createdAt)],
+                  limit: 1,
+                },
+              },
+            },
+          },
+        })
+      ).map((t) => t.ticket);
+      const res = data.map((ticket) => {
         return {
           ...ticket,
-          customer: customerInfo.customer,
-          lastMessage: messageInfo?.lastMessage || null,
+          messages: ticket.messages.map((message) => ({
+            ...message,
+            content: getAbbreviatedText(message.content, 100),
+          })),
         };
       });
-
-      return c.json({ data: result });
+      return c.json(res);
     },
   );
 

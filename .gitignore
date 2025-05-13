@@ -36,3 +36,6 @@ npm-debug.log*
 .DS_Store
 *.pem
 *.local.*
+*.dev.*
+*.prod.*
+.env.prod

@@ -1,7 +1,8 @@
-import i18n from "i18next";
+import i18nBase from "i18next";
 import { initReactI18next, useTranslation } from "react-i18next";
-i18n.use(initReactI18next).init({
-  debug: true,
+
+export const i18next = i18nBase.use(initReactI18next).init({
+  debug: process.env.NODE_ENV !== "production",
   fallbackLng: "zh",
   interpolation: {
     escapeValue: false,
@@ -203,12 +204,30 @@ i18n.use(initReactI18next).init({
         unread: "未读",
         search: "搜索",
         view: "查看",
+
+
+        tktH: {
+          create: "$t(tkt)创建",
+          update: "$t(tkt)信息更新",
+          assign: "$t(tkt)被系统分配给了{{assignee}}",
+          close: "$t(tkt)关闭",
+          upgrade: "$t(tkt)优先级变化为 - {{priority}}",
+          resolve: "$t(tkt)被标记为已解决",
+          transfer: "$t(tkt)被转交给{{assignee}}",
+          makeRequest: "提出了需求",
+          other: "$t(other)",
+        },
+
+        info: "信息",
+        assigned_to: "指派给",
+        last_updated: "最后更新$t(time)",
+        dateTime: "{{val, datetime}}",
       },
     },
   },
 });
 
-export default i18n;
+export default i18nBase;
 
 export function joinTrans(keys: string[]) {
   const { i18n } = useTranslation();

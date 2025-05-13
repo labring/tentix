@@ -18,7 +18,11 @@ import {
 
 import {
   ArrowUpCircleIcon,
+  CalendarIcon,
+  ClockIcon,
   FileIcon,
+  HistoryIcon,
+  InfoIcon,
   LinkIcon,
   PaperclipIcon,
   TagIcon,
@@ -27,19 +31,23 @@ import {
 import { useState } from "react";
 import { useLeftResizablePanel } from "tentix-ui/hooks/resizable-panel.tsx";
 import { TicketType } from "tentix-ui/lib/types";
+import { format } from "date-fns";
+import { StatusBadge } from "../basic/index.tsx";
+import { TicketHistory } from "../tickets/ticket-details-sidebar.tsx";
 
 export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
   const { LeftResizablePanel, isCollapsed, toggleCollapse } =
     useLeftResizablePanel({
-      defaultWidth: 350,
+      defaultWidth: 250,
       minWidth: 250,
       maxWidth: 500,
     });
 
   const [activeTab, setActiveTab] = useState<string>("user");
 
-  const customer = ticket.members.map((member) => member.user).find((user) => user.role === "customer")!;
-  const assignedTo = ticket.members.sort((a, b) => a.joinedAt.localeCompare(b.joinedAt)).find((member) => member.user.role !== "customer")!.user;
+  const customer = ticket.customer;
+  const assignedTo = ticket.agent;
+
 
   return (
     <div className="hidden border-l md:block max-h-full">
@@ -49,13 +57,13 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
           className="h-full"
           onValueChange={setActiveTab}
         >
-          <div className="border-b px-4 py-2">
+          {/* <div className="border-b px-4 py-2">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="user">User</TabsTrigger>
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="related">Related</TabsTrigger>
             </TabsList>
-          </div>
+          </div> */}
 
           <ScrollArea className="w-full p-4">
             <TabsContent value="user" className="mt-0 space-y-4 h-full w-full">
@@ -69,29 +77,29 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12">
                       <AvatarImage
-                        src={customer.avatar || "/placeholder.svg"}
+                        src={customer.avatar}
                         alt={customer.name}
                       />
                       <AvatarFallback>
-                        {customer.name.charAt(0)}
+                        {customer.name.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-medium">{customer.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {customer.email}
+                        {customer.role}
                       </p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    {/* <div>
-                      <Label className="text-xs">Department</Label>
-                      <p className="text-sm">{customer.department}</p>
-                    </div> */}
                     <div>
-                      <Label className="text-xs">Phone</Label>
-                      <p className="text-sm">{customer.phoneNum}</p>
+                      <Label className="text-xs">User ID</Label>
+                      <p className="text-sm">{customer.identity}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Nickname</Label>
+                      <p className="text-sm">{customer.nickname}</p>
                     </div>
                   </div>
 
@@ -100,105 +108,88 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
                     <p className="text-sm">{ticket.module}</p>
                   </div>
 
-                  <Button
+                  <div>
+                    <Label className="text-xs">Area</Label>
+                    <p className="text-sm">{ticket.area}</p>
+                  </div>
+
+                  
+
+                  {/* <Button
                     variant="outline"
                     size="sm"
                     className="w-full gap-1.5"
                   >
                     <UserIcon className="h-3.5 w-3.5" />
                     View User Profile
-                  </Button>
+                  </Button> */}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Previous Tickets
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span>Total Tickets</span>
-                      <span className="font-medium">12</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Open Tickets</span>
-                      <span className="font-medium">3</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Avg. Resolution Time</span>
-                      <span className="font-medium">2.5 days</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 space-y-2">
-                    <div className="rounded-md border p-2 transition-colors hover:bg-muted/50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium">
-                          #18: Network Outage
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="border-green-500 text-green-500 text-[10px]"
-                        >
-                          Completed
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Closed 2 weeks ago
-                      </p>
-                    </div>
-                    <div className="rounded-md border p-2 transition-colors hover:bg-muted/50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium">
-                          #14: Printer Issue
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="border-amber-500 text-amber-500 text-[10px]"
-                        >
-                          In Progress
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Updated 3 days ago
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent
-              value="details"
-              className="mt-0 space-y-4 h-full w-full"
-            >
+              
               <Card className="w-full">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Ticket Status
+                    Ticket Information
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-s">
-                  {/* <Select
-                    defaultValue={ticket.status}
-                    onValueChange={handleStatusChange}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pending">Pending</SelectItem>
-                      <SelectItem value="In Progress">In Progress</SelectItem>
-                      <SelectItem value="Scheduled">Scheduled</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select> */}
+                <CardContent className="space-y-3 text-sm">
+                  <div>
+                    <Label className="text-xs">Title</Label>
+                    <p className="text-sm font-medium">{ticket.title}</p>
+                  </div>
 
                   <div>
+                    <Label className="text-xs">Category</Label>
+                    <p className="text-sm">{ticket.category}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Ticket ID</Label>
+                      <p className="text-sm">#{ticket.id}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Status</Label>
+                      <StatusBadge status={ticket.status} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Created</Label>
+                      <div className="flex items-center gap-1 text-sm">
+                        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        {ticket.createdAt && format(new Date(ticket.createdAt), "MMM dd, yyyy")}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Time</Label>
+                      <div className="flex items-center gap-1 text-sm">
+                        <ClockIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        {ticket.createdAt && format(new Date(ticket.createdAt), "HH:mm")}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Occurrence Time</Label>
+                    <div className="flex items-center gap-1 text-sm">
+                      <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      {ticket.occurrenceTime && format(new Date(ticket.occurrenceTime), "MMM dd, yyyy HH:mm")}
+                    </div>
+                  </div>
+
+                  {ticket.errorMessage && (
+                    <div>
+                      <Label className="text-xs">Error Message</Label>
+                      <p className="text-sm text-red-500 p-2 bg-red-50 rounded-md">
+                        {ticket.errorMessage}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="border-t pt-3">
                     <Label className="text-xs">Assigned To</Label>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -211,11 +202,6 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
                           {assignedTo.name}
                         </p>
                       </div>
-                      {/* <TransferModal
-                                    ticketId={ticket.id}
-                                    currentAssignee={ticket.assignedTo}
-                                    onTransfer={handleTransfer}
-                                  /> */}
                     </div>
                   </div>
 
@@ -235,185 +221,25 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
                       >
                         {ticket.priority}
                       </Badge>
-                      {/* <PriorityModal
-                                    ticketId={ticket.id}
-                                    currentPriority={ticket.priority}
-                                    onSubmit={handlePriorityUpdate}
-                                  /> */}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <div className="flex gap-2">
-                      {/* <RequirementsModal ticketId={ticket.id} onSubmit={handleRequirementSubmit} />
-                                  <SolutionModal ticketId={ticket.id} onSubmit={handleSolutionSubmit} /> */}
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Labels</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  <div className="flex flex-wrap gap-2">
-                    {ticket.ticketsTags.map((label, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="flex items-center gap-1"
-                      >
-                        <TagIcon className="h-3 w-3" />
-                        {label.tag.name}
-                      </Badge>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 gap-1 rounded-full text-xs"
-                    >
-                      <ArrowUpCircleIcon className="h-3 w-3" />
-                      Add Label
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Activity</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div className="space-y-3">
+                  {ticket.ticketHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((history) => (
+                    <TicketHistory key={history.id} history={history} />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Status History
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  <div className="space-y-3">
-                    {/* {ticket.st.map((history, index) => (
-                                  <div key={index} className="flex items-start gap-2">
-                                    <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-muted">
-                                      {history.status === "Completed" ? (
-                                        <CheckCircleIcon className="h-3 w-3 text-green-500" />
-                                      ) : history.status === "In Progress" ? (
-                                        <ClockIcon className="h-3 w-3 text-amber-500" />
-                                      ) : (
-                                        <AlertTriangleIcon className="h-3 w-3 text-blue-500" />
-                                      )}
-                                    </div>
-                                    <div className="flex-1">
-                                      <p className="font-medium">
-                                        {history.status.startsWith("Priority") ? (
-                                          history.status
-                                        ) : (
-                                          <>
-                                            Changed to <span className="font-semibold">{history.status}</span>
-                                          </>
-                                        )}
-                                      </p>
-                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                        <span>{history.user}</span>
-                                        <span>•</span>
-                                        <span>{timeAgo(history.timestamp)}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))} */}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent
-              value="related"
-              className="mt-0 space-y-4 h-full w-full"
-            >
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Related Tickets
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  <div className="space-y-2">
-                    {/* {ticket.relatedTickets.map((relatedTicket) => (
-                                  <div
-                                    key={relatedTicket.id}
-                                    className="flex items-center justify-between rounded-md border p-2 transition-colors hover:bg-muted/50"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                                      <span>
-                                        #{relatedTicket.id}: {relatedTicket.title}
-                                      </span>
-                                    </div>
-                                    <Badge
-                                      variant="outline"
-                                      className={
-                                        relatedTicket.status === "Completed"
-                                          ? "border-green-500 text-green-500"
-                                          : relatedTicket.status === "In Progress"
-                                            ? "border-amber-500 text-amber-500"
-                                            : "border-blue-500 text-blue-500"
-                                      }
-                                    >
-                                      {relatedTicket.status}
-                                    </Badge>
-                                  </div>
-                                ))} */}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 w-full gap-1"
-                  >
-                    <LinkIcon className="h-3 w-3" />
-                    Link Related Ticket
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Attachments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between rounded-md border p-2 transition-colors hover:bg-muted/50">
-                      <div className="flex items-center gap-2">
-                        <FileIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>AC_Error_Log.pdf</span>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-6 px-2">
-                        View
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between rounded-md border p-2 transition-colors hover:bg-muted/50">
-                      <div className="flex items-center gap-2">
-                        <FileIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>maintenance-history.pdf</span>
-                        <Badge
-                          variant="outline"
-                          className="border-amber-500 text-amber-500 text-[10px]"
-                        >
-                          Internal
-                        </Badge>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-6 px-2">
-                        View
-                      </Button>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 w-full gap-1"
-                  >
-                    <PaperclipIcon className="h-3 w-3" />
-                    Add Attachment
-                  </Button>
-                </CardContent>
-              </Card>
+              
             </TabsContent>
           </ScrollArea>
         </Tabs>

@@ -1,7 +1,6 @@
 import { relations } from 'drizzle-orm/relations';
 import {
-	ticketSessionMembers,
-	ticketSession,
+	tickets,
 	chatMessages,
 	messageReadStatus,
 	tags,
@@ -10,15 +9,27 @@ import {
 	users,
   userSession,
   requirements,
+  techniciansToTickets,
 } from './schema.ts';
 
 // Define relations for detailed tickets
-export const ticketSessionRelations = relations(
-	ticketSession,
-	({ many }) => ({
+export const ticketsRelations = relations(
+	tickets,
+	({ many, one }) => ({
 		ticketHistory: many(ticketHistory), // ref to ticketHistoryRelations
 		ticketsTags: many(ticketsTags), // ref to ticketsTagsRelations
-    members: many(ticketSessionMembers), // ref to ticketSessionMembersRelations
+    // members: many(ticketMembers), // ref to ticketMembersRelations
+    customer: one(users, {
+      fields: [tickets.customerId],
+      references: [users.id],
+      relationName: 'customer',
+    }),
+    agent: one(users, {
+      fields: [tickets.agentId],
+      references: [users.id],
+      relationName: 'agent',
+    }),
+    technicians: many(techniciansToTickets),
 		messages: many(chatMessages), // ref to chatMessagesRelations.conversation
     requirements: many(requirements), // ref to requirementsRelations
 	}),
@@ -26,35 +37,57 @@ export const ticketSessionRelations = relations(
 
 
 export const ticketHistoryRelations = relations(ticketHistory, ({ one }) => ({
-	ticketRelations: one(ticketSession, {
+	ticketsRelations: one(tickets, {
 		fields: [ticketHistory.ticketId],
-		references: [ticketSession.id],
-	}), // ref to ticketSessionRelations
+		references: [tickets.id],
+	}), // ref to ticketsRelations
+	operator: one(users, {
+		fields: [ticketHistory.operatorId],
+		references: [users.id],
+	}), // ref to usersRelations
 }));
 
 // Define relations for users
 export const usersRelations = relations(users, ({ many }) => ({
-	ticketSession: many(ticketSessionMembers), // ref to ticketSessionMembersRelations
+	// ticket: many(ticketMembers), // ref to ticketMembersRelations
 	messages: many(chatMessages), // ref to chatMessagesRelations
   readStatus: many(messageReadStatus), // ref to messageReadStatusRelations
   session: many(userSession), // ref to userSessionRelations
+  ticketHistory: many(ticketHistory), // ref to ticketHistoryRelations
+  ticketCustomer: many(tickets, {
+    relationName: 'customer',
+  }),
+  ticketAgent: many(tickets, {
+    relationName: 'agent',
+  }),
+  ticketTechnicians: many(techniciansToTickets),
 }));
 
 
-export const ticketSessionMembersRelations = relations(
-	ticketSessionMembers,
-	({ one }) => ({
-		ticket: one(ticketSession, {
-			fields: [ticketSessionMembers.ticketId],
-			references: [ticketSession.id],
-		}), // ref to ticketSessionRelations
-		user: one(users, {
-			fields: [ticketSessionMembers.userId],
-			references: [users.id],
-		}), // ref to usersRelations
-	}),
-);
+// export const ticketMembersRelations = relations(
+// 	ticketMembers,
+// 	({ one }) => ({
+// 		ticket: one(ticket, {
+// 			fields: [ticketMembers.ticketId],
+// 			references: [ticket.id],
+// 		}), // ref to ticketsRelations
+// 		user: one(users, {
+// 			fields: [ticketMembers.userId],
+// 			references: [users.id],
+// 		}), // ref to usersRelations
+// 	}),
+// );
 
+export const techniciansToTicketsRelations = relations(techniciansToTickets, ({ one }) => ({
+	user: one(users, {
+		fields: [techniciansToTickets.userId],
+		references: [users.id],
+	}), // ref to usersRelations
+	ticket: one(tickets, {
+		fields: [techniciansToTickets.ticketId],
+		references: [tickets.id],
+	}), // ref to ticketsRelations
+}));
 
 export const chatMessagesRelations = relations(
 	chatMessages,
@@ -63,10 +96,10 @@ export const chatMessagesRelations = relations(
 			fields: [chatMessages.senderId],
 			references: [users.id],
 		}), // ref to usersRelations
-		ticket: one(ticketSession, {
+		ticket: one(tickets, {
 			fields: [chatMessages.ticketId],
-			references: [ticketSession.id],
-		}), // ref to ticketSessionRelations
+			references: [tickets.id],
+		}), // ref to ticketsRelations
 		readStatus: many(messageReadStatus),
 	}),
 );
@@ -90,10 +123,10 @@ export const ticketsTagsRelations = relations(ticketsTags, ({ one }) => ({
 		fields: [ticketsTags.tagId],
 		references: [tags.id],
 	}), // ref to tagRelations
-	ticket: one(ticketSession, {
+	ticket: one(tickets, {
 		fields: [ticketsTags.ticketId],
-		references: [ticketSession.id],
-	}), // ref to ticketSessionRelations
+		references: [tickets.id],
+	}), // ref to ticketsRelations
 }));
 
 export const tagsRelations = relations(tags, ({ many }) => ({
@@ -108,8 +141,8 @@ export const userSessionRelations = relations(userSession, ({ one }) => ({
 }));
 
 export const requirementsRelations = relations(requirements, ({ one }) => ({
-	relatedTicket: one(ticketSession, {
+	relatedTicket: one(tickets, {
 		fields: [requirements.relatedTicket],
-		references: [ticketSession.id],
-	}), // ref to ticketSessionRelations
+		references: [tickets.id],
+	}), // ref to ticketsRelations
 }));

@@ -3,10 +3,10 @@ import {
   userTicketsQueryOptions,
   wsTokenQueryOptions,
 } from "@lib/query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useSessionMembersStore, useTicketStore } from "tentix-ui/store";
-import { SiteHeader } from "tentix-ui/comp/staff/site-header";
+import { StaffSiteHeader } from "tentix-ui/comp/staff/site-header";
 import { StaffTicketSidebar } from "tentix-ui/comp/staff/staff-ticket-sidebar";
 import { useBoolean } from "ahooks";
 import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
@@ -51,8 +51,11 @@ function RouteComponent() {
   return (
     <SidebarProvider>
       <StaffTicketSidebar currentTicketId={ticket.id} tickets={data} />
-      <SidebarInset className="max-h-svh">
-        <SiteHeader
+      <SidebarInset className="max-h-svh" style={{
+          scrollbarGutter: 'stable both-edges',
+          overflowY: 'clip',
+        }}>
+        <StaffSiteHeader
           ticket={ticket}
           sidebarVisible={!isCollapsed}
           toggleSidebar={toggleCollapse}

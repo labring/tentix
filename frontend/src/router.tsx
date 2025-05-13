@@ -7,10 +7,12 @@ import { apiClient } from "./lib";
 import { routeTree } from "./routeTree.gen";
 import { getQueryClient } from "./_provider/tanstack";
 
+
 export type RouterContext = {
   queryClient: QueryClient;
   apiClient: typeof apiClient;
   authContext: AuthContext;
+  revalidateAuth: () => void;
 };
 
 export const router = createTanStackRouter({
@@ -20,6 +22,7 @@ export const router = createTanStackRouter({
     queryClient: getQueryClient(),
     apiClient,
     authContext: undefined!,
+    revalidateAuth: () => {},
   },
 });
 

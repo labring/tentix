@@ -25,6 +25,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         href: "/favicon.ico",
       },
     ],
+    scripts: [
+      (() => {
+        if (import.meta.env.DEV) {
+          return {
+            src: "https://lf-package-cn.feishucdn.com/obj/feishu-static/op/fe/devtools_frontend/remote-debug-0.0.1-alpha.6.js",
+          };
+        }
+      })(),
+    ],
   }),
   component: () => (
     <>

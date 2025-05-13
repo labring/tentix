@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { MessageItem } from "./message-item.tsx";
 import { TypingIndicator } from "./typing-indicator.tsx";
 import { TicketType } from "tentix-ui/lib/types";
@@ -6,7 +6,7 @@ import { TicketType } from "tentix-ui/lib/types";
 interface MessageListProps {
   messages: TicketType["messages"];
   isLoading: boolean;
-  typingUser: TicketType["members"][number]["user"] | undefined;
+  typingUser: number | undefined;
   onMessageInView?: (messageId: number) => void;
 }
 
@@ -20,17 +20,27 @@ export function MessageList({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [initialRender, setInitialRender] = useState(true);
 
   // Check if user is at the bottom of the messages
   const checkIfAtBottom = () => {
-    if (!messagesContainerRef.current) return;
+    if (!messagesContainerRef.current) return false;
 
     const { scrollTop, scrollHeight, clientHeight } =
       messagesContainerRef.current;
     // Consider "at bottom" if within 100px of the bottom
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
-    setIsAtBottom(isAtBottom);
+    const atBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setIsAtBottom(atBottom);
+    return atBottom;
   };
+
+  // Initial scroll to bottom on first render
+  useLayoutEffect(() => {
+    if (!isLoading && initialRender && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView();
+      setInitialRender(false);
+    }
+  }, [isLoading, initialRender]);
 
   // Add scroll event listener to check if user is at bottom
   useEffect(() => {
@@ -42,6 +52,9 @@ export function MessageList({
     };
 
     container.addEventListener("scroll", handleScroll);
+    // Check initially
+    checkIfAtBottom();
+    
     return () => {
       container.removeEventListener("scroll", handleScroll);
     };
@@ -49,14 +62,29 @@ export function MessageList({
 
   // Scroll to bottom of messages when new messages are added, but only if already at bottom
   useEffect(() => {
-    if (!isLoading && isAtBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isLoading) return;
+    
+    // Force scroll to bottom on first load
+    if (initialRender) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView();
+        setInitialRender(false);
+      }, 100);
+      return;
     }
-  }, [messages, isLoading, isAtBottom]);
+
+    if (isAtBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      // Recheck if we're at bottom after messages update
+      checkIfAtBottom();
+    }
+  }, [messages, isLoading, isAtBottom, initialRender]);
 
   // Scroll to bottom button handler
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setIsAtBottom(true);
   };
 
   // Group messages by date
@@ -91,8 +119,20 @@ export function MessageList({
 
   const messageGroups = groupMessagesByDate(messages);
 
+  // Update scroll status when messages change
+  useEffect(() => {
+    if (!isLoading && messages.length > 0) {
+      // Check scroll position after render
+      setTimeout(() => {
+        checkIfAtBottom();
+      }, 200);
+    }
+  }, [messages, isLoading]);
+
   // Create intersection observer for message visibility
   useEffect(() => {
+    if (!messagesContainerRef.current || !onMessageInView) return;
+    
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -120,10 +160,14 @@ export function MessageList({
     return () => {
       observer.disconnect();
     };
-  }, [onMessageInView]);
+  }, [onMessageInView, messages]);
 
   return (
-    <div ref={messagesContainerRef} className="flex-1 p-4 lg:p-6 relative">
+    <div 
+      ref={messagesContainerRef} 
+      className="flex-1 p-4 lg:p-6 relative overflow-auto"
+      onScroll={() => checkIfAtBottom()}
+    >
       {isLoading ? (
         <div className="flex h-full items-center justify-center">
           <div className="flex flex-col items-center gap-2">
@@ -134,7 +178,7 @@ export function MessageList({
           </div>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 min-h-full">
           {messageGroups.map((group, groupIndex) => (
             <div key={`group-${groupIndex}`} className="space-y-4">
               <div className="relative flex items-center py-2">
@@ -170,18 +214,17 @@ export function MessageList({
           {/* Staff typing indicator */}
           {typingUser && (
             <TypingIndicator
-              name={typingUser.name}
-              avatar={typingUser.avatar}
+              id={typingUser}
             />
           )}
 
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} className="h-1" />
         </div>
       )}
 
       {/* Scroll to bottom button - only visible when not at bottom */}
-      {!isAtBottom && (
-        <div className="sticky bottom-1 z-10 flex justify-center">
+      {!isAtBottom && messages.length > 0 && (
+        <div className="sticky bottom-4 z-10 flex justify-center">
           <button
             onClick={scrollToBottom}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-md transition-all hover:bg-primary"

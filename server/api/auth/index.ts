@@ -2,7 +2,7 @@ import { areaEnumArray, COOKIE_EXPIRY_TIME } from "@/utils/const.ts";
 import { AppConfig, connectDB, refreshStaffMap } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { Context, Hono } from "hono";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import { getCookie, setSignedCookie } from "hono/cookie";
@@ -32,6 +32,35 @@ export interface AuthResponse {
   code: number;
   message: string;
   data: Data;
+}
+
+
+export async function setMyCookie(c: Context, id: number, role: string) {
+  await setSignedCookie(
+    c,
+    "identity",
+    `${id}===${role}`,
+    process.env.SECRET!,
+    {
+      path: "/",
+      secure: true,
+      httpOnly: true,
+      maxAge: 1000,
+      expires: new Date(Date.now() + COOKIE_EXPIRY_TIME),
+      sameSite: "Strict",
+    },
+  );
+
+  const connInfo = getConnInfo(c);
+  const ip = connInfo.remote.address ?? "unknown";
+
+  const db = connectDB();
+  await db.insert(schema.userSession).values({
+    userId: id,
+    loginTime: new Date().toUTCString(),
+    userAgent: String(c.req.header("User-Agent")),
+    ip,
+  });
 }
 
 const authRouter = new Hono().get(
@@ -73,7 +102,6 @@ const authRouter = new Hono().get(
   async (c) => {
     const db = connectDB();
     const query = c.req.valid("query");
-    console.log(query);
 
     const authRes = await fetch(
       `https://${query.area}.sealos.run/api/auth/info`,
@@ -92,7 +120,6 @@ const authRouter = new Hono().get(
       });
     }
     const info = authResJson.data.info;
-    console.log(info);
     const baseUrl = new URL(c.req.url).origin;
 
     const userInfo = await (async () => {
@@ -100,17 +127,6 @@ const authRouter = new Hono().get(
         where: eq(schema.users.uid, info.uid),
       });
       if (user === undefined) {
-        // Don't use js import, else it will be bundled into the server
-        const config: AppConfig = await Bun.file("config.local.json").json();
-
-        // Staff will register in config file
-        const role =
-          config.staff_map.find((staff: any) => staff.identity === info.id)
-            ?.role ?? "customer";
-
-        if (role !== "customer") {
-          await refreshStaffMap(true);
-        }
         const [newUser] = await db
           .insert(schema.users)
           .values({
@@ -119,11 +135,10 @@ const authRouter = new Hono().get(
             nickname: info.nickname,
             realName: info.realName,
             identity: info.id,
-            status: info.status,
             avatar: info.avatarUri,
             registerTime: info.createdAt,
             level: 1,
-            role,
+            role: "customer",
             email:
               info.oauthProvider.find(
                 (provider) => provider.providerType === "EMAIL",
@@ -143,30 +158,7 @@ const authRouter = new Hono().get(
       return user;
     })();
 
-    await setSignedCookie(
-      c,
-      "identity",
-      `${userInfo.id}===${userInfo.role}`,
-      process.env.SECRET!,
-      {
-        path: "/",
-        secure: true,
-        httpOnly: true,
-        maxAge: 1000,
-        expires: new Date(Date.now() + COOKIE_EXPIRY_TIME),
-        sameSite: "Strict",
-      },
-    );
-
-    const connInfo = getConnInfo(c);
-    const ip = connInfo.remote.address ?? "unknown";
-
-    await db.insert(schema.userSession).values({
-      userId: userInfo.id,
-      loginTime: new Date().toUTCString(),
-      userAgent: String(c.req.header("User-Agent")),
-      ip,
-    });
+    await setMyCookie(c, userInfo.id, userInfo.role);
 
     return c.json({
       id: userInfo.id,

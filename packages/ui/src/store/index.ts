@@ -1,6 +1,6 @@
 import { TicketType } from "tentix-ui/lib/types";
 import { create } from "zustand";
-
+export * from "./ticket-favorites.ts";
 interface TicketStore {
   ticket: TicketType | null;
   setTicket: (newTicket: TicketType) => void;
@@ -11,12 +11,21 @@ export const useTicketStore = create<TicketStore>((set) => ({
   setTicket: (newTicket: TicketType) => set({ ticket: newTicket }),
 }));
 
-type User = TicketType["members"][number]["user"];
+type BasicUser = TicketType["agent"];
+
+const aiBasicUser: BasicUser = {
+  id: 1,
+  name: "Tentix AI",
+  nickname: "Tentix AI",
+  role: "ai",
+  avatar:
+    "https://s1-imfile.feishucdn.com/static-resource/v1/v3_00m2_48b6bd51-ead6-472a-91eb-4d953416667g",
+};
 
 interface SessionMembersStore {
-  sessionMembers: User[] | null;
-  customer: User | null;
-  assignedTo: User | null;
+  sessionMembers: BasicUser[] | null;
+  customer: BasicUser | null;
+  assignedTo: BasicUser | null;
   setSessionMembers: (newTicket: TicketType) => void;
 }
 
@@ -26,13 +35,14 @@ export const useSessionMembersStore = create<SessionMembersStore>((set) => ({
   assignedTo: null,
   setSessionMembers: (newTicket: TicketType) =>
     set({
-      sessionMembers: newTicket.members.map((member) => member.user),
-      customer: newTicket.members.find(
-        (member) => member.user.role === "customer",
-      )?.user,
-      assignedTo: newTicket.members
-        .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt))
-        .find((member) => member.user.role !== "customer")?.user,
+      sessionMembers: [
+        aiBasicUser,
+        newTicket.customer,
+        newTicket.agent,
+        ...newTicket.technicians,
+      ],
+      customer: newTicket.customer,
+      assignedTo: newTicket.agent,
     }),
 }));
 

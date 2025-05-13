@@ -7,12 +7,12 @@ import {
   useMessageTypeStore,
 } from "tentix-ui/store";
 import { useTicketWebSocket } from "tentix-ui/hooks/use-ticket-websocket";
-import { MessageInput } from "./message-input.tsx";
+import { StaffMessageInput } from "./message-input.tsx";
 import { MessageList } from "../message-list.tsx";
 import { JSONContentZod } from "@server/utils/types.ts";
 import { TicketType } from "tentix-ui/lib/types";
 import { PhotoProvider } from "react-photo-view";
-import 'react-photo-view/dist/react-photo-view.css';
+import "react-photo-view/dist/react-photo-view.css";
 
 interface StaffChatProps {
   ticket: TicketType;
@@ -20,13 +20,14 @@ interface StaffChatProps {
   userId: number;
 }
 
-export function StaffChat({
-  ticket,
-  token,
-  userId
-}: StaffChatProps) {
-  const [localTicket, setLocalTicket] = useState<TicketType>(ticket);
+export function StaffChat({ ticket, token, userId }: StaffChatProps) {
+  const [localMsgs, setLocalMsgs] = useState<TicketType["messages"]>(
+    ticket.messages,
+  );
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
+  const hadFirstMsg = useRef<boolean>(
+    ticket.messages.some((msg) => msg.senderId === userId),
+  );
 
   // Refs
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -42,10 +43,7 @@ export function StaffChat({
 
   // handle new message
   const handleNewMessage = (message: TicketType["messages"][number]) => {
-    setLocalTicket((prev: TicketType) => ({
-      ...prev,
-      messages: [...prev.messages, message],
-    }));
+    setLocalMsgs((prev) => [...prev, message]);
 
     // add to unread messages
     setUnreadMessages((prev) => {
@@ -70,20 +68,26 @@ export function StaffChat({
       setOtherTyping(false);
     }, 3000);
   };
-  const { isLoading, sendMessage, sendTypingIndicator, sendReadStatus } =
-    useTicketWebSocket({
-      ticket,
-      token,
-      userId,
-      onNewMessage: handleNewMessage,
-      onMessageSent: handleMessageSent,
-      onUserTyping: handleUserTyping,
-    });
+
+  const {
+    isLoading,
+    sendMessage,
+    sendTypingIndicator,
+    sendReadStatus,
+    sendCustomMsg,
+  } = useTicketWebSocket({
+    ticket,
+    token,
+    userId,
+    onNewMessage: handleNewMessage,
+    onMessageSent: handleMessageSent,
+    onUserTyping: handleUserTyping,
+  });
 
   // Set up initial ticket data
   useEffect(() => {
     setTicket(ticket);
-    setLocalTicket(ticket);
+    setLocalMsgs(ticket.messages);
     setSessionMembers(ticket);
   }, [ticket, setTicket, setSessionMembers]);
 
@@ -128,46 +132,49 @@ export function StaffChat({
       ).toUTCString(),
       readStatus: [],
       isInternal: messageType === "internal",
+      withdrawn: false,
     };
 
     // Add to sending message store to show loading state
     addSendingMessage(tempId);
 
     // Update local ticket with new message
-    setLocalTicket((prev: TicketType) => ({
-      ...prev,
-      messages: [...prev.messages, newMessageObj],
-    }));
-
+    setLocalMsgs((prev) => [...prev, newMessageObj]);
     // Send message via WebSocket
     sendMessage(content, tempId, messageType === "internal");
+
+    if (!hadFirstMsg.current) {
+      sendCustomMsg({
+        type: "agent_first_message",
+        timestamp: Date.now(),
+        roomId: ticket.id,
+      });
+      hadFirstMsg.current = true;
+    }
   };
-
-
 
   return (
     <PhotoProvider>
-<div className="flex flex-col h-full">
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="overflow-y-auto h-full">
-          <TicketInfoBox ticket={localTicket} />
-          <MessageList
-            messages={localTicket.messages}
+      <div className="flex flex-col h-full">
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="overflow-y-auto h-full">
+            <TicketInfoBox ticket={ticket} />
+            <MessageList
+              messages={localMsgs}
+              isLoading={isLoading}
+              typingUser={
+                sessionMembers?.find((member) => member.id === otherTyping)?.id
+              }
+              onMessageInView={handleMessageInView}
+            />
+          </div>
+          <StaffMessageInput
+            onSendMessage={handleSendMessage}
+            onTyping={sendTypingIndicator}
             isLoading={isLoading}
-            typingUser={sessionMembers?.find(
-              (member) => member.id === otherTyping,
-            )}
-            onMessageInView={handleMessageInView}
           />
         </div>
-        <MessageInput
-          onSendMessage={handleSendMessage}
-          onTyping={sendTypingIndicator}
-          isLoading={isLoading}
-        />
       </div>
-    </div>
     </PhotoProvider>
-    
   );
 }

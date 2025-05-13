@@ -20,16 +20,17 @@ export function MessageItem({ message }: MessageItemProps) {
   const messageSender = sessionMembers?.find(
     (member) => member.id === message.senderId,
   );
+  const isMine = message.senderId === userId;
   return (
     <div
-      className={`flex animate-fadeIn ${message.senderId === userId ? "justify-end" : "justify-start"}`}
+      className={`flex animate-fadeIn ${isMine ? "justify-end" : "justify-start"}`}
       // style={{
       //   animationDelay: `${Number.parseInt(message.id) * 0.1}s`,
       //   animationDuration: "0.3s",
       // }}
     >
       <div
-        className={`flex max-w-[85%] gap-3 ${message.senderId === userId ? "flex-row-reverse" : "flex-row"}`}
+        className={`flex max-w-[85%] gap-3 ${isMine ? "flex-row-reverse" : "flex-row"}`}
       >
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarImage
@@ -42,11 +43,11 @@ export function MessageItem({ message }: MessageItemProps) {
         </Avatar>
         <div
           className={`rounded-lg p-3 shadow-sm transition-colors ${
-            message.senderId === userId
+            isMine
               ? "bg-primary text-primary-foreground"
               : "bg-muted"
           } ${sendingMessage.has(message.id) ? "opacity-70" : ""} ${
-            message.isInternal ? "border-2 border-dashed border-yellow-500" : ""
+            message.isInternal ? "border-2 border-dashed bg-yellow-500" : ""
           }`}
         >
           <div className="mb-1 flex items-center justify-between gap-2">
@@ -63,11 +64,7 @@ export function MessageItem({ message }: MessageItemProps) {
               {timeAgo(message.createdAt)}
             </span>
           </div>
-          {/* <div
-            className="text-sm whitespace-pre-wrap"
-            dangerouslySetInnerHTML={{ __html: messageContent }}
-          /> */}
-          <ContentRenderer content={message.content} />
+          <ContentRenderer doc={message.content} isMine={isMine} />
         </div>
       </div>
     </div>

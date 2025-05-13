@@ -1,24 +1,25 @@
-import { COOKIE_EXPIRY_TIME, WS_TOKEN_EXPIRY_TIME } from "@/utils/const.ts";
+import { WS_TOKEN_EXPIRY_TIME } from "@/utils/const.ts";
 import {
   connectDB,
   saveMessageReadStatus,
   saveMessageToDb,
 } from "@/utils/index.ts";
-import { JSONContentSchema, userRoleType } from "@/utils/types.ts";
+import { userRoleType } from "@/utils/types.ts";
 import { zValidator } from "@hono/zod-validator";
 import { type ServerWebSocket } from "bun";
 import { describeRoute } from "hono-openapi";
 import { resolver } from "hono-openapi/zod";
 import { createBunWebSocket } from "hono/bun";
-import { getSignedCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import type { WSContext } from "hono/ws";
 import { z } from "zod";
-import { handleAIInteraction } from "../ai/index.ts";
 import { authMiddleware, factory } from "../middleware.ts";
 import { UUID } from "crypto";
 // Message type definitions for WebSocket communication
 import { wsMessageSchema, WSMessage } from "@/utils/types.ts";
+import { eq } from "drizzle-orm";
+import * as schema from "@/db/schema.ts";
+import { MyCache } from "@/utils/cache.ts";
 type wsInstance = WSContext<ServerWebSocket<undefined>>;
 
 // Connection management constants
@@ -136,8 +137,9 @@ const broadcastToRoom = (
 ) => {
   const room = roomsMap.get(roomId);
   if (!room) return;
-  const set = new Set<string>(typeof excludeClientId === "string" ? [excludeClientId] : excludeClientId);
-  
+  const set = new Set<string>(
+    typeof excludeClientId === "string" ? [excludeClientId] : excludeClientId,
+  );
 
   for (const [clientId, wsContext] of room) {
     if (set.has(clientId)) continue;
@@ -264,17 +266,10 @@ const wsRouter = factory
       const db = connectDB();
 
       // Check if user has permission to access this ticket
-      const roomMembers = (
-        await db.query.ticketSessionMembers.findMany({
-          where: (members, { eq }) => eq(members.ticketId, ticketIdNum),
-          columns: {
-            userId: true,
-          },
-        })
-      ).map((member) => member.userId);
+      const roomMembers = await MyCache.getTicketMembers(ticketIdNum);
 
       if (
-        !roomMembers.includes(userId) &&
+        !roomMembers.map((member) => member.id).includes(userId) &&
         process.env.NODE_ENV === "production"
       ) {
         throw new HTTPException(403, {
@@ -331,7 +326,10 @@ const wsRouter = factory
                   details: validationResult.error.errors,
                 }),
               );
-              console.error("Invalid message format:", validationResult.error.errors);
+              console.error(
+                "Invalid message format:",
+                validationResult.error.errors,
+              );
               return;
             }
 
@@ -394,8 +392,6 @@ const wsRouter = factory
                   // } catch (error) {
                   //   console.error("Error handling AI interaction:", error);
                   // }
-
-                  const customerIds = roomsMap.get(ticketIdNum);
 
                   // Broadcast message to room
                   broadcastToRoom(
@@ -494,6 +490,22 @@ const wsRouter = factory
                   );
                 }
                 break;
+                case "agent_first_message":
+                  if (role === "agent") {
+                    const db = connectDB();
+                    db.transaction(async (tx) => {
+                      await tx.update(schema.tickets).set({
+                        status: "in_progress",
+                      }).where(eq(schema.tickets.id, ticketIdNum));
+                      await tx.insert(schema.ticketHistory).values({
+                        ticketId: ticketIdNum,
+                        type: "first_reply",
+                        meta: 0,
+                        operatorId: userId,
+                      });
+                    })
+                  }
+                  
             }
           } catch (error) {
             console.error("Error handling WebSocket message:", error);

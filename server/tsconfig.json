@@ -18,6 +18,7 @@
     "jsxImportSource": "hono/jsx",
     "allowImportingTsExtensions": true,
     "emitDeclarationOnly": true,
+    "experimentalDecorators": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],

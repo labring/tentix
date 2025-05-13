@@ -180,7 +180,7 @@ async function main() {
               ]),
             },
           },
-          ticketSession: {
+          ticket: {
             count: 1000,
             columns: {
               id: f.intPrimaryKey(),
@@ -201,7 +201,7 @@ async function main() {
           },
 
           // seed Agent
-          ticketSessionMembers: {
+          ticketMembers: {
             count: 1000,
             columns: {
               joinedAt: date(f),
@@ -252,7 +252,7 @@ async function main() {
         }));
 
         await db
-          .insert(schema.ticketSessionMembers)
+          .insert(schema.ticketMembers)
           .values([...technician, ...customer]);
 
 

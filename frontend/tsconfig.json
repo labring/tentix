@@ -3,8 +3,8 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "../packages/ui/**/*.ts",
-    "../packages/ui/**/*.tsx",
+    "../packages/**/*.ts",
+    "../packages/**/*.tsx",
     "../packages/i18n/**/*.ts",
   ],
   "exclude": ["node_modules"],

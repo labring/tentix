@@ -1,19 +1,24 @@
 import {
   connectDB,
   getAbbreviatedText,
-  sendFeishuCard,
-  ticketSessionInsertSchema,
+  getFeishuAppAccessToken,
+  getFeishuCard,
+  sendFeishuMsg,
+  ticketInsertSchema,
   validateJSONContent,
   zs,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, count, gte, lt } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import { HTTPException } from "hono/http-exception";
 import { getSignedCookie } from "hono/cookie";
 import { authMiddleware, factory } from "../middleware.ts";
+import { membersCols } from "../queryParams.ts";
+import { CacheFunc, MyCache } from "@/utils/cache.ts";
+import { readConfig } from "@/utils/env.ts";
 
 const createResponseSchema = z.array(
   z.object({
@@ -51,6 +56,7 @@ const updateTicketStatusSchema = z.object({
 
 const ticketRouter = factory
   .createApp()
+  .use(authMiddleware)
   .post(
     "/create",
     describeRoute({
@@ -67,11 +73,11 @@ const ticketRouter = factory
         },
       },
     }),
-    zValidator("json", ticketSessionInsertSchema),
+    zValidator("json", ticketInsertSchema),
     async (c) => {
       const db = connectDB();
       const payload = c.req.valid("json");
-      const userId = await getSignedCookie(c, process.env.SECRET!, "identity");
+      const userId = c.var.userId;
 
       if (!validateJSONContent(payload.description)) {
         throw new HTTPException(422, {
@@ -79,85 +85,130 @@ const ticketRouter = factory
         });
       }
 
-      const data = await db
-        .insert(schema.ticketSession)
-        .values({
-          ...payload,
-        })
-        .returning({
-          id: schema.ticketSession.id,
-          createdAt: schema.ticketSession.createdAt,
-          description: schema.ticketSession.description,
-        });
+      const staffMap = c.var.staffMap();
+      const staffMapEntries = Array.from(staffMap.entries());
+      const [assigneeId, { feishuId: assigneeFeishuId }] = staffMapEntries.sort(
+        (a, b) => a[1].remainingTickets - b[1].remainingTickets,
+      )[0]!;
 
-      if (!data[0]) {
+      let ticketId: number | undefined;
+
+      await db.transaction(async (tx) => {
+        const [data] = await tx
+          .insert(schema.tickets)
+          .values({
+            // don't use destructuring, user input is not trusted
+            title: payload.title,
+            description: payload.description,
+            module: payload.module,
+            area: payload.area,
+            occurrenceTime: payload.occurrenceTime,
+            priority: payload.priority,
+            customerId: userId,
+            agentId: assigneeId,
+            category: payload.category,
+            status: payload.status,
+          })
+          .returning({
+            id: schema.tickets.id,
+            createdAt: schema.tickets.createdAt,
+            description: schema.tickets.description,
+          });
+
+        if (!data) {
+          throw new HTTPException(500, {
+            message: "Failed to create ticket",
+          });
+        }
+
+        ticketId = data.id;
+
+        const description = getAbbreviatedText(payload.description, 200);
+
+        // Assign ticket to agent with least in-progress tickets
+        if (staffMap.size > 0) {
+          c.var.incrementAgentTicket(assigneeId);
+
+          // Update ticket status to in_progress
+          await tx.insert(schema.ticketHistory).values({
+            ticketId: data.id,
+            type: "create",
+            meta: assigneeId, // assignee
+            operatorId: userId,
+          });
+
+          const theme = (() => {
+            switch (payload.priority) {
+              case "urgent":
+              case "high":
+                return "red";
+              case "medium":
+                return "orange";
+              case "low":
+                return "indigo";
+              case "normal":
+                return "blue";
+            }
+          })();
+
+          const ticketUrl = `${c.var.origin}/staff/tickets/${data.id}`;
+
+          const config = await readConfig();
+
+          const card = getFeishuCard("new_ticket", {
+            title: payload.title,
+            description,
+            time: new Date().toLocaleString(),
+            assignee: assigneeFeishuId,
+            number: c.var.incrementTodayTicketCount(),
+            module: c.var.i18n.t(payload.module),
+            theme,
+            internal_url: {
+              url: `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
+            },
+            ticket_url: {
+              url: ticketUrl,
+            },
+          });
+
+          const { tenant_access_token } = await getFeishuAppAccessToken();
+
+          await sendFeishuMsg(
+            "chat_id",
+            config.feishu_chat_id,
+            "interactive",
+            JSON.stringify(card.card),
+            tenant_access_token,
+          );
+        }
+        // Call AI interaction handler for ticket creation
+        // try {
+        //   await handleAIInteraction(
+        //     "ticket_created",
+        //     data[0].id,
+        //     Number(userId),
+        //     undefined,
+        //     {
+        //       title: payload.title,
+        //       description,
+        //       category: payload.category,
+        //     },
+        //   );
+        // } catch (error) {
+        //   console.error("Error handling AI interaction:", error);
+        // }
+      });
+
+      if (!ticketId) {
         throw new HTTPException(500, {
           message: "Failed to create ticket",
         });
       }
 
-      await db.insert(schema.ticketSessionMembers).values({
-        ticketId: data[0].id,
-        userId: Number(userId),
-      });
-
-      const description = getAbbreviatedText(payload.description, 200);
-
-      const staffMap = c.var.getStaffMap();
-      const staffMapEntries = Array.from(staffMap.entries());
-
-      // Assign ticket to agent with least in-progress tickets
-      if (staffMap.size > 0) {
-        const [assigneeId, { feishuId: assigneeFeishuId }] =
-          staffMapEntries.sort(
-            (a, b) => a[1].remainingTickets - b[1].remainingTickets,
-          )[0]!;
-        await db.insert(schema.ticketSessionMembers).values({
-          ticketId: data[0].id,
-          userId: assigneeId,
-        });
-        c.var.incrementAgentTicket(assigneeId);
-
-        // Update ticket status to in_progress
-        await db.insert(schema.ticketHistory).values({
-          ticketId: data[0].id,
-          type: "assign",
-          eventTarget: assigneeId,
-        });
-
-        await sendFeishuCard("new_ticket", {
-          title: payload.title,
-          description,
-          time: new Date().toLocaleString(),
-          assignee: assigneeFeishuId,
-          number: 0,
-          ticket_url: {
-            url: `http://localhost:5173/staff/tickets/${data[0].id}`,
-          },
-        });
-      }
-
-      // Call AI interaction handler for ticket creation
-      // try {
-      //   await handleAIInteraction(
-      //     "ticket_created",
-      //     data[0].id,
-      //     Number(userId),
-      //     undefined,
-      //     {
-      //       title: payload.title,
-      //       description,
-      //       category: payload.category,
-      //     },
-      //   );
-      // } catch (error) {
-      //   console.error("Error handling AI interaction:", error);
-      // }
-
       return c.json({
         status: "success",
-        id: data[0].id,
-        createdAt: data[0].createdAt,
+        id: ticketId,
+        createdAt: new Date().toISOString(),
       });
     },
   )
@@ -178,8 +229,7 @@ const ticketRouter = factory
           content: {
             "application/json": {
               schema: resolver(
-                zs.ticketSession.extend({
-                  members: zs.members,
+                zs.ticket.extend({
                   messages: zs.messages,
                   ticketHistory: zs.ticketHistory,
                   ticketsTags: zs.ticketsTags,
@@ -202,15 +252,11 @@ const ticketRouter = factory
       const role = c.var.role;
       const db = c.var.db;
 
-      const data = await db.query.ticketSession.findFirst({
-        where: (conversations, { eq }) =>
-          eq(conversations.id, Number.parseInt(id)),
+      const data = await db.query.tickets.findFirst({
+        where: (tickets, { eq }) => eq(tickets.id, Number.parseInt(id)),
         with: {
-          members: {
-            with: {
-              user: true,
-            },
-          },
+          ...membersCols,
+          customer: true,
           ticketHistory: true,
           ticketsTags: {
             with: {
@@ -230,18 +276,26 @@ const ticketRouter = factory
           message: "Ticket not found",
         });
       }
+
+      const response = {
+        ...data,
+        technicians: data.technicians.map((t) => t.user),
+        tags: data.ticketsTags.map((t) => t.tag),
+      };
       if (role === "customer") {
         data.messages = data.messages.filter((message) => !message.isInternal);
       }
       if (
         process.env.NODE_ENV === "production" &&
-        data.members.map((member) => member.user.id).includes(Number(userId))
+        (data.customerId === userId ||
+          data.agentId === userId ||
+          data.technicians.map((t) => t.user.id).includes(userId))
       ) {
         throw new HTTPException(403, {
           message: "You are not allowed to access this ticket",
         });
       }
-      return c.json({ ...data });
+      return c.json({ ...response });
     },
   )
   .get(
@@ -260,7 +314,7 @@ const ticketRouter = factory
           description: "Return ticket members",
           content: {
             "application/json": {
-              schema: resolver(z.array(zs.members)),
+              schema: resolver(z.array(zs.users)),
             },
           },
         },
@@ -273,22 +327,8 @@ const ticketRouter = factory
       }),
     ),
     async (c) => {
-      const db = c.var.db;
       const { id } = c.req.valid("query");
-
-      const data = await db.query.ticketSessionMembers.findMany({
-        where: (ticketSessionMembers, { eq }) =>
-          eq(ticketSessionMembers.ticketId, Number.parseInt(id)),
-        with: {
-          user: true,
-        },
-      });
-      if (data.length === 0) {
-        throw new HTTPException(404, {
-          message: "Ticket not found",
-        });
-      }
-      const members = data.map((d) => d.user);
+      const members = await MyCache.getTicketMembers(Number(id));
       return c.json({ ...members });
     },
   )
@@ -323,76 +363,102 @@ const ticketRouter = factory
     async (c) => {
       const db = c.var.db;
       const userId = c.var.userId;
+
       const { ticketId, targetStaffId, description } = c.req.valid("json");
 
-      try {
-        // Check if the target staff is a customer service or technician
-        const staffs = await db.query.users.findMany({
-          where: and(inArray(schema.users.role, ["agent", "technician"])),
-        });
+      const staffMap = c.var.staffMap();
+      const operator = staffMap.get(userId);
 
-        if (
-          staffs.some((staff) => staff.id === userId) &&
-          process.env.NODE_ENV !== "production"
-        ) {
-          throw new HTTPException(400, {
-            message: "You are not authorized to transfer tickets",
-          });
-        }
-
-        await db.transaction(async (tx) => {
-          // 1. Record the ticket history
-          await tx.insert(schema.ticketHistory).values({
-            type: "transfer",
-            eventTarget: targetStaffId,
-            description,
-            ticketId,
-            createdAt: new Date().toISOString(),
-          });
-
-          // 2. Add the target staff to the ticket members
-          // Check if the target staff already exists
-          const existingMember = await tx.query.ticketSessionMembers.findFirst({
-            where: and(
-              eq(schema.ticketSessionMembers.ticketId, ticketId),
-              eq(schema.ticketSessionMembers.userId, targetStaffId),
-            ),
-          });
-
-          if (!existingMember) {
-            // If the target staff does not exist, add a new member
-            await tx.insert(schema.ticketSessionMembers).values({
-              ticketId,
-              userId: targetStaffId,
-              joinedAt: new Date().toISOString(),
-              lastViewedAt: new Date().toISOString(),
-            });
-          } else {
-            // If the target staff already exists, update the last viewed time
-            await tx
-              .update(schema.ticketSessionMembers)
-              .set({ lastViewedAt: new Date().toISOString() })
-              .where(
-                and(
-                  eq(schema.ticketSessionMembers.ticketId, ticketId),
-                  eq(schema.ticketSessionMembers.userId, targetStaffId),
-                ),
-              );
-          }
-        });
-
-        c.var.incrementAgentTicket(targetStaffId);
-
-        return c.json({
-          success: true,
-          message: `Ticket transferred successfully to ${staffs.find((staff) => staff.id === targetStaffId)?.name}`,
-        });
-      } catch (error) {
-        console.error("Transfer ticket failed:", error);
-        throw new HTTPException(500, {
-          message: "Transfer ticket failed, please try again later",
+      // Check if the target staff is a customer service or technician
+      if (operator === undefined) {
+        throw new HTTPException(400, {
+          message: "You are not authorized to transfer tickets",
         });
       }
+
+      const info = staffMap.get(targetStaffId);
+
+      if (!info) {
+        throw new HTTPException(400, {
+          message: "Staff not found",
+        });
+      }
+
+      await db.transaction(async (tx) => {
+        // 1. Record the ticket history
+        await tx.insert(schema.ticketHistory).values({
+          type: "transfer",
+          meta: targetStaffId,
+          description,
+          ticketId,
+          operatorId: userId,
+          createdAt: new Date().toISOString(),
+        });
+
+        // 2. Add the target staff to the ticket members
+        // Check if the target staff already exists
+        const existingMember = staffMap.get(targetStaffId);
+
+        if (!existingMember) {
+          // If the target staff does not exist, add a new member
+          await tx.insert(schema.techniciansToTickets).values({
+            ticketId,
+            userId: targetStaffId,
+          });
+        }
+        c.var.incrementAgentTicket(targetStaffId);
+        // refresh cache
+        return targetStaffId;
+      });
+
+      const config = await readConfig();
+      const ticketUrl = `${c.var.origin}/staff/tickets/${ticketId}`;
+      const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;
+
+      const ticketInfo = (await db.query.tickets.findFirst({
+        where: (tickets, { eq }) => eq(tickets.id, ticketId),
+      }))!;
+
+      const agent = staffMap.get(ticketInfo.agentId)!;
+      const assignee = staffMap.get(targetStaffId)!;
+
+      const card = getFeishuCard("transfer", {
+        title: ticketInfo.title,
+        comment: description,
+        assignee: agent.openId,
+        module: c.var.i18n.t(ticketInfo.module),
+        transfer_to: assignee.openId,
+        internal_url: {
+          url: appLink,
+        },
+        ticket_url: {
+          url: ticketUrl,
+        },
+      });
+
+      const { tenant_access_token } = await getFeishuAppAccessToken();
+
+      await sendFeishuMsg(
+        "chat_id",
+        config.feishu_chat_id,
+        "interactive",
+        JSON.stringify(card.card),
+        tenant_access_token,
+      );
+      await sendFeishuMsg(
+        "open_id",
+        assignee.openId,
+        "text",
+        JSON.stringify({
+          text: `<at user_id="${operator.openId}">${operator.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${description}`,
+        }),
+        tenant_access_token,
+      );
+
+      return c.json({
+        success: true,
+        message: `Ticket transferred successfully to ${targetStaffId}`,
+      });
     },
   )
   .post(
@@ -441,7 +507,8 @@ const ticketRouter = factory
           // 1. Record the ticket history
           await tx.insert(schema.ticketHistory).values({
             type: "upgrade",
-            eventTarget: userId,
+            operatorId: userId,
+            meta: userId,
             description,
             ticketId,
             createdAt: new Date().toISOString(),
@@ -449,12 +516,12 @@ const ticketRouter = factory
 
           // 2. Update the ticket priority
           await tx
-            .update(schema.ticketSession)
+            .update(schema.tickets)
             .set({
               priority,
               updatedAt: new Date().toISOString(),
             })
-            .where(eq(schema.ticketSession.id, ticketId));
+            .where(eq(schema.tickets.id, ticketId));
         });
 
         return c.json({
@@ -474,7 +541,7 @@ const ticketRouter = factory
     authMiddleware,
     describeRoute({
       description: "Update a ticket status",
-      tags: ["admin"],
+      tags: ["Admin", "Ticket"],
       security: [
         {
           bearerAuth: [],
@@ -507,7 +574,7 @@ const ticketRouter = factory
         // Check if the user is authorized to update ticket status
         if (
           userRole === "customer" &&
-          status === "Resolved" &&
+          status === "resolved" &&
           process.env.NODE_ENV === "production"
         ) {
           throw new HTTPException(400, {
@@ -519,21 +586,32 @@ const ticketRouter = factory
           // 1. Record the ticket history
           await tx.insert(schema.ticketHistory).values({
             type: "update",
-            eventTarget: userId,
-            description,
+            meta: userId,
+            description: `Status updated to ${status}`,
             ticketId,
+            operatorId: userId,
             createdAt: new Date().toISOString(),
           });
 
           // 2. Update the ticket status
           await tx
-            .update(schema.ticketSession)
+            .update(schema.tickets)
             .set({
               status,
               updatedAt: new Date().toISOString(),
             })
-            .where(eq(schema.ticketSession.id, ticketId));
+            .where(eq(schema.tickets.id, ticketId));
         });
+
+        const config = await readConfig();
+
+        // await sendFeishuMsg(
+        //   "chat_id",
+        //   config.feishu_chat_id,
+        //   "text",
+        //   JSON.stringify({ text: `<at user_id="${agent.openId}">${agent.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${ticketInfo.description}` }),
+        //   tenant_access_token,
+        // );
 
         return c.json({
           success: true,

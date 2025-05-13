@@ -8,9 +8,9 @@ type initSearch = {
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): initSearch => {
     return {
-      token: (search.token as string) || "",
-      area: (search.area as (typeof areaEnumArray)[number]) || "hzh",
-    };
+      token: search.token ?? "",
+      area: search.area ?? "hzh",
+    } as initSearch;
   },
   beforeLoad: async ({ search, context }) => {
     let idChanged = false;
@@ -27,7 +27,6 @@ export const Route = createFileRoute("/")({
       const url = new URL("/api/auth/login", window.location.origin);
       url.searchParams.set("token", search.token);
       url.searchParams.set("area", search.area);
-
       const res = await fetch(url);
       const data = (await res.json()) as {
         id: string;
@@ -37,6 +36,9 @@ export const Route = createFileRoute("/")({
       console.log(data);
       window.localStorage.setItem("role", data.role);
       window.localStorage.setItem("id", data.id);
+      if (idChanged) {
+        context.queryClient.invalidateQueries({ queryKey: ['getUserInfo'] })
+      }
     }
     switch (window.localStorage.getItem("role")) {
       case "customer":

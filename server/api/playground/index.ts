@@ -8,10 +8,13 @@ import { getConnInfo } from "hono/bun";
 import { factory } from "../middleware.ts";
 import * as schema from "@db/schema.ts";
 import { eq, inArray, sql, and, asc } from "drizzle-orm";
-import { sendFeishuCard } from "@/utils/platform.ts";
+import { getFeishuAppAccessToken, getFeishuCard, sendFeishuCard, sendFeishuMsg } from "@/utils/platform/index.ts";
 import { refreshStaffMap } from "@/utils/tools.ts";
 import { loremText } from "./spam.ts";
-import { extractTextAsString, getAbbreviatedText } from "@/utils/types.ts";
+import { getAbbreviatedText } from "@/utils/types.ts";
+import { readConfig } from "@/utils/env.ts";
+import v8 from "node:v8";
+
 const playgroundRouter = factory
   .createApp()
   .use(async (c, next) => {
@@ -29,32 +32,10 @@ const playgroundRouter = factory
       description: "Test endpoint. Not for production use.",
     }),
     async (c) => {
-      const db = c.get("db");
-      // Get all agents and their in-progress ticket counts
-      const agents = await db
-        .select({
-          id: schema.users.id,
-          inProgressCount: sql<number>`COUNT(${schema.ticketSession.id})`.as(
-            "inProgressCount",
-          ),
-        })
-        .from(schema.users)
-        .leftJoin(
-          schema.ticketSessionMembers,
-          eq(schema.users.id, schema.ticketSessionMembers.userId),
-        )
-        .leftJoin(
-          schema.ticketSession,
-          and(
-            eq(schema.ticketSessionMembers.ticketId, schema.ticketSession.id),
-            eq(schema.ticketSession.status, "In Progress"),
-          ),
-        )
-        .where(eq(schema.users.role, "agent"))
-        .groupBy(schema.users.id)
-        .orderBy(asc(sql<number>`COUNT(${schema.ticketSession.id})`));
-
-      return c.json({ agents });
+      await refreshStaffMap(true);
+      const staffMap = c.var.staffMap();
+      console.log(staffMap.values());
+      return c.json(staffMap.values());
     },
   )
   .get(
@@ -66,23 +47,28 @@ const playgroundRouter = factory
     }),
     async (c) => {
       await refreshStaffMap(true);
-      const staffMap = c.var.getStaffMap();
+      const staffMap = c.var.staffMap();
       const staffMapEntries = Array.from(staffMap.entries());
       const id = staffMapEntries[0]![1].feishuId;
 
-      const description = getAbbreviatedText(loremText, 200);
+      const config = await readConfig();
 
-      const res = await sendFeishuCard("new_ticket", {
-        title: "Feishu Card SendTest",
-        description: description,
-        time: new Date().toLocaleString("zh-CN"),
-        assignee: id,
-        number: 1,
-        ticket_url: {
-          url: "http://localhost:3000/api/reference",
-        },
-      });
-      return c.json({ ...res });
+
+      const {tenant_access_token} = await getFeishuAppAccessToken();
+      const send = await sendFeishuMsg("chat_id", config.feishu_chat_id, "text", "{\"text\":\"<at user_id=\\\"ou_xxx\\\">Tom</at> 新更新提醒\"}", tenant_access_token);
+      
+      return c.json({ success: true });
+    },
+  ).get(
+    "/heap",
+    describeRoute({
+      tags: ["Playground"],
+      hide: process.env.NODE_ENV === "production",
+    }),
+    async (c) => {
+      const snapshotPath = v8.writeHeapSnapshot();
+      console.log(`Heap snapshot written to: ${snapshotPath}`);
+      return c.json({ success: true });
     },
   );
 

@@ -11,7 +11,6 @@ import { UserTicketSidebar } from "tentix-ui/comp/user/user-ticket-sidebar";
 
 export const Route = createFileRoute("/user/tickets/$id")({
   loader: async ({ context: {queryClient, authContext}, params }) => {
-    console.log(authContext.user);
     return {
       data: await queryClient.ensureQueryData(
         userTicketsQueryOptions(authContext.user!.id.toString()),
@@ -45,9 +44,9 @@ function RouteComponent() {
         <div className="flex flex-1 flex-col">
           <div className="grid grid-cols-1 md:grid-cols-3 flex-1">
             <div className="md:col-span-2 flex flex-col h-[calc(100vh-48px)]">
-              <UserChat ticket={ticket} token={token.token} />
+              <UserChat ticket={ticket} token={token.token} key={ticket.id} />
             </div>
-            <TicketDetailsSidebar ticket={ticket} />
+            <TicketDetailsSidebar ticket={ticket} key={ticket.id} />
           </div>
         </div>
       </SidebarInset>
