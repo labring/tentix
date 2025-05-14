@@ -119,35 +119,6 @@ export async function sendFeishuMsg(
   return res.json();
 }
 
-/**
- * @deprecated Use getFeishuCard instead
- */
-export const sendFeishuCard: ((
-  cardType: "new_ticket",
-  variable: Card1Variable,
-) => Promise<void>) &
-  ((cardType: "transfer", variable: Card2Variable) => Promise<void>) =
-  async function (cardType, variable) {
-    const data = Object.assign(cardMap[cardType], {
-      card: {
-        ...cardMap[cardType].card,
-        data: {
-          ...cardMap[cardType].card.data,
-          template_variable: variable,
-        },
-      },
-    }) satisfies cardType;
-    const res = await fetch(
-      `https://open.feishu.cn/open-apis/bot/v2/hook/${process.env.FEISHU_BOT_WEBHOOK_URL}`,
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-      },
-    );
-    if (!res.ok) {
-      throw new Error("Failed to send Feishu card");
-    }
-  };
 
 const proxyHandler = {
   apply: async function (

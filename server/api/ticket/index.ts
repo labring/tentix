@@ -9,7 +9,7 @@ import {
   zs,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
-import { eq, inArray, and, count, gte, lt } from "drizzle-orm";
+import { eq, inArray, and, count, gte, lt, desc } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
@@ -54,6 +54,10 @@ const updateTicketStatusSchema = z.object({
   description: z.string(),
 });
 
+const joinTicketAsTechnicianSchema = z.object({
+  ticketId: z.number(),
+});
+
 const ticketRouter = factory
   .createApp()
   .use(authMiddleware)
@@ -87,7 +91,9 @@ const ticketRouter = factory
 
       const staffMap = c.var.staffMap();
       const staffMapEntries = Array.from(staffMap.entries());
-      const [assigneeId, { feishuId: assigneeFeishuId }] = staffMapEntries.sort(
+      const [assigneeId, { feishuId: assigneeFeishuId }] = staffMapEntries.filter(
+        ([id, info]) => info.role === "agent",
+      ).sort(
         (a, b) => a[1].remainingTickets - b[1].remainingTickets,
       )[0]!;
 
@@ -210,6 +216,150 @@ const ticketRouter = factory
         id: ticketId,
         createdAt: new Date().toISOString(),
       });
+    },)
+   .get(
+    "/getUserTickets",
+    describeRoute({
+      description:
+        "Get all tickets for a user with customer info and last message",
+      tags: ["User", "Ticket"],
+      responses: {
+        200: {
+          description: "All tickets with related information",
+          content: {
+            "application/json": {
+              // schema will be defined here
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const userId = c.var.userId;
+      const role = c.var.role;
+      const db = c.var.db;
+
+      const basicUserCols = {
+        columns: {
+          id: true,
+          name: true,
+          nickname: true,
+          avatar: true,
+        },
+      } as const;
+
+
+      if (role === "customer" || role === "agent") {
+        const data = await db.query.tickets.findMany({
+          where: role === "customer" ? eq(schema.tickets.customerId, userId) : eq(schema.tickets.agentId, userId),
+          orderBy: [desc(schema.tickets.updatedAt)],
+          with: {
+            agent: basicUserCols,
+            customer: basicUserCols,
+            messages: {
+              orderBy: [desc(schema.chatMessages.createdAt)],
+              limit: 1,
+            },
+          },
+        });
+
+
+        const res = data.map((ticket) => {
+          return {
+            ...ticket,
+            messages: ticket.messages.map((message) => ({
+              ...message,
+              content: getAbbreviatedText(message.content, 100),
+            })),
+          };
+        });
+        return c.json(res);
+      }
+      const data = (
+        await db.query.techniciansToTickets.findMany({
+          where: eq(schema.techniciansToTickets.userId, userId),
+          with: {
+            ticket: {
+              with: {
+                agent: basicUserCols,
+                customer: basicUserCols,
+                messages: {
+                  orderBy: [desc(schema.chatMessages.createdAt)],
+                  limit: 1,
+                },
+              },
+            },
+          },
+        })
+      ).map((t) => t.ticket);
+      const res = data.map((ticket) => {
+        return {
+          ...ticket,
+          messages: ticket.messages.map((message) => ({
+            ...message,
+            content: getAbbreviatedText(message.content, 100),
+          })),
+        };
+      });
+      return c.json(res);
+    },
+  ) .get(
+    "/all",
+    describeRoute({
+      description:
+        "Get all tickets for a user with customer info and last message",
+      tags: ["Ticket"],
+      responses: {
+        200: {
+          description: "All tickets with related information",
+          content: {
+            "application/json": {
+              // schema will be defined here
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const role = c.var.role;
+      const db = c.var.db;
+
+      const basicUserCols = {
+        columns: {
+          id: true,
+          name: true,
+          nickname: true,
+          avatar: true,
+        },
+      } as const;
+
+      if (role === "customer") {
+        throw new HTTPException(403, {
+          message: "You are not authorized to access this resource",
+        });
+      }
+
+      const data = await db.query.tickets.findMany({
+        orderBy: [desc(schema.tickets.updatedAt)],
+        with: {
+          agent: basicUserCols,
+          customer: basicUserCols,
+          messages: {
+            orderBy: [desc(schema.chatMessages.createdAt)],
+            limit: 1,
+          },
+        },
+      });
+      const res = data.map((ticket) => {
+        return {
+          ...ticket,
+          messages: ticket.messages.map((message) => ({
+            ...message,
+            content: getAbbreviatedText(message.content, 100),
+          })),
+        };
+      });
+      return c.json(res);
     },
   )
   .get(
@@ -250,8 +400,9 @@ const ticketRouter = factory
       const { id } = c.req.valid("query");
       const userId = c.var.userId;
       const role = c.var.role;
+      console.log(userId, role);
       const db = c.var.db;
-
+      const staffMap = c.var.staffMap();
       const data = await db.query.tickets.findFirst({
         where: (tickets, { eq }) => eq(tickets.id, Number.parseInt(id)),
         with: {
@@ -285,11 +436,10 @@ const ticketRouter = factory
       if (role === "customer") {
         data.messages = data.messages.filter((message) => !message.isInternal);
       }
+
       if (
         process.env.NODE_ENV === "production" &&
-        (data.customerId === userId ||
-          data.agentId === userId ||
-          data.technicians.map((t) => t.user.id).includes(userId))
+        (data.customerId !== userId && staffMap.get(userId) === undefined)
       ) {
         throw new HTTPException(403, {
           message: "You are not allowed to access this ticket",
@@ -623,6 +773,88 @@ const ticketRouter = factory
           message: "Update ticket status failed, please try again later",
         });
       }
+    },
+  )
+  .post(
+    "/joinAsTechnician",
+    authMiddleware,
+    describeRoute({
+      description: "Join ticket as a technician",
+      tags: ["Ticket"],
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+      responses: {
+        200: {
+          description: "Joined ticket successfully",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  success: z.boolean(),
+                  message: z.string(),
+                }),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    zValidator("json", joinTicketAsTechnicianSchema),
+    async (c) => {
+      const db = c.var.db;
+      const userId = c.var.userId;
+      const userRole = c.var.role;
+      const { ticketId } = c.req.valid("json");
+
+      // Check if the user is authorized to join tickets
+      if (userRole === "customer") {
+        throw new HTTPException(400, {
+          message: "Only agent or admin users can join tickets",
+        });
+      }
+
+      // Check if user is already a member of this ticket
+      const existingMember = await db.query.techniciansToTickets.findFirst({
+        where: and(
+          eq(schema.techniciansToTickets.userId, userId),
+          eq(schema.techniciansToTickets.ticketId, ticketId)
+        ),
+      });
+
+      if (existingMember) {
+        return c.json({
+          success: true,
+          message: "You are already a member of this ticket",
+        });
+      }
+
+      await db.transaction(async (tx) => {
+        // Add the user to the ticket members
+        await tx.insert(schema.techniciansToTickets).values({
+          ticketId,
+          userId,
+        });
+
+        // Record the ticket history
+        await tx.insert(schema.ticketHistory).values({
+          type: "join",
+          operatorId: 0,
+          meta: userId,
+          ticketId,
+          createdAt: new Date().toISOString(),
+        });
+      });
+
+      // Increment agent ticket count in cache
+      c.var.incrementAgentTicket(userId);
+
+      return c.json({
+        success: true,
+        message: "Joined ticket successfully",
+      });
     },
   );
 

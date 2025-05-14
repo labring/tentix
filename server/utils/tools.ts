@@ -149,5 +149,7 @@ export function getOrigin(c: Context) {
   if (process.env.NODE_ENV !== "production") {
     return "http://localhost:5173";
   }
-  return new URL(c.req.url).origin;
+  const url = new URL(c.req.url);
+  url.protocol = "https:";
+  return url.origin;
 }

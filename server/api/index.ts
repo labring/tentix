@@ -69,12 +69,12 @@ const routes = app
 
 app.use(
   "*",
-  serveStatic({ root: "/Users/yiming/Desktop/tentix-v2/server/dist" }),
+  serveStatic({ root: "./dist" }),
 );
 app.use(
   "*",
   serveStatic({
-    root: "/Users/yiming/Desktop/tentix-v2/server/dist",
+    root: "./dist",
     path: "./index.html",
   }),
 );

@@ -6,14 +6,5 @@ export const Route = createFileRoute('/user/setting/')({
 })
 
 function RouteComponent() {
-  return <ContactInfoSection
-  contactTime={contactTime}
-  setContactTime={setContactTime}
-  specificStartTime={specificStartTime}
-  setSpecificStartTime={setSpecificStartTime}
-  specificEndTime={specificEndTime}
-  setSpecificEndTime={setSpecificEndTime}
-  ccEmails={ccEmails}
-  setCcEmails={setCcEmails}
-/>
+  return <></>
 }

@@ -21,7 +21,7 @@ export const Route = createFileRoute("/staff/tickets/$id")({
       ),
       ticket: await queryClient.ensureQueryData(ticketsQueryOptions(params.id)),
       token: await queryClient.ensureQueryData(
-        wsTokenQueryOptions(authContext.user?.id.toString() ?? "1"),
+        wsTokenQueryOptions(authContext.user!.id.toString()),
       ),
       authContext: authContext,
     };

@@ -1,6 +1,4 @@
-import {
-  useSuspenseQuery as useSuspenseQueryTanStack
-} from "@tanstack/react-query";
+import { useSuspenseQuery as useSuspenseQueryTanStack } from "@tanstack/react-query";
 
 import { apiClient } from "@lib/api-client";
 import { WS_TOKEN_EXPIRY_TIME } from "@server/utils/const";
@@ -25,11 +23,7 @@ const handler = {
 
 export const useSuspenseQuery = new Proxy(useSuspenseQueryTanStack, handler);
 
-
-import {
-  queryOptions,
-} from "@tanstack/react-query";
-
+import { queryOptions } from "@tanstack/react-query";
 
 export const userTicketsQueryOptions = (id: string) =>
   queryOptions({
@@ -42,12 +36,24 @@ export const userTicketsQueryOptions = (id: string) =>
     },
   });
 
+export const allTicketsQueryOptions = () =>
+  queryOptions({
+    queryKey: ["getAllTickets"],
+    queryFn: async () => {
+      const data = await (
+        await apiClient.ticket.all.$get()
+      ).json();
+      return data;
+    },
+  });
 
 export const ticketsQueryOptions = (id: string) =>
   queryOptions({
     queryKey: ["getTicket", id],
     queryFn: async () => {
-      const data = await (await apiClient.ticket.info.$get({ query: { id } })).json();
+      const data = await (
+        await apiClient.ticket.info.$get({ query: { id } })
+      ).json();
       return data;
     },
   });
@@ -56,10 +62,21 @@ export const wsTokenQueryOptions = (testUserId?: string) =>
   queryOptions({
     queryKey: ["getWsToken"],
     queryFn: async () => {
-      const data = await (await apiClient.ws.token.$get({ query: { testUserId } })).json();
+      const data = await (
+        await apiClient.ws.token.$get({ query: { testUserId } })
+      ).json();
       return data;
     },
     staleTime: WS_TOKEN_EXPIRY_TIME,
   });
 
-
+export const userInfoQueryOptions = () =>
+  queryOptions({
+    queryKey: ["getUserInfo"],
+    queryFn: async () => {
+      const data = await (await apiClient.user.info.$get()).json();
+      return data;
+    },
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+  });

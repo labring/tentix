@@ -56,7 +56,6 @@ const feishuRouter = factory
       //   redirectUri.hash = redirect;
       // }
       url.searchParams.set("redirect_uri", redirectUri.toString());
-      console.log(url.toString());
       return c.redirect(url.toString());
     },
   )
@@ -77,7 +76,6 @@ const feishuRouter = factory
     async (c) => {
       const { code, state } = c.req.valid("query");
       const url = new URL(c.req.url);
-      console.log(url);
       const redirect = url.hash === "" ? undefined : url.hash;
       
       if (!CSRF.verify(state)) {
@@ -95,8 +93,6 @@ const feishuRouter = factory
         code,
         redirect_uri: nowPath.toString(),
       };
-
-      console.log(nowPath.toString());
       const res = await myFetch(
         "https://open.feishu.cn/open-apis/authen/v2/oauth/token",
         {

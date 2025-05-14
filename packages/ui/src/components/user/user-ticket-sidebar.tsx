@@ -8,6 +8,7 @@ import {
   PlusIcon,
   SearchIcon,
   TicketIcon,
+  ArrowLeftIcon,
 } from "lucide-react"
 
 import { Badge } from "../ui/badge.tsx"
@@ -78,7 +79,22 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
     <TooltipProvider delayDuration={300}>
       <Sidebar collapsible="icon" className="border-r">
         <SidebarHeader className="flex flex-col gap-3 items-center">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative inset-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  asChild
+                >
+                  <Link to="/user/tickets/list">
+                    <ArrowLeftIcon className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">{t("go_back")}</TooltipContent>
+            </Tooltip>
             <TicketIcon className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">{joinTrans([t("my"), t("tkt_other")])}</h2>
           </div>
@@ -187,10 +203,10 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
                 className="w-full gap-1.5 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8"
                 asChild
               >
-                <a href="/user/tickets/create">
+                <Link to="/user/newticket">
                   <PlusIcon className="h-4 w-4" />
                   <span className="group-data-[collapsible=icon]:hidden">{joinTrans([t("create"), t("tkt_other")])}</span>
-                </a>
+                </Link>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" className="group-data-[state=expanded]:hidden">
@@ -205,10 +221,10 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
                 className="mt-2 w-full gap-1.5 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:mt-2"
                 asChild
               >
-                <a href="/user/tickets">
+                <Link to="/user/tickets/list">
                   <FileTextIcon className="h-4 w-4" />
                   <span className="group-data-[collapsible=icon]:hidden">{joinTrans([t("view"), t("all"), t("tkt_other")])}</span>
-                </a>
+                </Link>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" className="group-data-[state=expanded]:hidden">

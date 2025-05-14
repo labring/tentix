@@ -48,6 +48,7 @@ export async function saveMessageReadStatus(
         userId: userId,
         readAt: new Date().toISOString(),
       })
+      .onConflictDoNothing()
       .returning();
 
     return readStatus;

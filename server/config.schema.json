@@ -37,12 +37,6 @@
       "pattern": "^oc_[a-zA-Z0-9]{32}$",
       "example": "oc_5c0b9313fd5xx55exx1452fecxx1b018"
     },
-    "feishu_bot_webhook_id": {
-      "type": "string",
-      "description": "Feishu bot webhook ID",
-      "pattern": "^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$",
-      "example": "0ae733f3-xxxx-xxxx-xxxx-621004c02411"
-    },
     "aiProfile": {
       "type": "object",
       "required": [

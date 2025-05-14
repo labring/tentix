@@ -3,7 +3,7 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { cn } from "tentix-ui/lib/utils"
 import { ScrollArea } from "../ui/scroll-area.tsx"
 import { LayoutDashboard, Ticket, Settings, Users, FileText, BarChart, MessageSquare } from "lucide-react"
-import { useTranslation } from "i18n"
+import { joinTrans, useTranslation } from "i18n"
 export function StaffDashboardSidebar() {
   const pathname = useLocation().pathname;
   const { t, i18n } = useTranslation();
@@ -42,6 +42,16 @@ export function StaffDashboardSidebar() {
                 {t("tkt_list")}
               </Link>
               <Link
+                to="/staff/tickets/all"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                  pathname === "/staff/tickets/all" ? "bg-accent" : "transparent",
+                )}
+              >
+                <Ticket className="h-4 w-4" />
+                {joinTrans([t("all"), t("tkt_other")])}
+              </Link>
+              {/* <Link
                 to="/staff/team"
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
@@ -102,7 +112,7 @@ export function StaffDashboardSidebar() {
               >
                 <Settings className="h-4 w-4" />
                 {t("settings")}
-              </Link>
+              </Link> */}
             </nav>
           </div>
         </div>

@@ -215,9 +215,10 @@ export const i18next = i18nBase.use(initReactI18next).init({
           resolve: "$t(tkt)被标记为已解决",
           transfer: "$t(tkt)被转交给{{assignee}}",
           makeRequest: "提出了需求",
+          first_reply: "首次响应",
+          join: "{{member}}加入了工单",
           other: "$t(other)",
         },
-
         info: "信息",
         assigned_to: "指派给",
         last_updated: "最后更新$t(time)",

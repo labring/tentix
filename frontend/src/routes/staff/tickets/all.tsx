@@ -7,20 +7,20 @@ import { DataTable } from "tentix-ui/comp/tickets-table/table";
 import { SiteHeader } from "tentix-ui/comp/site-header";
 import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
 import { StaffDashboardSidebar } from "tentix-ui/comp/staff/dashboard-sidebar"
-import { userTicketsQueryOptions } from "@lib/query";
+import { allTicketsQueryOptions } from "@lib/query";
 import { Suspense } from "react";
 import { SkeletonTable } from "tentix-ui/comp/tickets-table/skeleton";
 
 
 
-export const Route = createFileRoute("/staff/tickets/list")({
+export const Route = createFileRoute("/staff/tickets/all")({
   loader: ({ context }) => {
-    return context.queryClient.ensureQueryData(userTicketsQueryOptions(context.authContext.user!.id.toString()));
+    return context.queryClient.ensureQueryData(allTicketsQueryOptions());
   },
   head: () => ({
     meta: [
       {
-        title: "工单列表 | Tentix",
+        title: "全部工单列表 | Tentix",
       }
     ],
   }),

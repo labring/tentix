@@ -111,106 +111,115 @@ export function useTicketWebSocket({
   }, []);
 
   // Establish WebSocket connection
-  const connectWebSocket = useCallback((id: number) => {
-    if (
-      !token ||
-      reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS
-    )
-      return;
+  const connectWebSocket = useCallback(
+    (id: number) => {
+      if (!token || reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS)
+        return;
 
-    // Create WebSocket connection
+      // Create WebSocket connection
 
-    const ws = wsRef.current ? wsRef.current : new WebSocket(
-      `ws://${window.location.host}/api/ws?ticketId=${id}&token=${token}`,
-    );
-    
-    wsRef.current = ws;
+      const wsOrigin = import.meta.env.DEV
+        ? "ws://localhost:3000"
+        : `wss://${window.location.host}`;
+      const url = new URL(`/api/ws/chat`, wsOrigin);
+      
+      url.searchParams.set("ticketId", id.toString());
+      url.searchParams.set("token", token);
 
-    // WebSocket event handling
-    ws.onopen = () => {
-      setIsLoading(false);
-      reconnectAttemptsRef.current = 0;
-      isConnectingRef.current = false;
-      startHeartbeat();
-    };
+      const ws = wsRef.current ? wsRef.current : new WebSocket(url.toString());
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data) as WSMessage;
+      wsRef.current = ws;
 
-        switch (data.type) {
-          case "join_success":
-            setIsLoading(false);
-            break;
+      // WebSocket event handling
+      ws.onopen = () => {
+        setIsLoading(false);
+        reconnectAttemptsRef.current = 0;
+        isConnectingRef.current = false;
+        startHeartbeat();
+      };
 
-          case "new_message":
-            if (data.userId !== userId) {
-              const newMessage = {
-                id: Number(data.messageId),
-                ticketId: data.roomId,
-                senderId: data.userId,
-                content: data.content,
-                createdAt: new Date(data.timestamp).toUTCString(),
-                readStatus: [],
-                isInternal: data.isInternal,
-                withdrawn: false,
-              };
-              onNewMessage(newMessage);
-              onUserTyping(data.userId, "stop");
-            }
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as WSMessage;
 
-            break;
+          switch (data.type) {
+            case "join_success":
+              setIsLoading(false);
+              break;
 
-          case "message_sent":
-            onMessageSent(data.tempId);
-            break;
+            case "new_message":
+              if (data.userId !== userId) {
+                const newMessage = {
+                  id: Number(data.messageId),
+                  ticketId: data.roomId,
+                  senderId: data.userId,
+                  content: data.content,
+                  createdAt: new Date(data.timestamp).toUTCString(),
+                  readStatus: [],
+                  isInternal: data.isInternal,
+                  withdrawn: false,
+                };
+                onNewMessage(newMessage);
+                onUserTyping(data.userId, "stop");
+              }
 
-          case "user_typing":
-            if (data.userId !== userId) {
-              onUserTyping(data.userId, "start");
-            }
-            break;
+              break;
 
-          case "heartbeat":
-            // Respond to server heartbeat
-            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-              wsRef.current.send(
-                JSON.stringify({
-                  type: "heartbeat_ack",
-                  timestamp: Date.now(),
-                }),
-              );
-            }
-            break;
+            case "message_sent":
+              onMessageSent(data.tempId);
+              break;
 
-          case "error":
-            console.error("WebSocket error:", data.error, data.details);
-            if (onError) onError(data.error);
+            case "user_typing":
+              if (data.userId !== userId) {
+                onUserTyping(data.userId, "start");
+              }
+              break;
 
-            if (data.error === "Connection is not alive") {
-              // Handle connection error, trigger reconnection
-              handleReconnect();
-            }
-            break;
+            case "heartbeat":
+              // Respond to server heartbeat
+              if (
+                wsRef.current &&
+                wsRef.current.readyState === WebSocket.OPEN
+              ) {
+                wsRef.current.send(
+                  JSON.stringify({
+                    type: "heartbeat_ack",
+                    timestamp: Date.now(),
+                  }),
+                );
+              }
+              break;
+
+            case "error":
+              console.error("WebSocket error:", data.error, data.details);
+
+              if (onError) onError(data.error);
+              if (data.error === "Connection is not alive") {
+                // Handle connection error, trigger reconnection
+                handleReconnect();
+              }
+              break;
+          }
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+          if (onError) onError(error);
         }
-      } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
-        if (onError) onError(error);
-      }
-    };
+      };
 
-    ws.onclose = () => {
-      stopHeartbeat();
-      handleReconnect();
-    };
+      ws.onclose = () => {
+        stopHeartbeat();
+        handleReconnect();
+      };
 
-    ws.onerror = (event) => {
-      reconnectAttemptsRef.current += 1;
-      console.error("WebSocket error:", event);
-      if (onError) onError(event);
-      setIsLoading(false);
-    };
-  }, [token, userId]);
+      ws.onerror = (event) => {
+        reconnectAttemptsRef.current += 1;
+        console.error("WebSocket error:", event);
+        if (onError) onError(event);
+        setIsLoading(false);
+      };
+    },
+    [token, userId],
+  );
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -286,7 +295,6 @@ export function useTicketWebSocket({
       wsRef.current.close();
       wsRef.current = null;
     }
-
   }, []);
 
   function sendCustomMsg(props: WSMessage) {

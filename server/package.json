@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun build api/index.ts --outdir=dist --target=bun",
-    "build:prod": "bun build api/index.ts --outdir=dist --target=bun --production",
+    "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts",
+    "build:prod": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production",
     "dev": "bun --env-file=../.env.local run --hot api/index.ts",
     "start": "bun run ./dist/index.js",
     "generate": "bun --env-file=../.env.local drizzle-kit generate --config=db/drizzle.config.ts",

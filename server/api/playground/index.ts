@@ -8,7 +8,7 @@ import { getConnInfo } from "hono/bun";
 import { factory } from "../middleware.ts";
 import * as schema from "@db/schema.ts";
 import { eq, inArray, sql, and, asc } from "drizzle-orm";
-import { getFeishuAppAccessToken, getFeishuCard, sendFeishuCard, sendFeishuMsg } from "@/utils/platform/index.ts";
+import { getFeishuAppAccessToken, getFeishuCard, sendFeishuMsg } from "@/utils/platform/index.ts";
 import { refreshStaffMap } from "@/utils/tools.ts";
 import { loremText } from "./spam.ts";
 import { getAbbreviatedText } from "@/utils/types.ts";

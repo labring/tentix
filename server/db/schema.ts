@@ -64,10 +64,6 @@ export const users = tentix.table(
     }).notNull(),
     level: smallint("level").default(0).notNull(),
     email: varchar("email", { length: 254 }).default("").notNull(),
-    ccEmails: varchar("cc_emails", { length: 254 }).array(),
-    contactTimeStart: time("contact_time_start").notNull().default("08:00:00"),
-    contactTimeEnd: time("contact_time_end").notNull().default("18:00:00"),
-    sendProgress: boolean("send_progress").default(false).notNull(),
   },
   (table) => [unique("users_identity_key").on(table.identity)],
 );
@@ -78,7 +74,7 @@ export const tickets = tentix.table("tickets", {
   description: jsonb().$type<JSONContentZod>().notNull(),
   status: ticketStatus("status")
     .notNull()
-    .$default(() => "in_progress"),
+    .$default(() => "pending"),
   module: module("module").notNull(),
   area: area("area").notNull(),
   occurrenceTime: timestamp("occurrence_time", {
@@ -113,7 +109,6 @@ export const tickets = tentix.table("tickets", {
     foreignColumns: [users.id],
     name: "tickets_agent_id_users_id_fk",
   }),
-  
 ]);
 
 export const tags = tentix.table("tags", {

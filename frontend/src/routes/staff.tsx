@@ -1,5 +1,4 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
-import useLocalUser from 'tentix-ui/hooks/use-local-user.tsx';
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/staff')({
   validateSearch: (search: Record<string, unknown>) => {
@@ -8,7 +7,6 @@ export const Route = createFileRoute('/staff')({
     };
   },
   beforeLoad: async ({ search, context, location }) => {
-    console.log(context.authContext)
     if (!context.authContext.isAuthenticated || import.meta.env.DEV) {
       if (search.revalidate) {
         context.queryClient.invalidateQueries({ queryKey: ['getUserInfo'] })

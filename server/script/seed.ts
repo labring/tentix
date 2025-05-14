@@ -190,7 +190,7 @@ async function checkDatabaseHasData(
   return false;
 }
 
-async function serialSequenceReset(
+export async function serialSequenceReset(
   db: NodePgDatabase<AppSchema>,
 ): Promise<boolean> {
   console.log("ℹ️ Resetting serial sequences...");
@@ -300,10 +300,6 @@ async function main() {
             registerTime: faker.date.past().toUTCString(),
             level: getRandomInt(1, 10),
             email: faker.internet.email(),
-            ccEmails: faker.datatype.boolean(0.2)
-              ? [faker.internet.email()]
-              : [],
-            sendProgress: faker.datatype.boolean(),
           }),
         );
 

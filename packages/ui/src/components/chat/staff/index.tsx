@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { TicketInfoBox } from "../ticket-info-box.tsx";
 import {
   useTicketStore,
@@ -13,6 +13,9 @@ import { JSONContentZod } from "@server/utils/types.ts";
 import { TicketType } from "tentix-ui/lib/types";
 import { PhotoProvider } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";
+import { Button } from "tentix-ui/comp/ui/button";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { joinTicketAsTechnician } from "tentix-ui/lib/query";
 
 interface StaffChatProps {
   ticket: TicketType;
@@ -28,6 +31,7 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
   const hadFirstMsg = useRef<boolean>(
     ticket.messages.some((msg) => msg.senderId === userId),
   );
+  const queryClient = useQueryClient();
 
   // Refs
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,6 +44,32 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
   // Messages tracking
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   const sentReadStatusRef = useRef<Set<number>>(new Set());
+
+  // Check if current user is a member of this ticket
+  const isTicketMember = useMemo(() => {
+    if (!sessionMembers) return false;
+
+    // Check if user is the agent
+    if (ticket.agent.id === userId) return true;
+
+    // Check if user is a technician
+    return ticket.technicians.some(tech => tech.id === userId);
+  }, [sessionMembers, ticket, userId]);
+
+  // Join ticket mutation
+  const joinTicketMutation = useMutation({
+    mutationFn: joinTicketAsTechnician,
+    onSuccess: () => {
+      // Invalidate and refetch the ticket query to update the member list
+      queryClient.invalidateQueries({ queryKey: ["getTicket", ticket.id.toString()] });
+      window.location.reload();
+    },
+  });
+
+  // Handle join ticket
+  const handleJoinTicket = () => {
+    joinTicketMutation.mutate({ ticketId: ticket.id });
+  };
 
   // handle new message
   const handleNewMessage = (message: TicketType["messages"][number]) => {
@@ -168,11 +198,25 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
               onMessageInView={handleMessageInView}
             />
           </div>
-          <StaffMessageInput
-            onSendMessage={handleSendMessage}
-            onTyping={sendTypingIndicator}
-            isLoading={isLoading}
-          />
+          {!isTicketMember ? (
+            <div className="bg-white p-4 border-t dark:border-gray-800 dark:bg-gray-950 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-sm text-gray-500 mb-2">你尚未加入该工单，无法发送消息</p>
+                <Button 
+                  onClick={handleJoinTicket} 
+                  disabled={joinTicketMutation.isPending}
+                >
+                  {joinTicketMutation.isPending ? "加入中..." : "加入此工单"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <StaffMessageInput
+              onSendMessage={handleSendMessage}
+              onTyping={sendTypingIndicator}
+              isLoading={isLoading}
+            />
+          )}
         </div>
       </div>
     </PhotoProvider>

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { StaffChartAreaInteractive } from "tentix-ui/comp/staff/chart-area-interactive";
 import { DataTable } from "tentix-ui/comp/tickets-table/table";
 import { StaffSectionCards } from "tentix-ui/comp/staff/section-cards";

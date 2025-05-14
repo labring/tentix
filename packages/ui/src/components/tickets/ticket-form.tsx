@@ -9,7 +9,7 @@ import {
   LightbulbIcon,
   PlusIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "../ui/button.tsx";
 import { Checkbox } from "../ui/checkbox.tsx";
@@ -47,6 +47,8 @@ import { useToast } from "../../hooks/use-toast.ts";
 import DescriptionEditor from "../minimal-tiptap/description-editor.tsx";
 import { joinTrans, useTranslation } from "i18n";
 import useLocalUser from "tentix-ui/hooks/use-local-user.tsx";
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 
 const IconMap: Record<
   (typeof ticketCategoryEnumArray)[number],
@@ -63,13 +65,8 @@ export function TicketForm() {
   const { area } = useLocalUser();
   const [agreementChecked, setAgreementChecked] = useState<boolean>(true);
   const [agreementOpen, setAgreementOpen] = useState<boolean>(false);
-  
-
-  const handleAgreementClick = () => {
-    if (!agreementChecked) {
-      setAgreementOpen(true);
-    }
-  };
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleAgreementConfirm = () => {
     setAgreementChecked(true);
@@ -91,16 +88,33 @@ export function TicketForm() {
     },
   });
 
-  const onSubmit: SubmitHandler<ticketInsertType> = async (data) => {
-    const res = await apiClient.ticket.create.$post({ json: data });
-    if (res.ok) {
+  const createTicketMutation = useMutation({
+    mutationFn: async (data: ticketInsertType) => {
+      const res = await apiClient.ticket.create.$post({ json: data });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.status || t("ticket_create_failed"));
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
       toast({
         title: t("ticket_created"),
+        variant: "default",
       });
-      router.push(`/staff/tickets/${res.data.id}`);
+      navigate({ to: '/user/tickets/$id', params: { id: data.id.toString() } });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("ticket_create_failed"),
+        description: error.message,
+        variant: "destructive",
+      });
     }
+  });
 
-  };
+
+
 
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState<{ hour: number; minute: number }>({
@@ -115,15 +129,16 @@ export function TicketForm() {
     setValue("occurrenceTime", newDate.toISOString());
     return newDate;
   }, [date, time, setValue]);
-  const { toast } = useToast();
 
   return (
     <div className="p-6">
       <form
         name="ticket-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!isValid) {
+        onSubmit={handleSubmit(
+          (data) => {
+            createTicketMutation.mutate(data)
+          },
+          () => {
             toast({
               title: t("plz_fill_all_fields"),
               description: t("missing_fields", {
@@ -132,8 +147,7 @@ export function TicketForm() {
               variant: "destructive",
             });
           }
-          handleSubmit(onSubmit)();
-        }}
+        )}
       >
         <div className="grid gap-6 p-1">
           <Card className="md:col-span-2 lg:col-span-2">
@@ -162,7 +176,7 @@ export function TicketForm() {
                     control={control}
                     name="module"
                     render={({ field }) => (
-                      <Select {...field} onValueChange={field.onChange}>
+                      <Select {...field} onValueChange={field.onChange} required>
                         <SelectTrigger id="module">
                           <SelectValue
                             placeholder={joinTrans([t("select"), t("module")])}
@@ -308,7 +322,6 @@ export function TicketForm() {
                       value={field.value}
                       onChange={(value) => {
                         field.onChange(value as JSONContentZod);
-                        console.log(value);
                       }}
                       className="w-full"
                       editorContentClassName="p-5"
@@ -331,7 +344,7 @@ export function TicketForm() {
                     control={control}
                     name="priority"
                     render={({ field }) => (
-                      <Select {...field} onValueChange={field.onChange}>
+                      <Select {...field} onValueChange={field.onChange} required>
                         <SelectTrigger id="priority">
                           <SelectValue
                             placeholder={joinTrans([
@@ -355,11 +368,6 @@ export function TicketForm() {
                 </div>
               </div>
 
-              {/* <AffectedResourcesSelector
-                selectedResources={selectedResources}
-                setSelectedResources={setSelectedResources}
-              /> */}
-
               <div className="space-y-2">
                 <Label htmlFor="error-message">{t("error_msg")}</Label>
                 <Textarea
@@ -374,45 +382,23 @@ export function TicketForm() {
         </div>
 
         <div className="mt-6 flex items-start space-x-2 justify-between">
-          {/* <div className="flex items-center space-x-2">
-            <Checkbox
-              id="terms"
-              required
-              className="mt-1"
-              checked={agreementChecked}
-              onCheckedChange={handleAgreementClick}
-            />
-            <div className="grid gap-1.5 leading-none">
-              <Label htmlFor="terms" className="font-normal text-sm">
-                I have read and agree to the
-                <Button
-                  variant="link"
-                  className="h-auto p-0 text-sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setAgreementOpen(true);
-                  }}
-                >
-                  &quot;Service Agreement&quot;
-                </Button>
-                <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Submitting a ticket means you agree to our terms of service and
-                privacy policy
-              </p>
-            </div>
-          </div> */}
-          <Button type="submit" className="ml-auto">
-            {joinTrans([t("submit"), t("tkt")])}
+          <Button 
+            type="submit" 
+            className="ml-auto"
+            // disabled={createTicketMutation.isPending}
+          >
+           { t("submitting")}
+            {/* {createTicketMutation.isPending 
+              ?  
+              : joinTrans([t("submit"), t("tkt")])} */}
           </Button>
         </div>
       </form>
-      <ServiceAgreementModal
+      {/* <ServiceAgreementModal
         open={agreementOpen}
         onOpenChange={setAgreementOpen}
         onConfirm={handleAgreementConfirm}
-      />
+      /> */}
     </div>
   );
 }

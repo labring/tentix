@@ -18,7 +18,7 @@ function getCk() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ck, setCk] = React.useState<AuthContext["ck"]>(getCk());
   const [user, setUser] = React.useState<AuthContext["user"]>(null);
-  const isAuthenticated = Boolean(user);
+  const isAuthenticated = Boolean(user?.name !== undefined);
   const { data: userData } = useSuspenseQuery(userInfoQueryOptions());
 
   React.useEffect(() => {

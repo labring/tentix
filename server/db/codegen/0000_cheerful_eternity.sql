@@ -3,7 +3,7 @@ CREATE SCHEMA "tentix";
 CREATE TYPE "tentix"."area" AS ENUM('bja', 'hzh', 'gzg', 'io', 'usw', 'test');--> statement-breakpoint
 CREATE TYPE "tentix"."module" AS ENUM('all', 'applaunchpad', 'costcenter', 'appmarket', 'db', 'account_center', 'aiproxy', 'devbox', 'task', 'cloudserver', 'objectstorage', 'laf', 'kubepanel', 'terminal', 'workorder', 'other');--> statement-breakpoint
 CREATE TYPE "tentix"."ticket_category" AS ENUM('bug', 'feature', 'question', 'other');--> statement-breakpoint
-CREATE TYPE "tentix"."ticket_history_type" AS ENUM('create', 'first_reply', 'update', 'upgrade', 'transfer', 'makeRequest', 'resolve', 'close', 'other');--> statement-breakpoint
+CREATE TYPE "tentix"."ticket_history_type" AS ENUM('create', 'first_reply', 'join', 'update', 'upgrade', 'transfer', 'makeRequest', 'resolve', 'close', 'other');--> statement-breakpoint
 CREATE TYPE "tentix"."ticket_priority" AS ENUM('normal', 'low', 'medium', 'high', 'urgent');--> statement-breakpoint
 CREATE TYPE "tentix"."ticket_status" AS ENUM('pending', 'in_progress', 'resolved', 'scheduled');--> statement-breakpoint
 CREATE TYPE "tentix"."user_role" AS ENUM('system', 'customer', 'agent', 'technician', 'admin', 'ai');--> statement-breakpoint
@@ -102,10 +102,6 @@ CREATE TABLE "tentix"."users" (
 	"register_time" timestamp(6) NOT NULL,
 	"level" smallint DEFAULT 0 NOT NULL,
 	"email" varchar(254) DEFAULT '' NOT NULL,
-	"cc_emails" varchar(254)[],
-	"contact_time_start" time DEFAULT '08:00:00' NOT NULL,
-	"contact_time_end" time DEFAULT '18:00:00' NOT NULL,
-	"send_progress" boolean DEFAULT false NOT NULL,
 	CONSTRAINT "users_identity_key" UNIQUE("identity")
 );
 --> statement-breakpoint

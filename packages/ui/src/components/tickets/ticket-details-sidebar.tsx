@@ -50,19 +50,24 @@ export function TicketHistory({
   history: TicketType["ticketHistory"][number];
 }) {
   const { sessionMembers } = useSessionMembersStore();
-  const member = sessionMembers?.find(
+  const memberName = sessionMembers?.find(
     (member) => member.id === history.meta,
-  ) ?? { name: "System" };
+  )?.nickname ?? "System";
+  const operatorName = sessionMembers?.find(
+    (member) => member.id === history.operatorId,
+  )?.nickname ?? "System";
   const { t } = useTranslation();
 
   const text = () => {
     switch (history.type) {
       case "create":
-        return t(`tktH.create`, { assignee: member.name });
+        return t(`tktH.create`, { assignee: memberName });
       case "upgrade":
         return t(`tktH.upgrade`, { priority: history.meta });
       case "transfer":
-        return t(`tktH.transfer`, { assignee: member.name });
+        return t(`tktH.transfer`, { assignee: memberName });
+      case "join":
+        return t(`tktH.join`, { member: memberName });
       default:
         return t(`tktH.${history.type}`);
     }
@@ -76,7 +81,7 @@ export function TicketHistory({
       <div className="flex-1">
         <p className="font-medium">{text()}</p>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <span>{member?.name}</span>
+          <span>{operatorName}</span>
           <span>•</span>
           <span>{timeAgo(history.createdAt)}</span>
         </div>

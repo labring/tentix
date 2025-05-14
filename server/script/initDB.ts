@@ -4,9 +4,15 @@ import { createInsertSchema } from "drizzle-zod";
 import { logSuccess, logError, withTaskLog } from "../utils/log.ts";
 import { readConfig } from "@/utils/env.ts";
 import { styleText } from "util";
+import { reset } from "drizzle-seed";
+import { serialSequenceReset } from "./seed.ts";
 
 export async function createAIUser() {
   const db = connectDB();
+  await withTaskLog("Resetting database", async () => {
+    await reset(db, schema);
+    await serialSequenceReset(db);
+  });
   const config = await readConfig();
   const aiProfile = config.aiProfile;
   const userInsertSchema = createInsertSchema(schema.users);
@@ -16,13 +22,30 @@ export async function createAIUser() {
     return userInsertSchema.parse(aiProfile);
   });
 
+  const systemUser = {
+    id: 0,
+    uid: "System",
+    name: "System",
+    nickname: "System",
+    realName: "System",
+    identity: "System",
+    role: "system" as const,
+    avatar: parsed.avatar,
+    registerTime: parsed.registerTime,
+  };
+
+  const insertValues = [systemUser, parsed];
+
   // Create AI user
   const result = await withTaskLog("Creating AI user", async () => {
-    const [user] = await db.insert(schema.users).values(parsed).returning();
-    if (!user) {
+    const [systemUser, AIuser] = await db
+      .insert(schema.users)
+      .values(insertValues)
+      .returning();
+    if (!AIuser) {
       throw new Error("AI user creation failed - no user returned");
     }
-    return user;
+    return AIuser;
   });
 
   // Register Staffs
@@ -53,17 +76,50 @@ export async function createAIUser() {
       };
     });
 
-    const list = await db
-      .insert(schema.users)
-      .values(insertValues)
-      .returning();
+    const list = await db.insert(schema.users).values(insertValues).returning();
 
-    console.log(styleText('cyan', `Inserted ${list.length} staffs.`));
+    // Log success with user details
+    logSuccess(
+      `AI user created successfully - ID: ${result.id}, name: ${result.name}`,
+    );
+    logSuccess(
+      `System user created successfully - ID: ${systemUser.id}, name: ${systemUser.name}`,
+    );
+
+    console.log(styleText("cyan", `Inserted ${list.length} staffs.`));
+    console.log(
+      Bun.inspect.table(
+        [
+          ...list.slice(0, 3).map((item) => ({
+            id: item.id,
+            uid: item.uid,
+            name: item.name,
+            nickname: item.nickname,
+            realName: item.realName,
+          })),
+          {
+            id: "...",
+            uid: "...",
+            name: "...",
+            nickname: "...",
+            realName: "...",
+          },
+          ...(list.at(-1)
+            ? [
+                {
+                  id: list.at(-1)!.id,
+                  uid: list.at(-1)!.uid,
+                  name: list.at(-1)!.name,
+                  nickname: list.at(-1)!.nickname,
+                  realName: list.at(-1)!.realName,
+                },
+              ]
+            : []),
+        ],
+        { colors: true },
+      ),
+    );
   });
-  // Log success with user details
-  logSuccess(
-    `AI user created successfully - ID: ${result.id}, name: ${result.name}`,
-  );
 }
 
 async function main() {

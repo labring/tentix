@@ -1,5 +1,5 @@
 {
-  "id": "1e6f4392-a017-48c9-ac21-0e8d4ce4dedf",
+  "id": "3f78413b-be58-45af-aac5-3e8cb3601f8d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -816,33 +816,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "''"
-        },
-        "cc_emails": {
-          "name": "cc_emails",
-          "type": "varchar(254)[]",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "contact_time_start": {
-          "name": "contact_time_start",
-          "type": "time",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'08:00:00'"
-        },
-        "contact_time_end": {
-          "name": "contact_time_end",
-          "type": "time",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'18:00:00'"
-        },
-        "send_progress": {
-          "name": "send_progress",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         }
       },
       "indexes": {},
@@ -913,6 +886,7 @@
       "values": [
         "create",
         "first_reply",
+        "join",
         "update",
         "upgrade",
         "transfer",

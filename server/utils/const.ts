@@ -78,6 +78,7 @@ export const ticketStatusEnumArray = [
 export const ticketHistoryTypeEnumArray = [
   "create",
   "first_reply",
+  "join",
   "update",
   "upgrade",
   "transfer",

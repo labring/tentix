@@ -52,6 +52,7 @@ export const userInfoQueryOptions = () =>
     },
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
+    retry: 5,
   });
 
 export const userTicketsQueryOptions = () =>
@@ -85,7 +86,8 @@ export const wsTokenQueryOptions = (id: string, testUserId?: string) =>
       ).json();
       return data;
     },
-    staleTime: WS_TOKEN_EXPIRY_TIME,
+    // staleTime: WS_TOKEN_EXPIRY_TIME,
+    staleTime: WS_TOKEN_EXPIRY_TIME / 24,
   });
 
 export async function uploadFile(file: File) {
@@ -178,3 +180,22 @@ export async function updateTicketStatus({
   }
   throw new Error(res.message);
 }
+
+export async function joinTicketAsTechnician({
+  ticketId,
+}: {
+  ticketId: number;
+}) {
+  const res = await (await apiClient.ticket.joinAsTechnician.$post({
+    json: {
+      ticketId,
+    },
+  })).json();
+  if (res.success) {
+    return res;
+  }
+  throw new Error(res.message);
+}
+
+
+

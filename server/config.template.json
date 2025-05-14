@@ -2,7 +2,6 @@
   "$schema": "./config.schema.json",
   "feishu_app_id": "cli_a8xxxxxxx7be100e",
   "feishu_app_secret": "BoUeVk4E3ObT9xxxxxxxxxxxaR1mWvNR",
-  "feishu_bot_webhook_id": "0ae733f3-xxxx-xxxx-xxxx-621xxxxx2411",
   "aiProfile": {
     "uid": "0",
     "name": "Tentix AI",
@@ -37,7 +36,7 @@
       "id": "39f7d4e9a9xxxxxx",
       "name": "XX组",
       "members": [
-        "ou_xxxx5fe532xxxxxaea6ba0e1b9032b28"
+        "on_xxxx5fe532xxxxxaea6ba0e1b9032b28"
       ]
     }
   ]

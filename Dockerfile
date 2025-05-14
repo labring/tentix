@@ -1,50 +1,31 @@
-# syntax = docker/dockerfile:1
+ARG BUN_VERSION=1.2.12
+FROM oven/bun:${BUN_VERSION}-slim AS base
 
-# Adjust BUN_VERSION as desired
-ARG BUN_VERSION=1.2.10
-FROM oven/bun:${BUN_VERSION}-slim as base
-
-LABEL fly_launch_runtime="Bun"
-
-# Bun app lives here
 WORKDIR /app
 
-# Set production environment
 ENV NODE_ENV="production"
 
+FROM base AS build
 
-# Throw-away build stage to reduce size of final image
-FROM base as build
+COPY package.json bun.lock ./
+COPY frontend/ ./frontend/
+COPY server/ ./server/
+COPY packages/ ./packages/
+COPY turbo.json tsconfig.json ./
 
-# Install packages needed to build node modules
-# RUN apt-get update -qq && \
-#     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
+RUN bun install --frozen-lockfile
 
-# Install node modules
-COPY package.json ./
-COPY --link bun.lock package.json ./
-RUN bun install --ci
-
-# Install frontend node modules
-# COPY --link frontend/bun.lock frontend/package.json ./frontend/
-COPY --link ./frontend/ ./frontend/
-RUN cd frontend
-
-# Copy application code
-COPY --link . .
-
-# Change to frontend directory and build the frontend app
 WORKDIR /app/frontend
-RUN bun run build
-# Remove all files in frontend except for the dist folder
-RUN find . -mindepth 1 ! -regex '^./dist\(/.*\)?' -delete
+RUN bun run build:prod
 
-# Final stage for app image
+WORKDIR /app/server
+RUN bun run build:prod
+
 FROM base
 
-# Copy built application
-COPY --from=build /app /app
+COPY --from=build /app/server/dist /app/dist
+COPY --from=build /app/package.json /app/
 
-# Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
-CMD [ "bun", "run", "start" ]
+
+CMD ["bun", "/app/dist/server.js"]

@@ -224,7 +224,7 @@ const wsRouter = factory
     },
   )
   .get(
-    "/",
+    "/chat",
     describeRoute({
       tags: ["Chat"],
       description: "WebSocket connection endpoint",
@@ -263,13 +263,12 @@ const wsRouter = factory
       }
 
       const { userId, role } = tokenData;
-      const db = connectDB();
 
       // Check if user has permission to access this ticket
       const roomMembers = await MyCache.getTicketMembers(ticketIdNum);
 
       if (
-        !roomMembers.map((member) => member.id).includes(userId) &&
+        role === 'customer' && !roomMembers.map((member) => member.id).includes(userId) &&
         process.env.NODE_ENV === "production"
       ) {
         throw new HTTPException(403, {
