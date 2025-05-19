@@ -28,8 +28,6 @@ async function main() {
       await db.execute(sql`DROP SCHEMA IF EXISTS tentix CASCADE;`);
     });
 
-
-
     // Step 4: Run migrations
     await withTaskLog("Running migrations", async () => {
       await $`bun run migrate`;

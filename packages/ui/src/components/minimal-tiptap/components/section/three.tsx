@@ -1,6 +1,6 @@
 import * as React from "react"
 import type { Editor } from "@tiptap/react"
-import type { toggleVariants } from "tentix-ui/comp/ui/toggle"
+import type { toggleVariants } from "@ui/components/ui/toggle.tsx"
 import type { VariantProps } from "class-variance-authority"
 import { ChevronDownIcon, CheckIcon } from "lucide-react"
 import { ToolbarButton } from "../toolbar-button.tsx"
@@ -8,13 +8,13 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from "tentix-ui/comp/ui/popover"
-import { ToggleGroup, ToggleGroupItem } from "tentix-ui/comp/ui/toggle-group"
+} from "@ui/components/ui/popover.tsx"
+import { ToggleGroup, ToggleGroupItem } from "@ui/components/ui/toggle-group.tsx"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "tentix-ui/comp/ui/tooltip"
+} from "@ui/components/ui/tooltip.tsx"
 import { useTheme } from "../../hooks/use-theme.ts"
 
 interface ColorItem {

@@ -9,15 +9,13 @@ export function getCntFromEnv() {
 
 
 
-export async function readConfig() {
-  if (globalThis.config) {
-    return globalThis.config;
+export async function readConfig(): Promise<AppConfig> {
+  if (global.config) {
+    return global.config;
   }
-  if (process.env.NODE_ENV === "production") {
-    globalThis.config = await Bun.file("config.prod.json").json();
-  } else {
-    globalThis.config = await Bun.file("config.dev.json").json();
-  }
-  return globalThis.config!;
+  const configName = process.env.NODE_ENV === "production" ? "config.prod.json" : "config.dev.json";
+  console.log('Reading config from: ', configName);
+  global.config = await Bun.file(configName).json();
+  return global.config!;
 }
 

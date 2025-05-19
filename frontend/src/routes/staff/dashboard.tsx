@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { StaffChartAreaInteractive } from "tentix-ui/comp/staff/chart-area-interactive";
-import { DataTable } from "tentix-ui/comp/tickets-table/table";
-import { StaffSectionCards } from "tentix-ui/comp/staff/section-cards";
-import { SiteHeader } from "tentix-ui/comp/site-header";
-import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
-import { StaffDashboardSidebar } from "tentix-ui/comp/staff/dashboard-sidebar";
+import { StaffChartAreaInteractive } from "@comp/staff/chart-area-interactive";
+import { DataTable } from "@comp/tickets-table/table";
+import { StaffSectionCards } from "@comp/staff/section-cards";
+import { SiteHeader } from "@comp/site-header";
+import { SidebarInset, SidebarProvider } from "tentix-ui";
+import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar";
 import { userTicketsQueryOptions } from "@lib/query";
 import { joinTrans, useTranslation } from "i18n";
 

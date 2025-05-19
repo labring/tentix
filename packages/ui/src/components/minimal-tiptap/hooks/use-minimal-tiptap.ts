@@ -18,11 +18,34 @@ import {
   ResetMarksOnEnter,
   FileHandler,
 } from "../extensions/index.ts";
-import { cn } from "tentix-ui/lib/utils";
+import { cn } from "@ui/lib/utils.ts";
 import {  getOutput, randomId } from "../utils.ts";
 import { useThrottle } from "../hooks/use-throttle.ts";
-import { useToast } from "tentix-ui/hooks/use-toast";
-import { removeFile, uploadFile } from "tentix-ui/lib/query";
+import { useToast } from "@ui/hooks/use-toast.ts";
+
+// FIXME: This is a temporary solution until we have a proper upload service
+const uploadFile = async (file: File) => {
+  const { url, srcUrl } = await (
+    await apiClient.file["presigned-url"].$get({
+      query: {
+        fileName: file.name,
+        fileType: file.type,
+      },
+    })
+  ).json();
+  const response = await fetch(url, {
+    method: "PUT",
+    body: file,
+  });
+};
+
+const removeFile = async (src: string) => {
+  // Mock implementation - in a real app, replace with actual file removal logic
+  if (src.startsWith('blob:')) {
+    URL.revokeObjectURL(src);
+  }
+  return true;
+};
 
 export interface UseMinimalTiptapEditorProps extends UseEditorOptions {
   value?: Content;
@@ -52,7 +75,7 @@ const createExtensions = (
     horizontalRule: false,
     codeBlock: false,
     paragraph: { HTMLAttributes: { class: "text-node" } },
-    heading: false,
+    heading: { HTMLAttributes: { class: "heading-node" } },
     blockquote: { HTMLAttributes: { class: "block-node" } },
     bulletList: { HTMLAttributes: { class: "list-node" } },
     orderedList: { HTMLAttributes: { class: "list-node" } },

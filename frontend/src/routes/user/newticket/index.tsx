@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SiteHeader } from "tentix-ui/comp/site-header";
-import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
-import { UserDashboardSidebar } from "tentix-ui/comp/user/dashboard-sidebar";
-import { TicketForm } from "tentix-ui/comp/tickets/ticket-form";
+import { SiteHeader } from "@comp/site-header";
+import { SidebarInset, SidebarProvider } from "tentix-ui";
+import { UserDashboardSidebar } from "@comp/user/dashboard-sidebar";
+import { TicketForm } from "@comp/tickets/ticket-form";
 import { useTranslation } from "i18n";
 export const Route = createFileRoute("/user/newticket/")({
   component: RouteComponent,

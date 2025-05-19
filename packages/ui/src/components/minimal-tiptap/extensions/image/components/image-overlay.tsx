@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Spinner } from "../../../components/spinner.tsx"
-import { cn } from "tentix-ui/lib/utils"
+import { cn } from "@ui/lib/utils.ts"
 
 export const ImageOverlay = React.memo(() => {
   return (

@@ -2,12 +2,21 @@
   "name": "i18n",
   "module": "index.ts",
   "type": "module",
+  "types": "./dist/index.d.ts",
   "devDependencies": {
-    "@types/bun": "latest",
     "i18next": "^25.1.1",
     "react-i18next": "^15.5.1"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   }
 }

@@ -1,8 +1,9 @@
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { AppSchema, connectDB } from "./tools.ts";
+import { connectDB } from "./tools.ts";
 
 import * as schema from "@db/schema.ts";
 import { JSONContentZod, validateJSONContent } from "./types.ts";
+import { eq, and } from "drizzle-orm";
 
 // Helper function to save a message to the database
 export async function saveMessageToDb(
@@ -35,10 +36,7 @@ export async function saveMessageToDb(
 }
 
 // Helper function to save message read status to the database
-export async function saveMessageReadStatus(
-  messageId: number,
-  userId: number,
-) {
+export async function saveMessageReadStatus(messageId: number, userId: number) {
   try {
     const db = connectDB();
     const [readStatus] = await db
@@ -50,10 +48,57 @@ export async function saveMessageReadStatus(
       })
       .onConflictDoNothing()
       .returning();
-
     return readStatus;
   } catch (err) {
     console.error("Error saving message read status:", err);
     return null;
   }
+}
+
+
+export async function withdrawMessage(messageId: number, userId: number) {
+  const db = connectDB();
+
+  // First check if the message exists and belongs to the user
+  const [message] = await db
+    .select()
+    .from(schema.chatMessages)
+    .where(
+      and(
+        eq(schema.chatMessages.id, messageId),
+        eq(schema.chatMessages.senderId, userId),
+      ),
+    )
+    .limit(1);
+
+  if (!message) {
+    throw new Error(
+      "Message not found or you don't have permission to withdraw it",
+    );
+  }
+
+  const withdrawnContent = {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          {
+            type: "text",
+            text: "已撤回",
+          },
+        ],
+      },
+    ],
+  };
+
+  const [updatedMessage] = await db
+    .update(schema.chatMessages)
+    .set({
+      content: withdrawnContent,
+      withdrawn: true,
+    })
+    .where(eq(schema.chatMessages.id, message.id))
+    .returning();
+  return updatedMessage;
 }

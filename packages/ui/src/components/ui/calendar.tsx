@@ -1,5 +1,5 @@
 import { Button, buttonVariants } from "./button.tsx"
-import { cn } from "tentix-ui/lib/utils"
+import { cn } from "@ui/lib/utils.ts"
 import { differenceInCalendarDays } from "date-fns"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import * as React from "react"

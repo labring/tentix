@@ -2,15 +2,15 @@ import * as React from "react"
 import type { Editor } from "@tiptap/react"
 import type { FormatAction } from "../types.ts"
 import type { VariantProps } from "class-variance-authority"
-import type { toggleVariants } from "tentix-ui/comp/ui/toggle"
-import { cn } from "tentix-ui/lib/utils"
+import type { toggleVariants } from "@ui/components/ui/toggle.tsx"
+import { cn } from "@ui/lib/utils.ts"
 import { ChevronDownIcon } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "tentix-ui/comp/ui/dropdown-menu"
+} from "@ui/components/ui/dropdown-menu.tsx"
 import { ToolbarButton } from "./toolbar-button.tsx"
 import { ShortcutKey } from "./shortcut-key.tsx"
 import { getShortcutKey } from "../utils.ts"

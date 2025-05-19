@@ -2,7 +2,7 @@ import type { PropsWithChildren, JSX, ReactNode } from "react";
 import AppTanstackProvider from "./tanstack";
 import { AuthProvider } from "./auth";
 import UIProvider from "./ui";
-import { ThemeProvider } from "tentix-ui/comp/theme-provider";
+import { ThemeProvider } from "./theme-provider";
 export default function AppProviders({ children }: PropsWithChildren) {
   const providers = [
     AppTanstackProvider,

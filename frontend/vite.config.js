@@ -7,6 +7,9 @@ import { resolve } from "node:path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  optimizeDeps: {
+    // exclude: ["tentix-ui"],
+  },
   plugins: [
     TanStackRouterVite({ autoCodeSplitting: true }),
     viteReact(),
@@ -20,11 +23,16 @@ export default defineConfig({
     alias: {
       "@frontend": resolve(__dirname, "./src"),
       "@comp": resolve(__dirname, "./src/components"),
+      "@store": resolve(__dirname, "./src/store"),
+      "@hook": resolve(__dirname, "./src/hooks"),
       "@lib": resolve(__dirname, "./src/lib"),
+      "@modal": resolve(__dirname, "./src/modal"),
       "@server": resolve(__dirname, "../server"),
       "@db": resolve(__dirname, "../server/db"),
       "@api": resolve(__dirname, "../server/api"),
-      "@": resolve(__dirname, "./src"),
+      "tentix-ui": resolve(__dirname, "../packages/ui"),
+      "src": [resolve(__dirname, "./src")],
+      "@ui": resolve(__dirname, "../packages/ui/src"),
     },
   },
   server: {
@@ -42,8 +50,55 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 1200,
     sourcemap: false,
     emptyOutDir: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: false,
+        manualChunks: (id) => {
+          
+          if (id.includes('staff')) {
+            return 'staff';
+          }
+
+          if (id.includes('user')) {
+            return 'user';
+          }
+
+          if (id.includes('packages/ui')) {
+            return 'ui';
+          }
+
+          if (id.includes('/components/')) {
+            return 'ui';
+          }
+          
+          if (id.includes('/hooks/') || id.includes('/utils/') || id.includes('/lib/')) {
+            return 'app-utils';
+          }
+          return 'others';
+        },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name && assetInfo.name.endsWith('.css')) {
+            return 'assets/styles-[hash].css';
+          }
+          return 'assets/[name]-[hash].[ext]';
+        },
+      },
+    },
+    cssCodeSplit: false,
+    cssMinify: true,
+    assetsInlineLimit: 10240,
+    reportCompressedSize: true,
   }
 });

@@ -9,15 +9,14 @@ import {
   zs,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
-import { eq, inArray, and, count, gte, lt, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import { HTTPException } from "hono/http-exception";
-import { getSignedCookie } from "hono/cookie";
 import { authMiddleware, factory } from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
-import { CacheFunc, MyCache } from "@/utils/cache.ts";
+import { MyCache } from "@/utils/cache.ts";
 import { readConfig } from "@/utils/env.ts";
 
 const createResponseSchema = z.array(
@@ -370,7 +369,7 @@ const ticketRouter = factory
       description: "Get ticket info by id",
       security: [
         {
-          cookieAuth: [],
+          bearerAuth: [],
         },
       ],
       responses: {
@@ -428,11 +427,7 @@ const ticketRouter = factory
         });
       }
 
-      const response = {
-        ...data,
-        technicians: data.technicians.map((t) => t.user),
-        tags: data.ticketsTags.map((t) => t.tag),
-      };
+      
       if (role === "customer") {
         data.messages = data.messages.filter((message) => !message.isInternal);
       }
@@ -445,6 +440,11 @@ const ticketRouter = factory
           message: "You are not allowed to access this ticket",
         });
       }
+      const response = {
+        ...data,
+        technicians: data.technicians.map((t) => t.user),
+        tags: data.ticketsTags.map((t) => t.tag),
+      };
       return c.json({ ...response });
     },
   )
@@ -456,7 +456,7 @@ const ticketRouter = factory
       description: "Get ticket members",
       security: [
         {
-          cookieAuth: [],
+          bearerAuth: [],
         },
       ],
       responses: {
@@ -812,7 +812,7 @@ const ticketRouter = factory
       // Check if the user is authorized to join tickets
       if (userRole === "customer") {
         throw new HTTPException(400, {
-          message: "Only agent or admin users can join tickets",
+          message: "Only staff users can join tickets.",
         });
       }
 

@@ -1,5 +1,4 @@
 import { Scalar } from "@scalar/hono-api-reference";
-import { Hono } from "hono";
 import { openAPISpecs } from "hono-openapi";
 import { serveStatic } from "hono/bun";
 import { logger } from "hono/logger";
@@ -17,35 +16,38 @@ const app = factory.createApp();
 
 app.onError(handleError);
 app.use("*", logger());
-app.use("/api/openapi.json", openAPISpecs(app, {
-  documentation: {
-    info: {
-      title: "Tentix API",
-      version: "1.0.0",
-      description: "API for Tentix",
-    },
-    servers: [
-      {
-        url: "/",
-        description: "Current server",
+app.use(
+  "/api/openapi.json",
+  openAPISpecs(app, {
+    documentation: {
+      info: {
+        title: "Tentix API",
+        version: "1.0.0",
+        description: "API for Tentix",
       },
-      {
-        url: "http://localhost:3000",
-        description: "Local server",
-      },
-    ],
-    components: {
-      securitySchemes: {
-        cookieAuth: {
-          type: "apiKey",
-          name: "identity",
-          in: "cookie",
-          description: "Cookie for authentication. Contains userId===role.",
+      servers: [
+        {
+          url: "/",
+          description: "Current server",
+        },
+        {
+          url: "http://localhost:3000",
+          description: "Local server",
+        },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            description:
+              "Bearer token for authentication. Contains userId##role##expireTime(timestamp, seconds). It be encrypted by AES-CBC.",
+          },
         },
       },
     },
-  },
-}));
+  }),
+);
 app.get(
   "/api/reference",
   Scalar({
@@ -67,10 +69,7 @@ const routes = app
   .route("/feishu", feishuRouter)
   .route("/playground", playgroundRouter); // RPC routes
 
-app.use(
-  "*",
-  serveStatic({ root: "./dist" }),
-);
+app.use("*", serveStatic({ root: "./dist" }));
 app.use(
   "*",
   serveStatic({

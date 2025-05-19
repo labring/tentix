@@ -1,4 +1,4 @@
-import { cn } from "tentix-ui/lib/utils"
+import { cn } from "@ui/lib/utils.ts"
 
 function Skeleton({
   className,

@@ -3,15 +3,15 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "tentix-ui/comp/ui/tooltip"
-import { cn } from "tentix-ui/lib/utils"
-import { Button } from "tentix-ui/comp/ui/button"
+} from "@ui/components/ui/tooltip.tsx"
+import { cn } from "@ui/lib/utils.ts"
+import { Button } from "@ui/components/ui/button.tsx"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "tentix-ui/comp/ui/dropdown-menu"
+} from "@ui/components/ui/dropdown-menu.tsx"
 import {
   ClipboardCopyIcon,
   MoreHorizontalIcon,

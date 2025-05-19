@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Separator } from "tentix-ui/comp/ui/separator"
+import { Separator } from "@ui/components/ui/separator.tsx"
 import { ToolbarButton } from "../toolbar-button.tsx"
 import {
   CopyIcon,

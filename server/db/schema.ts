@@ -286,6 +286,7 @@ export const userSession = tentix.table(
       .notNull(),
     userAgent: text("user_agent").notNull(),
     ip: text("ip").notNull(),
+    token: text("token").notNull(),
   },
   (table) => [
     foreignKey({

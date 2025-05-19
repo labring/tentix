@@ -1,8 +1,8 @@
 import * as React from "react"
 import type { Editor } from "@tiptap/react"
-import { Button } from "tentix-ui/comp/ui/button"
-import { Label } from "tentix-ui/comp/ui/label"
-import { Input } from "tentix-ui/comp/ui/input"
+import { Button } from "@ui/components/ui/button.tsx"
+import { Label } from "@ui/components/ui/label.tsx"
+import { Input } from "@ui/components/ui/input.tsx"
 
 interface ImageEditBlockProps {
   editor: Editor

@@ -1,17 +1,16 @@
 import { initClient } from "@server/utils/rpc";
 import ky from "ky";
+import { toast } from "tentix-ui";
 
 // const baseUrl = import.meta.env.DEV
 //   ? "http://localhost:3000"
 //   : import.meta.env.BASE_URL;
 
 export const fetch = ky.extend({
+  headers: {
+    Authorization: `Bearer ${window.localStorage.getItem("token")}`,
+  },
   hooks: {
-    // beforeRequest: [
-    //   async (request) => {
-    //     request.headers.set("Authorization", `Bearer ${token}`);
-    //   },
-    // ],
     afterResponse: [
       async (_, __, response: Response) => {
         if (response.ok) {
@@ -21,6 +20,8 @@ export const fetch = ky.extend({
       },
     ],
   },
+  retry: 1,
+  throwHttpErrors: true,
 });
 
 export const apiClient = initClient(import.meta.env.BASE_URL, {

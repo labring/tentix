@@ -3,7 +3,6 @@ import type { Context } from "hono";
 import {
   StaffMap,
   connectDB,
-  refreshStaffMap,
   userRoleType,
   ValidationError,
   getOrigin,
@@ -12,33 +11,45 @@ import { HTTPException } from "hono/http-exception";
 import { ContentfulStatusCode } from "hono/utils/http-status";
 import { styleText } from "util";
 import { createFactory, createMiddleware } from "hono/factory";
-import { getCookie, getSignedCookie } from "hono/cookie";
-import { userRoleEnumArray } from "@/utils/const.ts";
-import * as schema from "@db/schema.ts";
-import { eq, inArray, sql, and, asc, count, gte, lt } from "drizzle-orm";
 import i18next from "i18n";
+import {
+  changeAgentTicket,
+  incrementTodayTicketCount,
+  initGlobalVariables,
+} from "./initApp";
+import { aesDecryptFromString } from "@/utils/crypto";
 
 export class S3Error extends Error {
   constructor(message: string, cause?: Error) {
     super(message, { cause });
   }
 }
-function printError(title: string, content: string | undefined) {
+function printErrorProp(title: string, content: string | undefined) {
   console.error(
     styleText(["bgRed", "white", "bold"], title),
     styleText("yellow", content ?? ""),
   );
 }
+
+function printError(err: Error, c: Context) {
+  if (process.env.NODE_ENV === "production") {
+    console.error(`Error from ${c.req.path}:`);
+    console.error(err);
+    return;
+  }
+  const error = styleText("red", `From ${c.req.path}:\n `);
+  console.error(error);
+  printErrorProp("Cause: ", err.cause?.toString());
+  printErrorProp("Message: ", err.message);
+  printErrorProp("Stack: ", err.stack);
+}
+
 export function handleError(err: Error, c: Context): Response {
   let code: ContentfulStatusCode = 500;
   let message = "Something went wrong, please try again later.";
   let stack = err.stack;
   let cause = err.cause;
-  const error = styleText("red", `From ${c.req.path}:\n `);
-  console.error(error);
-  printError("Cause: ", err.cause?.toString());
-  printError("Message: ", err.message);
-  printError("Stack: ", stack);
+  printError(err, c);
   stack = err.stack?.split("\n").at(0);
   if (err instanceof HTTPException) {
     code = err.status;
@@ -67,125 +78,92 @@ export function handleError(err: Error, c: Context): Response {
   );
 }
 
-export const authMiddleware = createMiddleware(async (c, next) => {
-  let authHeader = await getSignedCookie(c, process.env.SECRET!, "identity");
+type BasicVariables = {
+  db: ReturnType<typeof connectDB>;
+  origin: string;
+  staffMap: () => StaffMap;
+  incrementAgentTicket: (id: number) => void;
+  decrementAgentTicket: (id: number) => void;
+  incrementTodayTicketCount: () => number;
+  i18n: typeof i18next;
+  cryptoKey: () => CryptoKey;
+};
 
-  if (process.env.NODE_ENV !== "production" && typeof authHeader !== "string") {
-    authHeader = getCookie(c, "identity") ?? process.env.DEV_USER_ID;
-    console.warn(
-      styleText(["bgYellow", "black", "bold"], "Warning"),
-      styleText(
-        "yellow",
-        `Using cookie instead of signed cookie for development: ${authHeader}`,
-      ),
-    );
-  }
-  if (typeof authHeader !== "string" || authHeader.split("===").length !== 2) {
-    console.log("Unauthorized", authHeader);
-    throw new HTTPException(401, { message: "Unauthorized" });
-  }
-  const [userId, role] = authHeader.split("===") as [string, userRoleType];
-  c.set("userId", parseInt(userId));
-  c.set("role", role);
-  if (process.env.NODE_ENV !== "production") {
-    console.log("userId", userId, "role", role);
-  }
-  await next();
-});
+export interface MyEnv {
+  Variables: BasicVariables;
+}
 
-type MyEnv = {
-  Variables: {
-    db: ReturnType<typeof connectDB>;
+export interface AuthEnv extends MyEnv {
+  Variables: BasicVariables & {
     userId: number;
     role: userRoleType;
-    origin: string;
-    staffMap: () => StaffMap;
-    incrementAgentTicket: (id: number) => void;
-    decrementAgentTicket: (id: number) => void;
-    incrementTodayTicketCount: () => number;
-    i18n: typeof i18next;
   };
-};
-
-if (!global.todayTicketCount) {
-  global.todayTicketCount = 0;
 }
 
-// 设置每日重置计数器的定时任务
-const resetDailyCounterAtMidnight = () => {
-  const now = new Date();
-  const night = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() + 1,
-    0,
-    0,
-    0,
-  );
-  const msToMidnight = night.getTime() - now.getTime();
-
-  setTimeout(() => {
-    global.todayTicketCount = 0;
-    resetDailyCounterAtMidnight();
-  }, msToMidnight);
-};
-
-resetDailyCounterAtMidnight();
-
-function changeAgentTicket(id: number, type: "increment" | "decrement") {
-  const staffMap = global.staffMap!;
-  const agent = staffMap.get(id);
-  if (agent) {
-    agent.remainingTickets += type === "increment" ? 1 : -1;
+export async function decryptToken(token: string, cryptoKey: CryptoKey) {
+  if (token.startsWith("Bearer ")) {
+    token = token.slice(6);
   }
-  global.staffMap = staffMap;
+  const [ciphertext, iv] = token.split("+Tx*") as [string, string];
+  const decrypted = await aesDecryptFromString(ciphertext, iv, cryptoKey);
+  const [userId, role, expireTime] = decrypted.split("##") as [
+    string,
+    userRoleType,
+    string,
+  ];
+  return { userId, role, expireTime };
 }
 
-async function initTodayTicketCount() {
-  // Get today's ticket count for numbering
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const db = connectDB();
-
-  const todayTickets = await db
-    .select({ count: count() })
-    .from(schema.tickets)
-    .where(
-      and(
-        gte(schema.tickets.createdAt, today.toISOString()),
-        lt(
-          schema.tickets.createdAt,
-          new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
+  try {
+    let authHeader = c.req.header("Authorization");
+    if (
+      process.env.NODE_ENV !== "production" &&
+      typeof authHeader !== "string"
+    ) {
+      authHeader = process.env.DEV_USER;
+      console.warn(
+        styleText(["bgYellow", "black", "bold"], "Warning"),
+        styleText(
+          "yellow",
+          `Authorization header is not found, using fallback user for development: ${authHeader}`,
         ),
-      ),
+      );
+    }
+    if (!authHeader) {
+      console.error("Unauthorized", authHeader);
+      throw new HTTPException(401, { message: "Unauthorized" });
+    }
+    const cryptoKey = c.get("cryptoKey")();
+    const { userId, role, expireTime } = await decryptToken(
+      authHeader,
+      cryptoKey,
     );
-  const ticketNumber = todayTickets[0]?.count || 0;
-  global.todayTicketCount = ticketNumber;
-}
-
-function incrementTodayTicketCount() {
-  if (!global.todayTicketCount) {
-    global.todayTicketCount = 0;
+    if (parseInt(expireTime) < Date.now() / 1000) {
+      throw new HTTPException(401, { message: "token expired" });
+    }
+    c.set("userId", parseInt(userId));
+    c.set("role", role);
+    await next();
+  } catch (error) {
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(401, { message: "Unauthorized" });
   }
-  global.todayTicketCount += 1;
-  return global.todayTicketCount;
-}
+});
 
 export const factory = createFactory<MyEnv>({
   initApp: (app) => {
     app.use(async (c, next) => {
       const db = connectDB();
       c.set("db", db);
-      await refreshStaffMap();
-      await initTodayTicketCount();
-
+      await initGlobalVariables();
       c.set("origin", getOrigin(c));
-      if (!global.i18n) {
-        global.i18n = i18next;
-      }
       c.set("i18n", global.i18n!);
       // use a function to pass the variable, because sometimes it needs to refresh
       c.set("staffMap", () => global.staffMap!);
+      c.set("cryptoKey", () => global.cryptoKey!);
       c.set("incrementAgentTicket", (id: number) =>
         changeAgentTicket(id, "increment"),
       );

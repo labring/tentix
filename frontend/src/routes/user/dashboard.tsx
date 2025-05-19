@@ -1,8 +1,8 @@
-import { SiteHeader } from "tentix-ui/comp/site-header";
-import { Input } from "tentix-ui/comp/ui/input";
-import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
-import { UserDashboardSidebar } from "tentix-ui/comp/user/dashboard-sidebar";
-// import { SupportCategories } from "tentix-ui/comp/user/support-categories";
+import { SiteHeader } from "@comp/site-header";
+import { Input } from "tentix-ui";
+import { SidebarInset, SidebarProvider } from "tentix-ui";
+import { UserDashboardSidebar } from "@comp/user/dashboard-sidebar";
+// import { SupportCategories } from "@comp/user/support-categories";
 import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 

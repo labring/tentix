@@ -3,8 +3,9 @@ import { Slot } from "@radix-ui/react-slot"
 import { type VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
 
-import { useIsMobile } from "tentix-ui/hooks/use-mobile"
-import { cn } from "tentix-ui/lib/utils"
+
+import { useIsMobile } from "../../hooks/use-mobile"
+import { cn } from "../../lib/utils"
 import { Button } from "./button.tsx"
 import { Input } from "./input.tsx"
 import { Separator } from "./separator.tsx"

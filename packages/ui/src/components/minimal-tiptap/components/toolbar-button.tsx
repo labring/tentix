@@ -4,9 +4,9 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "tentix-ui/comp/ui/tooltip"
-import { Toggle } from "tentix-ui/comp/ui/toggle"
-import { cn } from "tentix-ui/lib/utils"
+} from "../../ui/tooltip.tsx"
+import { Toggle } from "../../ui/toggle.tsx"
+import { cn } from "../../../lib/utils.ts"
 
 interface ToolbarButtonProps extends React.ComponentProps<typeof Toggle> {
   isActive?: boolean

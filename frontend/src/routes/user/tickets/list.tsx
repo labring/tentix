@@ -3,13 +3,13 @@
 
 
 import { createFileRoute } from "@tanstack/react-router";
-import { DataTable } from "tentix-ui/comp/tickets-table/table";
-import { SiteHeader } from "tentix-ui/comp/site-header";
-import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
-import { UserDashboardSidebar } from "tentix-ui/comp/user/dashboard-sidebar";
+import { DataTable } from "@comp/tickets-table/table";
+import { SiteHeader } from "@comp/site-header";
+import { SidebarInset, SidebarProvider } from "tentix-ui";
+import { UserDashboardSidebar } from "@comp/user/dashboard-sidebar";
 import { Suspense } from "react";
 import { userTicketsQueryOptions} from "@lib/query";
-import { SkeletonTable } from "tentix-ui/comp/tickets-table/skeleton";
+import { SkeletonTable } from "@comp/tickets-table/skeleton";
 
 
 

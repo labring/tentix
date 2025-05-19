@@ -1,7 +1,7 @@
 import * as React from "react"
 import type { Editor } from "@tiptap/react"
 import type { FormatAction } from "../../types.ts"
-import type { toggleVariants } from "tentix-ui/comp/ui/toggle"
+import type { toggleVariants } from "@ui/components/ui/toggle.tsx"
 import type { VariantProps } from "class-variance-authority"
 import {
   CodeIcon,

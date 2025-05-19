@@ -3,8 +3,8 @@ import "./styles/index.css"
 import type { Content, Editor } from "@tiptap/react"
 import type { UseMinimalTiptapEditorProps } from "./hooks/use-minimal-tiptap.ts"
 import { EditorContent } from "@tiptap/react"
-import { Separator } from "tentix-ui/comp/ui/separator"
-import { cn } from "tentix-ui/lib/utils"
+import { Separator } from "../ui/separator"
+import { cn } from "@ui/lib/utils.ts"
 import { SectionOne } from "./components/section/one.tsx"
 import { SectionTwo } from "./components/section/two.tsx"
 import { SectionThree } from "./components/section/three.tsx"
@@ -25,7 +25,7 @@ export interface MinimalTiptapProps
 const Toolbar = ({ editor }: { editor: Editor }) => (
   <div className="border-border flex h-12 shrink-0 overflow-x-auto border-b p-2">
     <div className="flex w-max items-center gap-px">
-      <SectionOne editor={editor} activeLevels={[1, 2, 3, 4, 5, 6]} />
+      <SectionOne editor={editor} />
 
       <Separator orientation="vertical" className="mx-2" />
 

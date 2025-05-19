@@ -1,5 +1,5 @@
 {
-  "id": "3f78413b-be58-45af-aac5-3e8cb3601f8d",
+  "id": "dc8803e3-47a7-436b-a341-275d93feed31",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -693,6 +693,12 @@
         },
         "ip": {
           "name": "ip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
           "type": "text",
           "primaryKey": false,
           "notNull": true

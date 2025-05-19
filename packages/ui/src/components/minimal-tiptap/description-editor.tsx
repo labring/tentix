@@ -1,31 +1,20 @@
-import "./styles/index.css"
+import "./styles/index.css";
 
-import type { Content, Editor } from "@tiptap/react"
-import type { UseMinimalTiptapEditorProps } from "./hooks/use-minimal-tiptap.ts"
-import { EditorContent } from "@tiptap/react"
-import { Separator } from "tentix-ui/comp/ui/separator"
-import { cn } from "tentix-ui/lib/utils"
-import { SectionOne } from "./components/section/one.tsx"
-import { SectionTwo } from "./components/section/two.tsx"
-import { SectionThree } from "./components/section/three.tsx"
-import { SectionFour } from "./components/section/four.tsx"
-import { SectionFive } from "./components/section/five.tsx"
-import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx"
-import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts"
-import { MeasuredContainer } from "./components/measured-container.tsx"
-
-export interface MinimalTiptapProps
-  extends Omit<UseMinimalTiptapEditorProps, "onUpdate"> {
-  value?: Content
-  onChange?: (value: Content) => void
-  className?: string
-  editorContentClassName?: string
-}
+import type { Editor } from "@tiptap/react";
+import { EditorContent } from "@tiptap/react";
+import { Separator } from "../ui/separator";
+import { cn } from "../../lib/utils";
+import { SectionTwo } from "./components/section/two.tsx";
+import { SectionFour } from "./components/section/four.tsx";
+import { SectionFive } from "./components/section/five.tsx";
+import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
+import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
+import { MeasuredContainer } from "./components/measured-container.tsx";
+import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 
 const Toolbar = ({ editor }: { editor: Editor }) => (
   <div className="border-border flex h-12 shrink-0 overflow-x-auto border-b p-2">
     <div className="flex w-max items-center gap-px">
-
       <SectionTwo
         editor={editor}
         activeActions={[
@@ -56,10 +45,9 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
       />
     </div>
   </div>
-)
+);
 
 export const DescriptionEditor = ({
-  
   value,
   onChange,
   className,
@@ -70,10 +58,10 @@ export const DescriptionEditor = ({
     value,
     onUpdate: onChange,
     ...props,
-  })
+  });
 
   if (!editor) {
-    return null
+    return null;
   }
 
   return (
@@ -82,7 +70,7 @@ export const DescriptionEditor = ({
       name="editor"
       className={cn(
         "border-input focus-within:border-primary min-data-[orientation=vertical]:h-72 flex h-auto w-full flex-col rounded-md border shadow-xs",
-        className
+        className,
       )}
     >
       <Toolbar editor={editor} />
@@ -92,9 +80,9 @@ export const DescriptionEditor = ({
       />
       <LinkBubbleMenu editor={editor} />
     </MeasuredContainer>
-  )
-}
+  );
+};
 
-DescriptionEditor.displayName = "DescriptionEditor"
+DescriptionEditor.displayName = "DescriptionEditor";
 
-export default DescriptionEditor
+export default DescriptionEditor;

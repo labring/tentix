@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@source "../../../frontend/**/*.{ts,tsx}";
-@source "../**/*.{ts,tsx}";
+
+@source "../**/**/*.{ts,tsx}";
 @plugin '@tailwindcss/container-queries';
 
 @custom-variant dark (&:is(.dark *));

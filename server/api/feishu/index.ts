@@ -11,10 +11,11 @@ import { validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import { CSRF } from "bun";
 import { HTTPException } from "hono/http-exception";
-import NodeCache from 'node-cache';
-import { getOrigin, refreshStaffMap } from "@/utils/tools.ts";
-import { setMyCookie } from "../auth/index.ts";
+import NodeCache from "node-cache";
+
 import { readConfig } from "@/utils/env.ts";
+import { refreshStaffMap } from "../initApp.ts";
+import { signBearerToken } from "../auth/index.ts";
 const cache = new NodeCache();
 
 const feishuRouter = factory
@@ -52,9 +53,7 @@ const feishuRouter = factory
       );
       url.searchParams.set("client_id", config.feishu_app_id);
       url.searchParams.set("state", state);
-      // if (redirect) {
-      //   redirectUri.hash = redirect;
-      // }
+      cache.set(state, redirect, 30 * 60);
       url.searchParams.set("redirect_uri", redirectUri.toString());
       return c.redirect(url.toString());
     },
@@ -75,9 +74,6 @@ const feishuRouter = factory
     ),
     async (c) => {
       const { code, state } = c.req.valid("query");
-      const url = new URL(c.req.url);
-      const redirect = url.hash === "" ? undefined : url.hash;
-      
       if (!CSRF.verify(state)) {
         throw new HTTPException(403, {
           message: "Invalid state.",
@@ -125,7 +121,11 @@ const feishuRouter = factory
         .from(schema.users)
         .where(eq(schema.users.uid, userInfo.union_id));
 
-      const redirectUrl = new URL("/staff/dashboard", c.var.origin);
+      const redirectUrl = new URL(
+        cache.get(state) ?? "/staff/dashboard",
+        c.var.origin,
+      );
+
       if (user === undefined) {
         // Don't use js import, else it will be bundled into the server
         const config = await readConfig();
@@ -167,28 +167,17 @@ const feishuRouter = factory
           });
         }
         await refreshStaffMap(true);
-        await setMyCookie(c, registeredUser.id, registeredUser.role);
-
-        redirectUrl.searchParams.set("revalidate", "true");
-        if (redirect) {
-          return c.redirect(redirect);
-        }
+        const tokenInfo = await signBearerToken(
+          c,
+          registeredUser.id,
+          registeredUser.role,
+        );
+        redirectUrl.searchParams.set("token", tokenInfo.token);
         return c.redirect(redirectUrl.toString());
       }
-      await setMyCookie(c, user.id, user.role);
-      redirectUrl.searchParams.set("revalidate", "true");
+      const tokenInfo = await signBearerToken(c, user.id, user.role);
+      redirectUrl.searchParams.set("token", tokenInfo.token);
       return c.redirect(redirectUrl.toString());
-    },
-  )
-  .get(
-    "/loginSuccess",
-    describeRoute({
-      tags: ["Feishu"],
-      description: "Test endpoint. Not for production use.",
-    }),
-    async (c) => {
-      console.log(c.req.query());
-      return c.json({ message: "Login success." });
     },
   )
   .get(

@@ -3,15 +3,15 @@ import {
   userTicketsQueryOptions,
   wsTokenQueryOptions,
 } from "@lib/query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { useSessionMembersStore, useTicketStore } from "tentix-ui/store";
-import { StaffSiteHeader } from "tentix-ui/comp/staff/site-header";
-import { StaffTicketSidebar } from "tentix-ui/comp/staff/staff-ticket-sidebar";
+import { useSessionMembersStore, useTicketStore } from "../../../store";
+import { StaffSiteHeader } from "@comp/staff/site-header";
+import { StaffTicketSidebar } from "@comp/staff/staff-ticket-sidebar";
 import { useBoolean } from "ahooks";
-import { SidebarInset, SidebarProvider } from "tentix-ui/comp/ui/sidebar";
-import { StaffChat } from "tentix-ui/comp/chat/staff/index";
-import { StaffRightSidebar } from "tentix-ui/comp/staff/staff-right-sidebar";
+import { SidebarInset, SidebarProvider } from "tentix-ui";
+import { StaffChat } from "@comp/chat/staff/index";
+import { StaffRightSidebar } from "@comp/staff/staff-right-sidebar";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
   loader: async ({ context: { queryClient, authContext }, params }) => {

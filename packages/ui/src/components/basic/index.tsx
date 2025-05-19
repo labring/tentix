@@ -1,5 +1,5 @@
 import { Badge } from "../ui/badge.tsx";
-import { TicketsListItemType } from "tentix-ui/lib/types";
+import type { TicketsListItemType } from "tentix-server/rpc";
 import { useTranslation } from "i18n";
 import {
   AlertTriangleIcon,

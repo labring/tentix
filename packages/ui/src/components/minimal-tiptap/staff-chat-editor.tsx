@@ -3,36 +3,32 @@ import "./styles/index.css";
 import type { Content } from "@tiptap/react";
 import { EditorContent } from "@tiptap/react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
-import { cn } from "tentix-ui/lib/utils";
-import { useMessageTypeStore } from "tentix-ui/store";
-import { KnowledgeBase } from "../knowledge-base.tsx";
-import { TemplateReplies } from "../template-replies.tsx";
+import { cn } from "@ui/lib/utils.ts";
+// import { useMessageTypeStore } from "tentix-ui/store";
+// import { KnowledgeBase } from "../knowledge-base.tsx";
+// import { TemplateReplies } from "../template-replies.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group.tsx";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
 import { MeasuredContainer } from "./components/measured-container.tsx";
 import { SectionTwo } from "./components/section/two.tsx";
 import type { UseMinimalTiptapEditorProps } from "./hooks/use-minimal-tiptap.ts";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
-import { forwardRef, useImperativeHandle } from "react";
-
-export interface MinimalTiptapProps
-  extends Omit<UseMinimalTiptapEditorProps, "onUpdate"> {
-  value?: Content;
-  onChange?: (value: Content) => void;
-  className?: string;
-  editorContentClassName?: string;
-}
+import { forwardRef, useImperativeHandle, useState } from "react";
+import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 
 export interface EditorRef {
+  isInternal: boolean;
   clearContent: () => void;
 }
 
-export const ChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
+export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
   function ChatEditor(
     { value, onChange, className, editorContentClassName, ...props },
-    ref
+    ref,
   ) {
-    const { messageType, setMessageType } = useMessageTypeStore();
+    const [messageType, setMessageType] = useState<"public" | "internal">(
+      "public",
+    );
 
     const editor = useMinimalTiptapEditor({
       value,
@@ -49,6 +45,7 @@ export const ChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
       clearContent: () => {
         editor?.commands.clearContent();
       },
+      isInternal: messageType === "internal",
     }));
 
     const handleTemplateSelect = (content: string) => {
@@ -88,15 +85,13 @@ export const ChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
             />
           </div>
           <div className="w-full" />
-          <TemplateReplies onSelectTemplate={handleTemplateSelect} />
-          <KnowledgeBase />
+          {/* <TemplateReplies onSelectTemplate={handleTemplateSelect} />
+          <KnowledgeBase /> */}
           <div className="flex items-center justify-between px-2">
             <ToggleGroup
               type="single"
               value={messageType}
-              onValueChange={(value: "public" | "internal") =>
-                value && setMessageType(value)
-              }
+              onValueChange={(value: "public" | "internal") => setMessageType(value)}
             >
               <ToggleGroupItem
                 value="public"
@@ -120,9 +115,9 @@ export const ChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
         <LinkBubbleMenu editor={editor} />
       </MeasuredContainer>
     );
-  }
+  },
 );
 
-ChatEditor.displayName = "ChatEditor";
+StaffChatEditor.displayName = "ChatEditor";
 
-export default ChatEditor;
+export default StaffChatEditor;

@@ -58,7 +58,10 @@ export function extractText(json: JSONContentZod) {
   return result;
 }
 
-export function getAbbreviatedText(doc: JSONContentZod, maxLength: number = 100): string {
+export function getAbbreviatedText(
+  doc: JSONContentZod,
+  maxLength: number = 100,
+): string {
   const text = extractText(doc);
   if (text.length <= maxLength) {
     return text;
@@ -69,9 +72,7 @@ export function getAbbreviatedText(doc: JSONContentZod, maxLength: number = 100)
 const zodUserRole = createSelectSchema(schema.userRole);
 export type userRoleType = z.infer<typeof zodUserRole>;
 
-export const ticketInsertSchema = createInsertSchema(
-  schema.tickets,
-).omit({
+export const ticketInsertSchema = createInsertSchema(schema.tickets).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -90,37 +91,23 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     isInternal: z.boolean().optional(),
   }),
   z.object({
-    type: z.enum([
-      "join",
-      "leave",
-      "typing",
-      "heartbeat",
-      "heartbeat_ack",
-      "message_read",
-    ]),
+    type: z.enum(["heartbeat", "heartbeat_ack"]),
     timestamp: z.number().optional(),
-    messageId: z.number().optional(),
+  }),
+  z.object({
+    type: z.enum(["user_joined", "user_left", "typing"]),
+    userId: z.number(),
+    roomId: z.number(),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.literal("message_read"),
+    userId: z.number(),
+    messageId: z.number(),
+    readAt: z.string(),
   }),
   z.object({
     type: z.literal("join_success"),
-    roomId: z.number(),
-    timestamp: z.number(),
-  }),
-  z.object({
-    type: z.literal("user_joined"),
-    userId: z.number(),
-    roomId: z.number(),
-    timestamp: z.number(),
-  }),
-  z.object({
-    type: z.literal("user_left"),
-    userId: z.number(),
-    roomId: z.number(),
-    timestamp: z.number(),
-  }),
-  z.object({
-    type: z.literal("user_typing"),
-    userId: z.number(),
     roomId: z.number(),
     timestamp: z.number(),
   }),
@@ -148,7 +135,27 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("error"),
     error: z.string(),
-    details: z.string(),
+  }),
+  z.object({
+    type: z.literal("user_typing"),
+    userId: z.number(),
+    roomId: z.number(),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.literal("withdraw_message"),
+    userId: z.number(),
+    messageId: z.number(),
+    roomId: z.number(),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.literal("message_withdrawn"),
+    messageId: z.number(),
+    roomId: z.number(),
+    userId: z.number(),
+    timestamp: z.number(),
+    isInternal: z.boolean(),
   }),
 ]);
 

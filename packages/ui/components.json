@@ -13,7 +13,7 @@
   "aliases": {
     "components": "./components",
     "utils": "tentix-ui/lib/utils",
-    "hooks": "tentix-ui/hooks",
+    "hooks": "src/hooks",
     "lib": "tentix-ui/lib",
     "ui": "./components/ui"
   }

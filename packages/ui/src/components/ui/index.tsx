@@ -1,13 +1,3 @@
-// accordion.tsx           card.tsx                dropdown-menu.tsx       pagination.tsx          sidebar.tsx             toaster.tsx
-// alert-dialog.tsx        carousel.tsx            form.tsx                popover.tsx             skeleton.tsx            toggle-group.tsx
-// alert.tsx               chart.tsx               hover-card.tsx          progress.tsx            slider.tsx              toggle.tsx
-// aspect-ratio.tsx        checkbox.tsx            index.tsx               radio-group.tsx         sonner.tsx              tooltip.tsx
-// avatar.tsx              collapsible.tsx         input-otp.tsx           resizable.tsx           switch.tsx              use-mobile.tsx
-// badge.tsx               command.tsx             input.tsx               scroll-area.tsx         table.tsx
-// breadcrumb.tsx          context-menu.tsx        label.tsx               select.tsx              tabs.tsx
-// button.tsx              dialog.tsx              menubar.tsx             separator.tsx           textarea.tsx
-// calendar.tsx            drawer.tsx              navigation-menu.tsx     sheet.tsx               toast.tsx
-
 export * from './accordion.tsx';
 export * from './card.tsx';
 export * from './dropdown-menu.tsx';
@@ -28,7 +18,6 @@ export * from './drawer.tsx';
 export * from './form.tsx';
 export * from './hover-card.tsx';
 export * from './input.tsx';
-export * from './input-otp.tsx';
 export * from './label.tsx';
 export * from './menubar.tsx';
 export * from './navigation-menu.tsx';
@@ -44,7 +33,15 @@ export * from './textarea.tsx';
 export * from './tabs.tsx';
 export * from './toggle.tsx';
 export * from './toggle-group.tsx';
-
+export * from './tooltip.tsx';
+export * from './scroll-area.tsx';
+export * from './toaster.tsx';
+export * from './toast.tsx';
+export * from './checkbox.tsx';
+export * from './sheet.tsx';
+export * from './chart.tsx';
+export * from './separator.tsx';
+// export * from './carousel.tsx';
 
 
 

@@ -1,9 +1,9 @@
 import * as React from "react"
-import { Button } from "tentix-ui/comp/ui/button"
-import { Label } from "tentix-ui/comp/ui/label"
-import { Switch } from "tentix-ui/comp/ui/switch"
-import { Input } from "tentix-ui/comp/ui/input"
-import { cn } from "tentix-ui/lib/utils"
+import { Button } from "@ui/components/ui/button.tsx"
+import { Label } from "@ui/components/ui/label.tsx"
+import { Switch } from "@ui/components/ui/switch.tsx"
+import { Input } from "@ui/components/ui/input.tsx"
+import { cn } from "@ui/lib/utils.ts"
 
 export interface LinkEditorProps extends React.ComponentProps<"div"> {
   defaultUrl?: string

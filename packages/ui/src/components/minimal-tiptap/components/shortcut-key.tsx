@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "tentix-ui/lib/utils"
+import { cn } from "@ui/lib/utils.ts"
 import { getShortcutKey } from "../utils.ts"
 
 export interface ShortcutKeyProps extends React.ComponentProps<"span"> {

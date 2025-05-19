@@ -68,7 +68,7 @@ export const Link = TiptapLink.extend({
              */
 
             const { schema, doc, tr } = view.state
-            const range = getMarkRange(doc.resolve(pos), schema.marks.link)
+            const range = getMarkRange(doc.resolve(pos), schema.marks.link!)
 
             if (!range) {
               return

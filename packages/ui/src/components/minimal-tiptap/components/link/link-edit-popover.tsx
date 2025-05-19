@@ -1,12 +1,12 @@
 import * as React from "react"
 import type { Editor } from "@tiptap/react"
 import type { VariantProps } from "class-variance-authority"
-import type { toggleVariants } from "tentix-ui/comp/ui/toggle"
+import type { toggleVariants } from "@ui/components/ui/toggle.tsx"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "tentix-ui/comp/ui/popover"
+} from "@ui/components/ui/popover.tsx"
 import { Link2Icon } from "lucide-react"
 import { ToolbarButton } from "../toolbar-button.tsx"
 import { LinkEditBlock } from "./link-edit-block.tsx"

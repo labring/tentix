@@ -3,6 +3,7 @@ import {
   connectDB,
   saveMessageReadStatus,
   saveMessageToDb,
+  withdrawMessage,
 } from "@/utils/index.ts";
 import { userRoleType } from "@/utils/types.ts";
 import { zValidator } from "@hono/zod-validator";
@@ -20,6 +21,7 @@ import { wsMessageSchema, WSMessage } from "@/utils/types.ts";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema.ts";
 import { MyCache } from "@/utils/cache.ts";
+import NodeCache from "node-cache";
 type wsInstance = WSContext<ServerWebSocket<undefined>>;
 
 // Connection management constants
@@ -33,6 +35,7 @@ interface ConnectionState {
   heartbeatTimeout?: NodeJS.Timeout;
   isAlive: boolean;
 }
+
 
 const connectionStates = new Map<string, ConnectionState>();
 
@@ -276,9 +279,7 @@ const wsRouter = factory
         });
       }
 
-      if (role === "customer") {
-        roomCustomerMap.set(ticketIdNum, clientId);
-      }
+      
 
       return {
         async onOpen(evt, ws) {
@@ -298,6 +299,10 @@ const wsRouter = factory
             },
             clientId,
           );
+
+          if (role === "customer") {
+            roomCustomerMap.set(ticketIdNum, clientId);
+          }
 
           // Confirm to the user
           ws.send(
@@ -393,6 +398,11 @@ const wsRouter = factory
                   // }
 
                   // Broadcast message to room
+                  let broadcastExclude = [clientId];
+                  if (parsedMessage.isInternal) {
+                    broadcastExclude = [clientId, roomCustomerMap.get(ticketIdNum)!];
+                  }
+
                   broadcastToRoom(
                     ticketIdNum,
                     {
@@ -404,12 +414,7 @@ const wsRouter = factory
                       timestamp: messageResult.createdAt,
                       isInternal: parsedMessage.isInternal,
                     },
-                    [
-                      clientId,
-                      ...(parsedMessage.isInternal
-                        ? (roomCustomerMap.get(ticketIdNum) ?? [])
-                        : []),
-                    ],
+                    broadcastExclude,
                   );
 
                   // Confirm to sender
@@ -504,14 +509,49 @@ const wsRouter = factory
                       });
                     })
                   }
+                  break;
                   
+              case "withdraw_message":
+                // Withdraw the message
+                const withdrawnMessage = await withdrawMessage(
+                  parsedMessage.messageId,
+                  userId
+                );
+
+                if (withdrawnMessage) {
+                  let broadcastExclude = [clientId];
+                  if (withdrawnMessage.isInternal) {
+                    broadcastExclude = [clientId, roomCustomerMap.get(ticketIdNum)!];
+                  }
+                  broadcastToRoom(
+                    ticketIdNum,
+                    {
+                      type: "message_withdrawn",
+                      messageId: withdrawnMessage.id,
+                      roomId: ticketIdNum,
+                      userId: userId,
+                      timestamp: Date.now(),
+                      isInternal: withdrawnMessage.isInternal,
+                    },
+                    broadcastExclude, // Exclude sender
+                  );
+                } else {
+                  ws.send(
+                    JSON.stringify({
+                      type: "error",
+                      error: "Failed to withdraw message",
+                      roomId: ticketIdNum,
+                    }),
+                  );
+                }
+                break;
             }
           } catch (error) {
             console.error("Error handling WebSocket message:", error);
             ws.send(
               JSON.stringify({
                 type: "error",
-                error: "Internal server error",
+                error: error instanceof Error ? error.message : "Internal server error",
               }),
             );
           }

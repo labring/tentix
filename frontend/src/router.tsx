@@ -12,7 +12,6 @@ export type RouterContext = {
   queryClient: QueryClient;
   apiClient: typeof apiClient;
   authContext: AuthContext;
-  revalidateAuth: () => void;
 };
 
 export const router = createTanStackRouter({
@@ -21,8 +20,7 @@ export const router = createTanStackRouter({
   context: {
     queryClient: getQueryClient(),
     apiClient,
-    authContext: undefined!,
-    revalidateAuth: () => {},
+    authContext: undefined!
   },
 });
 

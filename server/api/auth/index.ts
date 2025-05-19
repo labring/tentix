@@ -1,15 +1,17 @@
-import { areaEnumArray, COOKIE_EXPIRY_TIME } from "@/utils/const.ts";
-import { AppConfig, connectDB, refreshStaffMap } from "@/utils/index.ts";
+import { areaEnumArray } from "@/utils/const.ts";
+import { connectDB } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq } from "drizzle-orm";
-import { Context, Hono } from "hono";
+import { Context } from "hono";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
-import { getCookie, setSignedCookie } from "hono/cookie";
 import { z } from "zod";
 import { resolver } from "hono-openapi/zod";
 import { HTTPException } from "hono/http-exception";
 import { getConnInfo } from "hono/bun";
+import { aesEncryptToString } from "@/utils/crypto";
+import { factory, MyEnv } from "../middleware";
+
 export interface Data {
   info: {
     uid: string;
@@ -35,35 +37,29 @@ export interface AuthResponse {
 }
 
 
-export async function setMyCookie(c: Context, id: number, role: string) {
-  await setSignedCookie(
-    c,
-    "identity",
-    `${id}===${role}`,
-    process.env.SECRET!,
-    {
-      path: "/",
-      secure: true,
-      httpOnly: true,
-      maxAge: 1000,
-      expires: new Date(Date.now() + COOKIE_EXPIRY_TIME),
-      sameSite: "Strict",
-    },
-  );
-
+export async function signBearerToken(c: Context<MyEnv>, id: number, role: string) {
+  const cryptoKey = c.get("cryptoKey")();
+  const now = new Date();
+  const expireTime = Math.floor(now.getTime()/1000) + 60 * 60 * 24 * 30;
+  const ciphertext = await aesEncryptToString(`${id}##${role}##${expireTime}`, cryptoKey);
+  const token = `${ciphertext.ciphertext}+Tx*${ciphertext.iv}`;
   const connInfo = getConnInfo(c);
   const ip = connInfo.remote.address ?? "unknown";
-
-  const db = connectDB();
+  const db = c.get("db");
   await db.insert(schema.userSession).values({
     userId: id,
-    loginTime: new Date().toUTCString(),
+    loginTime: now.toUTCString(),
     userAgent: String(c.req.header("User-Agent")),
     ip,
+    token
   });
+  return {
+    token,
+    expireTime,
+  };
 }
 
-const authRouter = new Hono().get(
+const authRouter = factory.createApp().get(
   "/login",
   describeRoute({
     description: "Login",
@@ -78,15 +74,10 @@ const authRouter = new Hono().get(
                 id: z.string(),
                 uid: z.string(),
                 role: z.string(),
+                token: z.string(),
+                expireTime: z.number(),
               }),
             ),
-          },
-        },
-        headers: {
-          "Set-Cookie": {
-            // type: "string",
-            description: "Set the identity cookie",
-            example: "identity=1234567890",
           },
         },
       },
@@ -120,7 +111,7 @@ const authRouter = new Hono().get(
       });
     }
     const info = authResJson.data.info;
-    const baseUrl = new URL(c.req.url).origin;
+    // const baseUrl = new URL(c.req.url).origin;
 
     const userInfo = await (async () => {
       const user = await db.query.users.findFirst({
@@ -158,12 +149,13 @@ const authRouter = new Hono().get(
       return user;
     })();
 
-    await setMyCookie(c, userInfo.id, userInfo.role);
+    const tokenInfo = await signBearerToken(c, userInfo.id, userInfo.role);
 
     return c.json({
       id: userInfo.id,
       uid: info.uid,
       role: userInfo.role,
+      ...tokenInfo,
     });
   },
 );
