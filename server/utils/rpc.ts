@@ -2,7 +2,7 @@ import { AppType } from '@/api/index.ts';
 import { ClientRequestOptions, hc, InferResponseType } from 'hono/client';
 
 // this is a trick to calculate the type when compiling
- const api = hc<AppType>("").api;
+const api = hc<AppType>("").api;
 
 export const initClient = (url: string, args?: ClientRequestOptions): typeof api =>
   hc<AppType>(url, args).api;

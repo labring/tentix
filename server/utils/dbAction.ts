@@ -5,6 +5,13 @@ import * as schema from "@db/schema.ts";
 import { JSONContentZod, validateJSONContent } from "./types.ts";
 import { eq, and } from "drizzle-orm";
 
+export function plainTextToJSONContent(text: string): JSONContentZod {
+  return {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+  };
+}
+
 // Helper function to save a message to the database
 export async function saveMessageToDb(
   roomId: number,
@@ -55,7 +62,6 @@ export async function saveMessageReadStatus(messageId: number, userId: number) {
   }
 }
 
-
 export async function withdrawMessage(messageId: number, userId: number) {
   const db = connectDB();
 
@@ -77,25 +83,10 @@ export async function withdrawMessage(messageId: number, userId: number) {
     );
   }
 
-  const withdrawnContent = {
-    type: "doc",
-    content: [
-      {
-        type: "paragraph",
-        content: [
-          {
-            type: "text",
-            text: "已撤回",
-          },
-        ],
-      },
-    ],
-  };
-
   const [updatedMessage] = await db
     .update(schema.chatMessages)
     .set({
-      content: withdrawnContent,
+      content: plainTextToJSONContent("已撤回"),
       withdrawn: true,
     })
     .where(eq(schema.chatMessages.id, message.id))

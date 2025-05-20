@@ -94,6 +94,7 @@ const authRouter = factory.createApp().get(
     const db = connectDB();
     const query = c.req.valid("query");
 
+
     const authRes = await fetch(
       `https://${query.area}.sealos.run/api/auth/info`,
       {
