@@ -16,7 +16,7 @@
     "seed": "bun --env-file=../.env.local ./script/seed.ts"
   },
   "dependencies": {
-    "@faker-js/faker": "^9.7.0",
+    "@faker-js/faker": "^9.8.0",
     "@hono/zod-validator": "^0.4.3",
     "@scalar/hono-api-reference": "^0.8.5",
     "drizzle-orm": "0.41.0",
