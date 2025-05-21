@@ -19,7 +19,7 @@
     "@faker-js/faker": "^9.7.0",
     "@hono/zod-validator": "^0.4.3",
     "@scalar/hono-api-reference": "^0.8.5",
-    "drizzle-orm": "0.41.0",
+    "drizzle-orm": "0.43.1",
     "drizzle-zod": "^0.7.1",
     "hono": "^4.7.7",
     "hono-openapi": "^0.4.6",
