@@ -3,19 +3,19 @@ import { persist } from 'zustand/middleware'
 
 interface TicketFavoritesState {
   // Id list of starred tickets
-  starredTickets: number[]
+  starredTickets: string[]
   // Id list of pinned tickets
-  pinnedTickets: number[] 
+  pinnedTickets: string[] 
   // Group expansion/collapse state
   expandedGroups: Record<string, boolean>
 
   // Actions
-  toggleStarred: (ticketId: number) => void
-  togglePinned: (ticketId: number) => void
+  toggleStarred: (ticketId: string) => void
+  togglePinned: (ticketId: string) => void
   toggleGroup: (group: string) => void
   setExpandedGroups: (groups: Record<string, boolean>) => void
-  isStarred: (ticketId: number) => boolean
-  isPinned: (ticketId: number) => boolean
+  isStarred: (ticketId: string) => boolean
+  isPinned: (ticketId: string) => boolean
 }
 
 export const useTicketFavorites = create<TicketFavoritesState>()(

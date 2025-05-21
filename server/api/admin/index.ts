@@ -6,30 +6,13 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { authMiddleware, factory } from "../middleware.ts";
 import { basicUserCols } from "../queryParams.ts";
-const transferTicketSchema = z.object({
-  ticketId: z.number(),
-  targetStaffId: z.number(),
-  description: z.string(),
-});
-
-const upgradeTicketSchema = z.object({
-  ticketId: z.number(),
-  priority: z.enum(schema.ticketPriority.enumValues),
-  description: z.string(),
-});
 
 const raiseReqSchema = z.object({
   title: z.string(),
   description: z.string(),
   module: z.enum(schema.module.enumValues),
   priority: z.enum(schema.ticketPriority.enumValues),
-  relatedTicket: z.number().optional(),
-});
-
-const updateTicketStatusSchema = z.object({
-  ticketId: z.number(),
-  status: z.enum(schema.ticketStatus.enumValues),
-  description: z.string(),
+  relatedTicket: z.string().optional(),
 });
 
 const adminRouter = factory
@@ -146,8 +129,6 @@ const adminRouter = factory
             module,
             priority,
             relatedTicket: relatedTicket || null,
-            createAt: new Date().toISOString(),
-            updateAt: new Date().toISOString(),
           })
           .returning({ id: schema.requirements.id });
 

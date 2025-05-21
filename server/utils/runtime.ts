@@ -1,6 +1,8 @@
+
+import { customAlphabet } from 'nanoid'
+
 /**
  * Utility function: Execute a function at intervals while another asynchronous function is running.
- * @param asyncFunction - The asynchronous function to be executed.
  * @param intervalFunction - The function to be executed at intervals.
  * @param intervalTime - The time interval for the interval function (in milliseconds).
  * @param onComplete - Callback function to be executed when the asynchronous function completes.
@@ -10,7 +12,8 @@ export function runWithInterval<T>(
   asyncFunction: () => Promise<T>,
   intervalFunction: () => void,
   intervalTime: number,
-  onComplete?: (result: T) => void
+  onComplete?: (result: T) => void,
+  onError?: (error: unknown) => void,
 ): void {
   let intervalId: NodeJS.Timeout | number;
 
@@ -42,5 +45,13 @@ export function runWithInterval<T>(
       // If the asynchronous function throws an error, stop the interval task and handle the error
       stopInterval();
       console.error("Asynchronous function execution error:", error);
+      if (onError) {
+        onError(error);
+      }
     });
+}
+
+
+export function myNanoId(size: number = 13) {
+  return customAlphabet('abcdefghijklmnopqrstuvwxyz1234567890', size);
 }

@@ -12,9 +12,8 @@ import {
 import { type TicketType } from "tentix-server/rpc";
 import useLocalUser from "../../hooks/use-local-user.tsx";
 import { timeAgo } from "tentix-ui";
-import { useSessionMembersStore, useChatStore, type BasicUser } from "../../store/index.ts";
+import { useSessionMembersStore, useChatStore } from "../../store/index.ts";
 import ContentRenderer from "./content-renderer.tsx";
-import type { PropsWithRef } from "react";
 
 interface MessageItemProps {
   message: TicketType["messages"][number];
@@ -26,7 +25,7 @@ const ReadStatusItem = ({
 }: {
   member: {
     id: number;
-    name: string;
+    nickname: string;
     avatar: string;
   },
   status: TicketType["messages"][number]["readStatus"][number] | null;
@@ -34,10 +33,10 @@ const ReadStatusItem = ({
   return (
     <div className="flex  items-center gap-2 hover:bg-muted p-2 rounded-md w-full">
       <Avatar className="h-4 w-4 shrink-0">
-        <AvatarImage src={member?.avatar} alt={member?.name ?? "Unknown"} />
-        <AvatarFallback>{member?.name?.charAt(0) ?? "U"}</AvatarFallback>
+        <AvatarImage src={member?.avatar} alt={member?.nickname ?? "Unknown"} />
+        <AvatarFallback>{member?.nickname?.charAt(0) ?? "U"}</AvatarFallback>
       </Avatar>
-      <span className="text-sm">{member?.name ?? "Unknown"}</span>
+      <span className="text-sm">{member?.nickname ?? "Unknown"}</span>
       {status && (
         <span className="text-sm text-muted-foreground ml-auto">
           {timeFmt(status.readAt)}
@@ -80,10 +79,10 @@ export function MessageItem({message }: MessageItemProps) {
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarImage
             src={messageSender?.avatar}
-            alt={messageSender?.name ?? "Unknown"}
+            alt={messageSender?.nickname ?? "Unknown"}
           />
           <AvatarFallback>
-            {messageSender?.name?.charAt(0) ?? "U"}
+            {messageSender?.nickname?.charAt(0) ?? "U"}
           </AvatarFallback>
         </Avatar>
         <div
@@ -95,7 +94,7 @@ export function MessageItem({message }: MessageItemProps) {
         >
           <div className="mb-1 flex items-center justify-between gap-2">
             <span className="text-xs font-medium">
-              {messageSender?.name ?? "Unknown"}
+              {messageSender?.nickname ?? "Unknown"}
               {message.isInternal && (
                 <span className="ml-2 text-xs text-yellow-500">(Internal)</span>
               )}

@@ -157,6 +157,9 @@ export const i18next = i18nBase.use(initReactI18next).init({
         not_found_message: "您正在寻找的页面不存在",
         go_back: "返回",
         reset: "重置",
+        reload: "刷新",
+        reset_login: "重置登录信息",
+        unauthorized_message: "请通过正确的渠道登录，或尝试刷新页面",
 
         create_new_ticket: "创建新工单",
         select: "选择",

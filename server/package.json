@@ -2,7 +2,6 @@
   "name": "tentix-server",
   "private": true,
   "type": "module",
-  
   "scripts": {
     "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts",
     "build:prod": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production",
@@ -26,6 +25,7 @@
     "hono-rate-limiter": "^0.4.2",
     "i18n": "workspace:*",
     "minio": "^7.1.3",
+    "nanoid": "^5.1.5",
     "node-cache": "^5.1.2",
     "pg": "^8.15.1",
     "zod-openapi": "^4.2.4"
@@ -40,8 +40,8 @@
   },
   "exports": {
     "./rpc": {
-      "types": "./output/utils/rpc.d.ts",
-      "default": "./utils/rpc.js"
+      "types": "./utils/rpc.ts",
+      "default": "./utils/rpc.ts"
     },
     "./constants": {
       "types": "./output/utils/const.d.ts",

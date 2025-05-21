@@ -27,6 +27,7 @@ export const moduleEnumArray = [
 ] as const;
 
 export const ticketCategoryEnumArray = [
+  "uncategorized",
   "bug",
   "feature",
   "question",
@@ -79,6 +80,7 @@ export const ticketHistoryTypeEnumArray = [
   "create",
   "first_reply",
   "join",
+  "category",
   "update",
   "upgrade",
   "transfer",

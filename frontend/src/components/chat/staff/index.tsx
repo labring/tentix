@@ -28,7 +28,7 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
     ticket.messages.some((msg) => msg.senderId === userId),
   );
   const queryClient = useQueryClient();
-
+  const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   // Refs
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -91,6 +91,7 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
     sendTypingIndicator,
     sendReadStatus,
     sendCustomMsg,
+    
   } = useTicketWebSocket({
     ticket,
     token,
@@ -114,17 +115,33 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
   }, []);
 
 
-  // Handle message in view (mark as read)
+  // Track unread messages
+  useEffect(() => {
+    const newUnreadMessages = new Set<number>();
+    messages.forEach((message) => {
+      if (
+        message.senderId !== userId &&
+        !message.readStatus.some((status) => status.userId === userId) &&
+        !sentReadStatusRef.current.has(message.id)
+      ) {
+        newUnreadMessages.add(message.id);
+      }
+    });
+    setUnreadMessages(newUnreadMessages);
+  }, [messages.length, userId, messages]);
+
+  // Send read status when messages come into view
   const handleMessageInView = (messageId: number) => {
-    if (!sentReadStatusRef.current.has(messageId)) {
+    if (
+      unreadMessages.has(messageId) &&
+      !sentReadStatusRef.current.has(messageId)
+    ) {
       sendReadStatus(messageId);
       sentReadStatusRef.current.add(messageId);
-
-      // Remove from unread messages
       setUnreadMessages((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(messageId);
-        return newSet;
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
       });
     }
   };

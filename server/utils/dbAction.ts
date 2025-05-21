@@ -1,6 +1,4 @@
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { connectDB } from "./tools.ts";
-
 import * as schema from "@db/schema.ts";
 import { JSONContentZod, validateJSONContent } from "./types.ts";
 import { eq, and } from "drizzle-orm";
@@ -14,7 +12,7 @@ export function plainTextToJSONContent(text: string): JSONContentZod {
 
 // Helper function to save a message to the database
 export async function saveMessageToDb(
-  roomId: number,
+  roomId: string,
   userId: number,
   content: JSONContentZod,
   isInternal: boolean = false,
@@ -51,7 +49,6 @@ export async function saveMessageReadStatus(messageId: number, userId: number) {
       .values({
         messageId: messageId,
         userId: userId,
-        readAt: new Date().toISOString(),
       })
       .onConflictDoNothing()
       .returning();

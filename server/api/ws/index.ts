@@ -6,7 +6,7 @@ import {
   saveMessageToDb,
   withdrawMessage,
 } from "@/utils/index.ts";
-import { extractText, userRoleType } from "@/utils/types.ts";
+import { extractText, JSONContentZod, userRoleType } from "@/utils/types.ts";
 import { zValidator } from "@hono/zod-validator";
 import { type ServerWebSocket } from "bun";
 import { describeRoute } from "hono-openapi";
@@ -132,11 +132,11 @@ const cleanupConnection = (clientId: string) => {
 };
 
 // In-memory storage for connected clients and room management
-const roomsMap = new Map<number, Map<string, wsInstance>>(); // roomId -> set of clientId
+const roomsMap = new Map<string, Map<string, wsInstance>>(); // roomId -> set of clientId
 
 // Helper function to broadcast a message to all clients in a room
 const broadcastToRoom = (
-  roomId: number,
+  roomId: string,
   message: any,
   excludeClientId?: string | string[],
 ) => {
@@ -154,7 +154,7 @@ const broadcastToRoom = (
 
 // Helper function to add a client to a room
 const addClientToRoom = async (
-  roomId: number,
+  roomId: string,
   clientId: string,
   ws: wsInstance,
 ) => {
@@ -168,23 +168,108 @@ const addClientToRoom = async (
 };
 
 // Helper function to remove a client from a room
-const removeClientFromRoom = (clientId: string, roomId: number) => {
+const removeClientFromRoom = (clientId: string, roomId: string) => {
   const room = roomsMap.get(roomId)!;
   room.delete(clientId);
 };
 
-const roomCustomerMap = new Map<number, UUID>();
+const roomCustomerMap = new Map<string, UUID>();
 
 // WebSocket setup
 const { upgradeWebSocket, websocket } = createBunWebSocket<ServerWebSocket>();
 
-// Cache to track AI response counts for each ticket
-const aiResponseCountCache = new NodeCache({
-  stdTTL: 24 * 60 * 60, // 24 hours
-  checkperiod: 60 * 60 * 12,
-});
+namespace aiHandler {
+  // Cache to track AI response counts for each ticket
+  const aiResponseCountCache = new NodeCache({
+    stdTTL: 24 * 60 * 60, // 24 hours
+    checkperiod: 60 * 60 * 12,
+  });
 
-const MAX_AI_RESPONSES_PER_TICKET = 3;
+  export const MAX_AI_RESPONSES_PER_TICKET = 4;
+
+  export async function getCurrentAIMsgCount(ticketId: string) {
+    // Check if we've reached the AI response limit for this ticket
+    let currentCount = aiResponseCountCache.get<number>(ticketId);
+    if (currentCount === undefined) {
+      const db = connectDB();
+      const [num] = await db
+        .select({
+          count: count(),
+        })
+        .from(schema.chatMessages)
+        .where(
+          and(
+            eq(schema.chatMessages.ticketId, ticketId),
+            eq(schema.chatMessages.senderId, 1),
+          ),
+        );
+      currentCount = num?.count ?? 0;
+      aiResponseCountCache.set(ticketId, currentCount);
+    }
+    return currentCount;
+  }
+
+  export function handleAIResponse(
+    ws: wsInstance,
+    ticketId: string,
+    content: JSONContentZod | string[],
+  ) {
+    const currentCount = aiResponseCountCache.get<number>(ticketId) ?? 0;
+
+    const toSendContent = Array.isArray(content)
+      ? content.join("\n")
+      : extractText(content);
+    runWithInterval(
+      () =>
+        getAIResponse(ticketId, [
+          {
+            role: "user",
+            content: toSendContent,
+          },
+        ]),
+      () =>
+        broadcastToRoom(ticketId, {
+          type: "user_typing",
+          userId: 1,
+          roomId: ticketId,
+          timestamp: Date.now(),
+        }),
+      2000,
+      async (result) => {
+        const savedAIMessage = await saveMessageToDb(
+          ticketId,
+          1,
+          plainTextToJSONContent(result),
+          false,
+        );
+        if (!savedAIMessage) {
+          return;
+        }
+
+        // Increment the AI response count for this ticket
+        aiResponseCountCache.set(ticketId, currentCount + 1);
+        broadcastToRoom(ticketId, {
+          type: "new_message",
+          messageId: savedAIMessage.id,
+          roomId: ticketId,
+          userId: 1,
+          content: savedAIMessage.content,
+          timestamp: savedAIMessage.createdAt,
+          isInternal: false,
+        });
+      },
+      (error: unknown) => {
+        console.error("Error handling AI response:", error);
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            error: "Some error occurred in AI response.",
+          }),
+        );
+      },
+    );
+  }
+}
 
 const wsRouter = factory
   .createApp()
@@ -260,8 +345,7 @@ const wsRouter = factory
         });
       }
 
-      const ticketIdNum = Number.parseInt(ticketId);
-      if (isNaN(ticketIdNum)) {
+      if (ticketId.length !== 13) {
         throw new HTTPException(400, {
           message: "Invalid ticket ID",
         });
@@ -278,7 +362,7 @@ const wsRouter = factory
       const { userId, role } = tokenData;
 
       // Check if user has permission to access this ticket
-      const roomMembers = await MyCache.getTicketMembers(ticketIdNum);
+      const roomMembers = await MyCache.getTicketMembers(ticketId);
 
       if (
         role === "customer" &&
@@ -293,31 +377,54 @@ const wsRouter = factory
       return {
         async onOpen(evt, ws) {
           console.log(`Client connected: ${clientId}, UserId: ${userId}`);
-          await addClientToRoom(ticketIdNum, clientId, ws);
+          await addClientToRoom(ticketId, clientId, ws);
 
           // Initialize connection state and start heartbeat
           initializeConnection(clientId, ws);
 
           broadcastToRoom(
-            ticketIdNum,
+            ticketId,
             {
               type: "user_joined",
               userId: userId,
-              roomId: ticketIdNum,
+              roomId: ticketId,
               timestamp: Date.now(),
             },
             clientId,
           );
 
           if (role === "customer") {
-            roomCustomerMap.set(ticketIdNum, clientId);
+            roomCustomerMap.set(ticketId, clientId);
+            const currentCount =
+              await aiHandler.getCurrentAIMsgCount(ticketId);
+            if (currentCount === 0) {
+              const db = connectDB();
+              db.query.tickets
+                .findFirst({
+                  columns: {
+                    title: true,
+                    description: true,
+                    errorMessage: true,
+                  },
+                  where: eq(schema.tickets.id, ticketId),
+                })
+                .then((ticket) => {
+                  if (ticket) {
+                    aiHandler.handleAIResponse(ws, ticketId, [
+                      ticket.title,
+                      extractText(ticket.description),
+                      ticket.errorMessage,
+                    ]);
+                  }
+                });
+            }
           }
 
           // Confirm to the user
           ws.send(
             JSON.stringify({
               type: "join_success",
-              roomId: ticketIdNum,
+              roomId: ticketId,
               timestamp: Date.now(),
             }),
           );
@@ -387,7 +494,7 @@ const wsRouter = factory
 
                 // Save message to database
                 const messageResult = await saveMessageToDb(
-                  ticketIdNum,
+                  ticketId,
                   userId,
                   parsedMessage.content,
                   parsedMessage.isInternal ?? false,
@@ -395,76 +502,13 @@ const wsRouter = factory
 
                 if (messageResult) {
                   if (role === "customer") {
-                    // Check if we've reached the AI response limit for this ticket
-                    let currentCount =
-                      aiResponseCountCache.get<number>(ticketIdNum);
-                    if (currentCount === undefined) {
-                      const db = connectDB();
-                      const [num] = await db
-                        .select({
-                          count: count(),
-                        })
-                        .from(schema.chatMessages)
-                        .where(
-                          and(
-                            eq(schema.chatMessages.ticketId, ticketIdNum),
-                            eq(schema.chatMessages.senderId, 1),
-                          ),
-                        );
-                      currentCount = num?.count ?? 0;
-                      aiResponseCountCache.set(ticketIdNum, currentCount);
-                    }
-                    if (currentCount <= MAX_AI_RESPONSES_PER_TICKET) {
-                      runWithInterval(
-                        () =>
-                          getAIResponse(ticketIdNum, [
-                            {
-                              role: "user",
-                              content: extractText(parsedMessage.content),
-                            },
-                          ]),
-                        () =>
-                          broadcastToRoom(ticketIdNum, {
-                            type: "user_typing",
-                            userId: 1,
-                            roomId: ticketIdNum,
-                            timestamp: Date.now(),
-                          }),
-                        2000,
-                        async (result) => {
-                          const savedAIMessage = await saveMessageToDb(
-                            ticketIdNum,
-                            1,
-                            plainTextToJSONContent(result),
-                            false,
-                          );
-                          if (!savedAIMessage) {
-                            return;
-                          }
-  
-                          // Increment the AI response count for this ticket
-                          aiResponseCountCache.set(ticketIdNum, currentCount + 1);
-  
-                          broadcastToRoom(ticketIdNum, {
-                            type: "new_message",
-                            messageId: savedAIMessage.id,
-                            roomId: ticketIdNum,
-                            userId: 1,
-                            content: savedAIMessage.content,
-                            timestamp: savedAIMessage.createdAt,
-                            isInternal: false,
-                          });
-                        },
-                      );
-                    } else {
-                      console.log(
-                        `AI response limit reached for ticket ${ticketIdNum}`,
-                      );
-                      ws.send(
-                        JSON.stringify({
-                          type: "error",
-                          error: "AI response limit reached",
-                        }),
+                    const currentCount =
+                      await aiHandler.getCurrentAIMsgCount(ticketId);
+                    if (currentCount <= aiHandler.MAX_AI_RESPONSES_PER_TICKET) {
+                      aiHandler.handleAIResponse(
+                        ws,
+                        ticketId,
+                        parsedMessage.content,
                       );
                     }
                   }
@@ -474,16 +518,16 @@ const wsRouter = factory
                   if (parsedMessage.isInternal) {
                     broadcastExclude = [
                       clientId,
-                      roomCustomerMap.get(ticketIdNum)!,
+                      roomCustomerMap.get(ticketId)!,
                     ];
                   }
 
                   broadcastToRoom(
-                    ticketIdNum,
+                    ticketId,
                     {
                       type: "new_message",
                       messageId: messageResult.id,
-                      roomId: ticketIdNum,
+                      roomId: ticketId,
                       userId: userId,
                       content: parsedMessage.content,
                       timestamp: messageResult.createdAt,
@@ -498,7 +542,7 @@ const wsRouter = factory
                       type: "message_sent",
                       tempId: parsedMessage.tempId,
                       messageId: messageResult.id,
-                      roomId: ticketIdNum,
+                      roomId: ticketId,
                       timestamp: messageResult.createdAt,
                     }),
                   );
@@ -507,7 +551,7 @@ const wsRouter = factory
                     JSON.stringify({
                       type: "error",
                       error: "Failed to save message",
-                      roomId: ticketIdNum,
+                      roomId: ticketId,
                     }),
                   );
                 }
@@ -521,17 +565,17 @@ const wsRouter = factory
                 }
 
                 // User is typing in a room
-                if (!roomsMap.has(ticketIdNum)) {
+                if (!roomsMap.has(ticketId)) {
                   return; // ignore if not in room
                 }
 
                 // Broadcast typing status to room
                 broadcastToRoom(
-                  ticketIdNum,
+                  ticketId,
                   {
                     type: "user_typing",
                     userId: userId,
-                    roomId: ticketIdNum,
+                    roomId: ticketId,
                     timestamp: Date.now(),
                   },
                   clientId, // Exclude sender
@@ -557,16 +601,12 @@ const wsRouter = factory
 
                 if (readStatus) {
                   // Broadcast read status to room
-                  broadcastToRoom(
-                    ticketIdNum,
-                    {
-                      type: "message_read_update",
-                      messageId: parsedMessage.messageId,
-                      userId: userId,
-                      readAt: readStatus.readAt,
-                    },
-                    clientId,
-                  );
+                  broadcastToRoom(ticketId, {
+                    type: "message_read_update",
+                    messageId: parsedMessage.messageId,
+                    userId: userId,
+                    readAt: readStatus.readAt,
+                  });
                 }
                 break;
               case "agent_first_message":
@@ -578,9 +618,9 @@ const wsRouter = factory
                       .set({
                         status: "in_progress",
                       })
-                      .where(eq(schema.tickets.id, ticketIdNum));
+                      .where(eq(schema.tickets.id, ticketId));
                     await tx.insert(schema.ticketHistory).values({
-                      ticketId: ticketIdNum,
+                      ticketId: ticketId,
                       type: "first_reply",
                       meta: 0,
                       operatorId: userId,
@@ -601,15 +641,15 @@ const wsRouter = factory
                   if (withdrawnMessage.isInternal) {
                     broadcastExclude = [
                       clientId,
-                      roomCustomerMap.get(ticketIdNum)!,
+                      roomCustomerMap.get(ticketId)!,
                     ];
                   }
                   broadcastToRoom(
-                    ticketIdNum,
+                    ticketId,
                     {
                       type: "message_withdrawn",
                       messageId: withdrawnMessage.id,
-                      roomId: ticketIdNum,
+                      roomId: ticketId,
                       userId: userId,
                       timestamp: Date.now(),
                       isInternal: withdrawnMessage.isInternal,
@@ -621,7 +661,7 @@ const wsRouter = factory
                     JSON.stringify({
                       type: "error",
                       error: "Failed to withdraw message",
-                      roomId: ticketIdNum,
+                      roomId: ticketId,
                     }),
                   );
                 }
@@ -646,22 +686,22 @@ const wsRouter = factory
           cleanupConnection(clientId);
 
           // Get client info before removal
-          const room = roomsMap.get(ticketIdNum);
+          const room = roomsMap.get(ticketId);
           if (room) {
             broadcastToRoom(
-              ticketIdNum,
+              ticketId,
               {
                 type: "user_left",
                 userId: userId,
-                roomId: ticketIdNum,
+                roomId: ticketId,
                 timestamp: Date.now(),
               },
               clientId,
             );
-            removeClientFromRoom(clientId, ticketIdNum);
+            removeClientFromRoom(clientId, ticketId);
 
             if (room.size === 0) {
-              roomsMap.delete(ticketIdNum);
+              roomsMap.delete(ticketId);
             }
           }
           console.log(`Client disconnected: ${clientId}`);

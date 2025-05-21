@@ -2,14 +2,14 @@ CREATE SCHEMA "tentix";
 --> statement-breakpoint
 CREATE TYPE "tentix"."area" AS ENUM('bja', 'hzh', 'gzg', 'io', 'usw', 'test');--> statement-breakpoint
 CREATE TYPE "tentix"."module" AS ENUM('all', 'applaunchpad', 'costcenter', 'appmarket', 'db', 'account_center', 'aiproxy', 'devbox', 'task', 'cloudserver', 'objectstorage', 'laf', 'kubepanel', 'terminal', 'workorder', 'other');--> statement-breakpoint
-CREATE TYPE "tentix"."ticket_category" AS ENUM('bug', 'feature', 'question', 'other');--> statement-breakpoint
-CREATE TYPE "tentix"."ticket_history_type" AS ENUM('create', 'first_reply', 'join', 'update', 'upgrade', 'transfer', 'makeRequest', 'resolve', 'close', 'other');--> statement-breakpoint
+CREATE TYPE "tentix"."ticket_category" AS ENUM('uncategorized', 'bug', 'feature', 'question', 'other');--> statement-breakpoint
+CREATE TYPE "tentix"."ticket_history_type" AS ENUM('create', 'first_reply', 'join', 'category', 'update', 'upgrade', 'transfer', 'makeRequest', 'resolve', 'close', 'other');--> statement-breakpoint
 CREATE TYPE "tentix"."ticket_priority" AS ENUM('normal', 'low', 'medium', 'high', 'urgent');--> statement-breakpoint
 CREATE TYPE "tentix"."ticket_status" AS ENUM('pending', 'in_progress', 'resolved', 'scheduled');--> statement-breakpoint
 CREATE TYPE "tentix"."user_role" AS ENUM('system', 'customer', 'agent', 'technician', 'admin', 'ai');--> statement-breakpoint
 CREATE TABLE "tentix"."chat_messages" (
 	"id" serial PRIMARY KEY NOT NULL,
-	"ticket_id" integer NOT NULL,
+	"ticket_id" char(13) NOT NULL,
 	"sender_id" integer NOT NULL,
 	"content" jsonb NOT NULL,
 	"created_at" timestamp(3) DEFAULT now() NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE "tentix"."requirements" (
 	"description" jsonb NOT NULL,
 	"module" "tentix"."module" NOT NULL,
 	"priority" "tentix"."ticket_priority" NOT NULL,
-	"related_ticket" integer,
+	"related_ticket" char(13),
 	"create_at" timestamp(3) DEFAULT now() NOT NULL,
 	"update_at" timestamp(3) DEFAULT now() NOT NULL
 );
@@ -44,7 +44,7 @@ CREATE TABLE "tentix"."tags" (
 --> statement-breakpoint
 CREATE TABLE "tentix"."technicians_to_tickets" (
 	"user_id" integer NOT NULL,
-	"ticket_id" integer NOT NULL,
+	"ticket_id" char(13) NOT NULL,
 	CONSTRAINT "technicians_to_tickets_user_id_ticket_id_pk" PRIMARY KEY("user_id","ticket_id")
 );
 --> statement-breakpoint
@@ -53,20 +53,20 @@ CREATE TABLE "tentix"."ticket_history" (
 	"type" "tentix"."ticket_history_type" NOT NULL,
 	"meta" integer,
 	"description" varchar(190),
-	"ticket_id" integer NOT NULL,
+	"ticket_id" char(13) NOT NULL,
 	"operator_id" integer NOT NULL,
 	"created_at" timestamp(3) DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "tentix"."tickets" (
-	"id" serial PRIMARY KEY NOT NULL,
+	"id" char(13) PRIMARY KEY NOT NULL,
 	"title" varchar(254) NOT NULL,
 	"description" jsonb NOT NULL,
 	"status" "tentix"."ticket_status" NOT NULL,
 	"module" "tentix"."module" NOT NULL,
 	"area" "tentix"."area" NOT NULL,
 	"occurrence_time" timestamp(6) NOT NULL,
-	"category" "tentix"."ticket_category" NOT NULL,
+	"category" "tentix"."ticket_category" DEFAULT 'uncategorized' NOT NULL,
 	"priority" "tentix"."ticket_priority" NOT NULL,
 	"error_message" text,
 	"customer_id" integer NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE "tentix"."tickets" (
 CREATE TABLE "tentix"."tickets_tags" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"tag_id" integer NOT NULL,
-	"ticket_id" integer NOT NULL
+	"ticket_id" char(13) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "tentix"."user_session" (

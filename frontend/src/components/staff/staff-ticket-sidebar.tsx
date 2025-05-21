@@ -112,7 +112,7 @@ function getPriorityColor(priority: string) {
 
 type TicketItemProps = {
   ticket: TicketsListItemType;
-  currentTicketId: number;
+  currentTicketId: string;
 };
 
 const TicketItem = ({ 
@@ -132,7 +132,7 @@ const TicketItem = ({
         isActive={ticket.id === currentTicketId}
         className={`relative ${getPriorityColor(ticket.priority)}`}
       >
-        <Link to={`/staff/tickets/${ticket.id}`} className="group h-fit">
+        <Link to='/staff/tickets/$id' params={{ id: ticket.id }} className="group h-fit">
           <div className="flex w-full flex-col gap-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ export function StaffTicketSidebar({
   currentTicketId,
 }: {
   tickets?: TicketsListItemType[];
-  currentTicketId: number;
+  currentTicketId: string;
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();

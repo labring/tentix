@@ -43,7 +43,7 @@ export const userTicketsQueryOptions = (id: string) =>
     queryKey: ["getUserTickets", id],
     queryFn: async () => {
       const data = await (
-        await apiClient.user.getUserTickets.$get({ query: { userId: id } })
+        await apiClient.user.getTickets.$get({ query: { userId: id } })
       ).json();
       return data;
     },
@@ -161,7 +161,7 @@ export async function raiseRequirement({
   description: string;
   module: (typeof moduleEnumArray)[number];
   priority: (typeof ticketPriorityEnumArray)[number];
-  relatedTicket?: number;
+  relatedTicket?: string;
 }) {
   const res = await (
     await apiClient.admin.raiseReq.$post({
@@ -185,13 +185,13 @@ export async function updateTicketStatus({
   status,
   description,
 }: {
-  ticketId: number;
+  ticketId: string;
   status: (typeof ticketStatusEnumArray)[number];
   description: string;
 }) {
   const res = await (
     await apiClient.ticket.updateStatus.$post({
-      json: {
+      form: {
         ticketId,
         status,
         description,
@@ -207,11 +207,11 @@ export async function updateTicketStatus({
 export async function joinTicketAsTechnician({
   ticketId,
 }: {
-  ticketId: number;
+  ticketId: string;
 }) {
   const res = await (
     await apiClient.ticket.joinAsTechnician.$post({
-      json: {
+      form: {
         ticketId,
       },
     })

@@ -48,7 +48,7 @@ type UpdateStatusFormValues = z.infer<typeof updateStatusFormSchema>
 
 export function useUpdateStatusModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false)
-  const [ticketId, setTicketId] = useState<number>(0)
+  const [ticketId, setTicketId] = useState<string>("")
 
   // Initialize form with React Hook Form
   const form = useForm<UpdateStatusFormValues>({
@@ -90,7 +90,7 @@ export function useUpdateStatusModal() {
   }
 
   // Function to open the update status modal
-  function openUpdateStatusModal(ticketId: number, currentStatus: string) {
+  function openUpdateStatusModal(ticketId: string, currentStatus: string) {
     setTrue();
     setTicketId(ticketId);
     form.reset({

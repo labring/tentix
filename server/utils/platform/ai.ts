@@ -16,7 +16,7 @@ type AIResponse = {
   }[];
 };
 
-export async function getAIResponse(chatId: number, messages: { role: string; content: string }[]) {
+export async function getAIResponse(chatId: string, messages: { role: string; content: string }[]) {
   const data = {
     chatId,
     stream: false,

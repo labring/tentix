@@ -74,6 +74,7 @@ export type userRoleType = z.infer<typeof zodUserRole>;
 
 export const ticketInsertSchema = createInsertSchema(schema.tickets).omit({
   id: true,
+  category: true,
   createdAt: true,
   updatedAt: true,
   customerId: true,
@@ -97,7 +98,7 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.enum(["user_joined", "user_left", "typing"]),
     userId: z.number(),
-    roomId: z.number(),
+    roomId: z.string(),
     timestamp: z.number(),
   }),
   z.object({
@@ -107,14 +108,20 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     readAt: z.string(),
   }),
   z.object({
+    type: z.literal("message_read_update"),
+    messageId: z.number(),
+    userId: z.number(),
+    readAt: z.string(),
+  }),
+  z.object({
     type: z.literal("join_success"),
-    roomId: z.number(),
+    roomId: z.string(),
     timestamp: z.number(),
   }),
   z.object({
     type: z.literal("new_message"),
     messageId: z.number(),
-    roomId: z.number(),
+    roomId: z.string(),
     userId: z.number(),
     content: JSONContentSchema,
     timestamp: z.number(),
@@ -124,12 +131,12 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("message_sent"),
     tempId: z.number(),
     messageId: z.number(),
-    roomId: z.number(),
+    roomId: z.string(),
     timestamp: z.number(),
   }),
   z.object({
     type: z.literal("agent_first_message"),
-    roomId: z.number(),
+    roomId: z.string(),
     timestamp: z.number(),
   }),
   z.object({
@@ -139,20 +146,20 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("user_typing"),
     userId: z.number(),
-    roomId: z.number(),
+    roomId: z.string(),
     timestamp: z.number(),
   }),
   z.object({
     type: z.literal("withdraw_message"),
     userId: z.number(),
     messageId: z.number(),
-    roomId: z.number(),
+    roomId: z.string(),
     timestamp: z.number(),
   }),
   z.object({
     type: z.literal("message_withdrawn"),
     messageId: z.number(),
-    roomId: z.number(),
+    roomId: z.string(),
     userId: z.number(),
     timestamp: z.number(),
     isInternal: z.boolean(),

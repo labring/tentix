@@ -34,7 +34,7 @@ export function cacheResult(
 
 export class CacheFunc {
   @cacheResult
-  async getTicketMembers(id: number, isStale: boolean = false) {
+  async getTicketMembers(id: string, isStale: boolean = false) {
     const db = connectDB();
     const data = await db.query.tickets.findFirst({
       where: (tickets, { eq }) => eq(tickets.id, id),

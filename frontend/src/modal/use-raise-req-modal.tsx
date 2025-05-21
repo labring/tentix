@@ -62,7 +62,7 @@ type RaiseReqFormValues = z.infer<typeof raiseReqFormSchema>
 
 export function useRaiseReqModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false)
-  const [relatedTicketId, setRelatedTicketId] = useState<number | undefined>(undefined)
+  const [relatedTicketId, setRelatedTicketId] = useState<string | undefined>(undefined)
 
   // Initialize form with React Hook Form
   const form = useForm<RaiseReqFormValues>({
@@ -108,7 +108,7 @@ export function useRaiseReqModal() {
   }
 
   // Function to open the raise requirement modal
-  function openRaiseReqModal(relatedTicketId?: number) {
+  function openRaiseReqModal(relatedTicketId?: string) {
     setTrue();
     setRelatedTicketId(relatedTicketId);
     form.reset({

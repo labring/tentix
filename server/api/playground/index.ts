@@ -125,7 +125,7 @@ const playgroundRouter = factory
       async function longRunningFunction(): Promise<string> {
         console.log("Starting request...");
         const startTime = Date.now();
-        const result = await getAIResponse(1, [{ role: "user", content: "你好" }]);
+        const result = await getAIResponse('test', [{ role: "user", content: "你好" }]);
         const end = Date.now();
         console.log(`Time taken: ${end - startTime}ms`);
         return result;

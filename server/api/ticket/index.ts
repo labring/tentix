@@ -14,7 +14,7 @@ import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import { HTTPException } from "hono/http-exception";
-import { authMiddleware, factory } from "../middleware.ts";
+import { authMiddleware, factory, staffOnlyMiddleware } from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
 import { readConfig } from "@/utils/env.ts";
@@ -28,13 +28,13 @@ const createResponseSchema = z.array(
 );
 
 const transferTicketSchema = z.object({
-  ticketId: z.number(),
+  ticketId: z.string(),
   targetStaffId: z.number(),
   description: z.string(),
 });
 
 const upgradeTicketSchema = z.object({
-  ticketId: z.number(),
+  ticketId: z.string(),
   priority: z.enum(schema.ticketPriority.enumValues),
   description: z.string(),
 });
@@ -48,14 +48,12 @@ const raiseReqSchema = z.object({
 });
 
 const updateTicketStatusSchema = z.object({
-  ticketId: z.number(),
+  ticketId: z.string(),
   status: z.enum(schema.ticketStatus.enumValues),
   description: z.string(),
 });
 
-const joinTicketAsTechnicianSchema = z.object({
-  ticketId: z.number(),
-});
+
 
 const ticketRouter = factory
   .createApp()
@@ -90,13 +88,11 @@ const ticketRouter = factory
 
       const staffMap = c.var.staffMap();
       const staffMapEntries = Array.from(staffMap.entries());
-      const [assigneeId, { feishuId: assigneeFeishuId }] = staffMapEntries.filter(
-        ([id, info]) => info.role === "agent",
-      ).sort(
-        (a, b) => a[1].remainingTickets - b[1].remainingTickets,
-      )[0]!;
+      const [assigneeId, { feishuId: assigneeFeishuId }] = staffMapEntries
+        .filter(([id, info]) => info.role === "agent")
+        .sort((a, b) => a[1].remainingTickets - b[1].remainingTickets)[0]!;
 
-      let ticketId: number | undefined;
+      let ticketId: string | undefined;
 
       await db.transaction(async (tx) => {
         const [data] = await tx
@@ -111,7 +107,6 @@ const ticketRouter = factory
             priority: payload.priority,
             customerId: userId,
             agentId: assigneeId,
-            category: payload.category,
             status: payload.status,
           })
           .returning({
@@ -176,32 +171,16 @@ const ticketRouter = factory
             },
           });
 
-          const { tenant_access_token } = await getFeishuAppAccessToken();
-
-          await sendFeishuMsg(
-            "chat_id",
-            config.feishu_chat_id,
-            "interactive",
-            JSON.stringify(card.card),
-            tenant_access_token,
-          );
+          getFeishuAppAccessToken().then(({ tenant_access_token }) => {
+            sendFeishuMsg(
+              "chat_id",
+              config.feishu_chat_id,
+              "interactive",
+              JSON.stringify(card.card),
+              tenant_access_token,
+            );
+          });
         }
-        // Call AI interaction handler for ticket creation
-        // try {
-        //   await handleAIInteraction(
-        //     "ticket_created",
-        //     data[0].id,
-        //     Number(userId),
-        //     undefined,
-        //     {
-        //       title: payload.title,
-        //       description,
-        //       category: payload.category,
-        //     },
-        //   );
-        // } catch (error) {
-        //   console.error("Error handling AI interaction:", error);
-        // }
       });
 
       if (!ticketId) {
@@ -210,99 +189,30 @@ const ticketRouter = factory
         });
       }
 
+      // Nodejs Event Loop: function in `then` will be executed after the current function is finished
+      // so we need to use a temp variable to store the ticketId.
+      // const temp = ticketId;
+      // getAIResponse(temp, [
+      //   {
+      //     role: "user",
+      //     content: extractText(payload.description),
+      //   },
+      // ])
+      //   .then((aiResponse) => {
+      //     saveMessageToDb(temp, 1, plainTextToJSONContent(aiResponse), false);
+      //   })
+      //   .catch((error) => {
+      //     console.error("Error handling AI interaction:", error);
+      //   });
+
       return c.json({
         status: "success",
         id: ticketId,
         createdAt: new Date().toISOString(),
       });
-    },)
-   .get(
-    "/getUserTickets",
-    describeRoute({
-      description:
-        "Get all tickets for a user with customer info and last message",
-      tags: ["User", "Ticket"],
-      responses: {
-        200: {
-          description: "All tickets with related information",
-          content: {
-            "application/json": {
-              // schema will be defined here
-            },
-          },
-        },
-      },
-    }),
-    async (c) => {
-      const userId = c.var.userId;
-      const role = c.var.role;
-      const db = c.var.db;
-
-      const basicUserCols = {
-        columns: {
-          id: true,
-          name: true,
-          nickname: true,
-          avatar: true,
-        },
-      } as const;
-
-
-      if (role === "customer" || role === "agent") {
-        const data = await db.query.tickets.findMany({
-          where: role === "customer" ? eq(schema.tickets.customerId, userId) : eq(schema.tickets.agentId, userId),
-          orderBy: [desc(schema.tickets.updatedAt)],
-          with: {
-            agent: basicUserCols,
-            customer: basicUserCols,
-            messages: {
-              orderBy: [desc(schema.chatMessages.createdAt)],
-              limit: 1,
-            },
-          },
-        });
-
-
-        const res = data.map((ticket) => {
-          return {
-            ...ticket,
-            messages: ticket.messages.map((message) => ({
-              ...message,
-              content: getAbbreviatedText(message.content, 100),
-            })),
-          };
-        });
-        return c.json(res);
-      }
-      const data = (
-        await db.query.techniciansToTickets.findMany({
-          where: eq(schema.techniciansToTickets.userId, userId),
-          with: {
-            ticket: {
-              with: {
-                agent: basicUserCols,
-                customer: basicUserCols,
-                messages: {
-                  orderBy: [desc(schema.chatMessages.createdAt)],
-                  limit: 1,
-                },
-              },
-            },
-          },
-        })
-      ).map((t) => t.ticket);
-      const res = data.map((ticket) => {
-        return {
-          ...ticket,
-          messages: ticket.messages.map((message) => ({
-            ...message,
-            content: getAbbreviatedText(message.content, 100),
-          })),
-        };
-      });
-      return c.json(res);
     },
-  ) .get(
+  )
+  .get(
     "/all",
     describeRoute({
       description:
@@ -363,7 +273,6 @@ const ticketRouter = factory
   )
   .get(
     "/info",
-    authMiddleware,
     describeRoute({
       tags: ["Ticket"],
       description: "Get ticket info by id",
@@ -403,7 +312,7 @@ const ticketRouter = factory
       const db = c.var.db;
       const staffMap = c.var.staffMap();
       const data = await db.query.tickets.findFirst({
-        where: (tickets, { eq }) => eq(tickets.id, Number.parseInt(id)),
+        where: (tickets, { eq }) => eq(tickets.id, id),
         with: {
           ...membersCols,
           customer: true,
@@ -427,14 +336,14 @@ const ticketRouter = factory
         });
       }
 
-      
       if (role === "customer") {
         data.messages = data.messages.filter((message) => !message.isInternal);
       }
 
       if (
         process.env.NODE_ENV === "production" &&
-        (data.customerId !== userId && staffMap.get(userId) === undefined)
+        data.customerId !== userId &&
+        staffMap.get(userId) === undefined
       ) {
         throw new HTTPException(403, {
           message: "You are not allowed to access this ticket",
@@ -450,7 +359,7 @@ const ticketRouter = factory
   )
   .get(
     "/members",
-    authMiddleware,
+
     describeRoute({
       tags: ["Ticket"],
       description: "Get ticket members",
@@ -478,13 +387,13 @@ const ticketRouter = factory
     ),
     async (c) => {
       const { id } = c.req.valid("query");
-      const members = await MyCache.getTicketMembers(Number(id));
+      const members = await MyCache.getTicketMembers(id);
       return c.json({ ...members });
     },
   )
   .post(
     "/transfer",
-    authMiddleware,
+    staffOnlyMiddleware(),
     describeRoute({
       description: "Transfer a ticket to another staff",
       tags: ["Ticket"],
@@ -542,7 +451,6 @@ const ticketRouter = factory
           description,
           ticketId,
           operatorId: userId,
-          createdAt: new Date().toISOString(),
         });
 
         // 2. Add the target staff to the ticket members
@@ -588,14 +496,14 @@ const ticketRouter = factory
 
       const { tenant_access_token } = await getFeishuAppAccessToken();
 
-      await sendFeishuMsg(
+      sendFeishuMsg(
         "chat_id",
         config.feishu_chat_id,
         "interactive",
         JSON.stringify(card.card),
         tenant_access_token,
       );
-      await sendFeishuMsg(
+      sendFeishuMsg(
         "open_id",
         assignee.openId,
         "text",
@@ -613,7 +521,7 @@ const ticketRouter = factory
   )
   .post(
     "/upgrade",
-    authMiddleware,
+    staffOnlyMiddleware(),
     describeRoute({
       description: "Upgrade a ticket priority",
       tags: ["Ticket"],
@@ -642,53 +550,37 @@ const ticketRouter = factory
     async (c) => {
       const db = c.var.db;
       const userId = c.var.userId;
-      const userRole = c.var.role;
       const { ticketId, priority, description } = c.req.valid("json");
 
-      try {
-        // Check if the user is authorized to upgrade tickets
-        if (userRole === "customer" && process.env.NODE_ENV === "production") {
-          throw new HTTPException(400, {
-            message: "You are not authorized to upgrade ticket priority",
-          });
-        }
-
-        await db.transaction(async (tx) => {
-          // 1. Record the ticket history
-          await tx.insert(schema.ticketHistory).values({
-            type: "upgrade",
-            operatorId: userId,
-            meta: userId,
-            description,
-            ticketId,
-            createdAt: new Date().toISOString(),
-          });
-
-          // 2. Update the ticket priority
-          await tx
-            .update(schema.tickets)
-            .set({
-              priority,
-              updatedAt: new Date().toISOString(),
-            })
-            .where(eq(schema.tickets.id, ticketId));
+      await db.transaction(async (tx) => {
+        // 1. Record the ticket history
+        await tx.insert(schema.ticketHistory).values({
+          type: "upgrade",
+          operatorId: userId,
+          meta: userId,
+          description,
+          ticketId,
         });
 
-        return c.json({
-          success: true,
-          message: `Ticket priority upgraded successfully to ${priority}`,
-        });
-      } catch (error) {
-        console.error("Upgrade ticket failed:", error);
-        throw new HTTPException(500, {
-          message: "Upgrade ticket priority failed, please try again later",
-        });
-      }
+        // 2. Update the ticket priority
+        await tx
+          .update(schema.tickets)
+          .set({
+            priority,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(schema.tickets.id, ticketId));
+      });
+
+      return c.json({
+        success: true,
+        message: `Ticket priority upgraded successfully to ${priority}`,
+      });
     },
   )
   .post(
     "/updateStatus",
-    authMiddleware,
+    staffOnlyMiddleware(),
     describeRoute({
       description: "Update a ticket status",
       tags: ["Admin", "Ticket"],
@@ -713,71 +605,41 @@ const ticketRouter = factory
         },
       },
     }),
-    zValidator("json", updateTicketStatusSchema),
+    zValidator("form", updateTicketStatusSchema),
     async (c) => {
       const db = c.var.db;
       const userId = c.var.userId;
-      const userRole = c.var.role;
-      const { ticketId, status, description } = c.req.valid("json");
+      const { ticketId, status, description } = c.req.valid("form");
 
-      try {
-        // Check if the user is authorized to update ticket status
-        if (
-          userRole === "customer" &&
-          status === "resolved" &&
-          process.env.NODE_ENV === "production"
-        ) {
-          throw new HTTPException(400, {
-            message: "Customers cannot mark tickets as resolved",
-          });
-        }
-
-        await db.transaction(async (tx) => {
-          // 1. Record the ticket history
-          await tx.insert(schema.ticketHistory).values({
-            type: "update",
-            meta: userId,
-            description: `Status updated to ${status}`,
-            ticketId,
-            operatorId: userId,
-            createdAt: new Date().toISOString(),
-          });
-
-          // 2. Update the ticket status
-          await tx
-            .update(schema.tickets)
-            .set({
-              status,
-              updatedAt: new Date().toISOString(),
-            })
-            .where(eq(schema.tickets.id, ticketId));
+      await db.transaction(async (tx) => {
+        // 1. Record the ticket history
+        await tx.insert(schema.ticketHistory).values({
+          type: "update",
+          meta: userId,
+          description,
+          ticketId,
+          operatorId: userId,
         });
 
-        const config = await readConfig();
+        // 2. Update the ticket status
+        await tx
+          .update(schema.tickets)
+          .set({
+            status,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(schema.tickets.id, ticketId));
+      });
 
-        // await sendFeishuMsg(
-        //   "chat_id",
-        //   config.feishu_chat_id,
-        //   "text",
-        //   JSON.stringify({ text: `<at user_id="${agent.openId}">${agent.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${ticketInfo.description}` }),
-        //   tenant_access_token,
-        // );
-
-        return c.json({
-          success: true,
-          message: `Ticket status updated successfully to ${status}`,
-        });
-      } catch (error) {
-        console.error("Update ticket status failed:", error);
-        throw new HTTPException(500, {
-          message: "Update ticket status failed, please try again later",
-        });
-      }
+      return c.json({
+        success: true,
+        message: `Ticket status updated successfully to ${status}`,
+      });
     },
   )
   .post(
     "/joinAsTechnician",
-    authMiddleware,
+    staffOnlyMiddleware("Only staff users can join tickets."),
     describeRoute({
       description: "Join ticket as a technician",
       tags: ["Ticket"],
@@ -802,25 +664,19 @@ const ticketRouter = factory
         },
       },
     }),
-    zValidator("json", joinTicketAsTechnicianSchema),
+    zValidator("form", z.object({
+      ticketId: z.string(),
+    })),
     async (c) => {
       const db = c.var.db;
       const userId = c.var.userId;
-      const userRole = c.var.role;
-      const { ticketId } = c.req.valid("json");
-
-      // Check if the user is authorized to join tickets
-      if (userRole === "customer") {
-        throw new HTTPException(400, {
-          message: "Only staff users can join tickets.",
-        });
-      }
+      const { ticketId } = c.req.valid("form");
 
       // Check if user is already a member of this ticket
       const existingMember = await db.query.techniciansToTickets.findFirst({
         where: and(
           eq(schema.techniciansToTickets.userId, userId),
-          eq(schema.techniciansToTickets.ticketId, ticketId)
+          eq(schema.techniciansToTickets.ticketId, ticketId),
         ),
       });
 
@@ -844,7 +700,6 @@ const ticketRouter = factory
           operatorId: 0,
           meta: userId,
           ticketId,
-          createdAt: new Date().toISOString(),
         });
       });
 
@@ -854,6 +709,54 @@ const ticketRouter = factory
       return c.json({
         success: true,
         message: "Joined ticket successfully",
+      });
+    },
+  )
+  .post(
+    "/category",
+    staffOnlyMiddleware(),
+    describeRoute({
+      description: "Get AI response for a ticket",
+      tags: ["Ticket"],
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+      responses: {
+        200: {
+          description: "Ticket category updated successfully",
+        },
+      },
+    }),
+    zValidator(
+      "form",
+      z.object({
+        ticketId: z.string(),
+        category: z.enum(schema.ticketCategory.enumValues),
+      }),
+    ),
+    async (c) => {
+      const db = c.var.db;
+      const { ticketId, category } = c.req.valid("form");
+      const userId = c.var.userId;
+      await db.transaction(async (tx) => {
+        await tx
+          .update(schema.tickets)
+          .set({
+            category,
+          })
+          .where(eq(schema.tickets.id, ticketId));
+        await tx.insert(schema.ticketHistory).values({
+          type: "category",
+          operatorId: userId,
+          ticketId,
+        });
+      });
+
+      return c.json({
+        success: true,
+        message: "Ticket category updated successfully",
       });
     },
   );

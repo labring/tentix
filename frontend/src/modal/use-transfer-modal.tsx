@@ -62,7 +62,7 @@ async function transferTicket({
   targetStaffId,
   description,
 }: {
-  ticketId: number;
+  ticketId: string;
   targetStaffId: number;
   description: string;
 }) {
@@ -83,7 +83,7 @@ async function transferTicket({
 
 export function useTransferModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false);
-  const [ticketId, setTicketId] = useState<number>(0);
+  const [ticketId, setTicketId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const user = useLocalUser();
 
@@ -131,7 +131,7 @@ export function useTransferModal() {
   };
 
   // Function to open the transfer modal
-  function openTransferModal(ticketId: number) {
+  function openTransferModal(ticketId: string) {
     setTrue();
     setTicketId(ticketId);
     form.reset();

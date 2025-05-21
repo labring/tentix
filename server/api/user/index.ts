@@ -10,6 +10,89 @@ import { zs } from "@/utils/tools.ts";
 import { resolver } from "hono-openapi/zod";
 import { HTTPException } from "hono/http-exception";
 
+const basicUserCols = {
+  columns: {
+    id: true,
+    name: true,
+    nickname: true,
+    avatar: true,
+  },
+} as const;
+
+async function getTicketsInCommonRole(
+  userId: number,
+  role: "customer" | "agent",
+) {
+  const db = connectDB();
+  return db.query.tickets
+    .findMany({
+      where:
+        role === "customer"
+          ? eq(schema.tickets.customerId, userId)
+          : eq(schema.tickets.agentId, userId),
+      orderBy: [desc(schema.tickets.updatedAt)],
+      with: {
+        agent: basicUserCols,
+        customer: basicUserCols,
+        messages: {
+          orderBy: [desc(schema.chatMessages.createdAt)],
+          limit: 1,
+          with: {
+            readStatus: true,
+          },
+        },
+      },
+    })
+    .then((data) => {
+      return data.map((ticket) => {
+        return {
+          ...ticket,
+          messages: ticket.messages.map((message) => ({
+            ...message,
+            content: getAbbreviatedText(message.content, 100),
+          })),
+        };
+      });
+    });
+}
+
+async function getTicketsInTechnicianRole(
+  userId: number,
+): Promise<ReturnType<typeof getTicketsInCommonRole>> {
+  const db = connectDB();
+  return db.query.techniciansToTickets
+    .findMany({
+      where: eq(schema.techniciansToTickets.userId, userId),
+      with: {
+        ticket: {
+          with: {
+            agent: basicUserCols,
+            customer: basicUserCols,
+            messages: {
+              orderBy: [desc(schema.chatMessages.createdAt)],
+              limit: 1,
+              with: {
+                readStatus: true,
+              },
+            },
+          },
+        },
+      },
+    })
+    .then((data) => data.map((t) => t.ticket))
+    .then((data) =>
+      data.map((ticket) => {
+        return {
+          ...ticket,
+          messages: ticket.messages.map((message) => ({
+            ...message,
+            content: getAbbreviatedText(message.content, 100),
+          })),
+        };
+      }),
+    );
+}
+
 const userRouter = factory
   .createApp()
   .use(authMiddleware)
@@ -55,7 +138,7 @@ const userRouter = factory
     },
   )
   .get(
-    "/getUserTickets",
+    "/getTickets",
     describeRoute({
       description:
         "Get all tickets for a user with customer info and last message",
@@ -74,72 +157,20 @@ const userRouter = factory
     async (c) => {
       const userId = c.var.userId;
       const role = c.var.role;
-      const db = c.var.db;
-
-      const basicUserCols = {
-        columns: {
-          id: true,
-          name: true,
-          nickname: true,
-          avatar: true,
-        },
-      } as const;
-
-
-      if (role === "customer" || role === "agent") {
-        const data = await db.query.tickets.findMany({
-          where: role === "customer" ? eq(schema.tickets.customerId, userId) : eq(schema.tickets.agentId, userId),
-          orderBy: [desc(schema.tickets.updatedAt)],
-          with: {
-            agent: basicUserCols,
-            customer: basicUserCols,
-            messages: {
-              orderBy: [desc(schema.chatMessages.createdAt)],
-              limit: 1,
-            },
-          },
-        });
-
-
-        const res = data.map((ticket) => {
-          return {
-            ...ticket,
-            messages: ticket.messages.map((message) => ({
-              ...message,
-              content: getAbbreviatedText(message.content, 100),
-            })),
-          };
-        });
-        return c.json(res);
-      }
-      const data = (
-        await db.query.techniciansToTickets.findMany({
-          where: eq(schema.techniciansToTickets.userId, userId),
-          with: {
-            ticket: {
-              with: {
-                agent: basicUserCols,
-                customer: basicUserCols,
-                messages: {
-                  orderBy: [desc(schema.chatMessages.createdAt)],
-                  limit: 1,
-                },
-              },
-            },
-          },
-        })
-      ).map((t) => t.ticket);
-      const res = data.map((ticket) => {
-        return {
-          ...ticket,
-          messages: ticket.messages.map((message) => ({
-            ...message,
-            content: getAbbreviatedText(message.content, 100),
-          })),
-        };
-      });
+      const res = await (async () => {
+        switch (role) {
+          case "agent":
+            return Promise.all([
+              getTicketsInTechnicianRole(userId),
+              getTicketsInCommonRole(userId, "agent"),
+            ]).then((data) => data.flat());
+          case "technician":
+            return getTicketsInTechnicianRole(userId);
+          default:
+            return getTicketsInCommonRole(userId, "customer");
+        }
+      })();
       return c.json(res);
     },
   );
-
 export { userRouter };
