@@ -1,0 +1,28 @@
+{
+  "extends": "../packages/typescript-config/frontend.json",
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "../packages/**/*.ts",
+    "../packages/**/*.tsx",
+    "../packages/i18n/**/*.ts",
+  ],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@server/*": ["../server/*"],
+      "@lib/*": ["./src/lib/*"],
+      "@hook/*": ["./src/hooks/*"],
+      "@comp/*": ["./src/components/*"],
+      "@modal/*": ["./src/modal/*"],
+      "@/*": ["./*"],
+      "@store/*": ["./src/store/*"],
+      // "tentix-ui/*": ["../packages/ui/*"]
+    }
+  },
+  "references": [
+    { "path": "../server/tsconfig.json" },
+    // { "path": "../packages/ui/tsconfig.json" }
+  ]
+}

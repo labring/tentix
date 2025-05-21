@@ -1,0 +1,20 @@
+node_modules
+./**/node_modules
+
+# Local env files
+.env
+.env.**
+
+# Testing
+coverage
+
+# Turbo
+.turbo
+./**/.turbo/
+
+
+build
+./**/dist
+.vscode
+.github
+

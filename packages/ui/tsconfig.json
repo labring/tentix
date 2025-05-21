@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@workspace/typescript-config/react-library.json",
+  "display": "UI Library",
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "noUncheckedIndexedAccess": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@frontend/*": ["../../frontend/src/*"],
+      "@server/*": ["../../server/*"],
+      "@ui/*": ["./src/*"]
+    },
+    "outDir": "./dist"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../../server/tsconfig.json" }
+  ]
+}

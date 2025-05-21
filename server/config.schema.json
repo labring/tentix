@@ -1,0 +1,172 @@
+{
+  "type": "object",
+  "required": [
+    "$schema",
+    "feishu_app_id",
+    "feishu_app_secret",
+    "feishu_bot_webhook_id",
+    "aiProfile",
+    "department_ids",
+    "agents_ids",
+    "admin_ids",
+    "staffs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema URL",
+      "format": "uri-reference",
+      "const": "./config.schema.json"
+    },
+    "feishu_app_id": {
+      "type": "string",
+      "description": "Feishu app ID",
+      "pattern": "^cli_[a-zA-Z0-9]{16}$",
+      "example": "cli_a8907f6327xxxxxxx"
+    },
+    "feishu_app_secret": {
+      "type": "string",
+      "description": "Feishu app secret",
+      "pattern": "^[a-zA-Z0-9]{32}$",
+      "example": "xxxxxx"
+    },
+    "feishu_chat_id": {
+      "type": "string",
+      "description": "Feishu chat ID",
+      "pattern": "^oc_[a-zA-Z0-9]{32}$",
+      "example": "oc_5c0b9313fd5xx55exx1452fecxx1b018"
+    },
+    "aiProfile": {
+      "type": "object",
+      "required": [
+        "uid",
+        "name",
+        "nickname",
+        "realName",
+        "phoneNum",
+        "identity",
+        "role",
+        "avatar",
+        "registerTime"
+      ],
+      "properties": {
+        "uid": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "realName": {
+          "type": "string"
+        },
+        "phoneNum": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "const": "ai"
+        },
+        "avatar": {
+          "type": "string",
+          "description": "The avatar of the AI User.",
+          "format": "url"
+        },
+        "registerTime": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "department_ids": {
+      "type": "array",
+      "description": "Department IDs. Used to get staff list from Feishu. \n How to get department IDs: \n 1. Open the API Explorer Link. [Link](https://open.feishu.cn/api-explorer/?apiName=find_by_department&from=op_doc_tab&project=contact&resource=user&version=v3) \n 2. Read this document for more information. [Link](https://open.feishu.cn/document/server-docs/contact-v3/department/field-overview)",
+      "items": {
+        "type": "string"
+      }
+    },
+    "agents_ids": {
+      "type": "array",
+      "description": "Agents IDs. You can specify the agents who daily deal with the tickets.",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "admin_ids": {
+      "type": "array",
+      "description": "Admin IDs. You can specify the admins who can manage the system.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "staffs": {
+      "type": "array",
+      "description": "Staffs list. Don't manually add staffs here, because the system will automatically add staffs from Feishu. And any manual edit will be overwritten.",
+      "items": {
+        "type": "object",
+        "required": ["avatar", "description", "name", "open_id", "union_id", "user_id"],
+        "properties": {
+          "avatar": {
+            "type": "string",
+            "description": "The avatar of the staff.",
+            "format": "url"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "title": "realName"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "open_id": {
+            "type": "string"
+          },
+          "union_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "departments": {
+      "type": "array",
+      "description": "Departments list. Don't manually add departments here, because the system will automatically add departments from Feishu. And any manual edit will be overwritten.",
+      "items": {
+        "type": "object",
+        "required": ["openId", "id", "name", "members"],
+        "properties": {
+          "openId": {
+            "type": "string",
+            "description": "The open ID of the department. Commonly used."
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "The open ID of the staff.",
+              "pattern": "^on_[a-zA-Z0-9]{32}$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "declarationMap": false,
+    "outDir": "./output",
+    "baseUrl": ".",
+  },
+  "include": ["./**/*.ts"],
+  "files": ["./utils/rpc.ts"],
+  "exclude": ["node_modules", "dist", "output", "db/seed_old.ts", "api/ai/index.ts", "scripts", "test"]
+}

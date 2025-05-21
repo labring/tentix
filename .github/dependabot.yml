@@ -1,0 +1,10 @@
+version: 2
+
+updates:
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "tailwindcss"
+      - dependency-name: "tailwind-merge"

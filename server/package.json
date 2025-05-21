@@ -1,0 +1,59 @@
+{
+  "name": "tentix-server",
+  "private": true,
+  "type": "module",
+  
+  "scripts": {
+    "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts",
+    "build:prod": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production",
+    "build:types": "rm -rf ./output && tsc -p ./tsconfig.types.json",
+    "dev": "bun --env-file=../.env.local run --hot api/index.ts",
+    "start": "bun run ./dist/index.js",
+    "generate": "bun --env-file=../.env.local drizzle-kit generate --config=db/drizzle.config.ts",
+    "migrate": "bun --env-file=../.env.local drizzle-kit migrate --config=db/drizzle.config.ts",
+    "pull": "bun script/drizzle-pull.sh",
+    "studio": "bun --env-file=../.env.local drizzle-kit studio --config=db/drizzle.config.ts",
+    "seed": "bun --env-file=../.env.local ./script/seed.ts"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.7.0",
+    "@hono/zod-validator": "^0.4.3",
+    "@scalar/hono-api-reference": "^0.8.5",
+    "drizzle-orm": "0.41.0",
+    "drizzle-zod": "^0.7.1",
+    "hono": "^4.7.7",
+    "hono-openapi": "^0.4.6",
+    "hono-rate-limiter": "^0.4.2",
+    "i18n": "workspace:*",
+    "minio": "^7.1.3",
+    "node-cache": "^5.1.2",
+    "pg": "^8.15.1",
+    "zod-openapi": "^4.2.4"
+  },
+  "packageManager": "bun@1.2.10",
+  "devDependencies": {
+    "@types/bun": "^1.2.10",
+    "@types/pg": "8.11.13",
+    "drizzle-kit": "^0.31.0",
+    "drizzle-seed": "^0.3.1",
+    "openapi-types": "^12.1.3"
+  },
+  "exports": {
+    "./rpc": {
+      "types": "./output/utils/rpc.d.ts",
+      "default": "./utils/rpc.js"
+    },
+    "./constants": {
+      "types": "./output/utils/const.d.ts",
+      "default": "./utils/const.ts"
+    },
+    "./types": {
+      "types": "./utils/types.ts",
+      "default": "./utils/types.ts"
+    },
+    "./*": {
+      "types": "./output/*.d.ts",
+      "default": "./*.ts"
+    }
+  }
+}
