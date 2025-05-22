@@ -78,7 +78,7 @@ export default defineConfig({
           }
 
           if (id.includes('/components/')) {
-            return 'ui';
+            return 'components';
           }
           
           if (id.includes('/hooks/') || id.includes('/utils/') || id.includes('/lib/')) {
