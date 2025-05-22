@@ -51,15 +51,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { apiClient } from "@lib/api-client.ts";
 
-const IconMap: Record<
-  (typeof ticketCategoryEnumArray)[number],
-  React.ReactNode
-> = {
-  bug: <BugIcon className="mb-2 h-4 w-4" />,
-  feature: <LightbulbIcon className="mb-2 h-4 w-4" />,
-  question: <FileTextIcon className="mb-2 h-4 w-4" />,
-  other: <PlusIcon className="mb-2 h-4 w-4" />,
-};
+
 
 export function TicketForm() {
   const { t } = useTranslation();
@@ -85,7 +77,6 @@ export function TicketForm() {
     reValidateMode: "onChange",
     defaultValues: {
       area: area,
-      category: "bug",
     },
   });
 
@@ -273,7 +264,7 @@ export function TicketForm() {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label>
                   {joinTrans([t("tkt"), t("type")])}{" "}
                   <span className="text-red-500">*</span>
@@ -308,7 +299,7 @@ export function TicketForm() {
                     </RadioGroup>
                   )}
                 />
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="description">

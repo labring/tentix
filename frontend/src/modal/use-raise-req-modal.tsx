@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "tentix-ui"
+import { useTranslation } from "i18n"
 
 import { Button } from "tentix-ui"
 import {
@@ -63,6 +64,7 @@ type RaiseReqFormValues = z.infer<typeof raiseReqFormSchema>
 export function useRaiseReqModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false)
   const [relatedTicketId, setRelatedTicketId] = useState<string | undefined>(undefined)
+  const { t } = useTranslation()
 
   // Initialize form with React Hook Form
   const form = useForm<RaiseReqFormValues>({
@@ -80,8 +82,8 @@ export function useRaiseReqModal() {
     mutationFn: raiseRequirement,
     onSuccess: (data) => {
       toast({
-        title: "Success",
-        description: data.message || "Requirement raised successfully",
+        title: t("success"),
+        description: data.message || t("req_raised"),
         variant: "default",
       });
       setFalse();
@@ -89,8 +91,8 @@ export function useRaiseReqModal() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to raise requirement",
+        title: t("error"),
+        description: error.message || t("failed_raise_req"),
         variant: "destructive",
       });
     },
@@ -123,11 +125,11 @@ export function useRaiseReqModal() {
     <Dialog open={state} onOpenChange={set}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>Raise New Requirement</DialogTitle>
+          <DialogTitle>{t("raise_req_title")}</DialogTitle>
           <DialogDescription>
             {relatedTicketId 
-              ? `Create a new requirement linked to ticket #${relatedTicketId}`
-              : "Create a new requirement for system improvement or feature request"}
+              ? t("raise_req_desc_linked", { id: relatedTicketId })
+              : t("raise_req_desc_general")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -137,9 +139,9 @@ export function useRaiseReqModal() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>{t("req_title")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter a clear title for the requirement" {...field} />
+                    <Input placeholder={t("req_title_ph")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -152,20 +154,20 @@ export function useRaiseReqModal() {
                 name="module"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Module</FormLabel>
+                    <FormLabel>{t("module")}</FormLabel>
                     <Select 
                       onValueChange={field.onChange} 
                       defaultValue={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select module" />
+                          <SelectValue placeholder={t("select")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {moduleEnumArray.map((module) => (
                           <SelectItem key={module} value={module}>
-                            {module}
+                            {t(module)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -180,20 +182,20 @@ export function useRaiseReqModal() {
                 name="priority"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Priority</FormLabel>
+                    <FormLabel>{t("priority")}</FormLabel>
                     <Select 
                       onValueChange={field.onChange} 
                       defaultValue={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select priority" />
+                          <SelectValue placeholder={t("select")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {ticketPriorityEnumArray.map((priority) => (
                           <SelectItem key={priority} value={priority}>
-                            {priority}
+                            {t(priority)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -209,16 +211,16 @@ export function useRaiseReqModal() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>{t("req_description")}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Provide a detailed description of the requirement"
+                      placeholder={t("req_desc_ph")}
                       className="min-h-[120px]"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Include all relevant details, expected behavior, and business value
+                    {t("req_desc_help")}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -232,13 +234,13 @@ export function useRaiseReqModal() {
                 onClick={setFalse}
                 disabled={raiseReqMutation.isPending}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={!form.formState.isValid || raiseReqMutation.isPending}
               >
-                {raiseReqMutation.isPending ? "Submitting..." : "Raise Requirement"}
+                {raiseReqMutation.isPending ? t("submitting") : t("raise_req_btn")}
               </Button>
             </DialogFooter>
           </form>
@@ -254,4 +256,4 @@ export function useRaiseReqModal() {
     raiseReqModal: modal,
     isRaisingReq: raiseReqMutation.isPending,
   }
-} 
+}

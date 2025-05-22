@@ -47,6 +47,7 @@ const adminRouter = factory
       const res = data.map((staff) => {
         return {
           ...staff,
+          ticketNum: staffMap.get(staff.id)?.remainingTickets || 0,
           workload: (() => {
             const num = staffMap.get(staff.id)?.remainingTickets || 0;
             if (num < 5) return "Low";
