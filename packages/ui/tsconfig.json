@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@workspace/typescript-config/react-library.json",
+  "extends": "../typescript-config/react-library.json",
   "display": "UI Library",
   "compilerOptions": {
     "esModuleInterop": true,
@@ -12,16 +12,16 @@
     "target": "ES2022",
     "composite": true,
     "emitDeclarationOnly": true,
-    "noEmit": true,
+    "noEmit": false,
     "baseUrl": ".",
     "paths": {
       "@frontend/*": ["../../frontend/src/*"],
       "@server/*": ["../../server/*"],
-      "@ui/*": ["./src/*"]
+      "uisrc/*": ["./uisrc/*"]
     },
-    "outDir": "./dist"
+    "outDir": "./types"
   },
-  "include": ["src"],
+  "include": ["uisrc"],
   "exclude": ["node_modules", "dist"],
   "references": [
     { "path": "../../server/tsconfig.json" }

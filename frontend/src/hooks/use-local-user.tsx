@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const area = window.localStorage.getItem(
       "area",
     ) as (typeof areaEnumArray)[number] ?? 'hzh';
+    // @ts-ignore
     setUser({ ...userData, area });
     setCk(getCk());
   }, [userData]);

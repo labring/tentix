@@ -1,11 +1,11 @@
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
-import { useIsMobile } from "tentix-ui
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "tentix-ui
-import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "tentix-ui
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "tentix-ui
-import { ToggleGroup, ToggleGroupItem } from "tentix-ui
+import { useIsMobile } from "tentix-ui"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "tentix-ui"
+import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "tentix-ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "tentix-ui"
+import { ToggleGroup, ToggleGroupItem } from "tentix-ui"
 
 // Sample data for work orders over time
 const chartData = {

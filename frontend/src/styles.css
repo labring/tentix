@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 
-@source "../../packages/ui*.tsx";
+@source "../../packages/ui/**/*.tsx";
 @source "src/**/*.tsx";
-@import "tentix-ui/src/styles/globals.css";
+@import "tentix-ui/uisrc/styles/globals.css";
 
 @custom-variant dark (&:is(.dark *));
 

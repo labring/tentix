@@ -1,4 +1,4 @@
-import type React from "react"
+import React from "react"
 
 import { useState } from "react"
 import { CheckIcon, CopyIcon } from "lucide-react"

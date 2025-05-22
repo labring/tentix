@@ -13,7 +13,7 @@ export default function AppProviders({ children }: PropsWithChildren) {
   return providers.reduce(nestProviders)({ children });
 }
 
-export function nestProviders(
+function nestProviders(
   PreviousProviders: ({ children }: { children: ReactNode }) => JSX.Element,
   CurrentProvider: ({ children }: { children: ReactNode }) => JSX.Element,
 ) {

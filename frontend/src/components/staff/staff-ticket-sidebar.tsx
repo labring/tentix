@@ -1,14 +1,10 @@
-import type React from "react";
 import { useState, useEffect, useMemo } from "react";
 import {
-  AlertTriangleIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircleIcon,
   ChevronDownIcon,
-  ClockIcon,
   FilterIcon,
-  Loader2Icon,
   PinIcon,
   SearchIcon,
   StarIcon,
@@ -53,7 +49,7 @@ import { StatusBadge } from "tentix-ui";
 import { timeAgo } from "tentix-ui";
 import { type TicketsListItemType } from "tentix-server/rpc";
 
-export function groupTickets<T extends Record<string, unknown>>(
+function groupTickets<T extends Record<string, unknown>>(
   tickets: T[] | undefined = [],
   groupBy: keyof T = "group" as keyof T,
 ): Record<string, T[]> {
@@ -164,7 +160,7 @@ const TicketItem = ({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-xs"
-                  onClick={(e) => togglePinned(ticket.id)}
+                  onClick={() => togglePinned(ticket.id)}
                 >
                   <PinIcon
                     className={`h-3 w-3 ${isPinned(ticket.id) ? "text-blue-500" : "text-muted-foreground"}`}

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useInView } from "react-intersection-observer";
 import { MessageInput } from "./message-input.js";
 import { MessageList } from "../message-list.tsx";
 import { TicketInfoBox } from "../ticket-info-box.tsx";
@@ -25,9 +24,6 @@ export function UserChat({
   const { messages, setMessages, setWithdrawMessageFunc } = useChatStore();
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   const sentReadStatusRef = useRef<Set<number>>(new Set());
-  const { ref: messageListRef } = useInView({
-    threshold: 0.5,
-  });
 
   // Handle user typing
   const handleUserTyping = (typingUserId: number, status: "start" | "stop") => {

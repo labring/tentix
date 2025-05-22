@@ -1,10 +1,6 @@
 import {
-  FileText,
-  Home,
   MessageSquare,
-  PlusCircle,
-  Settings,
-  Users,
+  PlusCircle, Users
 } from "lucide-react";
 
 import {

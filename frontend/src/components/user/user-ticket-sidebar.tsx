@@ -1,14 +1,9 @@
 import { useState } from "react";
 import {
-  AlertTriangleIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  FileTextIcon,
-  Loader2Icon,
-  PlusIcon,
+  FileTextIcon, PlusIcon,
   SearchIcon,
   TicketIcon,
-  ArrowLeftIcon,
+  ArrowLeftIcon
 } from "lucide-react";
 
 import { Badge } from "tentix-ui";

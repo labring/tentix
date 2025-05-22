@@ -31,8 +31,8 @@ export default defineConfig({
       "@db": resolve(__dirname, "../server/db"),
       "@api": resolve(__dirname, "../server/api"),
       "tentix-ui": resolve(__dirname, "../packages/ui"),
-      "src": [resolve(__dirname, "./src")],
-      "@ui": resolve(__dirname, "../packages/ui/src"),
+      "src": resolve(__dirname, "./src"),
+      "uisrc": resolve(__dirname, "../packages/ui/uisrc"),
     },
   },
   server: {
@@ -62,25 +62,6 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        inlineDynamicImports: false,
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'vendor-react';
-            }
-            if (id.includes('@tanstack')) {
-              return 'vendor-tanstack';
-            }
-            if (id.includes('tailwindcss')) {
-              return 'vendor-tailwind';
-            }
-            return 'vendor';
-          }
-          if (id.includes('packages/ui')) {
-            return 'tentix-ui';
-          }
-          // Default: let Vite handle other chunks
-        },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
         assetFileNames: (assetInfo) => {

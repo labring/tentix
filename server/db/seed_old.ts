@@ -251,9 +251,9 @@ async function main() {
           userId: getRandomInt(11, 100),
         }));
 
-        await db
-          .insert(schema.ticketMembers)
-          .values([...technician, ...customer]);
+        // await db
+        //   .insert(schema.ticketMembers)
+        //   .values([...technician, ...customer]);
 
 
         log("ℹ️  Resetting user roles...");

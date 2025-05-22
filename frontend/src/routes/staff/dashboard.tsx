@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { StaffChartAreaInteractive } from "@comp/staff/chart-area-interactive";
 import { DataTable } from "@comp/tickets-table/table";
 import { StaffSectionCards } from "@comp/staff/section-cards";
