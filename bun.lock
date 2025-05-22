@@ -207,7 +207,7 @@
     "server": {
       "name": "tentix-server",
       "dependencies": {
-        "@faker-js/faker": "^9.7.0",
+        "@faker-js/faker": "^9.8.0",
         "@hono/zod-validator": "^0.4.3",
         "@scalar/hono-api-reference": "^0.8.5",
         "drizzle-orm": "0.43.1",
@@ -381,7 +381,7 @@
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.2.8", "", { "dependencies": { "@eslint/core": "^0.13.0", "levn": "^0.4.1" } }, "sha512-ZAoA40rNMPwSm+AeHpCq8STiNAwzWLJuP8Xv4CHIc9wv/PSuExjMrmjfYNj682vW0OOiZ1HKxzvjQr9XZIisQA=="],
 
-    "@faker-js/faker": ["@faker-js/faker@9.7.0", "", {}, "sha512-aozo5vqjCmDoXLNUJarFZx2IN/GgGaogY4TMJ6so/WLZOWpSV7fvj2dmrV6sEAnUm1O7aCrhTibjpzeDFgNqbg=="],
+    "@faker-js/faker": ["@faker-js/faker@9.8.0", "", {}, "sha512-U9wpuSrJC93jZBxx/Qq2wPjCuYISBueyVUGK7qqdmj7r/nxaxwW8AQDCLeRO7wZnjj94sh3p246cAYjUKuqgfg=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.6.9", "", { "dependencies": { "@floating-ui/utils": "^0.2.9" } }, "sha512-uMXCuQ3BItDUbAMhIXw7UPXRfAlOAvZzdK9BWpE60MCn+Svt3aLn9jsPTi/WNGlRUu2uI0v5S7JiIUsbsvh3fw=="],
 
