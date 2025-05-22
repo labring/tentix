@@ -1,8 +1,8 @@
 .PHONY: build run push clean help
 
 IMAGE_NAME := tentix
-VERSION := 
-DOCKER_REGISTRY := 
+VERSION := dev20250522
+DOCKER_REGISTRY := crpi-visd77fbydeujidg.cn-hangzhou.personal.cr.aliyuncs.com
 
 help:
 	@echo "Available targets:"

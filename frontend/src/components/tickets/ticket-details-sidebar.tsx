@@ -16,6 +16,7 @@ import { useSessionMembersStore } from "@store/index";
 import { useTranslation } from "react-i18next";
 import { PriorityBadge, StatusBadge } from "tentix-ui";
 import { joinTrans } from "i18n";
+import { getEnumKey, ticketCategoryEnumArray, ticketPriorityEnumArray } from "tentix-server/constants";
 
 function IconforHistory({
   type,
@@ -63,11 +64,13 @@ export function TicketHistory({
       case "create":
         return t(`tktH.create`, { assignee: memberName });
       case "upgrade":
-        return t(`tktH.upgrade`, { priority: history.meta });
+        return t(`tktH.upgrade`, { priority: t(getEnumKey(ticketPriorityEnumArray, history.meta!) ?? "unknown") });
       case "transfer":
         return t(`tktH.transfer`, { assignee: memberName });
       case "join":
         return t(`tktH.join`, { member: memberName });
+      case "category":
+        return t(`tktH.category`, { category: t(getEnumKey(ticketCategoryEnumArray, history.meta!) ?? "unknown") });
       default:
         return t(`tktH.${history.type}`);
     }

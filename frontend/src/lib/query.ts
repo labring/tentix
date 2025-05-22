@@ -161,7 +161,7 @@ export async function raiseRequirement({
   description: string;
   module: (typeof moduleEnumArray)[number];
   priority: (typeof ticketPriorityEnumArray)[number];
-  relatedTicket?: string;
+  relatedTicket: string;
 }) {
   const res = await (
     await apiClient.admin.raiseReq.$post({

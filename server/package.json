@@ -44,7 +44,7 @@
       "default": "./utils/rpc.ts"
     },
     "./constants": {
-      "types": "./output/utils/const.d.ts",
+      "types": "./utils/const.ts",
       "default": "./utils/const.ts"
     },
     "./types": {

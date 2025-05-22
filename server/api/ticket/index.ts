@@ -18,6 +18,7 @@ import { authMiddleware, factory, staffOnlyMiddleware } from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
 import { readConfig } from "@/utils/env.ts";
+import { getIndex, ticketCategoryEnumArray, ticketPriorityEnumArray } from "@/utils/const.ts";
 
 const createResponseSchema = z.array(
   z.object({
@@ -557,7 +558,7 @@ const ticketRouter = factory
         await tx.insert(schema.ticketHistory).values({
           type: "upgrade",
           operatorId: userId,
-          meta: userId,
+          meta: getIndex(ticketPriorityEnumArray, priority),
           description,
           ticketId,
         });
@@ -750,6 +751,7 @@ const ticketRouter = factory
         await tx.insert(schema.ticketHistory).values({
           type: "category",
           operatorId: userId,
+          meta: getIndex(ticketCategoryEnumArray, category),
           ticketId,
         });
       });

@@ -100,13 +100,17 @@ export function useRaiseReqModal() {
 
   // Handle form submission
   const onSubmit = (values: RaiseReqFormValues) => {
-    raiseReqMutation.mutate({
-      title: values.title,
-      description: values.description,
-      module: values.module,
-      priority: values.priority,
-      relatedTicket: relatedTicketId,
-    });
+    if (relatedTicketId) {
+      raiseReqMutation.mutate({
+        ...values,
+        relatedTicket: relatedTicketId,
+      });
+    } else {
+      toast({
+        title: t("error"),
+        variant: "destructive",
+      });
+    }
   }
 
   // Function to open the raise requirement modal

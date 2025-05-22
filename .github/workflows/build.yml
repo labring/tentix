@@ -25,3 +25,20 @@ jobs:
       
     - name: Build project
       run: bun turbo build check-types
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build Docker image
+      run: |
+        docker build --platform linux/amd64 \
+          -t ghcr.io/${{ github.repository_owner }}/tentix:${{ github.sha }} \
+          .
+
+    - name: Push Docker image
+      run: |
+        docker push ghcr.io/${{ github.repository_owner }}/tentix:${{ github.sha }}

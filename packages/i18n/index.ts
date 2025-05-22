@@ -407,6 +407,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
           transfer: "$t(tkt)被转交给{{assignee}}",
           makeRequest: "提出了需求",
           first_reply: "首次响应",
+          category: "将该工单分类为{{category}}",
           join: "{{member}}加入了工单",
           other: "$t(other)",
         },

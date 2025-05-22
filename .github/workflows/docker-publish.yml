@@ -1,0 +1,35 @@
+name: Build & Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Aliyun Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker image
+        run: |
+          docker build --platform linux/amd64 \
+            -t ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME || 'tentix' }}:${{ secrets.VERSION || github.sha }} \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME || 'tentix' }}:${{ secrets.VERSION || github.sha }} 
