@@ -17,6 +17,10 @@
   ],
   "devDependencies": {
     "@tanstack/react-query": "^5.74.4",
+    "drizzle-orm": "0.43.1",
+    "@types/node": "^20",
+    "tentix-ui": "workspace:*",
+    "i18n": "workspace:*",
     "@types/bun": "^1.2.12",
     "@types/node": "^20",
     "@workspace/eslint-config": "workspace:*",

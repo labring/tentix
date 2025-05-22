@@ -15,10 +15,10 @@
     "seed": "bun --env-file=../.env.local ./script/seed.ts"
   },
   "dependencies": {
-    "@faker-js/faker": "^9.7.0",
+    "@faker-js/faker": "^9.8.0",
     "@hono/zod-validator": "^0.4.3",
     "@scalar/hono-api-reference": "^0.8.5",
-    "drizzle-orm": "0.41.0",
+    "drizzle-orm": "0.43.1",
     "drizzle-zod": "^0.7.1",
     "hono": "^4.7.7",
     "hono-openapi": "^0.4.6",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@types/bun": "^1.2.10",
     "@types/pg": "8.11.13",
-    "drizzle-kit": "^0.31.0",
+    "drizzle-kit": "^0.31.1",
     "drizzle-seed": "^0.3.1",
     "openapi-types": "^12.1.3"
   },
