@@ -64,27 +64,22 @@ export default defineConfig({
       output: {
         inlineDynamicImports: false,
         manualChunks: (id) => {
-          
-          if (id.includes('staff')) {
-            return 'staff';
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@tanstack')) {
+              return 'vendor-tanstack';
+            }
+            if (id.includes('tailwindcss')) {
+              return 'vendor-tailwind';
+            }
+            return 'vendor';
           }
-
-          if (id.includes('user')) {
-            return 'user';
-          }
-
           if (id.includes('packages/ui')) {
-            return 'ui';
+            return 'tentix-ui';
           }
-
-          if (id.includes('/components/')) {
-            return 'components';
-          }
-          
-          if (id.includes('/hooks/') || id.includes('/utils/') || id.includes('/lib/')) {
-            return 'app-utils';
-          }
-          return 'others';
+          // Default: let Vite handle other chunks
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
