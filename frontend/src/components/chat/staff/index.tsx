@@ -90,8 +90,7 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
     sendMessage,
     sendTypingIndicator,
     sendReadStatus,
-    sendCustomMsg,
-    
+    sendCustomMsg, 
   } = useTicketWebSocket({
     ticket,
     token,
@@ -133,6 +132,7 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
   // Send read status when messages come into view
   const handleMessageInView = (messageId: number) => {
     if (
+      isTicketMember &&
       unreadMessages.has(messageId) &&
       !sentReadStatusRef.current.has(messageId)
     ) {

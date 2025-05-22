@@ -42,7 +42,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       <TanStackRouterDevtools />
     </>
   ),
-  errorComponent: ({ error, info, reset }) => {
+  errorComponent: ({ error, reset }) => {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const resetLogin = () => {

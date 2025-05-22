@@ -259,6 +259,19 @@ async function main() {
         const aiUserId = (
           await tx.insert(schema.users).values(aiUser).returning()
         ).at(0)!.id;
+
+        await tx.insert(schema.users).values({
+          id: 0,
+          uid: "System",
+          name: "System",
+          nickname: "System",
+          realName: "System",
+          identity: "System",
+          role: "system" as const,
+          avatar: aiUser.avatar,
+          registerTime: aiUser.registerTime,
+        });
+
         // Create staff users from config
         const staffUsers: NewUser[] = config.staffs.map((staff) => {
           const role = (() => {
@@ -417,8 +430,12 @@ async function main() {
         const ticketHistory: NewTicketHistory[] = [];
         for (let i = 0; i < 1000; i++) {
           const numHistory = getRandomInt(3, 5); // Each ticket has 3-8 history records
-          const { id: ticketId, customerId, agentId, technicianIds } =
-            memberCache.get(i + 1)!;
+          const {
+            id: ticketId,
+            customerId,
+            agentId,
+            technicianIds,
+          } = memberCache.get(i + 1)!;
 
           const assigneeIds = [...technicianIds, agentId];
 
@@ -464,8 +481,12 @@ async function main() {
         const chatMessages = [];
 
         for (let i = 0; i < 1000; i++) {
-          const { id: ticketId, customerId, agentId, technicianIds } =
-            memberCache.get(i + 1)!;
+          const {
+            id: ticketId,
+            customerId,
+            agentId,
+            technicianIds,
+          } = memberCache.get(i + 1)!;
 
           const members = [customerId, ...technicianIds, agentId];
 
@@ -507,8 +528,9 @@ async function main() {
         const ticketMembers = Array.from(memberCache.values());
         for (const message of chatMessagesInsert) {
           const ticketId = message.ticketId;
-          const { customerId, agentId, technicianIds } =
-            ticketMembers.find((item) => item.id === ticketId)!;
+          const { customerId, agentId, technicianIds } = ticketMembers.find(
+            (item) => item.id === ticketId,
+          )!;
 
           const members = [customerId, ...technicianIds, agentId];
 

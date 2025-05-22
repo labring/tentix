@@ -25,7 +25,7 @@ export const useTicketFavorites = create<TicketFavoritesState>()(
       pinnedTickets: [],
       expandedGroups: {},
 
-      toggleStarred: (ticketId: number) => 
+      toggleStarred: (ticketId: string) => 
         set((state) => {
           const isCurrentlyStarred = state.starredTickets.includes(ticketId)
           return {
@@ -35,7 +35,7 @@ export const useTicketFavorites = create<TicketFavoritesState>()(
           }
         }),
 
-      togglePinned: (ticketId: number) => 
+      togglePinned: (ticketId: string) => 
         set((state) => {
           const isCurrentlyPinned = state.pinnedTickets.includes(ticketId)
           return {
@@ -56,10 +56,10 @@ export const useTicketFavorites = create<TicketFavoritesState>()(
       setExpandedGroups: (groups: Record<string, boolean>) => 
         set({ expandedGroups: groups }),
 
-      isStarred: (ticketId: number) => 
+      isStarred: (ticketId: string) => 
         get().starredTickets.includes(ticketId),
 
-      isPinned: (ticketId: number) => 
+      isPinned: (ticketId: string) => 
         get().pinnedTickets.includes(ticketId),
     }),
     {
