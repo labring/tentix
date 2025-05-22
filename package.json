@@ -16,7 +16,7 @@
     "server"
   ],
   "devDependencies": {
-    "drizzle-orm": "0.41.0",
+    "drizzle-orm": "0.43.1",
     "@types/node": "^20",
     "tentix-ui": "workspace:*",
     "i18n": "workspace:*",
