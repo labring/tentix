@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.1.7",
-    "@typescript-eslint/eslint-plugin": "^8.24.1",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
     "@typescript-eslint/parser": "^8.24.1",
     "eslint": "^9.20.1",
     "eslint-config-prettier": "^9.1.0",
