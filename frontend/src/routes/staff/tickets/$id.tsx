@@ -38,6 +38,7 @@ export const Route = createFileRoute("/staff/tickets/$id")({
 
 function RouteComponent() {
   const { data, ticket, token: wsToken, authContext } = Route.useLoaderData();
+  const { id } = Route.useParams();
   const { setTicket } = useTicketStore();
   const { setSessionMembers } = useSessionMembersStore();
   const [isCollapsed, { toggle: toggleCollapse }] = useBoolean(false);
@@ -48,9 +49,10 @@ function RouteComponent() {
     setSessionMembers(ticket);
   }, [ticket, setTicket, setSessionMembers]);
 
+
   return (
     <SidebarProvider>
-      <StaffTicketSidebar currentTicketId={ticket.id} tickets={data} />
+      <StaffTicketSidebar currentTicketId={id} tickets={data} />
       <SidebarInset className="max-h-svh" style={{
           scrollbarGutter: 'stable both-edges',
           overflowY: 'clip',
@@ -69,7 +71,7 @@ function RouteComponent() {
                 userId={authContext.user?.id ?? 0}
               />
             </div>
-            <StaffRightSidebar ticket={ticket} />
+            <StaffRightSidebar id={id} />
           </div>
         </div>
       </SidebarInset>

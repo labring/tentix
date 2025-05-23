@@ -25,6 +25,7 @@ import {
   ticketStatusEnumArray,
   userRoleEnumArray,
 } from "../utils/const.ts";
+import { myNanoId } from "../utils/runtime.ts";
 export const tentix = pgSchema("tentix");
 export const area = tentix.enum("area", areaEnumArray);
 export const module = tentix.enum("module", moduleEnumArray);
@@ -69,7 +70,7 @@ export const users = tentix.table(
 );
 
 export const tickets = tentix.table("tickets", {
-  id: serial("id").primaryKey().notNull(),
+  id: char("id", { length: 13 }).primaryKey().$defaultFn(myNanoId(13)).notNull(),
   title: varchar("title", { length: 254 }).notNull(),
   description: jsonb().$type<JSONContentZod>().notNull(),
   status: ticketStatus("status")
@@ -81,7 +82,7 @@ export const tickets = tentix.table("tickets", {
     precision: 6,
     mode: "string",
   }).notNull(),
-  category: ticketCategory("category").notNull(),
+  category: ticketCategory("category").default("uncategorized").notNull(),
   priority: ticketPriority("priority").notNull(),
   errorMessage: text("error_message"),
   customerId: integer("customer_id")
@@ -124,7 +125,7 @@ export const ticketHistory = tentix.table(
     type: ticketHistoryType("type").notNull(),
     meta: integer("meta"),
     description: varchar("description", { length: 190 }),
-    ticketId: integer("ticket_id")
+    ticketId: char("ticket_id", { length: 13 })
       .notNull()
       .references(() => tickets.id),
     operatorId: integer("operator_id")
@@ -153,7 +154,7 @@ export const ticketsTags = tentix.table("tickets_tags", {
   tagId: integer("tag_id")
     .notNull()
     .references(() => tags.id),
-  ticketId: integer("ticket_id")
+  ticketId: char("ticket_id", { length: 13 })
     .notNull()
     .references(() => tickets.id),
 });
@@ -163,7 +164,7 @@ export const chatMessages = tentix.table(
   "chat_messages",
   {
     id: serial("id").primaryKey().notNull(),
-    ticketId: integer("ticket_id")
+    ticketId: char("ticket_id", { length: 13 })
       .notNull()
       .references(() => tickets.id),
     senderId: integer("sender_id")
@@ -220,44 +221,6 @@ export const messageReadStatus = tentix.table(
   ],
 );
 
-// // Chat ticket Members
-// export const ticketMembers = tentix.table(
-//   "ticket_session_members",
-//   {
-//     id: serial("id").primaryKey().notNull(),
-//     ticketId: integer("ticket_id")
-//       .notNull()
-//       .references(() => ticket.id),
-//     userId: integer("user_id")
-//       .notNull()
-//       .references(() => users.id),
-//     joinedAt: timestamp("joined_at", { precision: 3, mode: "string" })
-//       .defaultNow()
-//       .notNull(),
-//     lastViewedAt: timestamp("last_viewed_at", { precision: 3, mode: "string" })
-//       .defaultNow()
-//       .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
-//       .notNull(),
-//   },
-//   (table) => [
-//     foreignKey({
-//       columns: [table.ticketId],
-//       foreignColumns: [ticket.id],
-//       name: "ticket_session_members_ticket_id_ticket_sessions_id_fk",
-//     }),
-//     foreignKey({
-//       columns: [table.userId],
-//       foreignColumns: [users.id],
-//       name: "ticket_session_members_user_id_users_id_fk",
-//     }),
-//     unique("ticket_session_members_unique_active_member").on(
-//       table.ticketId,
-//       table.userId,
-//     ),
-//     // seed kit not support unique
-//   ],
-// );
-
 
 export const techniciansToTickets = tentix.table(
   'technicians_to_tickets',
@@ -265,7 +228,7 @@ export const techniciansToTickets = tentix.table(
     userId: integer('user_id')
       .notNull()
       .references(() => users.id),
-    ticketId: integer('ticket_id')
+    ticketId: char('ticket_id', { length: 13 })
       .notNull()
       .references(() => tickets.id),
   },
@@ -305,7 +268,7 @@ export const requirements = tentix.table(
     description: jsonb().$type<JSONContentZod>().notNull(),
     module: module("module").notNull(),
     priority: ticketPriority("priority").notNull(),
-    relatedTicket: integer("related_ticket").references(() => tickets.id),
+    relatedTicket: char("related_ticket", { length: 13 }).references(() => tickets.id),
     createAt: timestamp("create_at", { precision: 3, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -322,5 +285,5 @@ export const requirements = tentix.table(
     }),
   ],
 );
-// Add a constant for the AI user, used to identify the AI assistant in the system
-export const AI_USER_ID = 0; // Assuming 0 is the ID of the AI user
+
+

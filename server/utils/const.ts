@@ -27,6 +27,7 @@ export const moduleEnumArray = [
 ] as const;
 
 export const ticketCategoryEnumArray = [
+  "uncategorized",
   "bug",
   "feature",
   "question",
@@ -79,6 +80,7 @@ export const ticketHistoryTypeEnumArray = [
   "create",
   "first_reply",
   "join",
+  "category",
   "update",
   "upgrade",
   "transfer",
@@ -113,4 +115,14 @@ export const WS_TOKEN_EXPIRY_TIME = 12 * 60 * 60 * 1000;
  * 1000 * 60 * 60 * 24 * 30 // 30 days in milliseconds
  */
 export const COOKIE_EXPIRY_TIME = 1000 * 60 * 60 * 24 * 30;
+
+
+export function getIndex<T extends readonly string[]>(arr: T, key: T[number]) {
+  return arr.findIndex((item) => item === key);
+}
+
+export function getEnumKey<T extends readonly string[]>(arr: T, index: number) {
+  return arr[index];
+}
+
 

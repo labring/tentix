@@ -18,6 +18,7 @@ import {
   userRoleEnumArray,
 } from "../utils/const.ts";
 import { readConfig } from "../utils/env.ts";
+import { myNanoId } from "@/utils/runtime.ts";
 
 // Configuration
 const MAX_RETRIES = 3;
@@ -197,7 +198,7 @@ export async function serialSequenceReset(
   const tables = Object.entries(schema)
     .filter(([_, value]) => value instanceof Table)
     .map(([key]) => camelToKebab(key))
-    .filter((table) => table !== "technicians_to_tickets");
+    .filter((table) => !["technicians_to_tickets", "tickets"].includes(table));
   const schemaName = Object.entries(schema).find(
     ([_, value]) => value instanceof PgSchema,
   )?.[0];
@@ -258,6 +259,19 @@ async function main() {
         const aiUserId = (
           await tx.insert(schema.users).values(aiUser).returning()
         ).at(0)!.id;
+
+        await tx.insert(schema.users).values({
+          id: 0,
+          uid: "System",
+          name: "System",
+          nickname: "System",
+          realName: "System",
+          identity: "System",
+          role: "system" as const,
+          avatar: aiUser.avatar,
+          registerTime: aiUser.registerTime,
+        });
+
         // Create staff users from config
         const staffUsers: NewUser[] = config.staffs.map((staff) => {
           const role = (() => {
@@ -336,6 +350,7 @@ async function main() {
         const memberCache = new Map<
           number,
           {
+            id: string;
             customerId: number;
             agentId: number;
             technicianIds: number[];
@@ -363,6 +378,7 @@ async function main() {
           }
 
           memberCache.set(i + 1, {
+            id: myNanoId(13)(),
             customerId,
             agentId,
             technicianIds,
@@ -372,7 +388,7 @@ async function main() {
         // Step 4: Generate and insert ticket sessions
         log("🎫 Generating ticket sessions...");
         const tickets = Array.from({ length: 1000 }, (_, index) => ({
-          id: index + 1,
+          id: memberCache.get(index + 1)!.id,
           title: faker.lorem.sentence(),
           description: generateContentBlock(),
           status: getRandomEnum(ticketStatusEnumArray),
@@ -395,8 +411,8 @@ async function main() {
         log("👥 Inserting ticket technicians...");
         const techniciansToTicketsInsert = [];
         for (let i = 0; i < 1000; i++) {
-          const ticketId = i + 1;
-          const technicianIds = memberCache.get(ticketId)!.technicianIds;
+          const ticketId = memberCache.get(i + 1)!.id;
+          const technicianIds = memberCache.get(i + 1)!.technicianIds;
           techniciansToTicketsInsert.push(
             ...technicianIds.map((technicianId) => ({
               ticketId,
@@ -413,10 +429,13 @@ async function main() {
         type NewTicketHistory = typeof schema.ticketHistory.$inferInsert;
         const ticketHistory: NewTicketHistory[] = [];
         for (let i = 0; i < 1000; i++) {
-          const ticketId = i + 1;
           const numHistory = getRandomInt(3, 5); // Each ticket has 3-8 history records
-          const { customerId, agentId, technicianIds } =
-            memberCache.get(ticketId)!;
+          const {
+            id: ticketId,
+            customerId,
+            agentId,
+            technicianIds,
+          } = memberCache.get(i + 1)!;
 
           const assigneeIds = [...technicianIds, agentId];
 
@@ -462,9 +481,12 @@ async function main() {
         const chatMessages = [];
 
         for (let i = 0; i < 1000; i++) {
-          const ticketId = i + 1;
-          const { customerId, agentId, technicianIds } =
-            memberCache.get(ticketId)!;
+          const {
+            id: ticketId,
+            customerId,
+            agentId,
+            technicianIds,
+          } = memberCache.get(i + 1)!;
 
           const members = [customerId, ...technicianIds, agentId];
 
@@ -503,10 +525,13 @@ async function main() {
         // Step 9: Generate and insert message read status
         log("📖 Generating message read status...");
         const messageReadStatus = [];
+        const ticketMembers = Array.from(memberCache.values());
         for (const message of chatMessagesInsert) {
           const ticketId = message.ticketId;
-          const { customerId, agentId, technicianIds } =
-            memberCache.get(ticketId)!;
+          const { customerId, agentId, technicianIds } = ticketMembers.find(
+            (item) => item.id === ticketId,
+          )!;
+
           const members = [customerId, ...technicianIds, agentId];
 
           for (const member of members) {
@@ -529,7 +554,7 @@ async function main() {
         // Step 10: Generate and insert ticket tags
         log("📖 Generating ticket tags...");
         const ticketTagsInsert = Array.from({ length: 2300 }, () => ({
-          ticketId: getRandomInt(1, 1000),
+          ticketId: getRandomElement(tickets).id,
           tagId: getRandomInt(1, 80),
         }));
 

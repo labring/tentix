@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "turbo build",
+    "build": "make build",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "start": "bun server/index.ts",
@@ -16,6 +16,7 @@
     "server"
   ],
   "devDependencies": {
+    "@tanstack/react-query": "^5.74.4",
     "drizzle-orm": "0.43.1",
     "@types/node": "^20",
     "tentix-ui": "workspace:*",
@@ -25,11 +26,10 @@
     "@workspace/typescript-config": "workspace:*",
     "prettier": "^3.5.1",
     "tentix-server": "workspace:*",
-    "turbo": "^2.5.1",
-    "typescript": "5.8.3",
-    "@tanstack/react-query": "^5.74.4"
+    "turbo": "^2.5.3",
+    "typescript": "5.8.3"
   },
-  "packageManager": "bun@1.2.12",
+  "packageManager": "bun@1.2.14",
   "engines": {
     "node": ">=20"
   },

@@ -18,7 +18,6 @@ export const ticketsRelations = relations(
 	({ many, one }) => ({
 		ticketHistory: many(ticketHistory), // ref to ticketHistoryRelations
 		ticketsTags: many(ticketsTags), // ref to ticketsTagsRelations
-    // members: many(ticketMembers), // ref to ticketMembersRelations
     customer: one(users, {
       fields: [tickets.customerId],
       references: [users.id],

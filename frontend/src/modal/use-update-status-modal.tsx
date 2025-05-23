@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "tentix-ui"
+import { useTranslation } from "i18n"
 
 import { Button } from "tentix-ui"
 import {
@@ -48,7 +49,8 @@ type UpdateStatusFormValues = z.infer<typeof updateStatusFormSchema>
 
 export function useUpdateStatusModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false)
-  const [ticketId, setTicketId] = useState<number>(0)
+  const [ticketId, setTicketId] = useState<string>("")
+  const { t } = useTranslation()
 
   // Initialize form with React Hook Form
   const form = useForm<UpdateStatusFormValues>({
@@ -64,8 +66,8 @@ export function useUpdateStatusModal() {
     mutationFn: updateTicketStatus,
     onSuccess: (data) => {
       toast({
-        title: "Success",
-        description: data.message || "Ticket status updated successfully",
+        title: t("success"),
+        description: data.message || t("status_updated"),
         variant: "default",
       });
       setFalse();
@@ -73,8 +75,8 @@ export function useUpdateStatusModal() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update ticket status",
+        title: t("error"),
+        description: error.message || t("failed_update_status"),
         variant: "destructive",
       });
     },
@@ -90,7 +92,7 @@ export function useUpdateStatusModal() {
   }
 
   // Function to open the update status modal
-  function openUpdateStatusModal(ticketId: number, currentStatus: string) {
+  function openUpdateStatusModal(ticketId: string, currentStatus: string) {
     setTrue();
     setTicketId(ticketId);
     form.reset({
@@ -103,9 +105,9 @@ export function useUpdateStatusModal() {
     <Dialog open={state} onOpenChange={set}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Update Ticket Status</DialogTitle>
+          <DialogTitle>{t("update_status_title")}</DialogTitle>
           <DialogDescription>
-            Change the status of ticket #{ticketId}. This will notify all members of the ticket.
+            {t("update_status_desc", { id: ticketId })}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -115,7 +117,7 @@ export function useUpdateStatusModal() {
               name="status"
               render={({ field }) => (
                 <FormItem className="grid gap-2">
-                  <FormLabel>Select Status</FormLabel>
+                  <FormLabel>{t("select_status")}</FormLabel>
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
@@ -139,7 +141,7 @@ export function useUpdateStatusModal() {
                             className="flex flex-1 cursor-pointer items-center"
                           >
                             <div className="text-sm font-medium">
-                              {status}
+                              {t(status)}
                             </div>
                           </Label>
                         </div>
@@ -156,15 +158,15 @@ export function useUpdateStatusModal() {
               name="reason"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Reason for Status Change</FormLabel>
+                  <FormLabel>{t("status_change_reason")}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Why are you changing the status of this ticket?"
+                      placeholder={t("status_change_reason_ph")}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Provide a brief explanation for the status change
+                    {t("status_change_desc")}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -178,13 +180,13 @@ export function useUpdateStatusModal() {
                 onClick={setFalse}
                 disabled={updateStatusMutation.isPending}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={!form.formState.isValid || updateStatusMutation.isPending}
               >
-                {updateStatusMutation.isPending ? "Updating..." : "Update Status"}
+                {updateStatusMutation.isPending ? t("updating") : t("update_status")}
               </Button>
             </DialogFooter>
           </form>

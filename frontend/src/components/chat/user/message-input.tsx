@@ -1,6 +1,6 @@
 import { type JSONContentZod } from "@server/utils/types";
 import { Loader2Icon, SendIcon } from "lucide-react";
-import type React from "react";
+import React from "react";
 import { useRef, useState } from "react";
 import { UserChatEditor, type EditorRef } from "tentix-ui";
 import { Button } from "tentix-ui";

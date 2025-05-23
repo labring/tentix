@@ -153,6 +153,15 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   }
 });
 
+export function staffOnlyMiddleware(message: string = "Forbidden. Only staff can access this resource.") {
+  return createMiddleware<AuthEnv>(async (c, next) => {
+    const role = c.get("role");
+    if (role === "customer" && process.env.NODE_ENV === "production") {
+      throw new HTTPException(403, { message });
+    }
+    await next();
+  });
+}
 export const factory = createFactory<MyEnv>({
   initApp: (app) => {
     app.use(async (c, next) => {

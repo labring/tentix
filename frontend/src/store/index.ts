@@ -59,11 +59,12 @@ interface ChatStore {
   withdrawMessage: (messageId: number) => void;
   addMessageIdMapping: (tempId: number, realId: number) => void;
   getRealMessageId: (tempId: number) => number;
+  getTempMessageId: (realId: number) => number;
   setMessages: (messages: ChatMessage[]) => void;
   sendNewMessage: (message: ChatMessage) => void;
   removeSendingMessage: (id: number) => void;
   isMessageSending: (id: number) => boolean;
-  readMessage: (messageId: number, userId: number, timestamp: number) => void;
+  readMessage: (messageId: number, userId: number, readAt: string) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -128,6 +129,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     return messageIdMap.get(tempId) || tempId;
   },
 
+  getTempMessageId: (realId) => {
+    const { messageIdMap } = get();
+    return Array.from(messageIdMap.entries()).find(([_, id]) => id === realId)?.[0] || realId;
+  },
+
   setMessages: (messages) => set({ messages }),
 
   sendNewMessage: (message: ChatMessage) =>
@@ -147,25 +153,27 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     return get().sendingMessageIds.has(id);
   },
 
-  readMessage(messageId, userId, timestamp) {
-    set((state) => ({
-      messages: state.messages.map((msg) =>
-        msg.id === messageId
-          ? {
-              ...msg,
-              readStatus: [
-                ...msg.readStatus,
-                {
-                  id: Number(window.crypto.getRandomValues(new Uint32Array(1))),
-                  messageId,
-                  userId,
-                  timestamp,
-                  readAt: new Date(timestamp).toISOString(),
-                },
-              ],
-            }
-          : msg,
-      ),
-    }));
+  readMessage(messageId, userId, readAt) {
+    set((state) => {
+      const Id = state.getTempMessageId(messageId);
+      return {
+        messages: state.messages.map((msg) =>
+          msg.id === Id
+            ? {
+                ...msg,
+                readStatus: [
+                  ...msg.readStatus,
+                  {
+                    id: Number(window.crypto.getRandomValues(new Uint32Array(1))),
+                    messageId: Id,
+                    userId,
+                    readAt,
+                  },
+                ],
+              }
+            : msg,
+        ),
+      }
+    });
   },
 }));

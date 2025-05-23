@@ -16,7 +16,6 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   SortableContext,
   arrayMove,
-  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
@@ -41,8 +40,7 @@ import {
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
-  ClipboardListIcon, ColumnsIcon,
-  GripVerticalIcon, MoreVerticalIcon,
+  ClipboardListIcon, ColumnsIcon, MoreVerticalIcon,
   PlusIcon,
   Settings2,
   UserRoundPlusIcon
@@ -171,7 +169,8 @@ export function DataTable({
           return (
             <Link
               className="text-ellipsis overflow-hidden whitespace-nowrap max-w-192 block hover:underline hover:text-primary"
-              to={`/${character}/tickets/${row.original.id}`}
+              to={character === "user" ? `/user/tickets/$id` : `/staff/tickets/$id`}
+              params={{ id: row.original.id }}
             >
               {row.original.title}
             </Link>

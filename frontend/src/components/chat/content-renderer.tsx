@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { type JSONContent } from '@tiptap/react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -50,7 +50,7 @@ const CodeBlock = ({ language, content }: { language: string; content: string })
   );
 };
 
-export const RenderContent = ({content}: {content: JSONContent}): ReactNode => {
+const RenderContent = ({content}: {content: JSONContent}): ReactNode => {
   if (!content) return null;
 
   if (content.type === 'doc') {
@@ -156,7 +156,7 @@ export const RenderContent = ({content}: {content: JSONContent}): ReactNode => {
   return null;
 };
 
-export const ContentRenderer = ({ doc, isMine = false }: { doc: JSONContent, isMine?: boolean }) => {
+const ContentRenderer = ({ doc, isMine = false }: { doc: JSONContent, isMine?: boolean }) => {
   return <div className={`content-renderer ${isMine ? 'my-msg' : 'other-msg'}`}>
     <RenderContent content={doc} />
   </div>;

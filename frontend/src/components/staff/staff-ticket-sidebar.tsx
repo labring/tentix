@@ -1,14 +1,10 @@
-import type React from "react";
 import { useState, useEffect, useMemo } from "react";
 import {
-  AlertTriangleIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircleIcon,
   ChevronDownIcon,
-  ClockIcon,
   FilterIcon,
-  Loader2Icon,
   PinIcon,
   SearchIcon,
   StarIcon,
@@ -53,7 +49,7 @@ import { StatusBadge } from "tentix-ui";
 import { timeAgo } from "tentix-ui";
 import { type TicketsListItemType } from "tentix-server/rpc";
 
-export function groupTickets<T extends Record<string, unknown>>(
+function groupTickets<T extends Record<string, unknown>>(
   tickets: T[] | undefined = [],
   groupBy: keyof T = "group" as keyof T,
 ): Record<string, T[]> {
@@ -78,20 +74,7 @@ export function groupTickets<T extends Record<string, unknown>>(
   );
 }
 
-function getStatusIcon(status: string) {
-  switch (status) {
-    case "Completed":
-      return <CheckCircleIcon className="text-green-500 dark:text-green-400" />;
-    case "In Progress":
-      return <Loader2Icon className="text-amber-500 dark:text-amber-400" />;
-    case "Pending":
-      return <ClockIcon className="text-blue-500 dark:text-blue-400" />;
-    case "Scheduled":
-      return <ClockIcon className="text-purple-500 dark:text-purple-400" />;
-    default:
-      return <AlertTriangleIcon className="text-red-500 dark:text-red-400" />;
-  }
-}
+
 
 function getPriorityColor(priority: string) {
   switch (priority) {
@@ -112,7 +95,7 @@ function getPriorityColor(priority: string) {
 
 type TicketItemProps = {
   ticket: TicketsListItemType;
-  currentTicketId: number;
+  currentTicketId: string;
 };
 
 const TicketItem = ({ 
@@ -132,7 +115,7 @@ const TicketItem = ({
         isActive={ticket.id === currentTicketId}
         className={`relative ${getPriorityColor(ticket.priority)}`}
       >
-        <Link to={`/staff/tickets/${ticket.id}`} className="group h-fit">
+        <Link to='/staff/tickets/$id' params={{ id: ticket.id }} className="group h-fit">
           <div className="flex w-full flex-col gap-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -177,7 +160,7 @@ const TicketItem = ({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-xs"
-                  onClick={(e) => togglePinned(ticket.id)}
+                  onClick={() => togglePinned(ticket.id)}
                 >
                   <PinIcon
                     className={`h-3 w-3 ${isPinned(ticket.id) ? "text-blue-500" : "text-muted-foreground"}`}
@@ -227,7 +210,7 @@ export function StaffTicketSidebar({
   currentTicketId,
 }: {
   tickets?: TicketsListItemType[];
-  currentTicketId: number;
+  currentTicketId: string;
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();

@@ -1,5 +1,5 @@
 {
-  "id": "dc8803e3-47a7-436b-a341-275d93feed31",
+  "id": "65bed939-d03c-48ca-ace5-05a1b6f8e409",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -16,7 +16,7 @@
         },
         "ticket_id": {
           "name": "ticket_id",
-          "type": "integer",
+          "type": "char(13)",
           "primaryKey": false,
           "notNull": true
         },
@@ -219,7 +219,7 @@
         },
         "related_ticket": {
           "name": "related_ticket",
-          "type": "integer",
+          "type": "char(13)",
           "primaryKey": false,
           "notNull": false
         },
@@ -318,7 +318,7 @@
         },
         "ticket_id": {
           "name": "ticket_id",
-          "type": "integer",
+          "type": "char(13)",
           "primaryKey": false,
           "notNull": true
         }
@@ -399,7 +399,7 @@
         },
         "ticket_id": {
           "name": "ticket_id",
-          "type": "integer",
+          "type": "char(13)",
           "primaryKey": false,
           "notNull": true
         },
@@ -474,7 +474,7 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "char(13)",
           "primaryKey": true,
           "notNull": true
         },
@@ -522,7 +522,8 @@
           "type": "ticket_category",
           "typeSchema": "tentix",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'uncategorized'"
         },
         "priority": {
           "name": "priority",
@@ -620,7 +621,7 @@
         },
         "ticket_id": {
           "name": "ticket_id",
-          "type": "integer",
+          "type": "char(13)",
           "primaryKey": false,
           "notNull": true
         }
@@ -880,6 +881,7 @@
       "name": "ticket_category",
       "schema": "tentix",
       "values": [
+        "uncategorized",
         "bug",
         "feature",
         "question",
@@ -893,6 +895,7 @@
         "create",
         "first_reply",
         "join",
+        "category",
         "update",
         "upgrade",
         "transfer",

@@ -10,7 +10,7 @@
     "server": "vite preview",
     "test": "bun x --bun vitest run",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --b"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.6",
@@ -31,6 +31,7 @@
     "@tiptap/extension-text": "^2.11.9",
     "@tiptap/html": "^2.11.9",
     "@types/node": "^20",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18n": "workspace:*",
@@ -38,6 +39,7 @@
     "lucide-react": "^0.476.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-syntax-highlighter": "^15.6.1",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.0.6",
     "tailwindcss-animate": "^1.0.7",

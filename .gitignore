@@ -47,5 +47,6 @@ Makefile
 
 tsconfig.tsbuildinfo
 server/output
+types
 
 logs

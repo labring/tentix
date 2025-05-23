@@ -1,20 +1,15 @@
-import { useState } from "react"
+import { useState } from "react";
 import {
-  AlertTriangleIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  FileTextIcon,
-  Loader2Icon,
-  PlusIcon,
+  FileTextIcon, PlusIcon,
   SearchIcon,
   TicketIcon,
-  ArrowLeftIcon,
-} from "lucide-react"
+  ArrowLeftIcon
+} from "lucide-react";
 
-import { Badge } from "tentix-ui"
-import { Button } from "tentix-ui"
-import { Input } from "tentix-ui"
-import { ScrollArea } from "tentix-ui"
+import { Badge } from "tentix-ui";
+import { Button } from "tentix-ui";
+import { Input } from "tentix-ui";
+import { ScrollArea } from "tentix-ui";
 import {
   Sidebar,
   SidebarContent,
@@ -24,57 +19,60 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "tentix-ui"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "tentix-ui"
-import {  type InferResponseType } from "@lib/utils"
-import { apiClient } from "@lib/api-client"
-import { Link } from "@tanstack/react-router"
-import { joinTrans, useTranslation } from "i18n"
-import { StatusBadge } from "tentix-ui"
-import { type TicketsListItemType } from "tentix-server/rpc"
-
+} from "tentix-ui";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "tentix-ui";
+import { Link } from "@tanstack/react-router";
+import { joinTrans, useTranslation } from "i18n";
+import { StatusBadge } from "tentix-ui";
+import { type TicketsListItemType } from "tentix-server/rpc";
+import useLocalUser from "@hook/use-local-user";
 
 function getPriorityColor(priority: TicketsListItemType["priority"]) {
   switch (priority) {
     case "urgent":
-      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
     case "high":
-      return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+      return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
     case "medium":
-      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+      return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
     case "low":
-      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
     default:
-      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
   }
 }
 
-
-export function UserTicketSidebar({ data, currentTicketId }: { data: InferResponseType<typeof apiClient.user.getUserTickets.$get>["data"], currentTicketId: number }) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [filter, setFilter] = useState<"all" | "active" | "completed">("all")
+export function UserTicketSidebar({
+  data,
+  currentTicketId,
+}: {
+  data: TicketsListItemType[];
+  currentTicketId: string;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const { t } = useTranslation();
-  const {
-    state,
-    open,
-    setOpen,
-  } = useSidebar()
-
+  const {  setOpen } = useSidebar();
+  const {id: userId} = useLocalUser();
   // Filter tickets based on search query and filter
-  const filteredTickets = data?.filter(
-    (ticket) =>
-      ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      (filter === "all" ||
-        (filter === "active" && ticket.status !== "resolved") ||
-        (filter === "completed" && ticket.status === "resolved")),
-  ) || []
-
+  const filteredTickets =
+    data?.filter(
+      (ticket) =>
+        ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        (filter === "all" ||
+          (filter === "active" && ticket.status !== "resolved") ||
+          (filter === "completed" && ticket.status === "resolved")),
+    ) || [];
 
   // Sort tickets by updated time
   const sortedTickets = [...filteredTickets].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-  )
-
+  );
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -83,12 +81,7 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
           <div className="flex items-center gap-2 relative inset-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  asChild
-                >
+                <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
                   <Link to="/user/tickets/list">
                     <ArrowLeftIcon className="h-4 w-4" />
                   </Link>
@@ -97,7 +90,9 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
               <TooltipContent side="right">{t("go_back")}</TooltipContent>
             </Tooltip>
             <TicketIcon className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">{joinTrans([t("my"), t("tkt_other")])}</h2>
+            <h2 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">
+              {joinTrans([t("my"), t("tkt_other")])}
+            </h2>
           </div>
           <div className="relative group-data-[collapsible=icon]:hidden">
             <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -146,7 +141,9 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
                 <SearchIcon className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">{joinTrans([t("search"), t("tkt_other")])}</TooltipContent>
+            <TooltipContent side="right">
+              {joinTrans([t("search"), t("tkt_other")])}
+            </TooltipContent>
           </Tooltip>
         </SidebarHeader>
         <SidebarContent>
@@ -156,27 +153,43 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
                 <SidebarMenuItem key={ticket.id}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <SidebarMenuButton asChild isActive={ticket.id === Number(currentTicketId)} tooltip={ticket.title}>
-                        <Link to={`/user/tickets/${ticket.id}`} className="relative h-fit w-fit" >
+                      <SidebarMenuButton
+                        asChild
+                        isActive={ticket.id === currentTicketId}
+                        tooltip={ticket.title}
+                      >
+                        <Link
+                          to="/user/tickets/$id"
+                          params={{ id: ticket.id }}
+                          className="relative h-fit w-fit"
+                        >
                           <div className="flex w-full flex-col gap-1">
                             {/* Icon for collapsed state */}
-                            <div className={`hidden group-data-[collapsible=icon]:block rounded-md w-7 h-7 ${getPriorityColor(ticket.priority)}`}>
+                            <div
+                              className={`hidden group-data-[collapsible=icon]:block rounded-md w-7 h-7 ${getPriorityColor(ticket.priority)}`}
+                            >
                               {ticket.title.slice(0, 2)}
                             </div>
 
                             {/* Content for expanded state */}
                             <div className="flex items-center justify-between group-data-[collapsible=icon]:hidden">
                               <span className="font-medium line-clamp-1">{ticket.title}</span>
-                              {ticket.lastMessage?.sender.id !== Number(currentTicketId) && (
+                              {!(ticket.messages.at(-1)?.readStatus.some((message) => message.userId === userId)) && (
                                 <Badge className="ml-1 shrink-0 bg-primary px-1.5 text-[10px]">{t("unread")}</Badge>
                               )}
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
                               <StatusBadge status={ticket.status} />
-                              <span>{new Date(ticket.updatedAt).toLocaleDateString()}</span>
+                              <span>
+                                {new Date(
+                                  ticket.updatedAt,
+                                ).toLocaleDateString()}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-                              <span className="line-clamp-1">{t(ticket.category)}</span>
+                              <span className="line-clamp-1">
+                                {t(ticket.category)}
+                              </span>
                               <span>•</span>
                               <span
                                 className={`rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${getPriorityColor(ticket.priority)}`}
@@ -206,11 +219,16 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
               >
                 <Link to="/user/newticket">
                   <PlusIcon className="h-4 w-4" />
-                  <span className="group-data-[collapsible=icon]:hidden">{joinTrans([t("create"), t("tkt_other")])}</span>
+                  <span className="group-data-[collapsible=icon]:hidden">
+                    {joinTrans([t("create"), t("tkt_other")])}
+                  </span>
                 </Link>
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="group-data-[state=expanded]:hidden">
+            <TooltipContent
+              side="right"
+              className="group-data-[state=expanded]:hidden"
+            >
               {joinTrans([t("create"), t("tkt_other")])}
             </TooltipContent>
           </Tooltip>
@@ -224,16 +242,21 @@ export function UserTicketSidebar({ data, currentTicketId }: { data: InferRespon
               >
                 <Link to="/user/tickets/list">
                   <FileTextIcon className="h-4 w-4" />
-                  <span className="group-data-[collapsible=icon]:hidden">{joinTrans([t("view"), t("all"), t("tkt_other")])}</span>
+                  <span className="group-data-[collapsible=icon]:hidden">
+                    {joinTrans([t("view"), t("all"), t("tkt_other")])}
+                  </span>
                 </Link>
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="group-data-[state=expanded]:hidden">
+            <TooltipContent
+              side="right"
+              className="group-data-[state=expanded]:hidden"
+            >
               {joinTrans([t("view"), t("all"), t("tkt_other")])}
             </TooltipContent>
           </Tooltip>
         </SidebarFooter>
       </Sidebar>
     </TooltipProvider>
-  )
+  );
 }

@@ -1,6 +1,5 @@
 import { initClient } from "@server/utils/rpc";
 import ky from "ky";
-import { toast } from "tentix-ui";
 
 // const baseUrl = import.meta.env.DEV
 //   ? "http://localhost:3000"

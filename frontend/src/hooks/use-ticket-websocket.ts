@@ -40,13 +40,14 @@ export function useTicketWebSocket({
   onError,
 }: UseTicketWebSocketProps): UseTicketWebSocketReturn {
   const [isLoading, setIsLoading] = useState(false);
-  const { 
-    addMessage, 
-    addMessageIdMapping, 
+  const {
+    addMessage,
+    addMessageIdMapping,
     getRealMessageId,
     withdrawMessage: storeWithdrawMessage,
     removeSendingMessage,
     sendNewMessage,
+    readMessage
   } = useChatStore();
 
   // WebSocket related refs
@@ -55,7 +56,7 @@ export function useTicketWebSocket({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isConnectingRef = useRef(false);
-  const {toast} = useToast();
+  const { toast } = useToast();
 
   const { run: sendTyping } = useThrottleFn(
     (ws: WebSocket, userId: number, ticketId: number) => {
@@ -121,7 +122,7 @@ export function useTicketWebSocket({
 
   // Establish WebSocket connection
   const connectWebSocket = useCallback(
-    (id: number) => {
+    (id: string) => {
       if (!token || reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS)
         return;
 
@@ -174,17 +175,18 @@ export function useTicketWebSocket({
 
             case "message_sent":
               // Store the mapping between tempId and real messageId
-              if (data.tempId && data.messageId) {
-                addMessageIdMapping(data.tempId, data.messageId);
-                removeSendingMessage(data.tempId);
-              }
+              addMessageIdMapping(data.tempId, data.messageId);
+              removeSendingMessage(data.tempId);
               break;
-              
+
             case "message_withdrawn":
               // Handle message withdrawal notification
-              if (data.messageId) {
-                storeWithdrawMessage(data.messageId);
-              }
+              storeWithdrawMessage(data.messageId);
+              break;
+
+            case "message_read_update":
+              readMessage(data.messageId, data.userId, data.readAt);
+              console.log("message_read_update", data);
               break;
 
             case "user_typing":
@@ -230,6 +232,7 @@ export function useTicketWebSocket({
 
       ws.onclose = () => {
         stopHeartbeat();
+        // TODO: revalidate token
         handleReconnect();
       };
 
@@ -324,7 +327,7 @@ export function useTicketWebSocket({
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         // Get the real message ID from the store
         const realMessageId = getRealMessageId(messageId);
-        
+
         wsRef.current.send(
           JSON.stringify({
             type: "withdraw_message",

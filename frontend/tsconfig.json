@@ -3,9 +3,9 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "../packages/**/*.ts",
-    "../packages/**/*.tsx",
-    "../packages/i18n/**/*.ts",
+    // "../packages/**/*.ts",
+    // "../packages/**/*.tsx",
+    // "../packages/i18n/**/*.ts",
   ],
   "exclude": ["node_modules"],
   "compilerOptions": {
@@ -18,11 +18,12 @@
       "@modal/*": ["./src/modal/*"],
       "@/*": ["./*"],
       "@store/*": ["./src/store/*"],
+      // "src/*": ["./src/*"],
       // "tentix-ui/*": ["../packages/ui/*"]
     }
   },
   "references": [
     { "path": "../server/tsconfig.json" },
-    // { "path": "../packages/ui/tsconfig.json" }
+    { "path": "../packages/ui/tsconfig.json" }
   ]
 }

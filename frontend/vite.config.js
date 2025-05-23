@@ -31,8 +31,8 @@ export default defineConfig({
       "@db": resolve(__dirname, "../server/db"),
       "@api": resolve(__dirname, "../server/api"),
       "tentix-ui": resolve(__dirname, "../packages/ui"),
-      "src": [resolve(__dirname, "./src")],
-      "@ui": resolve(__dirname, "../packages/ui/src"),
+      "src": resolve(__dirname, "./src"),
+      "uisrc": resolve(__dirname, "../packages/ui/uisrc"),
     },
   },
   server: {
@@ -62,30 +62,6 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        inlineDynamicImports: false,
-        manualChunks: (id) => {
-          
-          if (id.includes('staff')) {
-            return 'staff';
-          }
-
-          if (id.includes('user')) {
-            return 'user';
-          }
-
-          if (id.includes('packages/ui')) {
-            return 'ui';
-          }
-
-          if (id.includes('/components/')) {
-            return 'ui';
-          }
-          
-          if (id.includes('/hooks/') || id.includes('/utils/') || id.includes('/lib/')) {
-            return 'app-utils';
-          }
-          return 'others';
-        },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
         assetFileNames: (assetInfo) => {

@@ -1,11 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@db/schema.ts";
 import * as relations from "@db/relations.ts";
-import { eq, sql, and, asc, inArray } from "drizzle-orm";
 import { userRoleType } from "@/utils/types.ts";
-
-
 export type StaffMap = Map<
   number,
   {
@@ -20,9 +16,6 @@ export type StaffMap = Map<
     department: string;
   }
 >;
-
-
-
 
 export function connectDB() {
   const params = {
@@ -63,3 +56,4 @@ export function getOrigin(c: Context) {
   url.protocol = "https:";
   return url.origin;
 }
+

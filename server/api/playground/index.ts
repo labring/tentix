@@ -19,6 +19,8 @@ import { readConfig } from "@/utils/env.ts";
 import v8 from "node:v8";
 import { refreshStaffMap } from "../initApp.ts";
 import { signBearerToken } from "../auth/index.ts";
+import { getAIResponse } from "@/utils/platform/ai.ts";
+import { runWithInterval } from "@/utils/runtime.ts";
 
 const playgroundRouter = factory
   .createApp()
@@ -119,33 +121,21 @@ const playgroundRouter = factory
       hide: process.env.NODE_ENV === "production",
     }),
     async (c) => {
-      const data = {
-        chatId: 1,
-        stream: false,
-        detail: false,
-        messages: [
-          {
-            role: "user",
-            content: "你好",
-          },
-        ],
-      };
 
-      (async () => {
+      async function longRunningFunction(): Promise<string> {
         console.log("Starting request...");
         const startTime = Date.now();
-        const response = await fetch(process.env.FASTGPT_API_URL!, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.FASTGPT_API_KEY!}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(data),
-        });
-        console.log("Request sent. Waiting for response...");
-        const result = await response.json();
+        const result = await getAIResponse('test', [{ role: "user", content: "你好" }]);
         const end = Date.now();
         console.log(`Time taken: ${end - startTime}ms`);
+        return result;
+      }
+
+      function printFunction(): void {
+        console.log("Interval function is executing...");
+      }
+
+      runWithInterval(longRunningFunction, printFunction, 1000, async (result) => {
         const path = require("node:path");
         const logsDir = path.join(process.cwd(), "logs");
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -156,9 +146,10 @@ const playgroundRouter = factory
         // Write result to file
         await Bun.write(filename, JSON.stringify(result, null, 2));
         console.log(`Response saved to: ${filename}`);
-      })();
+      });
       return c.json({ success: true });
     },
   );
 
 export { playgroundRouter };
+

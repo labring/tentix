@@ -2,11 +2,11 @@ import { Link, useLocation } from '@tanstack/react-router'
 
 import { cn } from "tentix-ui"
 import { ScrollArea } from "tentix-ui"
-import { LayoutDashboard, Ticket, Settings, Users, FileText, BarChart, MessageSquare } from "lucide-react"
+import { LayoutDashboard, Ticket } from "lucide-react"
 import { joinTrans, useTranslation } from "i18n"
 export function StaffDashboardSidebar() {
   const pathname = useLocation().pathname;
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
 
   return (

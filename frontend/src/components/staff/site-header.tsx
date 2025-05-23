@@ -6,6 +6,7 @@ import { type TicketType } from "tentix-server/rpc";
 import { useTransferModal } from "@modal/use-transfer-modal"
 import { useRaiseReqModal } from "@modal/use-raise-req-modal"
 import { useUpdateStatusModal } from "@modal/use-update-status-modal"
+import { useTranslation } from "i18n";
 
 
 interface SiteHeaderProps {
@@ -24,6 +25,7 @@ export function StaffSiteHeader({
     useTransferModal();
   const { openUpdateStatusModal, updateStatusModal, isUpdatingStatus } =
     useUpdateStatusModal();
+  const { t } = useTranslation();
 
 
   
@@ -35,24 +37,24 @@ export function StaffSiteHeader({
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium max-w-200 truncate block">{`Ticket #${ticket.id}: ${ticket.title}`}</h1>
+        <h1 className="text-base font-medium max-w-200 truncate block">{`${t("tkt_one")} ORD-${ticket.id}: ${ticket.title}`}</h1>
         <Button
           onClick={() => openRaiseReqModal(ticket.id)}
           disabled={isRaisingReq}
         >
-          Raise Request
+          {t("raise_request")}
         </Button>
         <Button
           onClick={() => openTransferModal(ticket.id)}
           disabled={isTransferring}
         >
-          Transfer
+          {t("transfer")}
         </Button>
         <Button
           onClick={() => openUpdateStatusModal(ticket.id, ticket.status)}
           disabled={isUpdatingStatus}
         >
-          Update Status
+          {t("update_status")}
         </Button>
 
         {toggleSidebar && (

@@ -1,65 +1,36 @@
+import useLocalUser from "@hook/use-local-user.tsx";
+import { apiClient } from "@lib/api-client.ts";
+import { cn } from "@lib/utils";
 import {
   type JSONContentZod,
   type ticketInsertType,
 } from "@server/utils/types.ts";
-import {
-  BugIcon,
-  CalendarIcon,
-  FileTextIcon,
-  LightbulbIcon,
-  PlusIcon,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { Button } from "tentix-ui";
-import { Checkbox } from "tentix-ui";
-import { Label } from "tentix-ui";
-import { ServiceAgreementModal } from "./service-agreement-modal.tsx";
-
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { useCallback } from "react";
-import { cn } from "@lib/utils";
-import { Calendar } from "tentix-ui";
+import { joinTrans, useTranslation } from "i18n";
 import {
-  Card,
+  CalendarIcon,
+} from "lucide-react";
+import { useCallback, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import {
+  moduleEnumArray,
+  ticketPriorityEnumArray,
+} from "tentix-server/constants";
+import {
+  Button, Calendar, Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
-} from "tentix-ui";
-import { Input } from "tentix-ui";
-import { Popover, PopoverContent, PopoverTrigger } from "tentix-ui";
-import { RadioGroup, RadioGroupItem } from "tentix-ui";
-import {
-  Select,
+  CardTitle, DescriptionEditor, Input, Label, Popover, PopoverContent, PopoverTrigger, Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue, Textarea, useToast
 } from "tentix-ui";
-import { Textarea } from "tentix-ui";
-import {
-  moduleEnumArray,
-  ticketCategoryEnumArray,
-  ticketPriorityEnumArray,
-} from "tentix-server/constants";
-import { useToast } from "tentix-ui";
-import {DescriptionEditor} from "tentix-ui";
-import { joinTrans, useTranslation } from "i18n";
-import useLocalUser from "@hook/use-local-user.tsx";
-import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { apiClient } from "@lib/api-client.ts";
 
-const IconMap: Record<
-  (typeof ticketCategoryEnumArray)[number],
-  React.ReactNode
-> = {
-  bug: <BugIcon className="mb-2 h-4 w-4" />,
-  feature: <LightbulbIcon className="mb-2 h-4 w-4" />,
-  question: <FileTextIcon className="mb-2 h-4 w-4" />,
-  other: <PlusIcon className="mb-2 h-4 w-4" />,
-};
+
 
 export function TicketForm() {
   const { t } = useTranslation();
@@ -79,13 +50,12 @@ export function TicketForm() {
     setValue,
     register,
     control,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<ticketInsertType>({
     mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
       area: area,
-      category: "bug",
     },
   });
 
@@ -273,7 +243,7 @@ export function TicketForm() {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label>
                   {joinTrans([t("tkt"), t("type")])}{" "}
                   <span className="text-red-500">*</span>
@@ -308,7 +278,7 @@ export function TicketForm() {
                     </RadioGroup>
                   )}
                 />
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="description">

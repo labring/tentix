@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "tentix-ui";
+import { useTranslation } from "i18n";
 
 import {
   Avatar,
@@ -62,7 +62,7 @@ async function transferTicket({
   targetStaffId,
   description,
 }: {
-  ticketId: number;
+  ticketId: string;
   targetStaffId: number;
   description: string;
 }) {
@@ -83,9 +83,10 @@ async function transferTicket({
 
 export function useTransferModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false);
-  const [ticketId, setTicketId] = useState<number>(0);
+  const [ticketId, setTicketId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const user = useLocalUser();
+  const { t } = useTranslation();
 
   // Get staff list from API
   const { data: staffList } = useSuspenseQuery(staffListQueryOptions());
@@ -104,8 +105,8 @@ export function useTransferModal() {
     mutationFn: transferTicket,
     onSuccess: (data) => {
       toast({
-        title: "Success",
-        description: "Ticket transferred successfully",
+        title: t("success"),
+        description: t("ticket_transferred"),
         variant: "default",
       });
       setFalse();
@@ -113,8 +114,8 @@ export function useTransferModal() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to transfer ticket",
+        title: t("error"),
+        description: error.message || t("failed_transfer"),
         variant: "destructive",
       });
     },
@@ -131,22 +132,19 @@ export function useTransferModal() {
   };
 
   // Function to open the transfer modal
-  function openTransferModal(ticketId: number) {
+  function openTransferModal(ticketId: string) {
     setTrue();
     setTicketId(ticketId);
     form.reset();
   }
 
-
-
   const modal = (
     <Dialog open={state} onOpenChange={set}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>Transfer Ticket #{ticketId}</DialogTitle>
+          <DialogTitle>{t("transfer_ticket", { id: ticketId })}</DialogTitle>
           <DialogDescription>
-            Transfer this ticket to another staff member. The current assignee
-            will be notified.
+            {t("transfer_desc")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -156,11 +154,11 @@ export function useTransferModal() {
               name="staffId"
               render={({ field }) => (
                 <FormItem className="grid gap-2">
-                  <FormLabel>Select Staff Member</FormLabel>
+                  <FormLabel>{t("select_staff")}</FormLabel>
                   <FormControl>
                     <div className="space-y-2">
                       <Input
-                        placeholder="Search staff members..."
+                        placeholder={t("search_staff")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="mb-2"
@@ -184,7 +182,7 @@ export function useTransferModal() {
                           .map((staff) => (
                             <div
                               key={staff.id}
-                              className={`flex items-center space-x-2 rounded-md border p-3 ${
+                              className={`flex items-center space-x-2 rounded-md border p-3 h-16 ${
                                 field.value === staff.id.toString()
                                   ? "border-primary"
                                   : ""
@@ -225,7 +223,7 @@ export function useTransferModal() {
                                         : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                                   }`}
                                 >
-                                  {staff.workload} Workload
+                                  {staff.ticketNum} {t("tkt_other")}
                                 </div>
                               </Label>
                             </div>
@@ -243,10 +241,10 @@ export function useTransferModal() {
               name="reason"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Transfer Reason</FormLabel>
+                  <FormLabel>{t("transfer_reason")}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Why are you transferring this ticket?"
+                      placeholder={t("transfer_reason_ph")}
                       {...field}
                     />
                   </FormControl>
@@ -262,15 +260,15 @@ export function useTransferModal() {
                 onClick={setFalse}
                 disabled={transferMutation.isPending}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={!form.formState.isValid || transferMutation.isPending}
               >
                 {transferMutation.isPending
-                  ? "Transferring..."
-                  : "Transfer Ticket"}
+                  ? t("transferring")
+                  : t("transfer_ticket_btn")}
               </Button>
             </DialogFooter>
           </form>
