@@ -22,7 +22,7 @@
     "@tiptap/extension-bullet-list": "^2.11.9",
     "@tiptap/extension-code": "^2.11.9",
     "@tiptap/extension-code-block": "^2.11.9",
-    "@tiptap/extension-document": "^2.11.9",
+    "@tiptap/extension-document": "^2.12.0",
     "@tiptap/extension-horizontal-rule": "^2.11.9",
     "@tiptap/extension-italic": "^2.11.9",
     "@tiptap/extension-ordered-list": "^2.11.9",
