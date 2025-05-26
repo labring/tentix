@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^9.8.0",
-    "@hono/zod-validator": "^0.4.3",
+    "@hono/zod-validator": "^0.5.0",
     "@scalar/hono-api-reference": "^0.8.5",
     "drizzle-orm": "0.43.1",
     "drizzle-zod": "^0.7.1",
