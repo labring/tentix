@@ -99,7 +99,7 @@
   },
   "devDependencies": {
     "@tailwindcss/container-queries": "latest",
-    "@tailwindcss/postcss": "^4.0.8",
+    "@tailwindcss/postcss": "^4.1.7",
     "@turbo/gen": "^2.4.2",
     "@types/node": "^20",
     "@types/react": "^19",
