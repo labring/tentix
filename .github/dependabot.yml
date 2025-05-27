@@ -4,7 +4,7 @@ updates:
   - package-ecosystem: "bun"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "monthly"
     ignore:
       - dependency-name: "tailwindcss"
       - dependency-name: "tailwind-merge"

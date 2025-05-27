@@ -1,4 +1,3 @@
-import pluginNext from "@next/eslint-plugin-next"
 import pluginReact from "eslint-plugin-react"
 import pluginReactHooks from "eslint-plugin-react-hooks"
 import globals from "globals"
@@ -20,19 +19,6 @@ export const config = [
         ...globals.serviceworker,
         ...globals.browser,
       },
-    },
-  },
-  {
-    plugins: {
-      "@next/next": pluginNext,
-    },
-    rules: {
-      ...pluginNext.configs.recommended.rules,
-      ...pluginNext.configs["core-web-vitals"].rules,
-      // Next.js specific optimizations
-      "@next/next/no-img-element": "error",
-      "@next/next/no-page-custom-font": "warn",
-      "@next/next/no-unwanted-polyfillio": "error",
     },
   },
   {

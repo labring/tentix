@@ -2,6 +2,9 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@db/schema.ts";
 import * as relations from "@db/relations.ts";
 import { userRoleType } from "@/utils/types.ts";
+import { createSelectSchema } from "drizzle-zod";
+import { getCntFromEnv } from "./env.ts";
+import { Context } from "hono";
 export type StaffMap = Map<
   number,
   {
@@ -37,17 +40,6 @@ export const zs = {
   users: createSelectSchema(schema.users),
 };
 
-import { createSelectSchema } from "drizzle-zod";
-import { resolver } from "hono-openapi/zod";
-import { getCntFromEnv, readConfig } from "./env.ts";
-
-// @ts-ignore
-export function resolveDBSchema(schema): Zod.ZodObject {
-  return resolver(createSelectSchema(schema));
-}
-
-import { Context } from "hono";
-
 export function getOrigin(c: Context) {
   if (process.env.NODE_ENV !== "production") {
     return "http://localhost:5173";
@@ -56,4 +48,3 @@ export function getOrigin(c: Context) {
   url.protocol = "https:";
   return url.origin;
 }
-

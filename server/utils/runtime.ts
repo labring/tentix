@@ -1,5 +1,6 @@
 
 import { customAlphabet } from 'nanoid'
+import { logError } from './log';
 
 /**
  * Utility function: Execute a function at intervals while another asynchronous function is running.
@@ -44,7 +45,7 @@ export function runWithInterval<T>(
     .catch((error: unknown) => {
       // If the asynchronous function throws an error, stop the interval task and handle the error
       stopInterval();
-      console.error("Asynchronous function execution error:", error);
+      logError("Asynchronous function execution error:", error);
       if (onError) {
         onError(error);
       }

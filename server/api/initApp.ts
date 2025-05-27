@@ -8,7 +8,7 @@ import i18next from "i18next";
 import { importKeyFromString } from "@/utils/crypto";
 import { readConfig } from "@/utils/env";
 
-export type AppSchema = typeof schema & typeof relations;
+type AppSchema = typeof schema & typeof relations;
 
 declare global {
   // eslint-disable-next-line no-var -- only var works here
@@ -49,7 +49,7 @@ export async function initGlobalVariables() {
 }
 
 // Reset the daily counter at midnight
-export function resetDailyCounterAtMidnight() {
+function resetDailyCounterAtMidnight() {
   const now = new Date();
   const night = new Date(
     now.getFullYear(),
@@ -78,7 +78,7 @@ export function changeAgentTicket(id: number, type: "increment" | "decrement") {
   global.staffMap = staffMap;
 }
 
-export async function initTodayTicketCount() {
+async function initTodayTicketCount() {
   // Get today's ticket count for numbering
   const today = new Date();
   today.setHours(0, 0, 0, 0);

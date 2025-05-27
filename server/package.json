@@ -13,7 +13,8 @@
     "migrate": "bun --env-file=../.env.local drizzle-kit migrate --config=db/drizzle.config.ts",
     "pull": "bun script/drizzle-pull.sh",
     "studio": "bun --env-file=../.env.local drizzle-kit studio --config=db/drizzle.config.ts",
-    "seed": "bun --env-file=../.env.local ./script/seed.ts"
+    "seed": "bun --env-file=../.env.local ./script/seed.ts",
+    "tsr": "bun x tsr --project tsconfig.json 'api/index.ts$' 'script/*' 'test/*' 'db/drizzle.config.ts' 'utils/index.ts' 'utils/rpc.ts' --write"
   },
   "dependencies": {
     "@faker-js/faker": "^9.8.0",

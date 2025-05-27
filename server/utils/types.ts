@@ -37,7 +37,7 @@ export const JSONContentSchema: z.ZodSchema<JSONContent> = z.lazy(() =>
 
 export type JSONContentZod = z.infer<typeof JSONContentSchema>;
 
-export function validateJSONContent(data: unknown): data is JSONContent {
+export function validateJSONContent(data: any): data is JSONContent {
   const validationResult = JSONContentSchema.safeParse(data);
   return validationResult.success;
 }

@@ -360,7 +360,6 @@ const ticketRouter = factory
   )
   .get(
     "/members",
-
     describeRoute({
       tags: ["Ticket"],
       description: "Get ticket members",

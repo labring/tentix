@@ -1,12 +1,13 @@
 import { WS_TOKEN_EXPIRY_TIME } from "@/utils/const.ts";
 import {
   connectDB,
+  logInfo,
   plainTextToJSONContent,
   saveMessageReadStatus,
   saveMessageToDb,
   withdrawMessage,
 } from "@/utils/index.ts";
-import { extractText, JSONContentZod, userRoleType } from "@/utils/types.ts";
+import { extractText, JSONContentZod, userRoleType, wsMessageSchema, WSMessage } from "@/utils/types.ts";
 import { zValidator } from "@hono/zod-validator";
 import { type ServerWebSocket } from "bun";
 import { describeRoute } from "hono-openapi";
@@ -17,8 +18,6 @@ import type { WSContext } from "hono/ws";
 import { z } from "zod";
 import { authMiddleware, factory } from "../middleware.ts";
 import { UUID } from "crypto";
-// Message type definitions for WebSocket communication
-import { wsMessageSchema, WSMessage } from "@/utils/types.ts";
 import { and, count, eq } from "drizzle-orm";
 import * as schema from "@/db/schema.ts";
 import { MyCache } from "@/utils/cache.ts";
@@ -376,7 +375,7 @@ const wsRouter = factory
 
       return {
         async onOpen(evt, ws) {
-          console.log(`Client connected: ${clientId}, UserId: ${userId}`);
+          logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
           await addClientToRoom(ticketId, clientId, ws);
 
           // Initialize connection state and start heartbeat

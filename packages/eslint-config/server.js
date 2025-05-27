@@ -2,7 +2,7 @@ import js from "@eslint/js"
 import eslintConfigPrettier from "eslint-config-prettier"
 import globals from "globals"
 import tseslint from "typescript-eslint"
-
+import drizzlePlugin from "eslint-plugin-drizzle"
 import { config as baseConfig } from "./base.js"
 
 /**
@@ -15,6 +15,14 @@ export const config = [
   js.configs.recommended,
   eslintConfigPrettier,
   ...tseslint.configs.recommended,
+  {
+    plugins: {
+      drizzle: drizzlePlugin,
+    },
+    rules: {
+      ...drizzlePlugin.configs.recommended.rules,
+    },
+  },
   {
     languageOptions: {
       globals: {

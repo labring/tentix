@@ -54,7 +54,6 @@ app.get(
     url: "/api/openapi.json",
     isEditable: false,
     hideClientButton: true,
-    // hiddenClients: true,
   }),
 );
 app.get("/health", (c) => c.json({ status: "ok" }));

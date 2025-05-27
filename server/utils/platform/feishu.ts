@@ -1,4 +1,5 @@
 import { readConfig } from "../env.ts";
+import { logError } from "../log.ts";
 import { FeishuDepartmentsInfo } from "./feishu.type.ts";
 
 type cardType = {
@@ -148,7 +149,7 @@ const proxyHandler = {
 
         if (!res.ok) {
           const cause = await res.json();
-          console.error(
+          logError(
             `Attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`,
             cause,
           );
@@ -166,7 +167,7 @@ const proxyHandler = {
           break;
         }
         const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-        console.error(
+        logError(
           `Retrying in ${delay}ms... (Attempt ${attempt + 1}/${MAX_RETRIES})`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));

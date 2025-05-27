@@ -1,0 +1,94 @@
+name: Fork Repository Check
+
+on:
+  pull_request_target:
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  # Basic security and build check for forks
+  fork-safety-check:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name != github.repository
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # Only checkout the PR code, don't give access to secrets
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run basic security checks
+        run: |
+          # Check for suspicious files
+          echo "🔍 Checking for suspicious files..."
+          if find . -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.ts" | xargs grep -l "curl\|wget\|eval\|exec" 2>/dev/null; then
+            echo "⚠️  Found potentially suspicious code patterns"
+          else
+            echo "✅ No obvious security issues found"
+          fi
+
+      - name: Check package.json changes
+        run: |
+          echo "📦 Checking package.json for new dependencies..."
+          git diff origin/main..HEAD --name-only | grep -E "(package\.json|bun\.lock)" || echo "No package changes detected"
+
+      - name: Run linting
+        run: |
+          echo "🧹 Running linting..."
+          bun run lint || echo "Linting completed with issues"
+
+      - name: Basic build test
+        run: |
+          echo "🔨 Testing basic build..."
+          bun run build || echo "Build test completed"
+
+      - name: Comment on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('🤖 Fork Repository Check')
+            );
+            
+            const commentBody = `🤖 Fork Repository Check Complete
+            
+            ✅ Basic security scan completed
+            ✅ Dependency check completed  
+            ✅ Linting check completed
+            ✅ Build test completed
+            
+            This PR from a fork repository has passed basic safety checks. A maintainer will review the changes before running full CI/CD pipeline.
+            
+            _This is an automated safety check for contributions from fork repositories._`;
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            } 

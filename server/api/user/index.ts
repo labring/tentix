@@ -1,10 +1,7 @@
 import { connectDB, getAbbreviatedText } from "@/utils/index.ts";
-import { Hono } from "hono";
 import { describeRoute } from "hono-openapi";
-import { validator as zValidator } from "hono-openapi/zod";
-import { z } from "zod";
 import * as schema from "@db/schema.ts";
-import { eq, sql, desc, and, inArray } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { authMiddleware, factory } from "../middleware.ts";
 import { zs } from "@/utils/tools.ts";
 import { resolver } from "hono-openapi/zod";

@@ -1,7 +1,7 @@
 import { describeRoute } from "hono-openapi";
 import { factory } from "../middleware.ts";
 import * as schema from "@db/schema.ts";
-import { eq, sql, and, asc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   getFeishuUserInfo,
   getFeishuUserInfoByDepartment,

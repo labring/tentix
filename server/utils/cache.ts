@@ -5,7 +5,7 @@ import { HTTPException } from 'hono/http-exception';
 
 const cache = new NodeCache();
 
-export function cacheResult(
+function cacheResult(
   target: any,
   propertyKey: string, 
   descriptor: PropertyDescriptor
@@ -32,7 +32,7 @@ export function cacheResult(
   return descriptor;
 }
 
-export class CacheFunc {
+class CacheFunc {
   @cacheResult
   async getTicketMembers(id: string, isStale: boolean = false) {
     const db = connectDB();

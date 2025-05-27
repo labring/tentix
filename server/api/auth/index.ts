@@ -1,18 +1,17 @@
 import { areaEnumArray } from "@/utils/const.ts";
+import { aesEncryptToString } from "@/utils/crypto";
 import { connectDB } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq } from "drizzle-orm";
 import { Context } from "hono";
 import { describeRoute } from "hono-openapi";
-import { validator as zValidator } from "hono-openapi/zod";
-import { z } from "zod";
-import { resolver } from "hono-openapi/zod";
-import { HTTPException } from "hono/http-exception";
+import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { getConnInfo } from "hono/bun";
-import { aesEncryptToString } from "@/utils/crypto";
+import { HTTPException } from "hono/http-exception";
+import { z } from "zod";
 import { factory, MyEnv } from "../middleware";
 
-export interface Data {
+interface Data {
   info: {
     uid: string;
     createdAt: string;
@@ -30,7 +29,7 @@ export interface Data {
   };
 }
 
-export interface AuthResponse {
+interface AuthResponse {
   code: number;
   message: string;
   data: Data;
