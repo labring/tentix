@@ -2,7 +2,7 @@
 
 
 
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute  } from "@tanstack/react-router";
 import { DataTable } from "@comp/tickets-table/table";
 import { SiteHeader } from "@comp/site-header";
 import { SidebarInset, SidebarProvider } from "tentix-ui";
@@ -15,7 +15,7 @@ import { SkeletonTable } from "@comp/tickets-table/skeleton";
 
 export const Route = createFileRoute("/staff/tickets/list")({
   loader: ({ context }) => {
-    return context.queryClient.ensureQueryData(userTicketsQueryOptions(context.authContext.user!.id.toString()));
+    return context.queryClient.ensureQueryData(userTicketsQueryOptions());
   },
   head: () => ({
     meta: [

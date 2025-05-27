@@ -1,23 +1,7 @@
 import { useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
 
-import {
-  DndContext,
-  type DragEndEvent,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  type UniqueIdentifier,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import {
-  SortableContext,
-  arrayMove,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -83,23 +67,22 @@ import { useTransferModal } from "@modal/use-transfer-modal.tsx";
 import { useUpdateStatusModal } from "@modal/use-update-status-modal.tsx";
 import { useRaiseReqModal } from "@modal/use-raise-req-modal.tsx";
 
-import { DraggableRow } from "./comp.tsx";
-import { type TicketsListItemType } from "tentix-server/rpc";
+
+import { type TicketsAllListItemType } from "tentix-server/rpc";
 import { joinTrans, useTranslation } from "i18n";
 import { PriorityBadge, StatusBadge } from "tentix-ui";
 
 
 export function DataTable({
-  data: initialData,
+  data,
   character,
 }: {
-  data: TicketsListItemType[];
+  data: TicketsAllListItemType[];
   character: "user" | "staff";
 }) {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const [data, setData] = useState(() => initialData);
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -111,24 +94,14 @@ export function DataTable({
     pageIndex: 0,
     pageSize: 10,
   });
-  const sortableId = React.useId();
-  const sensors = useSensors(
-    useSensor(MouseSensor, {}),
-    useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {}),
-  );
 
-  const dataIds = React.useMemo<UniqueIdentifier[]>(
-    () => data?.map(({ id }) => id) || [],
-    [data],
-  );
 
   const { openTransferModal, transferModal } = useTransferModal();
   const { updateStatusModal, openUpdateStatusModal } = useUpdateStatusModal();
   const { raiseReqModal, openRaiseReqModal } = useRaiseReqModal();
 
-  const columns = React.useMemo<ColumnDef<TicketsListItemType>[]>(() => {
-    const baseColumns: ColumnDef<TicketsListItemType>[] = [
+  const columns = React.useMemo<ColumnDef<TicketsAllListItemType>[]>(() => {
+    const baseColumns: ColumnDef<TicketsAllListItemType>[] = [
       {
         id: "select",
         header: ({ table }) => (
@@ -350,16 +323,7 @@ export function DataTable({
     manualFiltering: false,
   });
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (active && over && active.id !== over.id) {
-      setData((data) => {
-        const oldIndex = dataIds.indexOf(active.id);
-        const newIndex = dataIds.indexOf(over.id);
-        return arrayMove(data, oldIndex, newIndex);
-      });
-    }
-  }
+
 
   const getStatusCounts = React.useMemo(() => {
     return {
@@ -371,7 +335,7 @@ export function DataTable({
   }, [data]);
 
   const [tabValue, setTabValue] = useState<
-    TicketsListItemType["status"] | "all"
+    TicketsAllListItemType["status"] | "all"
   >("all");
 
   React.useEffect(() => {
@@ -417,32 +381,21 @@ export function DataTable({
             }
           >
             {filteredRows.length > 0 ? (
-              filteredStatus ? (
-                filteredRows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <SortableContext
-                  items={dataIds}
-                  strategy={verticalListSortingStrategy}
+              filteredRows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
                 >
-                  {filteredRows.map((row) => (
-                    <DraggableRow key={row.id} row={row} />
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
                   ))}
-                </SortableContext>
-              )
+                </TableRow>
+              ))
             ) : (
               <TableRow>
                 <TableCell
@@ -587,19 +540,19 @@ export function DataTable({
         <TabsList className="@4xl/main:flex hidden">
           <TabsTrigger value="all">{t("all")}</TabsTrigger>
           <TabsTrigger value="pending" className="gap-1">
-            {t("pending") + " "}
+            {`${t("pending")  } `}
             <StatusTabBadge count={getStatusCounts.pending} />
           </TabsTrigger>
           <TabsTrigger value="in_progress" className="gap-1">
-            {t("in_progress") + " "}
+            {`${t("in_progress")  } `}
             <StatusTabBadge count={getStatusCounts.inProgress} />
           </TabsTrigger>
           <TabsTrigger value="resolved" className="gap-1">
-            {t("completed") + " "}
+            {`${t("completed")  } `}
             <StatusTabBadge count={getStatusCounts.completed} />
           </TabsTrigger>
           <TabsTrigger value="scheduled" className="gap-1">
-            {t("scheduled") + " "}
+            {`${t("scheduled")  } `}
             <StatusTabBadge count={getStatusCounts.scheduled} />
           </TabsTrigger>
         </TabsList>
@@ -653,15 +606,7 @@ export function DataTable({
         </div>
       </div>
       <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
-        <DndContext
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxis]}
-          onDragEnd={handleDragEnd}
-          sensors={sensors}
-          id={sortableId}
-        >
-          {renderTableContent(tabValue)}
-        </DndContext>
+        {renderTableContent(tabValue)}
         {renderPagination()}
       </div>
 

@@ -103,7 +103,7 @@ export function useTransferModal() {
   // Setup mutation for transferring the ticket
   const transferMutation = useMutation({
     mutationFn: transferTicket,
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast({
         title: t("success"),
         description: t("ticket_transferred"),

@@ -5,7 +5,7 @@ import ky from "ky";
 //   ? "http://localhost:3000"
 //   : import.meta.env.BASE_URL;
 
-export const fetch = ky.extend({
+const fetch = ky.extend({
   headers: {
     Authorization: `Bearer ${window.localStorage.getItem("token")}`,
   },
@@ -24,5 +24,5 @@ export const fetch = ky.extend({
 });
 
 export const apiClient = initClient(import.meta.env.BASE_URL, {
-  fetch: fetch,
+  fetch,
 });

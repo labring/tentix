@@ -1,3 +1,4 @@
+import pluginNext from "@next/eslint-plugin-next"
 import pluginReact from "eslint-plugin-react"
 import pluginReactHooks from "eslint-plugin-react-hooks"
 import globals from "globals"
@@ -5,13 +6,14 @@ import globals from "globals"
 import { config as baseConfig } from "./base.js"
 
 /**
- * A custom ESLint configuration for libraries that use React.
+ * A custom ESLint configuration for libraries that use Next.js.
  *
- * @type {import("eslint").Linter.Config} */
+ * @type {import("eslint").Linter.Config}
+ * */
 export const config = [
   ...baseConfig,
-  pluginReact.configs.flat.recommended,
   {
+    ...pluginReact.configs.flat.recommended,
     languageOptions: {
       ...pluginReact.configs.flat.recommended.languageOptions,
       globals: {
@@ -22,10 +24,24 @@ export const config = [
   },
   {
     plugins: {
+      "@next/next": pluginNext,
+    },
+    rules: {
+      ...pluginNext.configs.recommended.rules,
+      ...pluginNext.configs["core-web-vitals"].rules,
+      // Next.js specific optimizations
+      "@next/next/no-img-element": "error",
+      "@next/next/no-page-custom-font": "warn",
+      "@next/next/no-unwanted-polyfillio": "error",
+    },
+  },
+  {
+    plugins: {
       "react-hooks": pluginReactHooks,
     },
     settings: { 
-      react: { version: "detect" } 
+      react: { version: "detect" },
+      next: { rootDir: true }
     },
     rules: {
       ...pluginReactHooks.configs.recommended.rules,
@@ -47,6 +63,9 @@ export const config = [
       "react/no-string-refs": "error",
       "react/no-unknown-property": "error",
       "react/require-render-return": "error",
+      // React Hooks rules
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
 ]

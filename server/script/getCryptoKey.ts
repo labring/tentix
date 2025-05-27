@@ -29,12 +29,12 @@ async function generateAndDisplayKey() {
     });
 
     // Display results
-    console.log("\n" + styleText("cyan", "Encryption Key Information:"));
+    console.log(`\n${  styleText("cyan", "Encryption Key Information:")}`);
     console.log(styleText("green", "Base64 Key String (for ENCRYPTION_KEY env variable):"));
     console.log(keyString);
     
     // Display key details
-    console.log("\n" + styleText("yellow", "Key Details:"));
+    console.log(`\n${  styleText("yellow", "Key Details:")}`);
     console.log(Bun.inspect({
       type: key.type,
       algorithm: key.algorithm,
@@ -43,7 +43,7 @@ async function generateAndDisplayKey() {
     }, { colors: true }));
 
     // Display usage instructions
-    console.log("\n" + styleText("magenta", "Usage Instructions:"));
+    console.log(`\n${  styleText("magenta", "Usage Instructions:")}`);
     console.log("Add this key to your environment variables:");
     console.log(styleText("cyan", `ENCRYPTION_KEY="${keyString}"`));
     

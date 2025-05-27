@@ -57,6 +57,7 @@ app.get(
     // hiddenClients: true,
   }),
 );
+app.get("/health", (c) => c.json({ status: "ok" }));
 
 const routes = app
   .basePath("/api")

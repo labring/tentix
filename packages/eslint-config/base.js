@@ -27,6 +27,33 @@ export const config = [
     },
   },
   {
-    ignores: ["dist/**"],
+    rules: {
+      // General code quality rules
+      "no-unused-vars": "off", // Handled by TypeScript
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-var-requires": "error",
+      
+      // Import/export rules
+      "no-duplicate-imports": "error",
+      
+      // Code style rules
+      "prefer-const": "error",
+      "no-var": "error",
+      "object-shorthand": "error",
+      "prefer-template": "error",
+    },
+  },
+  {
+    ignores: [
+      "dist/**",
+      "build/**", 
+      "coverage/**",
+      "node_modules/**",
+      ".next/**",
+      ".turbo/**",
+      "*.min.js",
+      "types/**"
+    ],
   },
 ]

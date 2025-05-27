@@ -4,7 +4,6 @@
     "$schema",
     "feishu_app_id",
     "feishu_app_secret",
-    "feishu_bot_webhook_id",
     "aiProfile",
     "department_ids",
     "agents_ids",

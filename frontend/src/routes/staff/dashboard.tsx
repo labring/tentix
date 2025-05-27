@@ -16,10 +16,10 @@ export const Route = createFileRoute("/staff/dashboard")({
       }
     ],
   }),
-  loader: async ({ context: { queryClient, authContext } }) => {
+  loader: async ({ context: { queryClient } }) => {
     return {
       data: await queryClient.ensureQueryData(
-        userTicketsQueryOptions(authContext.user!.id.toString()),
+        userTicketsQueryOptions(),
       ),
     };
   },

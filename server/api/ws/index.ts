@@ -386,7 +386,7 @@ const wsRouter = factory
             ticketId,
             {
               type: "user_joined",
-              userId: userId,
+              userId,
               roomId: ticketId,
               timestamp: Date.now(),
             },
@@ -528,7 +528,7 @@ const wsRouter = factory
                       type: "new_message",
                       messageId: messageResult.id,
                       roomId: ticketId,
-                      userId: userId,
+                      userId,
                       content: parsedMessage.content,
                       timestamp: messageResult.createdAt,
                       isInternal: parsedMessage.isInternal,
@@ -574,7 +574,7 @@ const wsRouter = factory
                   ticketId,
                   {
                     type: "user_typing",
-                    userId: userId,
+                    userId,
                     roomId: ticketId,
                     timestamp: Date.now(),
                   },
@@ -604,7 +604,7 @@ const wsRouter = factory
                   broadcastToRoom(ticketId, {
                     type: "message_read_update",
                     messageId: parsedMessage.messageId,
-                    userId: userId,
+                    userId,
                     readAt: readStatus.readAt,
                   });
                 }
@@ -620,7 +620,7 @@ const wsRouter = factory
                       })
                       .where(eq(schema.tickets.id, ticketId));
                     await tx.insert(schema.ticketHistory).values({
-                      ticketId: ticketId,
+                      ticketId,
                       type: "first_reply",
                       meta: 0,
                       operatorId: userId,
@@ -650,7 +650,7 @@ const wsRouter = factory
                       type: "message_withdrawn",
                       messageId: withdrawnMessage.id,
                       roomId: ticketId,
-                      userId: userId,
+                      userId,
                       timestamp: Date.now(),
                       isInternal: withdrawnMessage.isInternal,
                     },
@@ -692,7 +692,7 @@ const wsRouter = factory
               ticketId,
               {
                 type: "user_left",
-                userId: userId,
+                userId,
                 roomId: ticketId,
                 timestamp: Date.now(),
               },

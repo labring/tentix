@@ -227,7 +227,7 @@ export function StaffRightSidebar({ id }: { id: string }) {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs">
-                          {t("tkt_one") + " ID"}
+                          {`${t("tkt_one")  } ID`}
                         </Label>
                         <p className="text-sm">{ticket.id}</p>
                       </div>

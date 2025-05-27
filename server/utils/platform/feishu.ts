@@ -121,7 +121,7 @@ export async function sendFeishuMsg(
 
 
 const proxyHandler = {
-  apply: async function (
+  async apply (
     target: typeof fetch,
     _this: unknown,
     argumentsList: Parameters<typeof fetch>,

@@ -48,7 +48,7 @@ export function handleError(err: Error, c: Context): Response {
   let code: ContentfulStatusCode = 500;
   let message = "Something went wrong, please try again later.";
   let stack = err.stack;
-  let cause = err.cause;
+  const cause = err.cause;
   printError(err, c);
   stack = err.stack?.split("\n").at(0);
   if (err instanceof HTTPException) {

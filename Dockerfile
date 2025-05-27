@@ -7,25 +7,27 @@ ENV NODE_ENV="production"
 
 FROM base AS build
 
-COPY package.json bun.lock ./
-COPY frontend/ ./frontend/
-COPY server/ ./server/
+COPY package.json bun.lock turbo.json tsconfig.json ./
+COPY frontend ./frontend/
+COPY server ./server/
 COPY packages/ ./packages/
-COPY turbo.json tsconfig.json ./
-
 RUN bun install --frozen-lockfile
+RUN bun run build
 
-WORKDIR /app/frontend
-RUN bun run build:prod
+FROM base AS production
 
-WORKDIR /app/server
-RUN bun run build:prod
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-FROM base
+COPY --from=build --chown=appuser:appuser /app/server/dist /app/dist
+COPY --from=build --chown=appuser:appuser /app/package.json /app/
 
-COPY --from=build /app/server/dist /app/dist
-COPY --from=build /app/package.json /app/
+RUN chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
 
 CMD ["bun", "/app/dist/server.js"]

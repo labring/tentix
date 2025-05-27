@@ -29,8 +29,8 @@ function App() {
   return (
     <RouterProvider router={router} context={{
       queryClient: getQueryClient(),
-      apiClient: apiClient,
-      authContext: authContext,
+      apiClient,
+      authContext,
     }} />
   )
 }

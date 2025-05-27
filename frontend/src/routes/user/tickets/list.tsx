@@ -15,7 +15,7 @@ import { SkeletonTable } from "@comp/tickets-table/skeleton";
 
 export const Route = createFileRoute("/user/tickets/list")({
   loader: ({ context }) => {
-    return context.queryClient.ensureQueryData(userTicketsQueryOptions(context.authContext.user!.id.toString()));
+    return context.queryClient.ensureQueryData(userTicketsQueryOptions());
   },
   component: RouteComponent,
 });

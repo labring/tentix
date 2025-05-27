@@ -365,7 +365,7 @@ async function main() {
             const technicianId = getRandomElement(technicians);
             return technicianId;
           }
-          let technicianIds: number[] = [];
+          const technicianIds: number[] = [];
           if (Math.random() < 0.7) {
             const technicianId = addTechnician();
             technicianIds.push(technicianId);

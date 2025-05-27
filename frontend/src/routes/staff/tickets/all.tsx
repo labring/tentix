@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { DataTable } from "@comp/tickets-table/table";
 import { SiteHeader } from "@comp/site-header";
 import { SidebarInset, SidebarProvider } from "tentix-ui";

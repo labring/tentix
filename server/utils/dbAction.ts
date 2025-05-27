@@ -26,8 +26,8 @@ export async function saveMessageToDb(
       .values({
         ticketId: roomId,
         senderId: userId,
-        content: content,
-        isInternal: isInternal,
+        content,
+        isInternal,
       })
       .returning();
 
@@ -47,8 +47,8 @@ export async function saveMessageReadStatus(messageId: number, userId: number) {
     const [readStatus] = await db
       .insert(schema.messageReadStatus)
       .values({
-        messageId: messageId,
-        userId: userId,
+        messageId,
+        userId,
       })
       .onConflictDoNothing()
       .returning();

@@ -1,20 +1,62 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  "globalDependencies": [
+    "**/.env*",
+    "tsconfig.json",
+    "eslint.config.*"
+  ],
   "tasks": {
-    "build:prod": {
+    "build": {
+      "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**"]
+      "outputs": ["server/dist/**"]
     },
-    "lint": {
-      "dependsOn": ["^lint"]
+    "build:types": {
+      "dependsOn": ["^build:types"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
+      "outputs": ["server/output/**/*.d.ts"]
     },
-    "check-types": {
-      "dependsOn": ["^check-types"]
+    "frontend#build": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
+      "outputs": ["server/dist/**"]
+    },
+    "tentix-server#build": {
+      "dependsOn": ["^typecheck", "frontend#build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
+      "outputs": ["server/dist/**"]
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "dependsOn": ["^build:types"]
+    },
+    "start": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["build"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"],
+      "inputs": ["$TURBO_DEFAULT$", "eslint.config.*"],
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
+      "cache": false,
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^test"],
+      "inputs": ["$TURBO_DEFAULT$", "vitest.config.*", "jest.config.*"],
+      "outputs": ["coverage/**"]
+    },
+    "code-clean": {
+      "dependsOn": ["^code-clean"],
+      "inputs": ["$TURBO_DEFAULT$", "eslint.config.*", "tsconfig*.json"],
+      "outputs": []
     }
   }
 }

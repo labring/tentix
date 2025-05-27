@@ -180,7 +180,7 @@ const TicketItem = ({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-xs"
-                  onClick={(e) => toggleStarred(ticket.id)}
+                  onClick={() => toggleStarred(ticket.id)}
                 >
                   <StarIcon
                     className={`h-3 w-3 ${

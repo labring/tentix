@@ -13,7 +13,7 @@ export const Route = createFileRoute("/user/tickets/$id")({
   loader: async ({ context: { queryClient, authContext }, params }) => {
     return {
       data: await queryClient.ensureQueryData(
-        userTicketsQueryOptions(authContext.user!.id.toString()),
+        userTicketsQueryOptions(),
       ),
       ticket: await queryClient.ensureQueryData(ticketsQueryOptions(params.id)),
       token: await queryClient.ensureQueryData(

@@ -21,7 +21,7 @@ declare module "@tanstack/react-query" {
 }
 
 const handler = {
-  apply: function (
+  apply (
     target: typeof useSuspenseQueryTanStack,
     _this: unknown,
     argumentsList: Parameters<typeof useSuspenseQueryTanStack>,
@@ -38,12 +38,12 @@ export const useSuspenseQuery = new Proxy(useSuspenseQueryTanStack, handler);
 import { queryOptions } from "@tanstack/react-query";
 import { apiClient } from "./api-client";
 
-export const userTicketsQueryOptions = (id: string) =>
+export const userTicketsQueryOptions = () =>
   queryOptions({
-    queryKey: ["getUserTickets", id],
+    queryKey: ["getUserTickets"],
     queryFn: async () => {
       const data = await (
-        await apiClient.user.getTickets.$get({ query: { userId: id } })
+        await apiClient.user.getTickets.$get()
       ).json();
       return data;
     },
@@ -108,37 +108,6 @@ export const userInfoQueryOptions = () =>
     throwOnError: false,
     retry: false,
   });
-
-export async function uploadFile(file: File) {
-  const { url, srcUrl } = await (
-    await apiClient.file["presigned-url"].$get({
-      query: {
-        fileName: file.name,
-        fileType: file.type,
-      },
-    })
-  ).json();
-  const response = await fetch(url, {
-    method: "PUT",
-    body: file,
-  });
-  if (!response.ok) {
-    throw new Error("Failed to upload image");
-  }
-  return srcUrl;
-}
-
-export async function removeFile(fileName: string) {
-  const response = await apiClient.file.remove.$delete({
-    query: {
-      fileName,
-    },
-  });
-  if (!response.ok) {
-    throw new Error("Failed to remove image");
-  }
-  return response.json();
-}
 
 export const staffListQueryOptions = () =>
   queryOptions({

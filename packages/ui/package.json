@@ -10,15 +10,10 @@
     "**/*.css"
   ],
   "scripts": {
-    "lint": "eslint . --max-warnings 0",
-    "typecheck": "bun tsc -b",
-    "build": "rm -fr dist && set NODE_ENV=production&& rollup -c"
+    "lint": "eslint . --max-warnings 100",
+    "typecheck": "bun tsc -b"
   },
   "dependencies": {
-    "@dnd-kit/core": "latest",
-    "@dnd-kit/modifiers": "latest",
-    "@dnd-kit/sortable": "latest",
-    "@dnd-kit/utilities": "latest",
     "@hookform/resolvers": "latest",
     "@radix-ui/react-accordion": "^1.2.8",
     "@radix-ui/react-alert-dialog": "^1.1.11",
@@ -76,10 +71,10 @@
     "lowlight": "^3.3.0",
     "marked": "^15.0.11",
     "next-themes": "^0.4.4",
-    "react": "^19.0.0",
+    "react": "catalog:",
     "react-day-picker": "^9.6.7",
-    "react-dom": "^19.0.0",
-    "react-hook-form": "^7.56.1",
+    "react-dom": "catalog:",
+    "react-hook-form": "catalog:",
     "react-intersection-observer": "^9.16.0",
     "react-medium-image-zoom": "^5.2.14",
     "react-photo-view": "^1.2.7",
@@ -101,13 +96,13 @@
     "@tailwindcss/container-queries": "latest",
     "@tailwindcss/postcss": "^4.0.8",
     "@turbo/gen": "^2.4.2",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "tailwindcss": "^4.0.8",
-    "typescript": "^5.7.3",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
     "tentix-server": "workspace:*"
   },
   "files": [

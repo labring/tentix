@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { areaEnumArray, userRoleEnumArray } from "tentix-server/constants";
+import { areaEnumArray } from "tentix-server/constants";
 type initSearch = {
   token: string;
   area: (typeof areaEnumArray)[number];

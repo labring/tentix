@@ -3,9 +3,13 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
+  "main": "./index.js",
   "exports": {
+    ".": "./index.js",
     "./base": "./base.js",
-    "./react-internal": "./react-internal.js"
+    "./react-internal": "./react-internal.js",
+    "./frontend": "./frontend.js",
+    "./server": "./server.js"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.1.7",
