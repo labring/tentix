@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { z } from "zod";
 import type { Context } from "hono";
 import {

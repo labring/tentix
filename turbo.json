@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["NODE_ENV"],
+  "globalEnv": ["**/.env*"],
   "globalDependencies": [
     "**/.env*",
     "tsconfig.json",
@@ -30,6 +30,7 @@
     },
     "dev": {
       "cache": false,
+      "env": ["NODE_ENV", "DEV_USER"],
       "persistent": true,
       "dependsOn": ["^build:types"]
     },
