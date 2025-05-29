@@ -2,58 +2,63 @@ name: Build Check
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
   push:
-    branches-ignore: [ main ]
+    branches-ignore: [main]
 
 jobs:
   build-check:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
-        
-    - name: Install dependencies
-      run: bun install
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Run linting
-      run: bun run lint
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-    - name: Run type checking
-      run: bun run typecheck || echo "Type checking not configured"
+      - name: Install dependencies
+        run: bun install
 
-    - name: Run tests
-      run: bun run test || echo "Tests not configured"
+      - name: Run linting
+        run: bun run lint
 
-    - name: Build application
-      run: bun run build
+      - name: Run type checking
+        run: bun run typecheck || echo "Type checking not configured"
 
-    # Only build Docker image for PRs to main repo (not forks)
-    - name: Build Docker image (PR only)
-      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      run: |
-        docker build --platform linux/amd64 \
-          -t tentix:pr-${{ github.event.number }} \
-          .
+      - name: Run tests
+        run: bun run test || echo "Tests not configured"
+
+      - name: Build application
+        run: bun run build
+
+      # Only build Docker image for PRs to main repo (not forks)
+      - name: Build Docker image (PR only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          docker build --platform linux/amd64 \
+            -t tentix:pr-${{ github.event.number }} \
+            .
 
   security-check:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Run security audit
-      run: |
-        if command -v bun &> /dev/null; then
-          bun audit || echo "Security audit completed with warnings"
-        else
-          echo "Bun not available, skipping audit"
-        fi
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run security audit
+        run: |
+          if command -v bun &> /dev/null; then
+            bun audit || echo "Security audit completed with warnings"
+          else
+            echo "Bun not available, skipping audit"
+          fi

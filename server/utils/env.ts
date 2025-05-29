@@ -15,7 +15,7 @@ export async function readConfig(): Promise<AppConfig> {
     return global.config;
   }
   const configName = process.env.NODE_ENV === "production" ? "config.prod.json" : "config.dev.json";
-  logInfo('Reading config from: ', configName);
+  logInfo(`Reading config from: ${configName}`);
   global.config = await Bun.file(configName).json();
   return global.config!;
 }
