@@ -7,6 +7,9 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { RouterContext } from "../router";
 import { useTranslation } from "i18n";
+import { lazy } from "react";
+
+const IdentitySwitcher = lazy(() => import("../components/identity-switcher.tsx"));
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
@@ -40,9 +43,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       <HeadContent />
       <Outlet />
       <TanStackRouterDevtools />
+      {import.meta.env.DEV && <IdentitySwitcher />}
     </>
   ),
-  errorComponent: ({ error, reset }) => {
+  errorComponent: function ErrorComponent({ error, reset }) {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const resetLogin = () => {
@@ -88,7 +92,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       </div>
     );
   },
-  notFoundComponent: () => {
+  notFoundComponent: function NotFoundComponent() {
     const { t } = useTranslation();
     const navigate = useNavigate();
 

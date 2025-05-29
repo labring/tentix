@@ -2,7 +2,8 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import * as schema from "@db/schema.ts";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-
+import { JSONContentSchema, JSONContentZod } from "./types.pure.ts";
+export * from "./types.pure.ts";
 export class ValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -17,30 +18,7 @@ export const userIdValidator = zValidator(
   }),
 );
 
-import type { JSONContent } from "@tiptap/react";
-export const JSONContentSchema: z.ZodSchema<JSONContent> = z.lazy(() =>
-  z.object({
-    type: z.string(),
-    attrs: z.record(z.unknown()).optional(),
-    content: z.array(JSONContentSchema).optional(),
-    marks: z
-      .array(
-        z.object({
-          type: z.string(),
-          attrs: z.record(z.unknown()).optional(),
-        }),
-      )
-      .optional(),
-    text: z.string().optional(),
-  }),
-);
 
-export type JSONContentZod = z.infer<typeof JSONContentSchema>;
-
-export function validateJSONContent(data: any): data is JSONContent {
-  const validationResult = JSONContentSchema.safeParse(data);
-  return validationResult.success;
-}
 
 export function extractText(json: JSONContentZod) {
   let result = "";

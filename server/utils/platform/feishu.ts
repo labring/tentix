@@ -265,7 +265,7 @@ export async function getFeishuUserInfoByDepartment(
   msg: string;
   data: {
     has_more: boolean;
-    page_token?: string;
+    pageToken?: string;
     items: {
       avatar: {
         avatar_240: string;
@@ -288,12 +288,12 @@ export async function getFeishuUserInfoByDepartment(
 
   async function fetchPage(pageToken?: string) {
     const url = new URL(
-      `https://open.feishu.cn/open-apis/contact/v3/users/find_by_department?department_id_type=open_department_id&page_size=50`,
+      `https://open.feishu.cn/open-apis/contact/v3/users/find_by_department?department_id_type=open_department_id&pageSize=50`,
     );
     url.searchParams.append("user_id_type", userIdType);
     url.searchParams.append("department_id", departmentId);
     if (pageToken) {
-      url.searchParams.append("page_token", pageToken);
+      url.searchParams.append("pageToken", pageToken);
     }
 
     const res = await myFetch(url, {
@@ -306,8 +306,8 @@ export async function getFeishuUserInfoByDepartment(
       allItems.push(...data.data.items);
     }
 
-    if (data.data.has_more && data.data.page_token) {
-      await fetchPage(data.data.page_token);
+    if (data.data.has_more && data.data.pageToken) {
+      await fetchPage(data.data.pageToken);
     }
 
     return data;

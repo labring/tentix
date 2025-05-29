@@ -8,12 +8,11 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import type { PropsWithChildren } from "react";
 import { toast } from "tentix-ui";
 
-
 function makeQueryClient() {
   return new QueryClient({
     mutationCache: new MutationCache({
       onError: (error) => {
-        console.error(error)
+        console.error(error);
         toast({
           title: `Error!`,
           description: error.message,
@@ -23,12 +22,13 @@ function makeQueryClient() {
     }),
     queryCache: new QueryCache({
       onError: (error, query) => {
-        console.error(error, query.queryKey)
+        console.error(error, query.queryKey);
         toast({
           title: `Error when ${query.queryKey.join(".")}`,
           description: error.message,
           type: "foreground",
         });
+        // TODO: Observability intergrate
       },
     }),
     defaultOptions: {
@@ -50,8 +50,8 @@ export default function AppTanstackProvider({ children }: PropsWithChildren) {
   const queryClient = getQueryClient();
   return (
     <QueryClientProvider client={queryClient}>
-        {children}
-      <ReactQueryDevtools initialIsOpen={false} />
+      {children}
+      <ReactQueryDevtools buttonPosition="top-right" />
     </QueryClientProvider>
   );
 }

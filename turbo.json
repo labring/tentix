@@ -1,32 +1,34 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["**/.env*"],
+  "globalEnv": ["**/.env*", "DEV", "BASE_URL"],
   "globalDependencies": [
     "**/.env*",
     "tsconfig.json",
-    "eslint.config.*"
+    "eslint.config.*",
+    "frontend/src/**/*.tsx",
+    "server/src/**/*.ts"
   ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["server/dist/**"]
+      "outputs": ["server/dist"]
     },
     "build:types": {
       "dependsOn": ["^build:types"],
-      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
+      "inputs": ["$TURBO_DEFAULT$", "server/tsconfig.json", "server/src/**/*.ts"],
       "outputs": ["server/output/**/*.d.ts"]
     },
     "frontend#build": {
       "dependsOn": ["^typecheck"],
-      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
-      "outputs": ["server/dist/**"]
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json", "frontend/src/**/*.tsx"],
+      "outputs": ["server/dist"]
     },
     "tentix-server#build": {
       "dependsOn": ["^typecheck", "frontend#build"],
-      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
-      "outputs": ["server/dist/**"]
+      "inputs": ["$TURBO_DEFAULT$","server/tsconfig.json", "server/src/**/*.ts"],
+      "outputs": ["server/dist"]
     },
     "dev": {
       "cache": false,

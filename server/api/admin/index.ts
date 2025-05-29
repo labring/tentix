@@ -21,7 +21,7 @@ const adminRouter = factory
     "/staffList",
     describeRoute({
       description: "Get all staff members",
-      tags: ["admin"],
+      tags: ["Admin"],
       responses: {
         200: {
           description: "All staff members with their open tickets",
@@ -62,7 +62,7 @@ const adminRouter = factory
     authMiddleware,
     describeRoute({
       description: "Raise a new requirement",
-      tags: ["admin"],
+      tags: ["Admin"],
       security: [
         {
           bearerAuth: [],

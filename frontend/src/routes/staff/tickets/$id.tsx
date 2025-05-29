@@ -52,7 +52,7 @@ function RouteComponent() {
 
   return (
     <SidebarProvider>
-      <StaffTicketSidebar currentTicketId={id} tickets={data} />
+      <StaffTicketSidebar currentTicketId={id} tickets={data.tickets} />
       <SidebarInset className="max-h-svh" style={{
           scrollbarGutter: 'stable both-edges',
           overflowY: 'clip',

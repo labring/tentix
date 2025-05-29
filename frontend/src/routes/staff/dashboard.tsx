@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { StaffChartAreaInteractive } from "@comp/staff/chart-area-interactive";
-import { DataTable } from "@comp/tickets-table/table";
+import { PaginatedDataTable } from "@comp/tickets-table/paginated-table.tsx";
 import { StaffSectionCards } from "@comp/staff/section-cards";
 import { SiteHeader } from "@comp/site-header";
 import { SidebarInset, SidebarProvider } from "tentix-ui";
@@ -41,7 +41,7 @@ function RouteComponent() {
               <div className="px-4 lg:px-6">
                 <StaffChartAreaInteractive />
               </div>
-              <DataTable data={data} character="staff" />
+              <PaginatedDataTable character="staff" initialData={data} />
             </div>
           </div>
         </div>

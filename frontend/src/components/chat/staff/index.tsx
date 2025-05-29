@@ -8,7 +8,7 @@ import {
 import { useTicketWebSocket } from "@hook/use-ticket-websocket";
 import { StaffMessageInput } from "./message-input.tsx";
 import { MessageList } from "../message-list.tsx";
-import { type JSONContentZod } from "@server/utils/types.ts";
+import { type JSONContentZod } from "tentix-server/types";
 import { type TicketType } from "tentix-server/rpc";
 import { PhotoProvider } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";

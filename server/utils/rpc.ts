@@ -1,4 +1,4 @@
-import { AppType } from "../api/index.ts";
+import { type AppType } from "../api/index.ts";
 import { ClientRequestOptions, hc, type InferResponseType } from "hono/client";
 
 // this is a trick to calculate the type when compiling
@@ -17,7 +17,7 @@ export type UserType = InferResponseType<ApiClient["user"]["info"]["$get"]>;
 
 export type TicketsListItemType = InferResponseType<
   ApiClient["user"]["getTickets"]["$get"]
->[number];
+>["tickets"][number];
 
 export type TicketsAllListItemType = InferResponseType<
   ApiClient["ticket"]["all"]["$get"]

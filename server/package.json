@@ -26,6 +26,7 @@
     "hono-openapi": "^0.4.6",
     "hono-rate-limiter": "^0.4.2",
     "i18n": "workspace:*",
+    "markdown-it": "^14.1.0",
     "minio": "^7.1.3",
     "nanoid": "^5.1.5",
     "node-cache": "^5.1.2",
@@ -50,8 +51,8 @@
       "default": "./utils/const.ts"
     },
     "./types": {
-      "types": "./utils/types.ts",
-      "default": "./utils/types.ts"
+      "types": "./output/utils/types.pure.d.ts",
+      "default": "./output/utils/types.pure.d.ts"
     },
     "./*": {
       "types": "./output/*.d.ts",

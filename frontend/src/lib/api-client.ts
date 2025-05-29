@@ -1,4 +1,4 @@
-import { initClient } from "@server/utils/rpc";
+import { initClient } from "tentix-server/rpc";
 import ky from "ky";
 
 // const baseUrl = import.meta.env.DEV

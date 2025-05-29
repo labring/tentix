@@ -4,7 +4,7 @@ import { cn } from "@lib/utils";
 import {
   type JSONContentZod,
   type ticketInsertType,
-} from "@server/utils/types.ts";
+} from "tentix-server/types";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
