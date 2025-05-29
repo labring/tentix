@@ -9,7 +9,7 @@ type cardType = {
     data: {
       template_id: string;
       template_version_name: string;
-      template_variable?: Record<string, any>;
+      template_variable?: Record<string, unknown>;
     };
   };
 };

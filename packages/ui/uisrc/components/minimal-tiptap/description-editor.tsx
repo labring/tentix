@@ -1,15 +1,14 @@
 import "./styles/index.css";
 
-import type { Editor } from "@tiptap/react";
-import { EditorContent } from "@tiptap/react";
-import { Separator } from "../ui/separator";
+import { type Editor, EditorContent } from "@tiptap/react";
 import { cn } from "../../lib/utils";
-import { SectionTwo } from "./components/section/two.tsx";
-import { SectionFour } from "./components/section/four.tsx";
-import { SectionFive } from "./components/section/five.tsx";
+import { Separator } from "../ui/separator";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
-import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import { MeasuredContainer } from "./components/measured-container.tsx";
+import { SectionFive } from "./components/section/five.tsx";
+import { SectionFour } from "./components/section/four.tsx";
+import { SectionTwo } from "./components/section/two.tsx";
+import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 
 const Toolbar = ({ editor }: { editor: Editor }) => (

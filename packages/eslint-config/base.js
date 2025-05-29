@@ -1,8 +1,8 @@
-import js from "@eslint/js"
-import eslintConfigPrettier from "eslint-config-prettier"
-import onlyWarn from "eslint-plugin-only-warn"
-import turboPlugin from "eslint-plugin-turbo"
-import tseslint from "typescript-eslint"
+import js from "@eslint/js";
+import eslintConfigPrettier from "eslint-config-prettier";
+import onlyWarn from "eslint-plugin-only-warn";
+import turboPlugin from "eslint-plugin-turbo";
+import tseslint from "typescript-eslint";
 
 /**
  * A shared ESLint configuration for the repository.
@@ -18,7 +18,25 @@ export const config = [
       turbo: turboPlugin,
     },
     rules: {
-      "turbo/no-undeclared-env-vars": "warn",
+      "turbo/no-undeclared-env-vars": [
+        "warn",
+        {
+          "allowList": [
+            "NODE_ENV",
+            "BASE_URL",
+            "DEV",
+            "DATABASE_URL",
+            "ENCRYPTION_KEY",
+            "MINIO_ACCESS_KEY",
+            "MINIO_SECRET_KEY",
+            "MINIO_BUCKET",
+            "MINIO_ENDPOINT",
+            "FASTGPT_API_URL",
+            "FASTGPT_API_KEY",
+            "FASTGPT_API_LIMIT",
+          ],
+        },
+      ],
     },
   },
   {
@@ -30,13 +48,16 @@ export const config = [
     rules: {
       // General code quality rules
       "no-unused-vars": "off", // Handled by TypeScript
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_" },
+      ],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-var-requires": "error",
-      
+
       // Import/export rules
       "no-duplicate-imports": "error",
-      
+
       // Code style rules
       "prefer-const": "error",
       "no-var": "error",
@@ -47,13 +68,13 @@ export const config = [
   {
     ignores: [
       "dist/**",
-      "build/**", 
+      "build/**",
       "coverage/**",
       "node_modules/**",
       ".next/**",
       ".turbo/**",
       "*.min.js",
-      "types/**"
+      "types/**",
     ],
   },
-]
+];

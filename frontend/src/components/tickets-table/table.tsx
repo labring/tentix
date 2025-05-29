@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRaiseReqModal } from "@modal/use-raise-req-modal.tsx";
+import { useTransferModal } from "@modal/use-transfer-modal.tsx";
+import { useUpdateStatusModal } from "@modal/use-update-status-modal.tsx";
 import { Link, useRouter } from "@tanstack/react-router";
-
-
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -16,6 +16,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { joinTrans, useTranslation } from "i18n";
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
@@ -30,47 +31,30 @@ import {
   UserRoundPlusIcon
 } from "lucide-react";
 import * as React from "react";
-
-import { Badge } from "tentix-ui";
-import { Button } from "tentix-ui";
-import { Checkbox } from "tentix-ui";
+import { useState } from "react";
+import { type TicketsAllListItemType } from "tentix-server/rpc";
 import {
-  DropdownMenu,
+  Badge, Button, Checkbox, DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "tentix-ui";
-import { Label } from "tentix-ui";
-import {
+  DropdownMenuTrigger, Label,
+  PriorityBadge,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "tentix-ui";
-import {
+  StatusBadge,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-} from "tentix-ui";
-import {
-  Tabs, TabsList,
+  TableRow, Tabs, TabsList,
   TabsTrigger
 } from "tentix-ui";
-// Import the hooks
-import { useTransferModal } from "@modal/use-transfer-modal.tsx";
-import { useUpdateStatusModal } from "@modal/use-update-status-modal.tsx";
-import { useRaiseReqModal } from "@modal/use-raise-req-modal.tsx";
-
-
-import { type TicketsAllListItemType } from "tentix-server/rpc";
-import { joinTrans, useTranslation } from "i18n";
-import { PriorityBadge, StatusBadge } from "tentix-ui";
 
 
 export function DataTable({

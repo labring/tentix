@@ -17,8 +17,8 @@ import { config } from "@workspace/eslint-config/react-internal";
 export default config;
 ```
 
-### Frontend Configuration (Next.js)
-For Next.js applications:
+### Frontend Configuration (React)
+For React applications:
 ```js
 import { config } from "@workspace/eslint-config/frontend";
 export default config;

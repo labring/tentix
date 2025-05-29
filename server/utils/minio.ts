@@ -1,3 +1,4 @@
+/* eslint-disable drizzle/enforce-delete-with-where */
 import { S3Error } from "@/api/middleware.ts";
 import { S3Client } from "bun";
 

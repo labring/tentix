@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from "react";
-import { Toaster } from "tentix-ui";
-import { TooltipProvider } from "tentix-ui";
+import { Toaster, TooltipProvider } from "tentix-ui";
 
 export default function UIProvider({ children }: PropsWithChildren) {
   return (

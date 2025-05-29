@@ -3,6 +3,7 @@ import { cn } from "uisrc/lib/utils.ts"
 
 interface SpinnerProps extends React.ComponentProps<"svg"> {}
 
+
 const SpinnerComponent = function Spinner({
   className,
   ...props

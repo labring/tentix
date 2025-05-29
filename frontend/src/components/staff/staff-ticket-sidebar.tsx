@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { joinTrans, useTranslation } from "i18n";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -11,43 +12,26 @@ import {
   TagIcon,
   XIcon,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "tentix-ui";
-import { Badge } from "tentix-ui";
-import { Button } from "tentix-ui";
+import { useEffect, useMemo, useState } from "react";
+import { type TicketsListItemType } from "tentix-server/rpc";
 import {
-  Collapsible,
+  Avatar, AvatarFallback, AvatarImage, Badge, Button, Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
-} from "tentix-ui";
-import {
-  DropdownMenu,
+  CollapsibleTrigger, DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "tentix-ui";
-import { Input } from "tentix-ui";
-import { ScrollArea } from "tentix-ui";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "tentix-ui";
-import {
-  Sidebar,
+  DropdownMenuTrigger, Input, ScrollArea, Sidebar,
   SidebarContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
+  SidebarMenuItem, StatusBadge, timeAgo, Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
 } from "tentix-ui";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useTicketFavorites } from "../../store/ticket-favorites.ts";
-import { joinTrans, useTranslation } from "i18n";
-import { StatusBadge } from "tentix-ui";
-import { timeAgo } from "tentix-ui";
-import { type TicketsListItemType } from "tentix-server/rpc";
 
 function groupTickets<T extends Record<string, unknown>>(
   tickets: T[] | undefined = [],

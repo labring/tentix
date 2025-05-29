@@ -3,7 +3,7 @@
   "ui": "tui",
   "globalEnv": ["**/.env*", "DEV", "BASE_URL"],
   "globalDependencies": [
-    "**/.env*",
+    ".env.local",
     "tsconfig.json",
     "eslint.config.*",
     "frontend/src/**/*.tsx",

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { readConfig } from "@/utils/env.ts";
 import {
   getFeishuAppAccessToken,

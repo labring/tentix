@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { connectDB } from "@/utils/tools.ts";
 import * as schema from "@/db/schema.ts";
 import { createInsertSchema } from "drizzle-zod";
@@ -38,7 +39,7 @@ export async function createAIUser() {
 
   // Create AI user
   const result = await withTaskLog("Creating AI user", async () => {
-    const [systemUser, AIuser] = await db
+    const [_, AIuser] = await db
       .insert(schema.users)
       .values(insertValues)
       .returning();

@@ -40,14 +40,6 @@ const upgradeTicketSchema = z.object({
   description: z.string(),
 });
 
-const raiseReqSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  module: z.enum(schema.module.enumValues),
-  priority: z.enum(schema.ticketPriority.enumValues),
-  relatedTicket: z.number().optional(),
-});
-
 const updateTicketStatusSchema = z.object({
   ticketId: z.string(),
   status: z.enum(schema.ticketStatus.enumValues),
@@ -90,7 +82,7 @@ const ticketRouter = factory
       const staffMap = c.var.staffMap();
       const staffMapEntries = Array.from(staffMap.entries());
       const [assigneeId, { feishuId: assigneeFeishuId }] = staffMapEntries
-        .filter(([id, info]) => info.role === "agent")
+        .filter(([_, info]) => info.role === "agent")
         .sort((a, b) => a[1].remainingTickets - b[1].remainingTickets)[0]!;
 
       let ticketId: string | undefined;
@@ -309,7 +301,6 @@ const ticketRouter = factory
       const { id } = c.req.valid("query");
       const userId = c.var.userId;
       const role = c.var.role;
-      console.log(userId, role);
       const db = c.var.db;
       const staffMap = c.var.staffMap();
       const data = await db.query.tickets.findFirst({

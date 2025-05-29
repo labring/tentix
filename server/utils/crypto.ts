@@ -132,7 +132,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   }
   return bytes.buffer;
   } catch (error) {
-    console.error('Failed to convert base64 to ArrayBuffer:', base64);
+    logError('Failed to convert base64 to ArrayBuffer:', base64);
     throw error;
   }
 }

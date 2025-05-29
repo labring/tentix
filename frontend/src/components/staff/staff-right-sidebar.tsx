@@ -1,20 +1,3 @@
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  Button,
-  Card, CardContent, CardHeader, CardTitle,
-  Label,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  PriorityBadge,
-  RadioGroup,
-  RadioGroupItem,
-  ScrollArea,
-  Tabs, TabsContent,
-} from "tentix-ui";
-
 import { apiClient } from "@lib/api-client.ts";
 import { ticketsQueryOptions } from "@lib/query.ts";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -29,7 +12,24 @@ import {
 } from "lucide-react";
 import { getQueryClient } from "src/_provider/tanstack.tsx";
 import { ticketCategoryEnumArray } from "tentix-server/constants";
-import { StatusBadge, toast, useLeftResizablePanel } from "tentix-ui";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Button,
+  Card, CardContent, CardHeader, CardTitle,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  PriorityBadge,
+  RadioGroup,
+  RadioGroupItem,
+  ScrollArea,
+  StatusBadge,
+  Tabs, TabsContent,
+  toast, useLeftResizablePanel,
+} from "tentix-ui";
 import { TicketHistory } from "../tickets/ticket-details-sidebar.tsx";
 
 type NormalCategory = Exclude<

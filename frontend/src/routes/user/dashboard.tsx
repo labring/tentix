@@ -1,10 +1,8 @@
 import { SiteHeader } from "@comp/site-header";
-import { Input } from "tentix-ui";
-import { SidebarInset, SidebarProvider } from "tentix-ui";
 import { UserDashboardSidebar } from "@comp/user/dashboard-sidebar";
-// import { SupportCategories } from "@comp/user/support-categories";
 import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
+import { Input, SidebarInset, SidebarProvider } from "tentix-ui";
 
 export const Route = createFileRoute("/user/dashboard")({
   head: () => ({
@@ -73,7 +71,7 @@ function RouteComponent() {
                 Support by category
               </h2>
               <p className="mt-2 text-muted-foreground">
-                Explore our curated resources to find what you're looking for.
+                Explore our curated resources to find what you&apos;re looking for.
               </p>
               {/* <SupportCategories /> */}
             </div>

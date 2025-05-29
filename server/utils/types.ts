@@ -47,6 +47,7 @@ export function getAbbreviatedText(
   return `${text.slice(0, maxLength)  }...`;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const zodUserRole = createSelectSchema(schema.userRole);
 export type userRoleType = z.infer<typeof zodUserRole>;
 

@@ -1,3 +1,4 @@
+import { logInfo } from "./log.ts";
 import { AppConfig } from "./types.ts";
 
 export function getCntFromEnv() {
@@ -14,7 +15,7 @@ export async function readConfig(): Promise<AppConfig> {
     return global.config;
   }
   const configName = process.env.NODE_ENV === "production" ? "config.prod.json" : "config.dev.json";
-  console.log('Reading config from: ', configName);
+  logInfo('Reading config from: ', configName);
   global.config = await Bun.file(configName).json();
   return global.config!;
 }

@@ -1,4 +1,5 @@
 import { Ellipsis, Loader2Icon, Undo2 } from "lucide-react";
+import { type TicketType } from "tentix-server/rpc";
 import {
   Avatar,
   AvatarFallback,
@@ -7,12 +8,11 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  timeAgo,
   timeFmt,
 } from "tentix-ui";
-import { type TicketType } from "tentix-server/rpc";
 import useLocalUser from "../../hooks/use-local-user.tsx";
-import { timeAgo } from "tentix-ui";
-import { useSessionMembersStore, useChatStore } from "../../store/index.ts";
+import { useChatStore, useSessionMembersStore } from "../../store/index.ts";
 import ContentRenderer from "./content-renderer.tsx";
 
 interface MessageItemProps {

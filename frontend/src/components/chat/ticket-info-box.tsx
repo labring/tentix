@@ -1,11 +1,8 @@
-import { CalendarIcon, ClockIcon, TagIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { Card, CardContent } from "tentix-ui";
-import { Separator } from "tentix-ui";
+import { CalendarIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, TagIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { TicketType } from "tentix-server/rpc";
+import { Button, Card, CardContent, PriorityBadge, Separator, StatusBadge } from "tentix-ui";
 import ContentRenderer from "./content-renderer.tsx";
-import { PriorityBadge, StatusBadge } from "tentix-ui";
-import { useState, useRef, useEffect } from "react";
-import { Button } from "tentix-ui";
 
 export function TicketInfoBox({ ticket }: { ticket: TicketType }) {
   const [isExpanded, setIsExpanded] = useState(false);

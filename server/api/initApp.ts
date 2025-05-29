@@ -3,7 +3,7 @@ import * as schema from "@/db/schema";
 import * as relations from "@/db/relations";
 import { and, gte, lt, count, eq } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { AppConfig } from "@/utils";
+import { AppConfig, logInfo } from "@/utils";
 import i18next from "i18next";
 import { importKeyFromString } from "@/utils/crypto";
 import { readConfig } from "@/utils/env";
@@ -122,7 +122,7 @@ export async function refreshStaffMap(stale: boolean = false) {
     stale ||
     process.env.NODE_ENV !== "production"
   ) {
-    console.log("Staff map not initialized, initializing...");
+    logInfo("Staff map not initialized, initializing...");
     const db = connectDB();
     const agents = (
       await db.query.users.findMany({

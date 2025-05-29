@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { styleText } from "util";
 import { logSuccess, logError, withTaskLog } from "../utils/log.ts";
 import { 
