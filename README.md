@@ -181,6 +181,9 @@ bun run script/getCryptoKey.ts      # Generate encryption keys
 bun run script/initDB.ts            # Initialize database with users
 bun run script/resetDB.ts           # Reset database completely
 bun run script/migrateStaffList.ts  # Migrate staff from Feishu
+
+# Helpful Bash Command
+rm -rf ./**/turbo ./**/node_modules ./**/output ./**/dist
 ```
 
 ### Code Standards

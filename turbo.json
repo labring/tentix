@@ -10,25 +10,43 @@
     "server/src/**/*.ts"
   ],
   "tasks": {
+    "build:types": {
+      "dependsOn": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "server/tsconfig.json",
+        "server/src/**/*.ts"
+      ],
+      "outputs": ["server/output/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["build:types", "^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
+      "outputs": []
+    },
+    "frontend#typecheck": {
+      "dependsOn": ["build:types"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
+      "outputs": []
+    },
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["server/dist"]
     },
-    "build:types": {
-      "dependsOn": ["^build:types"],
-      "inputs": ["$TURBO_DEFAULT$", "server/tsconfig.json", "server/src/**/*.ts"],
-      "outputs": ["server/output/**/*.d.ts"]
-    },
     "frontend#build": {
-      "dependsOn": ["^typecheck"],
+      "dependsOn": ["^typecheck", "build:types"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json", "frontend/src/**/*.tsx"],
-      "outputs": ["server/dist"]
+      "outputs": ["server/dist/**"]
     },
     "tentix-server#build": {
       "dependsOn": ["^typecheck", "frontend#build"],
-      "inputs": ["$TURBO_DEFAULT$","server/tsconfig.json", "server/src/**/*.ts"],
-      "outputs": ["server/dist"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "server/tsconfig.json",
+        "server/src/**/*.ts"
+      ],
+      "outputs": ["server/dist/**"]
     },
     "dev": {
       "cache": false,
@@ -46,12 +64,7 @@
       "inputs": ["$TURBO_DEFAULT$", "eslint.config.*"],
       "outputs": []
     },
-    "typecheck": {
-      "dependsOn": ["^typecheck"],
-      "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
-      "cache": false,
-      "outputs": []
-    },
+
     "test": {
       "dependsOn": ["^test"],
       "inputs": ["$TURBO_DEFAULT$", "vitest.config.*", "jest.config.*"],

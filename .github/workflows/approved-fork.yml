@@ -53,9 +53,6 @@ jobs:
       - name: Run linting
         run: bun run lint
 
-      - name: Run type checking
-        run: bun run typecheck || echo "Type checking not configured"
-
       - name: Run tests
         if: github.event.inputs.run_full_tests == 'true'
         run: bun run test
