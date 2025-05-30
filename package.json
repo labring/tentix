@@ -33,7 +33,7 @@
   "devDependencies": {
     "@tanstack/react-query": "^5.74.4",
     "@types/bun": "^1.2.12",
-    "@types/node": "^20",
+    "@types/node": "^22",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "drizzle-orm": "0.43.1",
