@@ -3,12 +3,12 @@ import * as schema from "@/db/schema";
 import * as relations from "@/db/relations";
 import { and, gte, lt, count, eq } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { AppConfig } from "@/utils";
+import { AppConfig, logInfo } from "@/utils";
 import i18next from "i18next";
 import { importKeyFromString } from "@/utils/crypto";
 import { readConfig } from "@/utils/env";
 
-export type AppSchema = typeof schema & typeof relations;
+type AppSchema = typeof schema & typeof relations;
 
 declare global {
   // eslint-disable-next-line no-var -- only var works here
@@ -49,7 +49,7 @@ export async function initGlobalVariables() {
 }
 
 // Reset the daily counter at midnight
-export function resetDailyCounterAtMidnight() {
+function resetDailyCounterAtMidnight() {
   const now = new Date();
   const night = new Date(
     now.getFullYear(),
@@ -78,7 +78,7 @@ export function changeAgentTicket(id: number, type: "increment" | "decrement") {
   global.staffMap = staffMap;
 }
 
-export async function initTodayTicketCount() {
+async function initTodayTicketCount() {
   // Get today's ticket count for numbering
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -122,7 +122,7 @@ export async function refreshStaffMap(stale: boolean = false) {
     stale ||
     process.env.NODE_ENV !== "production"
   ) {
-    console.log("Staff map not initialized, initializing...");
+    logInfo("Staff map not initialized, initializing...");
     const db = connectDB();
     const agents = (
       await db.query.users.findMany({

@@ -1,4 +1,5 @@
 import { readConfig } from "../env.ts";
+import { logError } from "../log.ts";
 import { FeishuDepartmentsInfo } from "./feishu.type.ts";
 
 type cardType = {
@@ -8,7 +9,7 @@ type cardType = {
     data: {
       template_id: string;
       template_version_name: string;
-      template_variable?: Record<string, any>;
+      template_variable?: Record<string, unknown>;
     };
   };
 };
@@ -121,7 +122,7 @@ export async function sendFeishuMsg(
 
 
 const proxyHandler = {
-  apply: async function (
+  async apply (
     target: typeof fetch,
     _this: unknown,
     argumentsList: Parameters<typeof fetch>,
@@ -148,7 +149,7 @@ const proxyHandler = {
 
         if (!res.ok) {
           const cause = await res.json();
-          console.error(
+          logError(
             `Attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`,
             cause,
           );
@@ -166,7 +167,7 @@ const proxyHandler = {
           break;
         }
         const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-        console.error(
+        logError(
           `Retrying in ${delay}ms... (Attempt ${attempt + 1}/${MAX_RETRIES})`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
@@ -264,7 +265,7 @@ export async function getFeishuUserInfoByDepartment(
   msg: string;
   data: {
     has_more: boolean;
-    page_token?: string;
+    pageToken?: string;
     items: {
       avatar: {
         avatar_240: string;
@@ -287,12 +288,12 @@ export async function getFeishuUserInfoByDepartment(
 
   async function fetchPage(pageToken?: string) {
     const url = new URL(
-      `https://open.feishu.cn/open-apis/contact/v3/users/find_by_department?department_id_type=open_department_id&page_size=50`,
+      `https://open.feishu.cn/open-apis/contact/v3/users/find_by_department?department_id_type=open_department_id&pageSize=50`,
     );
     url.searchParams.append("user_id_type", userIdType);
     url.searchParams.append("department_id", departmentId);
     if (pageToken) {
-      url.searchParams.append("page_token", pageToken);
+      url.searchParams.append("pageToken", pageToken);
     }
 
     const res = await myFetch(url, {
@@ -305,8 +306,8 @@ export async function getFeishuUserInfoByDepartment(
       allItems.push(...data.data.items);
     }
 
-    if (data.data.has_more && data.data.page_token) {
-      await fetchPage(data.data.page_token);
+    if (data.data.has_more && data.data.pageToken) {
+      await fetchPage(data.data.pageToken);
     }
 
     return data;

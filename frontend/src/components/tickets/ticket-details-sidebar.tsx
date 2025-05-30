@@ -1,6 +1,5 @@
-import { Avatar, AvatarFallback, AvatarImage } from "tentix-ui";
-import { Card, CardContent, CardHeader, CardTitle } from "tentix-ui";
-import { ScrollArea } from "tentix-ui";
+import { useSessionMembersStore } from "@store/index";
+import { joinTrans } from "i18n";
 import {
   ArrowUpCircleIcon,
   CheckCircleIcon,
@@ -9,14 +8,10 @@ import {
   PlusIcon,
   XIcon,
 } from "lucide-react";
-
-import { timeAgo } from "tentix-ui";
-import { type TicketType } from "tentix-server/rpc";
-import { useSessionMembersStore } from "@store/index";
 import { useTranslation } from "react-i18next";
-import { PriorityBadge, StatusBadge } from "tentix-ui";
-import { joinTrans } from "i18n";
 import { getEnumKey, ticketCategoryEnumArray, ticketPriorityEnumArray } from "tentix-server/constants";
+import { type TicketType } from "tentix-server/rpc";
+import { Avatar, AvatarFallback, AvatarImage, Card, CardContent, CardHeader, CardTitle, PriorityBadge, ScrollArea, StatusBadge, timeAgo } from "tentix-ui";
 
 function IconforHistory({
   type,

@@ -4,7 +4,7 @@ import { cn } from "@lib/utils";
 import {
   type JSONContentZod,
   type ticketInsertType,
-} from "@server/utils/types.ts";
+} from "tentix-server/types";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -35,15 +35,8 @@ import {
 export function TicketForm() {
   const { t } = useTranslation();
   const { area } = useLocalUser();
-  const [agreementChecked, setAgreementChecked] = useState<boolean>(true);
-  const [agreementOpen, setAgreementOpen] = useState<boolean>(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  const handleAgreementConfirm = () => {
-    setAgreementChecked(true);
-    setAgreementOpen(false);
-  };
 
   const {
     handleSubmit,
@@ -55,7 +48,7 @@ export function TicketForm() {
     mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
-      area: area,
+      area,
     },
   });
 
@@ -243,43 +236,6 @@ export function TicketForm() {
                 </div>
               </div>
 
-              {/* <div className="space-y-2">
-                <Label>
-                  {joinTrans([t("tkt"), t("type")])}{" "}
-                  <span className="text-red-500">*</span>
-                </Label>
-                <Controller
-                  control={control}
-                  name="category"
-                  render={({ field }) => (
-                    <RadioGroup
-                      defaultValue="bug"
-                      className="grid grid-cols-2 gap-2 pt-1 md:grid-cols-4 max-w-96"
-                      required
-                      {...field}
-                      onValueChange={field.onChange}
-                    >
-                      {ticketCategoryEnumArray.map((category) => (
-                        <div key={category}>
-                          <RadioGroupItem
-                            value={category}
-                            id={category}
-                            className="peer sr-only"
-                          />
-                          <Label
-                            htmlFor={category}
-                            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 text-xs hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                          >
-                            {IconMap[category]}
-                            {t(category)}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  )}
-                />
-              </div> */}
-
               <div className="space-y-2">
                 <Label htmlFor="description">
                   {t("desc")} <span className="text-red-500">*</span>
@@ -358,18 +314,10 @@ export function TicketForm() {
             className="ml-auto"
             // disabled={createTicketMutation.isPending}
           >
-           { t("submitting")}
-            {/* {createTicketMutation.isPending 
-              ?  
-              : joinTrans([t("submit"), t("tkt")])} */}
+           { t("submit")}
           </Button>
         </div>
       </form>
-      {/* <ServiceAgreementModal
-        open={agreementOpen}
-        onOpenChange={setAgreementOpen}
-        onConfirm={handleAgreementConfirm}
-      /> */}
     </div>
   );
 }

@@ -11,7 +11,6 @@ import {
   serial,
   smallint,
   text,
-  time,
   timestamp,
   unique,
   varchar,

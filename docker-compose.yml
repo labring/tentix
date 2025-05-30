@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  tentix:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: tentix-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - tentix-network
+
+  # Development service
+  tentix-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    container_name: tentix-dev
+    ports:
+      - "3000:3000"
+      - "5173:5173"  # Vite dev server
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/frontend/node_modules
+      - /app/server/node_modules
+    command: bun run dev
+    networks:
+      - tentix-network
+    profiles:
+      - dev
+
+networks:
+  tentix-network:
+    driver: bridge 

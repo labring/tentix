@@ -167,7 +167,7 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       style={{
-        width: 248.8 * (columnsDisplayed ?? 1) + "px",
+        width: `${248.8 * (columnsDisplayed ?? 1)  }px`,
       }}
       classNames={{
         months: _monthsClassName,
@@ -398,7 +398,7 @@ function CaptionLabel({
     >
       {navView === "days"
         ? children
-        : displayYears.from + " - " + displayYears.to}
+        : `${displayYears.from  } - ${  displayYears.to}`}
     </Button>
   )
 }

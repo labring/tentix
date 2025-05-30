@@ -1,20 +1,14 @@
-import "./styles/index.css";
-
-import type { Content } from "@tiptap/react";
 import { EditorContent } from "@tiptap/react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { cn } from "uisrc/lib/utils.ts";
-// import { useMessageTypeStore } from "tentix-ui/store";
-// import { KnowledgeBase } from "../knowledge-base.tsx";
-// import { TemplateReplies } from "../template-replies.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group.tsx";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
 import { MeasuredContainer } from "./components/measured-container.tsx";
 import { SectionTwo } from "./components/section/two.tsx";
-import type { UseMinimalTiptapEditorProps } from "./hooks/use-minimal-tiptap.ts";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
-import { forwardRef, useImperativeHandle, useState } from "react";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
+import "./styles/index.css";
 
 export interface EditorRef {
   isInternal: boolean;

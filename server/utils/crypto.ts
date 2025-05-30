@@ -1,3 +1,5 @@
+import { logError } from "./log";
+
 const crypto = globalThis.crypto;
 
 /**
@@ -27,8 +29,7 @@ async function importKeyFromString(keyStr: string): Promise<CryptoKey> {
     const keyBuffer = base64ToArrayBuffer(keyStr);
     return crypto.subtle.importKey('raw', keyBuffer, 'AES-CBC', false, ['encrypt', 'decrypt']);
   } catch (error) {
-    console.log('Read keyStr: ', keyStr);
-    console.error('Failed to import encryption key from base64 string:', error);
+    logError('Failed to import encryption key from base64 string:', error);
     throw error;
   }
 }
@@ -42,7 +43,7 @@ async function getEncryptionKey(): Promise<CryptoKey> {
     try {
       return await importKeyFromString(envKey);
     } catch (error) {
-      console.error('Failed to import encryption key from environment variable:', error);
+      logError('Failed to import encryption key from environment variable:', error);
     }
   }
   return generateAesKey();
@@ -131,7 +132,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   }
   return bytes.buffer;
   } catch (error) {
-    console.error('Failed to convert base64 to ArrayBuffer:', base64);
+    logError('Failed to convert base64 to ArrayBuffer:', base64);
     throw error;
   }
 }

@@ -3,31 +3,48 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "make build",
+    "build": "turbo typecheck build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "start": "bun server/index.ts",
+    "typecheck": "turbo typecheck",
+    "start": "bun server/dist/server.js",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "clean": "rm -rf ./**/node_modules && rm -rf ./**/dist"
+    "clean": "rm -rf ./**/node_modules && rm -rf ./**/dist",
+    "docker-debug": "docker build --no-cache --progress=plain  . &> build.log"
   },
-  "workspaces": [
-    "packages/*",
-    "frontend",
-    "server"
-  ],
+  "workspaces": {
+    "packages": [
+      "packages/*",
+      "frontend",
+      "server"
+    ],
+    "catalog": {
+      "react": "^19.0.0",
+      "react-dom": "^19.0.0",
+      "react-hook-form": "^7.56.1",
+      "@types/react": "^19",
+      "@types/react-dom": "^19",
+      "typescript": "^5.8.3",
+      "@types/node": "^20",
+      "@types/bun": "^1.2.14",
+      "tailwindcss": "^4.0.8"
+    }
+  },
   "devDependencies": {
     "@tanstack/react-query": "^5.74.4",
-    "drizzle-orm": "0.43.1",
-    "@types/node": "^20",
-    "tentix-ui": "workspace:*",
-    "i18n": "workspace:*",
     "@types/bun": "^1.2.12",
+    "@types/node": "^20",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "drizzle-orm": "0.43.1",
+    "eslint": "^9.27.0",
+    "i18n": "workspace:*",
     "prettier": "^3.5.1",
     "tentix-server": "workspace:*",
+    "tentix-ui": "workspace:*",
     "turbo": "^2.5.3",
-    "typescript": "5.8.3"
+    "typescript": "catalog:",
+    "typescript-eslint": "^8.32.1"
   },
   "packageManager": "bun@1.2.14",
   "engines": {

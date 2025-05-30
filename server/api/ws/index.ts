@@ -1,12 +1,21 @@
+/* eslint-disable drizzle/enforce-delete-with-where */
 import { WS_TOKEN_EXPIRY_TIME } from "@/utils/const.ts";
 import {
   connectDB,
-  plainTextToJSONContent,
+  logError,
+  logInfo,
+  markdownToTipTapJSON,
   saveMessageReadStatus,
   saveMessageToDb,
   withdrawMessage,
 } from "@/utils/index.ts";
-import { extractText, JSONContentZod, userRoleType } from "@/utils/types.ts";
+import {
+  extractText,
+  JSONContentZod,
+  userRoleType,
+  wsMessageSchema,
+  WSMessage,
+} from "@/utils/types.ts";
 import { zValidator } from "@hono/zod-validator";
 import { type ServerWebSocket } from "bun";
 import { describeRoute } from "hono-openapi";
@@ -17,8 +26,6 @@ import type { WSContext } from "hono/ws";
 import { z } from "zod";
 import { authMiddleware, factory } from "../middleware.ts";
 import { UUID } from "crypto";
-// Message type definitions for WebSocket communication
-import { wsMessageSchema, WSMessage } from "@/utils/types.ts";
 import { and, count, eq } from "drizzle-orm";
 import * as schema from "@/db/schema.ts";
 import { MyCache } from "@/utils/cache.ts";
@@ -30,7 +37,6 @@ type wsInstance = WSContext<ServerWebSocket<undefined>>;
 // Connection management constants
 const HEARTBEAT_INTERVAL = 30000; // Send heartbeat every 30 seconds
 const HEARTBEAT_TIMEOUT = 10000; // Wait 10 seconds for heartbeat response
-const MAX_RECONNECT_DELAY = 30000; // Maximum reconnection delay of 30 seconds
 
 // Connection state tracking
 interface ConnectionState {
@@ -137,7 +143,7 @@ const roomsMap = new Map<string, Map<string, wsInstance>>(); // roomId -> set of
 // Helper function to broadcast a message to all clients in a room
 const broadcastToRoom = (
   roomId: string,
-  message: any,
+  message: WSMessage,
   excludeClientId?: string | string[],
 ) => {
   const room = roomsMap.get(roomId);
@@ -178,6 +184,7 @@ const roomCustomerMap = new Map<string, UUID>();
 // WebSocket setup
 const { upgradeWebSocket, websocket } = createBunWebSocket<ServerWebSocket>();
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 namespace aiHandler {
   // Cache to track AI response counts for each ticket
   const aiResponseCountCache = new NodeCache({
@@ -236,10 +243,11 @@ namespace aiHandler {
         }),
       2000,
       async (result) => {
+        const JSONContent = markdownToTipTapJSON(result);
         const savedAIMessage = await saveMessageToDb(
           ticketId,
           1,
-          plainTextToJSONContent(result),
+          JSONContent,
           false,
         );
         if (!savedAIMessage) {
@@ -254,12 +262,12 @@ namespace aiHandler {
           roomId: ticketId,
           userId: 1,
           content: savedAIMessage.content,
-          timestamp: savedAIMessage.createdAt,
+          timestamp: Date.now(),
           isInternal: false,
         });
       },
       (error: unknown) => {
-        console.error("Error handling AI response:", error);
+        logError("Error handling AI response:", error);
         ws.send(
           JSON.stringify({
             type: "error",
@@ -376,7 +384,7 @@ const wsRouter = factory
 
       return {
         async onOpen(evt, ws) {
-          console.log(`Client connected: ${clientId}, UserId: ${userId}`);
+          logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
           await addClientToRoom(ticketId, clientId, ws);
 
           // Initialize connection state and start heartbeat
@@ -386,7 +394,7 @@ const wsRouter = factory
             ticketId,
             {
               type: "user_joined",
-              userId: userId,
+              userId,
               roomId: ticketId,
               timestamp: Date.now(),
             },
@@ -395,8 +403,7 @@ const wsRouter = factory
 
           if (role === "customer") {
             roomCustomerMap.set(ticketId, clientId);
-            const currentCount =
-              await aiHandler.getCurrentAIMsgCount(ticketId);
+            const currentCount = await aiHandler.getCurrentAIMsgCount(ticketId);
             if (currentCount === 0) {
               const db = connectDB();
               db.query.tickets
@@ -446,7 +453,7 @@ const wsRouter = factory
                   details: validationResult.error.errors,
                 }),
               );
-              console.error(
+              logError(
                 "Invalid message format:",
                 validationResult.error.errors,
               );
@@ -468,7 +475,7 @@ const wsRouter = factory
                 handleHeartbeat(clientId);
                 break;
 
-              case "message":
+              case "message": {
                 // Check if connection is alive
                 const state = connectionStates.get(clientId);
                 if (!state?.isAlive) {
@@ -528,10 +535,10 @@ const wsRouter = factory
                       type: "new_message",
                       messageId: messageResult.id,
                       roomId: ticketId,
-                      userId: userId,
+                      userId,
                       content: parsedMessage.content,
-                      timestamp: messageResult.createdAt,
-                      isInternal: parsedMessage.isInternal,
+                      timestamp: Date.now(),
+                      isInternal: parsedMessage.isInternal ?? false,
                     },
                     broadcastExclude,
                   );
@@ -556,8 +563,8 @@ const wsRouter = factory
                   );
                 }
                 break;
-
-              case "typing":
+              }
+              case "typing": {
                 // Check if connection is alive
                 const typingState = connectionStates.get(clientId);
                 if (!typingState?.isAlive) {
@@ -574,15 +581,15 @@ const wsRouter = factory
                   ticketId,
                   {
                     type: "user_typing",
-                    userId: userId,
+                    userId,
                     roomId: ticketId,
                     timestamp: Date.now(),
                   },
                   clientId, // Exclude sender
                 );
                 break;
-
-              case "message_read":
+              }
+              case "message_read": {
                 if (!parsedMessage.messageId) {
                   ws.send(
                     JSON.stringify({
@@ -604,12 +611,13 @@ const wsRouter = factory
                   broadcastToRoom(ticketId, {
                     type: "message_read_update",
                     messageId: parsedMessage.messageId,
-                    userId: userId,
+                    userId,
                     readAt: readStatus.readAt,
                   });
                 }
                 break;
-              case "agent_first_message":
+              }
+              case "agent_first_message": {
                 if (role === "agent") {
                   const db = connectDB();
                   db.transaction(async (tx) => {
@@ -620,7 +628,7 @@ const wsRouter = factory
                       })
                       .where(eq(schema.tickets.id, ticketId));
                     await tx.insert(schema.ticketHistory).values({
-                      ticketId: ticketId,
+                      ticketId,
                       type: "first_reply",
                       meta: 0,
                       operatorId: userId,
@@ -628,8 +636,8 @@ const wsRouter = factory
                   });
                 }
                 break;
-
-              case "withdraw_message":
+              }
+              case "withdraw_message": {
                 // Withdraw the message
                 const withdrawnMessage = await withdrawMessage(
                   parsedMessage.messageId,
@@ -650,7 +658,7 @@ const wsRouter = factory
                       type: "message_withdrawn",
                       messageId: withdrawnMessage.id,
                       roomId: ticketId,
-                      userId: userId,
+                      userId,
                       timestamp: Date.now(),
                       isInternal: withdrawnMessage.isInternal,
                     },
@@ -666,9 +674,10 @@ const wsRouter = factory
                   );
                 }
                 break;
+              }
             }
           } catch (error) {
-            console.error("Error handling WebSocket message:", error);
+            logError("Error handling WebSocket message:", error);
             ws.send(
               JSON.stringify({
                 type: "error",
@@ -692,7 +701,7 @@ const wsRouter = factory
               ticketId,
               {
                 type: "user_left",
-                userId: userId,
+                userId,
                 roomId: ticketId,
                 timestamp: Date.now(),
               },
@@ -704,7 +713,7 @@ const wsRouter = factory
               roomsMap.delete(ticketId);
             }
           }
-          console.log(`Client disconnected: ${clientId}`);
+          logInfo(`Client disconnected: ${clientId}`);
         },
       };
     }),

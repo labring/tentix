@@ -3,7 +3,7 @@ import { MessageInput } from "./message-input.js";
 import { MessageList } from "../message-list.tsx";
 import { TicketInfoBox } from "../ticket-info-box.tsx";
 import { useTicketWebSocket } from "@hook/use-ticket-websocket";
-import { type JSONContentZod } from "@server/utils/types.ts";
+import { type JSONContentZod } from "tentix-server/types";
 import useLocalUser from "@hook/use-local-user.tsx";
 import { useSessionMembersStore, useChatStore } from "@store/index";
 import { type TicketType } from "tentix-server/rpc";

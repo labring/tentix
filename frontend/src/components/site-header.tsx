@@ -1,7 +1,5 @@
-import { Button } from "tentix-ui";
-import { Separator } from "tentix-ui";
-import { SidebarTrigger } from "tentix-ui";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { Button, Separator, SidebarTrigger } from "tentix-ui";
 
 interface SiteHeaderProps {
   title?: string;

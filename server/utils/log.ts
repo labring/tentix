@@ -1,31 +1,32 @@
+/* eslint-disable no-console */
 import { styleText } from "util";
 
 type LogLevel = "info" | "success" | "warning" | "error" | "debug" | "start";
 
 interface LogStyle {
-  text: string[];
-  bg?: string[];
+  text: Parameters<typeof styleText>[0];
+  bg?: Parameters<typeof styleText>[0];
 }
 
 const LOG_STYLES: Record<LogLevel, LogStyle> = {
-  info: { 
-    text: ["blueBright", "bold"]
+  info: {
+    text: ["blueBright", "bold"],
   },
-  success: { 
-    text: ["green", "bold"]
+  success: {
+    text: ["green", "bold"],
   },
-  warning: { 
-    text: ["yellow", "bold"]
+  warning: {
+    text: ["yellow", "bold"],
   },
-  error: { 
+  error: {
     text: ["white", "bold"],
-    bg: ["bgRed"]
+    bg: "bgRed",
   },
-  debug: { 
-    text: ["magentaBright", "bold"]
+  debug: {
+    text: ["magentaBright", "bold"],
   },
-  start: { 
-    text: ["cyanBright", "bold"]
+  start: {
+    text: ["cyanBright", "bold"],
   },
 };
 
@@ -33,14 +34,24 @@ const LOG_STYLES: Record<LogLevel, LogStyle> = {
  * Base logging function that applies consistent styling
  */
 function logWithStyle(level: LogLevel, message: string, prefix?: string) {
+  if (process.env.NODE_ENV === "production") {
+    if (["error", "warning"].includes(level)) {
+      console.error(message);
+    } else {
+      console.log(message);
+    }
+    return;
+  }
   const style = LOG_STYLES[level];
   const timestamp = new Date().toLocaleTimeString();
-  const formattedMessage = prefix 
+  const formattedMessage = prefix
     ? `[${timestamp}] ${prefix} ${message}`
     : `[${timestamp}] ${message}`;
-  
-  // @ts-ignore
-  console.log(styleText([...(style.bg || []), ...style.text], formattedMessage));
+  const styles = [...style.text, style.bg];
+
+  console.log(
+    styleText(styles as Parameters<typeof styleText>[0], formattedMessage),
+  );
 }
 
 /**
@@ -113,4 +124,4 @@ export async function withTaskLog<T>(
     logError(`${taskName} failed!`, error);
     throw error;
   }
-} 
+}

@@ -1,23 +1,19 @@
-import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { useMutation } from "@tanstack/react-query"
-import { toast } from "tentix-ui"
-import { useTranslation } from "i18n"
-
-import { Button } from "tentix-ui"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { updateTicketStatus } from "@lib/query";
+import { useMutation } from "@tanstack/react-query";
+import { useBoolean } from "ahooks";
+import { useTranslation } from "i18n";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { ticketStatusEnumArray } from "tentix-server/constants";
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "tentix-ui"
-import { RadioGroup, RadioGroupItem } from "tentix-ui"
-import { Textarea } from "tentix-ui"
-import {
   Form,
   FormControl,
   FormDescription,
@@ -25,32 +21,34 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "tentix-ui"
-
-import { useBoolean } from "ahooks"
-import { updateTicketStatus } from "@lib/query"
-import { Label } from "tentix-ui"
-import { ticketStatusEnumArray } from "tentix-server/constants"
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+  Textarea, toast
+} from "tentix-ui";
+import { z } from "zod";
 
 // Define the form schema with zod
 const updateStatusFormSchema = z.object({
   status: z.enum(ticketStatusEnumArray, {
     required_error: "Please select a status",
   }),
-  reason: z.string({
-    required_error: "Please provide a reason for status change",
-  }).min(3, {
-    message: "Reason must be at least 3 characters",
-  }),
-})
+  reason: z
+    .string({
+      required_error: "Please provide a reason for status change",
+    })
+    .min(3, {
+      message: "Reason must be at least 3 characters",
+    }),
+});
 
 // Define the form values type
-type UpdateStatusFormValues = z.infer<typeof updateStatusFormSchema>
+type UpdateStatusFormValues = z.infer<typeof updateStatusFormSchema>;
 
 export function useUpdateStatusModal() {
-  const [state, { set, setTrue, setFalse }] = useBoolean(false)
-  const [ticketId, setTicketId] = useState<string>("")
-  const { t } = useTranslation()
+  const [state, { set, setTrue, setFalse }] = useBoolean(false);
+  const [ticketId, setTicketId] = useState<string>("");
+  const { t } = useTranslation();
 
   // Initialize form with React Hook Form
   const form = useForm<UpdateStatusFormValues>({
@@ -59,7 +57,7 @@ export function useUpdateStatusModal() {
       status: undefined,
       reason: "",
     },
-  })
+  });
 
   // Setup mutation for updating the ticket status
   const updateStatusMutation = useMutation({
@@ -80,7 +78,7 @@ export function useUpdateStatusModal() {
         variant: "destructive",
       });
     },
-  })
+  });
 
   // Handle form submission
   const onSubmit = (values: UpdateStatusFormValues) => {
@@ -89,7 +87,7 @@ export function useUpdateStatusModal() {
       status: values.status,
       description: values.reason,
     });
-  }
+  };
 
   // Function to open the update status modal
   function openUpdateStatusModal(ticketId: string, currentStatus: string) {
@@ -152,7 +150,7 @@ export function useUpdateStatusModal() {
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="reason"
@@ -165,14 +163,12 @@ export function useUpdateStatusModal() {
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription>
-                    {t("status_change_desc")}
-                  </FormDescription>
+                  <FormDescription>{t("status_change_desc")}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <DialogFooter className="pt-4">
               <Button
                 type="button"
@@ -184,16 +180,20 @@ export function useUpdateStatusModal() {
               </Button>
               <Button
                 type="submit"
-                disabled={!form.formState.isValid || updateStatusMutation.isPending}
+                disabled={
+                  !form.formState.isValid || updateStatusMutation.isPending
+                }
               >
-                {updateStatusMutation.isPending ? t("updating") : t("update_status")}
+                {updateStatusMutation.isPending
+                  ? t("updating")
+                  : t("update_status")}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 
   return {
     state,
@@ -201,5 +201,5 @@ export function useUpdateStatusModal() {
     closeUpdateStatusModal: setFalse,
     updateStatusModal: modal,
     isUpdatingStatus: updateStatusMutation.isPending,
-  }
-} 
+  };
+}

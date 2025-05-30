@@ -17,7 +17,7 @@ export const Route = createFileRoute('/staff')({
       window.location.href = location.pathname
     }
     if (search.token === undefined && !context.authContext.isAuthenticated) {
-      window.location.href = '/api/feishu/login?redirect=' + location.href;
+      window.location.href = `/api/feishu/login?redirect=${  location.href}`;
       return;
     }
     if (context.authContext.user?.role === 'customer') {

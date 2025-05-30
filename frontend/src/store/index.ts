@@ -1,6 +1,5 @@
 import { type TicketType } from "tentix-server/rpc";
 import { create } from "zustand";
-export * from "./ticket-favorites.ts";
 interface TicketStore {
   ticket: TicketType | null;
   setTicket: (newTicket: TicketType) => void;
@@ -11,7 +10,7 @@ export const useTicketStore = create<TicketStore>((set) => ({
   setTicket: (newTicket: TicketType) => set({ ticket: newTicket }),
 }));
 
-export type BasicUser = TicketType["agent"];
+type BasicUser = TicketType["agent"];
 
 const aiBasicUser: BasicUser = {
   id: 1,

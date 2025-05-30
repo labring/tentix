@@ -1,8 +1,6 @@
 import * as React from "react";
-import type { Editor } from "@tiptap/react";
-import type { Content, UseEditorOptions } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
-import { useEditor } from "@tiptap/react";
+import { useEditor, type Editor, type Content, type UseEditorOptions } from "@tiptap/react";
 import { Typography } from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { Underline } from "@tiptap/extension-underline";

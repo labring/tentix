@@ -1,18 +1,16 @@
 import "./styles/index.css"
 
-import type { Content, Editor } from "@tiptap/react"
-import type { UseMinimalTiptapEditorProps } from "./hooks/use-minimal-tiptap.ts"
-import { EditorContent } from "@tiptap/react"
-import { Separator } from "../ui/separator"
+import { type Content, Editor, EditorContent } from "@tiptap/react"
 import { cn } from "uisrc/lib/utils.ts"
-import { SectionOne } from "./components/section/one.tsx"
-import { SectionTwo } from "./components/section/two.tsx"
-import { SectionThree } from "./components/section/three.tsx"
-import { SectionFour } from "./components/section/four.tsx"
-import { SectionFive } from "./components/section/five.tsx"
+import { Separator } from "../ui/separator"
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx"
-import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts"
 import { MeasuredContainer } from "./components/measured-container.tsx"
+import { SectionFive } from "./components/section/five.tsx"
+import { SectionFour } from "./components/section/four.tsx"
+import { SectionOne } from "./components/section/one.tsx"
+import { SectionThree } from "./components/section/three.tsx"
+import { SectionTwo } from "./components/section/two.tsx"
+import { useMinimalTiptapEditor, type UseMinimalTiptapEditorProps } from "./hooks/use-minimal-tiptap.ts"
 
 export interface MinimalTiptapProps
   extends Omit<UseMinimalTiptapEditorProps, "onUpdate"> {

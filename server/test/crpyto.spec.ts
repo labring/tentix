@@ -2,9 +2,7 @@ import { expect, test } from "bun:test";
 import {
   generateAesKey,
   exportKeyToString,
-  importKeyFromString,
-  getEncryptionKey,
-  aesEncrypt,
+  importKeyFromString, aesEncrypt,
   aesEncryptToString,
   aesDecrypt,
   aesDecryptFromString,

@@ -1,4 +1,5 @@
-import { and, eq, inArray, sql, Table } from "drizzle-orm";
+/* eslint-disable no-console */
+import { and, inArray, sql, Table } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { PgSchema } from "drizzle-orm/pg-core";
 import { reset } from "drizzle-seed";
@@ -15,7 +16,6 @@ import {
   ticketHistoryTypeEnumArray,
   ticketPriorityEnumArray,
   ticketStatusEnumArray,
-  userRoleEnumArray,
 } from "../utils/const.ts";
 import { readConfig } from "../utils/env.ts";
 import { myNanoId } from "@/utils/runtime.ts";
@@ -75,7 +75,7 @@ function generateContentBlock(): JSONContent {
         });
         break;
       }
-      case "image":
+      case "image": {
         // prevent Cumulative Layout Shift
         const width = getRandomInt(200, 500);
         const height = getRandomInt(150, 300);
@@ -93,7 +93,8 @@ function generateContentBlock(): JSONContent {
           },
         });
         break;
-      case "codeBlock":
+      }
+      case "codeBlock": {
         content.push({
           type: "codeBlock",
           attrs: {
@@ -112,6 +113,7 @@ function generateContentBlock(): JSONContent {
           ],
         });
         break;
+      }
       case "orderedList": {
         const items = Array.from({ length: getRandomInt(2, 4) }, () => ({
           type: "listItem",
@@ -365,7 +367,7 @@ async function main() {
             const technicianId = getRandomElement(technicians);
             return technicianId;
           }
-          let technicianIds: number[] = [];
+          const technicianIds: number[] = [];
           if (Math.random() < 0.7) {
             const technicianId = addTechnician();
             technicianIds.push(technicianId);

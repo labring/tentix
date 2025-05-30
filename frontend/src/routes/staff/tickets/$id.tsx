@@ -17,13 +17,13 @@ export const Route = createFileRoute("/staff/tickets/$id")({
   loader: async ({ context: { queryClient, authContext }, params }) => {
     return {
       data: await queryClient.ensureQueryData(
-        userTicketsQueryOptions(authContext.user!.id.toString()),
+        userTicketsQueryOptions(),
       ),
       ticket: await queryClient.ensureQueryData(ticketsQueryOptions(params.id)),
       token: await queryClient.ensureQueryData(
         wsTokenQueryOptions(authContext.user!.id.toString()),
       ),
-      authContext: authContext,
+      authContext,
     };
   },
   head: ({ params }) => ({
@@ -52,7 +52,7 @@ function RouteComponent() {
 
   return (
     <SidebarProvider>
-      <StaffTicketSidebar currentTicketId={id} tickets={data} />
+      <StaffTicketSidebar currentTicketId={id} tickets={data.tickets} />
       <SidebarInset className="max-h-svh" style={{
           scrollbarGutter: 'stable both-edges',
           overflowY: 'clip',

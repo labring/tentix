@@ -1,6 +1,5 @@
-import React from "react"
-import { useRef } from "react"
 import { GripVerticalIcon } from "lucide-react"
+import React, { useRef } from "react"
 import { useResizablePanel } from "./use-resizable-panel.ts"
 
 export function useLeftResizablePanel(

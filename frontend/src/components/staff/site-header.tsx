@@ -1,12 +1,10 @@
-import { Button } from "tentix-ui";
-import { Separator } from "tentix-ui";
-import { SidebarTrigger } from "tentix-ui";
+import { useRaiseReqModal } from "@modal/use-raise-req-modal";
+import { useTransferModal } from "@modal/use-transfer-modal";
+import { useUpdateStatusModal } from "@modal/use-update-status-modal";
+import { useTranslation } from "i18n";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type TicketType } from "tentix-server/rpc";
-import { useTransferModal } from "@modal/use-transfer-modal"
-import { useRaiseReqModal } from "@modal/use-raise-req-modal"
-import { useUpdateStatusModal } from "@modal/use-update-status-modal"
-import { useTranslation } from "i18n";
+import { Button, Separator, SidebarTrigger } from "tentix-ui";
 
 
 interface SiteHeaderProps {

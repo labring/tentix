@@ -1,17 +1,14 @@
 import "./styles/index.css";
 
-import type { Content, Editor } from "@tiptap/react";
-import type { UseMinimalTiptapEditorProps } from "./hooks/use-minimal-tiptap.ts";
-import { EditorContent } from "@tiptap/react";
-import { cn } from "uisrc/lib/utils.ts";
-import { SectionTwo } from "./components/section/two.tsx";
-import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
-import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
-import { MeasuredContainer } from "./components/measured-container.tsx";
+import { Editor, EditorContent } from "@tiptap/react";
 import { forwardRef, useImperativeHandle } from "react";
+import { cn } from "uisrc/lib/utils.ts";
+import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
+import { MeasuredContainer } from "./components/measured-container.tsx";
+import { SectionTwo } from "./components/section/two.tsx";
+import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 import type { EditorRef } from "./staff-chat-editor.tsx";
-
 
 export const Toolbar = ({ editor }: { editor: Editor }) => (
   <div className="border-border flex h-8 shrink-0 overflow-x-auto border-t p-1">
@@ -29,7 +26,7 @@ export const Toolbar = ({ editor }: { editor: Editor }) => (
 export const UserChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
   function ChatEditor(
     { value, onChange, className, editorContentClassName, ...props },
-    ref
+    ref,
   ) {
     const editor = useMinimalTiptapEditor({
       value,
@@ -66,7 +63,7 @@ export const UserChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
         <LinkBubbleMenu editor={editor} />
       </MeasuredContainer>
     );
-  }
+  },
 );
 
 UserChatEditor.displayName = "ChatEditor";

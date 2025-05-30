@@ -1,9 +1,7 @@
-import { type JSONContentZod } from "@server/utils/types";
+import { type JSONContentZod } from "tentix-server/types";
 import { Loader2Icon, SendIcon } from "lucide-react";
-import React from "react";
-import { useRef, useState } from "react";
-import { UserChatEditor, type EditorRef } from "tentix-ui";
-import { Button } from "tentix-ui";
+import React, { useRef, useState } from "react";
+import { Button, UserChatEditor, type EditorRef } from "tentix-ui";
 
 interface MessageInputProps {
   onSendMessage: (content: JSONContentZod) => void;

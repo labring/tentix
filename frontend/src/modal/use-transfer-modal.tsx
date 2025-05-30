@@ -1,41 +1,26 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { staffListQueryOptions, useSuspenseQuery } from "@lib/query";
+import { useMutation } from "@tanstack/react-query";
+import { useBoolean } from "ahooks";
+import { useTranslation } from "i18n";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "tentix-ui";
-import { useTranslation } from "i18n";
-
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage,
-} from "tentix-ui";
-import { Button } from "tentix-ui";
-import {
-  Dialog,
+  AvatarImage, Button, Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-} from "tentix-ui";
-import { Label } from "tentix-ui";
-import { RadioGroup, RadioGroupItem } from "tentix-ui";
-import { Textarea } from "tentix-ui";
-import { Input } from "tentix-ui";
-import {
-  Form,
+  DialogTitle, Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
+  FormMessage, Input, Label, RadioGroup, RadioGroupItem, Textarea, toast
 } from "tentix-ui";
-import { useBoolean } from "ahooks";
-import { staffListQueryOptions } from "@lib/query";
-import { useSuspenseQuery } from "@lib/query";
-
+import { z } from "zod";
 import useLocalUser from "@hook/use-local-user";
 import { apiClient } from "@lib/api-client";
 
@@ -103,7 +88,7 @@ export function useTransferModal() {
   // Setup mutation for transferring the ticket
   const transferMutation = useMutation({
     mutationFn: transferTicket,
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast({
         title: t("success"),
         description: t("ticket_transferred"),

@@ -1,19 +1,18 @@
-import { ticketsQueryOptions, wsTokenQueryOptions } from "@lib/query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { UserChat } from "@comp/chat/user/index.tsx";
 import { SiteHeader } from "@comp/site-header.tsx";
 import { TicketDetailsSidebar } from "@comp/tickets/ticket-details-sidebar.tsx";
-import { useSessionMembersStore, useTicketStore } from "@store/index.ts";
-import { userTicketsQueryOptions } from "@lib/query";
-import { SidebarInset, SidebarProvider } from "tentix-ui";
 import { UserTicketSidebar } from "@comp/user/user-ticket-sidebar.tsx";
+import { ticketsQueryOptions, userTicketsQueryOptions, wsTokenQueryOptions } from "@lib/query";
+import { useSessionMembersStore, useTicketStore } from "@store/index.ts";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { SidebarInset, SidebarProvider } from "tentix-ui";
 
 export const Route = createFileRoute("/user/tickets/$id")({
   loader: async ({ context: { queryClient, authContext }, params }) => {
     return {
       data: await queryClient.ensureQueryData(
-        userTicketsQueryOptions(authContext.user!.id.toString()),
+        userTicketsQueryOptions(),
       ),
       ticket: await queryClient.ensureQueryData(ticketsQueryOptions(params.id)),
       token: await queryClient.ensureQueryData(
@@ -37,7 +36,7 @@ function RouteComponent() {
   if (data !== undefined && ticket !== undefined) {
     return (
       <SidebarProvider>
-        <UserTicketSidebar data={data} currentTicketId={ticket.id} />
+        <UserTicketSidebar data={data.tickets} currentTicketId={ticket.id} />
         <SidebarInset>
           <SiteHeader title={`Ticket #${ticket.id}: ${ticket.title}`} />
           <div className="flex flex-1 flex-col">

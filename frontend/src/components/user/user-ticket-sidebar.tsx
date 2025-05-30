@@ -1,36 +1,26 @@
-import { useState } from "react";
+import useLocalUser from "@hook/use-local-user";
+import { Link } from "@tanstack/react-router";
+import { joinTrans, useTranslation } from "i18n";
 import {
+  ArrowLeftIcon,
   FileTextIcon, PlusIcon,
   SearchIcon,
-  TicketIcon,
-  ArrowLeftIcon
+  TicketIcon
 } from "lucide-react";
-
-import { Badge } from "tentix-ui";
-import { Button } from "tentix-ui";
-import { Input } from "tentix-ui";
-import { ScrollArea } from "tentix-ui";
+import { useState } from "react";
+import { type TicketsListItemType } from "tentix-server/rpc";
 import {
-  Sidebar,
+  Badge, Button, Input, ScrollArea, Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from "tentix-ui";
-import {
-  Tooltip,
+  SidebarMenuItem, StatusBadge, Tooltip,
   TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
+  TooltipTrigger, useSidebar
 } from "tentix-ui";
-import { Link } from "@tanstack/react-router";
-import { joinTrans, useTranslation } from "i18n";
-import { StatusBadge } from "tentix-ui";
-import { type TicketsListItemType } from "tentix-server/rpc";
-import useLocalUser from "@hook/use-local-user";
 
 function getPriorityColor(priority: TicketsListItemType["priority"]) {
   switch (priority) {

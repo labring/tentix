@@ -1,11 +1,14 @@
-import { useSuspenseQuery as useSuspenseQueryTanStack } from "@tanstack/react-query";
-
 import {
   moduleEnumArray,
   ticketPriorityEnumArray,
   ticketStatusEnumArray,
   WS_TOKEN_EXPIRY_TIME,
-} from "@server/utils/const";
+} from "tentix-server/constants";
+import {
+  queryOptions,
+  useSuspenseQuery as useSuspenseQueryTanStack,
+} from "@tanstack/react-query";
+import { apiClient } from "./api-client";
 
 type ErrorMessage = {
   code: string;
@@ -21,7 +24,7 @@ declare module "@tanstack/react-query" {
 }
 
 const handler = {
-  apply: function (
+  apply (
     target: typeof useSuspenseQueryTanStack,
     _this: unknown,
     argumentsList: Parameters<typeof useSuspenseQueryTanStack>,
@@ -35,16 +38,19 @@ const handler = {
 
 export const useSuspenseQuery = new Proxy(useSuspenseQueryTanStack, handler);
 
-import { queryOptions } from "@tanstack/react-query";
-import { apiClient } from "./api-client";
-
-export const userTicketsQueryOptions = (id: string) =>
+export const userTicketsQueryOptions = (pageSize = 40, pageToken?: string) =>
   queryOptions({
-    queryKey: ["getUserTickets", id],
+    queryKey: ["getUserTickets", pageSize, pageToken],
     queryFn: async () => {
-      const data = await (
-        await apiClient.user.getTickets.$get({ query: { userId: id } })
-      ).json();
+      const params: Record<string, string> = {
+        pageSize: pageSize.toString(),
+      };
+      if (pageToken) {
+        params.pageToken = pageToken;
+      }
+      const data = await apiClient.user.getTickets
+        .$get({ query: params })
+        .then((r) => r.json());
       return data;
     },
   });
@@ -53,7 +59,7 @@ export const allTicketsQueryOptions = () =>
   queryOptions({
     queryKey: ["getAllTickets"],
     queryFn: async () => {
-      const data = await (await apiClient.ticket.all.$get()).json();
+      const data = await apiClient.ticket.all.$get().then((r) => r.json());
       return data;
     },
   });
@@ -62,9 +68,9 @@ export const ticketsQueryOptions = (id: string) =>
   queryOptions({
     queryKey: ["getTicket", id],
     queryFn: async () => {
-      const data = await (
-        await apiClient.ticket.info.$get({ query: { id } })
-      ).json();
+      const data = await apiClient.ticket.info
+        .$get({ query: { id } })
+        .then((r) => r.json());
       return data;
     },
   });
@@ -73,9 +79,9 @@ export const wsTokenQueryOptions = (testUserId?: string) =>
   queryOptions({
     queryKey: ["getWsToken"],
     queryFn: async () => {
-      const data = await (
-        await apiClient.ws.token.$get({ query: { testUserId } })
-      ).json();
+      const data = await apiClient.ws.token
+        .$get({ query: { testUserId } })
+        .then((r) => r.json());
       return data;
     },
     staleTime: WS_TOKEN_EXPIRY_TIME,
@@ -86,7 +92,7 @@ export const userInfoQueryOptions = () =>
     queryKey: ["getUserInfo"],
     queryFn: async () => {
       try {
-        const data = await (await apiClient.user.info.$get()).json();
+        const data = await apiClient.user.info.$get().then((r) => r.json());
         return data;
       } catch (error) {
         return {
@@ -109,42 +115,11 @@ export const userInfoQueryOptions = () =>
     retry: false,
   });
 
-export async function uploadFile(file: File) {
-  const { url, srcUrl } = await (
-    await apiClient.file["presigned-url"].$get({
-      query: {
-        fileName: file.name,
-        fileType: file.type,
-      },
-    })
-  ).json();
-  const response = await fetch(url, {
-    method: "PUT",
-    body: file,
-  });
-  if (!response.ok) {
-    throw new Error("Failed to upload image");
-  }
-  return srcUrl;
-}
-
-export async function removeFile(fileName: string) {
-  const response = await apiClient.file.remove.$delete({
-    query: {
-      fileName,
-    },
-  });
-  if (!response.ok) {
-    throw new Error("Failed to remove image");
-  }
-  return response.json();
-}
-
 export const staffListQueryOptions = () =>
   queryOptions({
     queryKey: ["getStaffList"],
     queryFn: async () => {
-      const data = await (await apiClient.admin.staffList.$get()).json();
+      const data = await apiClient.admin.staffList.$get().then((r) => r.json());
       return data;
     },
     staleTime: 60 * 60 * 1000,
@@ -163,8 +138,8 @@ export async function raiseRequirement({
   priority: (typeof ticketPriorityEnumArray)[number];
   relatedTicket: string;
 }) {
-  const res = await (
-    await apiClient.admin.raiseReq.$post({
+  const res = await apiClient.admin.raiseReq
+    .$post({
       json: {
         title,
         description,
@@ -173,7 +148,7 @@ export async function raiseRequirement({
         relatedTicket,
       },
     })
-  ).json();
+    .then((r) => r.json());
   if (res.success) {
     return res;
   }
@@ -189,15 +164,15 @@ export async function updateTicketStatus({
   status: (typeof ticketStatusEnumArray)[number];
   description: string;
 }) {
-  const res = await (
-    await apiClient.ticket.updateStatus.$post({
+  const res = await apiClient.ticket.updateStatus
+    .$post({
       form: {
         ticketId,
         status,
         description,
       },
     })
-  ).json();
+    .then((r) => r.json());
   if (res.success) {
     return res;
   }
@@ -209,13 +184,13 @@ export async function joinTicketAsTechnician({
 }: {
   ticketId: string;
 }) {
-  const res = await (
-    await apiClient.ticket.joinAsTechnician.$post({
+  const res = await apiClient.ticket.joinAsTechnician
+    .$post({
       form: {
         ticketId,
       },
     })
-  ).json();
+    .then((r) => r.json());
   if (res.success) {
     return res;
   }

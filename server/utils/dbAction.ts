@@ -2,6 +2,7 @@ import { connectDB } from "./tools.ts";
 import * as schema from "@db/schema.ts";
 import { JSONContentZod, validateJSONContent } from "./types.ts";
 import { eq, and } from "drizzle-orm";
+import { logError } from "./log.ts";
 
 export function plainTextToJSONContent(text: string): JSONContentZod {
   return {
@@ -26,8 +27,8 @@ export async function saveMessageToDb(
       .values({
         ticketId: roomId,
         senderId: userId,
-        content: content,
-        isInternal: isInternal,
+        content,
+        isInternal,
       })
       .returning();
 
@@ -35,7 +36,7 @@ export async function saveMessageToDb(
 
     return messageResult;
   } catch (err) {
-    console.error("Error saving message to database:", err);
+    logError("Error saving message to database:", err);
     return null;
   }
 }
@@ -47,14 +48,14 @@ export async function saveMessageReadStatus(messageId: number, userId: number) {
     const [readStatus] = await db
       .insert(schema.messageReadStatus)
       .values({
-        messageId: messageId,
-        userId: userId,
+        messageId,
+        userId,
       })
       .onConflictDoNothing()
       .returning();
     return readStatus;
   } catch (err) {
-    console.error("Error saving message read status:", err);
+    logError("Error saving message read status:", err);
     return null;
   }
 }

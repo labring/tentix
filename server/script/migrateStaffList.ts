@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { readConfig } from "@/utils/env.ts";
 import {
   getFeishuAppAccessToken,
@@ -41,7 +42,7 @@ async function main() {
       members: string[];
     };
 
-    let departmentsList: Department[] = departmentsRes.data.items.map(
+    const departmentsList: Department[] = departmentsRes.data.items.map(
       (item) => {
         return {
           openId: item.open_department_id,

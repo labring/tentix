@@ -1,26 +1,20 @@
-import { Hono } from "hono";
+/* eslint-disable no-console */
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
-import { getPresignedUrl, removeFile } from "@/utils/minio.ts";
-import { rateLimiter } from "hono-rate-limiter";
-import { getConnInfo } from "hono/bun";
 import { decryptToken, factory } from "../middleware.ts";
-import * as schema from "@db/schema.ts";
-import { eq, inArray, sql, and, asc } from "drizzle-orm";
 import {
   getFeishuAppAccessToken,
-  getFeishuCard,
   sendFeishuMsg,
 } from "@/utils/platform/index.ts";
-import { loremText } from "./spam.ts";
-import { getAbbreviatedText } from "@/utils/types.ts";
 import { readConfig } from "@/utils/env.ts";
 import v8 from "node:v8";
 import { refreshStaffMap } from "../initApp.ts";
 import { signBearerToken } from "../auth/index.ts";
 import { getAIResponse } from "@/utils/platform/ai.ts";
 import { runWithInterval } from "@/utils/runtime.ts";
+import { markdownToTipTapJSON } from "@/utils/md.ts";
+import { userRoleEnumArray } from "@/utils/const.ts";
 
 const playgroundRouter = factory
   .createApp()
@@ -41,7 +35,7 @@ const playgroundRouter = factory
       "form",
       z.object({
         userId: z.string(),
-        role: z.string(),
+        role: z.enum(userRoleEnumArray),
       }),
     ),
     async (c) => {
@@ -99,7 +93,7 @@ const playgroundRouter = factory
         tenant_access_token,
       );
 
-      return c.json({ success: true });
+      return c.json({ success: true, send, id });
     },
   )
   .get(
@@ -114,6 +108,24 @@ const playgroundRouter = factory
       return c.json({ success: true, snapshotPath });
     },
   )
+  .post(
+    "/md2json",
+    describeRoute({
+      tags: ["Playground"],
+      hide: process.env.NODE_ENV === "production",
+    }),
+    zValidator(
+      "form",
+      z.object({
+        md: z.string(),
+      }),
+    ),
+    async (c) => {
+      const { md } = c.req.valid("form");
+      const json = markdownToTipTapJSON(md);
+      return c.json(json);
+    },
+  )
   .get(
     "/fastgpt",
     describeRoute({
@@ -121,11 +133,12 @@ const playgroundRouter = factory
       hide: process.env.NODE_ENV === "production",
     }),
     async (c) => {
-
       async function longRunningFunction(): Promise<string> {
         console.log("Starting request...");
         const startTime = Date.now();
-        const result = await getAIResponse('test', [{ role: "user", content: "你好" }]);
+        const result = await getAIResponse("test", [
+          { role: "user", content: "你好" },
+        ]);
         const end = Date.now();
         console.log(`Time taken: ${end - startTime}ms`);
         return result;
@@ -135,21 +148,25 @@ const playgroundRouter = factory
         console.log("Interval function is executing...");
       }
 
-      runWithInterval(longRunningFunction, printFunction, 1000, async (result) => {
-        const path = require("node:path");
-        const logsDir = path.join(process.cwd(), "logs");
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = path.join(
-          logsDir,
-          `fastgpt-response-${timestamp}.json`,
-        );
-        // Write result to file
-        await Bun.write(filename, JSON.stringify(result, null, 2));
-        console.log(`Response saved to: ${filename}`);
-      });
+      runWithInterval(
+        longRunningFunction,
+        printFunction,
+        1000,
+        async (result) => {
+          const path = await import("node:path");
+          const logsDir = path.join(process.cwd(), "logs");
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          const filename = path.join(
+            logsDir,
+            `fastgpt-response-${timestamp}.json`,
+          );
+          // Write result to file
+          await Bun.write(filename, JSON.stringify(result, null, 2));
+          console.log(`Response saved to: ${filename}`);
+        },
+      );
       return c.json({ success: true });
     },
   );
 
 export { playgroundRouter };
-

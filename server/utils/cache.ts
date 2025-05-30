@@ -5,14 +5,14 @@ import { HTTPException } from 'hono/http-exception';
 
 const cache = new NodeCache();
 
-export function cacheResult(
-  target: any,
+function cacheResult(
+  target: unknown,
   propertyKey: string, 
   descriptor: PropertyDescriptor
 ) {
   const originalMethod = descriptor.value;
 
-  descriptor.value = async function (...args: any[]) {
+  descriptor.value = async function (...args: unknown[]) {
     const isStale = args.some(arg => arg === true && typeof arg === 'boolean');
     const cacheKey = `${propertyKey}_${JSON.stringify(args)}`;
 
@@ -32,9 +32,9 @@ export function cacheResult(
   return descriptor;
 }
 
-export class CacheFunc {
+class CacheFunc {
   @cacheResult
-  async getTicketMembers(id: string, isStale: boolean = false) {
+  async getTicketMembers(id: string) {
     const db = connectDB();
     const data = await db.query.tickets.findFirst({
       where: (tickets, { eq }) => eq(tickets.id, id),

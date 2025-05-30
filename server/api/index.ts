@@ -25,6 +25,28 @@ app.use(
         version: "1.0.0",
         description: "API for Tentix",
       },
+      tags: [
+        {
+          name: "User",
+          description: "User related endpoints",
+        },
+        {
+          name: "Ticket",
+          description: "Ticket related endpoints",
+        },
+        {
+          name: "Auth",
+        },
+        {
+          name: "Playground",
+          description: "Test endpoint. Not for production use.",
+        },
+        {
+          name: "Feishu",
+          description: "Feishu related endpoints",
+        },
+        
+      ],
       servers: [
         {
           url: "/",
@@ -54,11 +76,11 @@ app.get(
     url: "/api/openapi.json",
     isEditable: false,
     hideClientButton: true,
-    // hiddenClients: true,
   }),
 );
+app.get("/health", (c) => c.json({ status: "ok" }));
 
-const routes = app
+const routes = app  // RPC routes
   .basePath("/api")
   .route("/user", userRouter)
   .route("/ticket", ticketRouter)
@@ -67,7 +89,11 @@ const routes = app
   .route("/file", fileRouter)
   .route("/admin", adminRouter)
   .route("/feishu", feishuRouter)
-  .route("/playground", playgroundRouter); // RPC routes
+if (process.env.NODE_ENV !== "production") {
+  routes.route("/playground", playgroundRouter);
+}
+
+export type AppType = typeof routes;
 
 app.use("*", serveStatic({ root: "./dist" }));
 app.use(
@@ -77,8 +103,6 @@ app.use(
     path: "./index.html",
   }),
 );
-
-export type AppType = typeof routes;
 
 export default {
   fetch: app.fetch,

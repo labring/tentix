@@ -14,7 +14,6 @@ import './styles.css'
 const rootElement = document.getElementById('app')
 if (rootElement && !rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)
-
   root.render(
     <StrictMode>
       <AppProviders>
@@ -29,8 +28,8 @@ function App() {
   return (
     <RouterProvider router={router} context={{
       queryClient: getQueryClient(),
-      apiClient: apiClient,
-      authContext: authContext,
+      apiClient,
+      authContext,
     }} />
   )
 }

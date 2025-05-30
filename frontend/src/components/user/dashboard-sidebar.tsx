@@ -3,7 +3,12 @@ import {
   PlusCircle, Users
 } from "lucide-react";
 
+import useLocalUser from "@hook/use-local-user.tsx";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useTranslation } from "i18n";
 import {
+  Avatar, AvatarFallback, AvatarImage,
+  Button,
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -12,11 +17,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "tentix-ui";
-import { Avatar, AvatarFallback, AvatarImage } from "tentix-ui";
-import { Button } from "tentix-ui";
-import { Link, useLocation } from "@tanstack/react-router";
-import { useTranslation } from "i18n";
-import useLocalUser from "@hook/use-local-user.tsx";
 export function UserDashboardSidebar() {
   const { t } = useTranslation();
   const pathname = useLocation().pathname;

@@ -1,9 +1,6 @@
-import js from "@eslint/js"
-import eslintConfigPrettier from "eslint-config-prettier"
 import pluginReact from "eslint-plugin-react"
 import pluginReactHooks from "eslint-plugin-react-hooks"
 import globals from "globals"
-import tseslint from "typescript-eslint"
 
 import { config as baseConfig } from "./base.js"
 
@@ -13,9 +10,6 @@ import { config as baseConfig } from "./base.js"
  * @type {import("eslint").Linter.Config} */
 export const config = [
   ...baseConfig,
-  js.configs.recommended,
-  eslintConfigPrettier,
-  ...tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
   {
     languageOptions: {
@@ -30,12 +24,29 @@ export const config = [
     plugins: {
       "react-hooks": pluginReactHooks,
     },
-    settings: { react: { version: "detect" } },
+    settings: { 
+      react: { version: "detect" } 
+    },
     rules: {
       ...pluginReactHooks.configs.recommended.rules,
       // React scope no longer necessary with new JSX transform.
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
+      "react/display-name": "warn",
+      "react/no-unescaped-entities": "warn",
+      "react/jsx-key": "error",
+      "react/jsx-no-duplicate-props": "error",
+      "react/jsx-no-undef": "error",
+      "react/no-children-prop": "error",
+      "react/no-danger-with-children": "error",
+      "react/no-deprecated": "warn",
+      "react/no-direct-mutation-state": "error",
+      "react/no-find-dom-node": "error",
+      "react/no-is-mounted": "error",
+      "react/no-render-return-value": "error",
+      "react/no-string-refs": "error",
+      "react/no-unknown-property": "error",
+      "react/require-render-return": "error",
     },
   },
 ]
