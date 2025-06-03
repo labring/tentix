@@ -6,6 +6,9 @@ A FastGPT-powered AI customer service platform with 10x accelerated resolution.
 * 🤖 10x Reduced Human Intervention  
 * 😊 10x Improved User Satisfaction
 
+![image](https://github.com/user-attachments/assets/798dbbd3-4b78-4412-bf69-fda27f12d128)
+
+
 ## 📋 Table of Contents
 
 - [Project Overview](#project-overview)
