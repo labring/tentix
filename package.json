@@ -25,7 +25,7 @@
       "@types/react": "^19",
       "@types/react-dom": "^19",
       "typescript": "^5.8.3",
-      "@types/node": "^20",
+      "@types/node": "^22",
       "@types/bun": "^1.2.15",
       "tailwindcss": "^4.0.8"
     }
@@ -33,7 +33,7 @@
   "devDependencies": {
     "@tanstack/react-query": "^5.74.4",
     "@types/bun": "catalog:",
-    "@types/node": "^20",
+    "@types/node": "catalog:",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "drizzle-orm": "0.43.1",
@@ -48,7 +48,7 @@
   },
   "packageManager": "bun@1.2.15",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "ahooks": "^3.8.4",
