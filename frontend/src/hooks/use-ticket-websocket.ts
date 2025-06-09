@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useThrottleFn } from "ahooks";
-import { type JSONContentZod, type WSMessage } from "tentix-server/types";
+import { type JSONContentZod, type wsMsgServerType, type wsMsgClientType } from "tentix-server/types";
 import type { TicketType } from "tentix-server/rpc";
 import { useChatStore } from "../store";
 import { useToast } from "tentix-ui";
@@ -28,7 +28,7 @@ interface UseTicketWebSocketReturn {
   sendTypingIndicator: () => void;
   sendReadStatus: (messageId: number) => void;
   closeConnection: () => void;
-  sendCustomMsg: (props: WSMessage) => void;
+  sendCustomMsg: (props: wsMsgClientType) => void;
   withdrawMessage: (messageId: number) => void;
 }
 
@@ -149,7 +149,7 @@ export function useTicketWebSocket({
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data) as WSMessage;
+          const data = JSON.parse(event.data) as wsMsgServerType;
 
           switch (data.type) {
             case "join_success":
@@ -353,7 +353,7 @@ export function useTicketWebSocket({
     }
   }, []);
 
-  function sendCustomMsg(props: WSMessage) {
+  function sendCustomMsg(props: wsMsgClientType) {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(props));
     }

@@ -13,8 +13,9 @@ import {
   extractText,
   JSONContentZod,
   userRoleType,
-  wsMessageSchema,
-  WSMessage,
+  wsMsgClientType,
+  wsMsgClientSchema,
+  wsMsgServerType,
 } from "@/utils/types.ts";
 import { zValidator } from "@hono/zod-validator";
 import { type ServerWebSocket } from "bun";
@@ -32,6 +33,8 @@ import { MyCache } from "@/utils/cache.ts";
 import NodeCache from "node-cache";
 import { runWithInterval } from "@/utils/runtime.ts";
 import { getAIResponse } from "@/utils/platform/ai.ts";
+import { sendWsMessage } from "./tools.ts";
+import { MessageEmitter } from "@/utils/taskQueue.ts";
 type wsInstance = WSContext<ServerWebSocket<undefined>>;
 
 // Connection management constants
@@ -85,7 +88,7 @@ setInterval(() => {
       tokenMap.delete(token);
     }
   }
-}, 60000); // Clean up every minute
+}, 120000); // Clean up every 2 minutes
 
 // Helper functions for connection management
 const initializeConnection = (clientId: string, ws: wsInstance) => {
@@ -143,7 +146,7 @@ const roomsMap = new Map<string, Map<string, wsInstance>>(); // roomId -> set of
 // Helper function to broadcast a message to all clients in a room
 const broadcastToRoom = (
   roomId: string,
-  message: WSMessage,
+  message: wsMsgServerType,
   excludeClientId?: string | string[],
 ) => {
   const room = roomsMap.get(roomId);
@@ -268,16 +271,49 @@ namespace aiHandler {
       },
       (error: unknown) => {
         logError("Error handling AI response:", error);
-        ws.send(
-          JSON.stringify({
-            type: "error",
-            error: "Some error occurred in AI response.",
-          }),
-        );
+        sendWsMessage(ws, {
+          type: "error",
+          error: "Some error occurred in AI response.",
+        });
       },
     );
   }
 }
+
+const msgEmitter = new MessageEmitter();
+
+msgEmitter.on("new_message", function({ws, ctx, message}) {
+  const broadcastExclude = message.isInternal
+    ? [ctx.clientId, roomCustomerMap.get(ctx.roomId)!]
+    : [ctx.clientId];
+  // Broadcast message to room
+  broadcastToRoom(
+    ctx.roomId,
+    {
+      type: "new_message",
+      messageId: message.messageId,
+      roomId: ctx.roomId,
+      userId: ctx.userId,
+      content: message.content,
+      timestamp: new Date(message.timestamp).getTime(),
+      isInternal: message.isInternal,
+    },
+    broadcastExclude,
+  );
+  sendWsMessage(ws, {
+    type: "message_sent",
+    tempId: message.tempId ?? 0,
+    messageId: message.messageId,
+    roomId: ctx.roomId,
+    timestamp: new Date(message.timestamp).getTime(),
+  });
+});
+
+
+
+
+
+
 
 const wsRouter = factory
   .createApp()
@@ -383,7 +419,7 @@ const wsRouter = factory
       }
 
       return {
-        async onOpen(evt, ws) {
+        async onOpen(_evt, ws) {
           logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
           await addClientToRoom(ticketId, clientId, ws);
 
@@ -427,14 +463,12 @@ const wsRouter = factory
             }
           }
 
-          // Confirm to the user
-          ws.send(
-            JSON.stringify({
-              type: "join_success",
-              roomId: ticketId,
-              timestamp: Date.now(),
-            }),
-          );
+          // Confirm to the user - now you can call sendWsMessage directly!
+          sendWsMessage(ws, {
+            type: "join_success",
+            roomId: ticketId,
+            timestamp: Date.now(),
+          });
         },
 
         async onMessage(evt, ws) {
@@ -444,32 +478,27 @@ const wsRouter = factory
             const data = JSON.parse(messageData);
 
             // Validate message format
-            const validationResult = wsMessageSchema.safeParse(data);
+            const validationResult = wsMsgClientSchema.safeParse(data);
             if (!validationResult.success) {
-              ws.send(
-                JSON.stringify({
-                  type: "error",
-                  error: "Invalid message format",
-                  details: validationResult.error.errors,
-                }),
-              );
+              sendWsMessage(ws, {
+                type: "error",
+                error: "Invalid message format",
+              });
               logError(
                 "Invalid message format:",
-                validationResult.error.errors,
+                validationResult.error.issues,
               );
               return;
             }
 
-            const parsedMessage: WSMessage = validationResult.data;
+            const parsedMessage: wsMsgClientType = validationResult.data;
             // Handle different message types
             switch (parsedMessage.type) {
               case "heartbeat":
-                ws.send(
-                  JSON.stringify({
-                    type: "heartbeat_ack",
-                    timestamp: Date.now(),
-                  }),
-                );
+                sendWsMessage(ws, {
+                  type: "heartbeat_ack",
+                  timestamp: Date.now(),
+                });
                 break;
               case "heartbeat_ack":
                 handleHeartbeat(clientId);
@@ -479,23 +508,19 @@ const wsRouter = factory
                 // Check if connection is alive
                 const state = connectionStates.get(clientId);
                 if (!state?.isAlive) {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Connection is not alive",
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Connection is not alive",
+                  });
                   return;
                 }
 
                 // User is sending a message to a room
                 if (!parsedMessage.content) {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Message content is required",
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Message content is required",
+                  });
                   return;
                 }
 
@@ -520,47 +545,26 @@ const wsRouter = factory
                     }
                   }
 
-                  // Broadcast message to room
-                  let broadcastExclude = [clientId];
-                  if (parsedMessage.isInternal) {
-                    broadcastExclude = [
+                  msgEmitter.emit("new_message", {
+                    ws,
+                    ctx: {
                       clientId,
-                      roomCustomerMap.get(ticketId)!,
-                    ];
-                  }
-
-                  broadcastToRoom(
-                    ticketId,
-                    {
-                      type: "new_message",
-                      messageId: messageResult.id,
                       roomId: ticketId,
                       userId,
+                    },
+                    message: {
                       content: parsedMessage.content,
+                      tempId: parsedMessage.tempId ?? 0,
+                      messageId: messageResult.id,
                       timestamp: Date.now(),
                       isInternal: parsedMessage.isInternal ?? false,
                     },
-                    broadcastExclude,
-                  );
-
-                  // Confirm to sender
-                  ws.send(
-                    JSON.stringify({
-                      type: "message_sent",
-                      tempId: parsedMessage.tempId,
-                      messageId: messageResult.id,
-                      roomId: ticketId,
-                      timestamp: messageResult.createdAt,
-                    }),
-                  );
+                  });
                 } else {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Failed to save message",
-                      roomId: ticketId,
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Failed to save message",
+                  });
                 }
                 break;
               }
@@ -591,12 +595,10 @@ const wsRouter = factory
               }
               case "message_read": {
                 if (!parsedMessage.messageId) {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Message ID is required for read status",
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Message ID is required for read status",
+                  });
                   return;
                 }
 
@@ -665,28 +667,23 @@ const wsRouter = factory
                     broadcastExclude, // Exclude sender
                   );
                 } else {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Failed to withdraw message",
-                      roomId: ticketId,
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Failed to withdraw message",
+                  });
                 }
                 break;
               }
             }
           } catch (error) {
             logError("Error handling WebSocket message:", error);
-            ws.send(
-              JSON.stringify({
-                type: "error",
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Internal server error",
-              }),
-            );
+            sendWsMessage(ws, {
+              type: "error",
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Internal server error",
+            });
           }
         },
 

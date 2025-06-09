@@ -1,14 +1,40 @@
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
 import * as schema from "@db/schema.ts";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { JSONContentSchema, JSONContentZod } from "./types.pure.ts";
-export * from "./types.pure.ts";
+import { zValidator } from "@hono/zod-validator";
+import type { JSONContent } from "@tiptap/react";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+import { userRoleEnumArray } from "./const";
+
 export class ValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ValidationError";
   }
+}
+
+export const JSONContentSchema: z.ZodSchema<JSONContent> = z.lazy(() =>
+  z.object({
+    type: z.string(),
+    attrs: z.record(z.string(), z.any()).optional(),
+    content: z.array(JSONContentSchema).optional(),
+    marks: z
+      .array(
+        z.object({
+          type: z.string(),
+          attrs: z.record(z.string(), z.any()).optional(),
+        }),
+      )
+      .optional(),
+    text: z.string().optional(),
+  }),
+);
+
+export type JSONContentZod = z.infer<typeof JSONContentSchema>;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function validateJSONContent(data: any): data is JSONContent {
+  const validationResult = JSONContentSchema.safeParse(data);
+  return validationResult.success;
 }
 
 export const userIdValidator = zValidator(
@@ -17,8 +43,6 @@ export const userIdValidator = zValidator(
     userId: z.string(),
   }),
 );
-
-
 
 export function extractText(json: JSONContentZod) {
   let result = "";
@@ -44,12 +68,10 @@ export function getAbbreviatedText(
   if (text.length <= maxLength) {
     return text;
   }
-  return `${text.slice(0, maxLength)  }...`;
+  return `${text.slice(0, maxLength)}...`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const zodUserRole = createSelectSchema(schema.userRole);
-export type userRoleType = z.infer<typeof zodUserRole>;
+export type userRoleType = (typeof userRoleEnumArray)[number];
 
 export const ticketInsertSchema = createInsertSchema(schema.tickets).omit({
   id: true,
@@ -62,29 +84,16 @@ export const ticketInsertSchema = createInsertSchema(schema.tickets).omit({
 
 export type ticketInsertType = z.infer<typeof ticketInsertSchema>;
 
-export const wsMessageSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("message"),
-    content: JSONContentSchema,
-    timestamp: z.number().optional(),
-    tempId: z.number().optional(),
-    isInternal: z.boolean().optional(),
-  }),
+export const wsMsgServerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.enum(["heartbeat", "heartbeat_ack"]),
     timestamp: z.number().optional(),
   }),
   z.object({
-    type: z.enum(["user_joined", "user_left", "typing"]),
+    type: z.enum(["user_joined", "user_left"]),
     userId: z.number(),
     roomId: z.string(),
     timestamp: z.number(),
-  }),
-  z.object({
-    type: z.literal("message_read"),
-    userId: z.number(),
-    messageId: z.number(),
-    readAt: z.string(),
   }),
   z.object({
     type: z.literal("message_read_update"),
@@ -107,6 +116,12 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     isInternal: z.boolean(),
   }),
   z.object({
+    type: z.literal("user_typing"),
+    userId: z.number(),
+    roomId: z.string(),
+    timestamp: z.number(),
+  }),
+  z.object({
     type: z.literal("message_sent"),
     tempId: z.number(),
     messageId: z.number(),
@@ -114,26 +129,8 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
     timestamp: z.number(),
   }),
   z.object({
-    type: z.literal("agent_first_message"),
-    roomId: z.string(),
-    timestamp: z.number(),
-  }),
-  z.object({
     type: z.literal("error"),
     error: z.string(),
-  }),
-  z.object({
-    type: z.literal("user_typing"),
-    userId: z.number(),
-    roomId: z.string(),
-    timestamp: z.number(),
-  }),
-  z.object({
-    type: z.literal("withdraw_message"),
-    userId: z.number(),
-    messageId: z.number(),
-    roomId: z.string(),
-    timestamp: z.number(),
   }),
   z.object({
     type: z.literal("message_withdrawn"),
@@ -145,7 +142,48 @@ export const wsMessageSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export type WSMessage = z.infer<typeof wsMessageSchema>;
+export const wsMsgClientSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("message"),
+    content: JSONContentSchema,
+    timestamp: z.number().optional(),
+    tempId: z.number().optional(),
+    isInternal: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal("typing"),
+    userId: z.number(),
+    roomId: z.string(),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.enum(["heartbeat", "heartbeat_ack"]),
+    timestamp: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal("message_read"),
+    userId: z.number(),
+    messageId: z.number(),
+    readAt: z.string(),
+  }),
+  z.object({
+    type: z.literal("agent_first_message"),
+    roomId: z.string(),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.literal("withdraw_message"),
+    userId: z.number(),
+    messageId: z.number(),
+    roomId: z.string(),
+    timestamp: z.number(),
+  }),
+]);
+
+export type wsMsgServerType = z.infer<typeof wsMsgServerSchema>;
+export type wsMsgClientType = z.infer<typeof wsMsgClientSchema>;
+
+export type WSMessage = wsMsgServerType | wsMsgClientType;
 
 export type AppConfig = {
   feishu_bot_webhook_id: string;

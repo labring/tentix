@@ -139,7 +139,7 @@ const ticketRouter = factory
                 return "orange";
               case "low":
                 return "indigo";
-              case "normal":
+              default:
                 return "blue";
             }
           })();

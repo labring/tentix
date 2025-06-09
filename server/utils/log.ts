@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { styleText } from "util";
-import { StartsWith } from "./ts-tool";
+import { StartsWith } from "./typeTool.ts";
 
 type LogLevel = "info" | "success" | "warning" | "error" | "debug" | "start";
 
