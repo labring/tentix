@@ -124,7 +124,7 @@ const authRouter = factory.createApp().get(
             uid: info.uid,
             name: info.name,
             nickname: info.nickname,
-            realName: info.realName,
+            realName: info?.realName ?? "",
             identity: info.id,
             avatar: info.avatarUri,
             registerTime: info.createdAt,

@@ -1,11 +1,14 @@
 /* eslint-disable no-console */
 import { styleText } from "util";
+import { StartsWith } from "./ts-tool";
 
 type LogLevel = "info" | "success" | "warning" | "error" | "debug" | "start";
 
+type BasicStyleTextParams = Extract<Parameters<typeof styleText>[0], string>;
+type BG = StartsWith<BasicStyleTextParams, "bg">;
 interface LogStyle {
-  text: Parameters<typeof styleText>[0];
-  bg?: Parameters<typeof styleText>[0];
+  text: Exclude<BasicStyleTextParams, BG>[];
+  bg?: BG;
 }
 
 const LOG_STYLES: Record<LogLevel, LogStyle> = {
@@ -35,10 +38,19 @@ const LOG_STYLES: Record<LogLevel, LogStyle> = {
  */
 function logWithStyle(level: LogLevel, message: string, prefix?: string) {
   if (process.env.NODE_ENV === "production") {
-    if (["error", "warning"].includes(level)) {
-      console.error(message);
-    } else {
-      console.log(message);
+    switch (level) {
+      case "error":
+        console.error(message);
+        break;
+      case "warning":
+        console.warn(message);
+        break;
+      case "debug":
+        console.debug(message);
+        break;
+      default:
+        console.log(message);
+        break;
     }
     return;
   }
@@ -47,11 +59,10 @@ function logWithStyle(level: LogLevel, message: string, prefix?: string) {
   const formattedMessage = prefix
     ? `[${timestamp}] ${prefix} ${message}`
     : `[${timestamp}] ${message}`;
-  const styles = [...style.text, style.bg];
-
-  console.log(
-    styleText(styles as Parameters<typeof styleText>[0], formattedMessage),
+  const styles = (style.text as BasicStyleTextParams[]).concat(
+    style.bg ? [style.bg] : [],
   );
+  console.log(styleText(styles, formattedMessage));
 }
 
 /**
@@ -79,10 +90,7 @@ export function logWarning(message: string) {
  * Log an error message
  */
 export function logError(message: string, error?: unknown) {
-  logWithStyle("error", message, "💥");
-  if (error) {
-    console.error(error);
-  }
+  logWithStyle("error", message, error ? `${error}` : "💥");
 }
 
 /**

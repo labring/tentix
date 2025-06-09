@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production",
-    "build:types": "rm -rf ./output && tsc -p ./tsconfig.types.json",
+    "build:types": "rm -rf ./output && tsc -p ./tsconfig.types.json --noCheck",
     "typecheck": "tsc --b",
     "lint": "eslint .",
     "dev": "bun --env-file=../.env.local run --hot api/index.ts",
@@ -33,7 +33,7 @@
     "pg": "^8.15.1",
     "zod-openapi": "^4.2.4"
   },
-  "packageManager": "bun@1.2.14",
+  "packageManager": "bun@1.2.15",
   "devDependencies": {
     "@types/bun": "catalog:",
     "@types/pg": "8.11.13",
