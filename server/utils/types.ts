@@ -221,3 +221,22 @@ export type AppConfig = {
     avatar: string;
   }[];
 };
+
+export const unreadSSESchema = z.object({
+  newMsg: z.object({
+    messageId: z.number(),
+    roomId: z.string(),
+    userId: z.number(),
+    content: JSONContentSchema,
+    timestamp: z.number(),
+    isInternal: z.boolean(),
+  }),
+  heartbeat: z.object({
+    text: z.literal("hello"),
+  }),
+  error: z.object({
+    error: z.string(),
+  }),
+});
+
+export type UnreadSSEType = z.infer<typeof unreadSSESchema>;

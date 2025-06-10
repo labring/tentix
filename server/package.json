@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production",
-    "build:types": "rm -rf ./output && tsc -p ./tsconfig.types.json --noCheck",
+    "build:types": "tsc -p ./tsconfig.types.json --noCheck",
     "typecheck": "tsc --b",
     "lint": "eslint .",
     "dev": "bun --env-file=../.env.local run --hot api/index.ts",

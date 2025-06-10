@@ -20,6 +20,7 @@ const LOG_STYLES: Record<LogLevel, LogStyle> = {
   },
   warning: {
     text: ["yellow", "bold"],
+    bg: "bgGray",
   },
   error: {
     text: ["white", "bold"],
@@ -59,9 +60,10 @@ function logWithStyle(level: LogLevel, message: string, prefix?: string) {
   const formattedMessage = prefix
     ? `[${timestamp}] ${prefix} ${message}`
     : `[${timestamp}] ${message}`;
-  const styles = (style.text as BasicStyleTextParams[]).concat(
-    style.bg ? [style.bg] : [],
-  );
+  const styles: BasicStyleTextParams[] = style.text;
+  if (style.bg) {
+    styles.push(style.bg);
+  }
   console.log(styleText(styles, formattedMessage));
 }
 
@@ -113,7 +115,7 @@ export function logStart(message: string) {
  * Log a process completion message
  */
 export function logComplete(message: string) {
-  logSuccess(`${message}`);
+  logWithStyle("success", message, "✅");
 }
 
 /**

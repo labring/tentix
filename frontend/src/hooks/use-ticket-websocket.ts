@@ -130,7 +130,7 @@ export function useTicketWebSocket({
       const wsOrigin = import.meta.env.DEV
         ? "ws://localhost:3000"
         : `wss://${window.location.host}`;
-      const url = new URL(`/api/ws/chat`, wsOrigin);
+      const url = new URL(`/api/chat/ws`, wsOrigin);
 
       url.searchParams.set("ticketId", id.toString());
       url.searchParams.set("token", token);
