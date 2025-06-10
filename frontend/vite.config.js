@@ -35,7 +35,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api/ws/chat": {
+      "/api/chat/ws": {
         target: "ws://localhost:3000",
         ws: true,
         changeOrigin: true,

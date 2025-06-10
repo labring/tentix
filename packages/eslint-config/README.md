@@ -35,7 +35,6 @@ export default config;
 
 - TypeScript support
 - React and React Hooks rules
-- Next.js optimizations
 - Prettier integration
 - Turbo monorepo support
 - Only warnings mode for development

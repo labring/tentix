@@ -9,6 +9,7 @@ import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import "zod-openapi/extend";
 import { authMiddleware, factory } from "../middleware.ts";
+import { roomObserveEmitter } from "@/utils/pubSub.ts";
 
 const basicUserCols = {
   columns: {
@@ -409,6 +410,10 @@ const userRouter = factory
         })(),
         getTicketStats(userId, role),
       ]);
+
+      if (roomObserveEmitter.isOnline(userId)) {
+        roomObserveEmitter.observe(userId, ticketsResult.tickets.map((t) => t.id));
+      }
 
       return c.json({
         ...ticketsResult,

@@ -7,7 +7,7 @@ import { factory, handleError } from "./middleware.ts";
 import { fileRouter } from "./file/index.ts";
 import { ticketRouter } from "./ticket/index.ts";
 import { userRouter } from "./user/index.ts";
-import { websocket, wsRouter } from "./ws/index.ts";
+import { websocket, chatRouter } from "./chat/index.ts";
 import { adminRouter } from "./admin/index.ts";
 import { playgroundRouter } from "./playground/index.ts";
 import { feishuRouter } from "./feishu/index.ts";
@@ -85,7 +85,7 @@ const routes = app  // RPC routes
   .route("/user", userRouter)
   .route("/ticket", ticketRouter)
   .route("/auth", authRouter)
-  .route("/ws", wsRouter)
+  .route("/chat", chatRouter)
   .route("/file", fileRouter)
   .route("/admin", adminRouter)
   .route("/feishu", feishuRouter)

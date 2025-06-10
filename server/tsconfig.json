@@ -11,7 +11,7 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "target": "ES2022",
+    "target": "esnext",
     "composite": true,
     "strict": true,
     "jsx": "react-jsx",
@@ -19,6 +19,7 @@
     "allowImportingTsExtensions": true,
     "emitDeclarationOnly": true,
     "experimentalDecorators": true,
+    "noImplicitThis": true,
     "baseUrl": ".",
     "outDir": "./types",
     "paths": {
