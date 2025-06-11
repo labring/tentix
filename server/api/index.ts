@@ -1,3 +1,6 @@
+import "./precede.ts";
+import "./initApp.ts";
+
 import { Scalar } from "@scalar/hono-api-reference";
 import { openAPISpecs } from "hono-openapi";
 import { serveStatic } from "hono/bun";
@@ -7,7 +10,7 @@ import { factory, handleError } from "./middleware.ts";
 import { fileRouter } from "./file/index.ts";
 import { ticketRouter } from "./ticket/index.ts";
 import { userRouter } from "./user/index.ts";
-import { websocket, wsRouter } from "./ws/index.ts";
+import { websocket, chatRouter } from "./chat/index.ts";
 import { adminRouter } from "./admin/index.ts";
 import { playgroundRouter } from "./playground/index.ts";
 import { feishuRouter } from "./feishu/index.ts";
@@ -45,7 +48,6 @@ app.use(
           name: "Feishu",
           description: "Feishu related endpoints",
         },
-        
       ],
       servers: [
         {
@@ -80,16 +82,16 @@ app.get(
 );
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-const routes = app  // RPC routes
+const routes = app // RPC routes
   .basePath("/api")
   .route("/user", userRouter)
   .route("/ticket", ticketRouter)
   .route("/auth", authRouter)
-  .route("/ws", wsRouter)
+  .route("/chat", chatRouter)
   .route("/file", fileRouter)
   .route("/admin", adminRouter)
-  .route("/feishu", feishuRouter)
-if (process.env.NODE_ENV !== "production") {
+  .route("/feishu", feishuRouter);
+if (global.customEnv.NODE_ENV !== "production") {
   routes.route("/playground", playgroundRouter);
 }
 

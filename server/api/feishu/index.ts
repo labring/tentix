@@ -185,7 +185,7 @@ const feishuRouter = factory
     describeRoute({
       tags: ["Feishu"],
       description: "Test endpoint. Not for production use.",
-      hide: process.env.NODE_ENV === "production",
+      hide: global.customEnv.NODE_ENV === "production",
     }),
     zValidator(
       "query",

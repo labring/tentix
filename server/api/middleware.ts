@@ -33,7 +33,7 @@ function printErrorProp(title: string, content: string | undefined) {
 }
 
 function printError(err: Error, c: Context) {
-  if (process.env.NODE_ENV === "production") {
+  if (global.customEnv.NODE_ENV === "production") {
     console.error(`Error from ${c.req.path}:`);
     console.error(err);
     return;
@@ -118,6 +118,7 @@ export async function decryptToken(token: string, cryptoKey: CryptoKey) {
 export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   try {
     let authHeader = c.req.header("Authorization");
+<<<<<<< HEAD
     // if (
     //   process.env.NODE_ENV !== "production" &&
     //   typeof authHeader !== "string"
@@ -131,6 +132,21 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
     //     ),
     //   );
     // }
+=======
+    if (
+      global.customEnv.NODE_ENV !== "production" &&
+      typeof authHeader !== "string"
+    ) {
+      authHeader = global.customEnv.DEV_FALLBACK_USER;
+      console.warn(
+        styleText(["bgYellow", "black", "bold"], "Warning"),
+        styleText(
+          "yellow",
+          `Authorization header is not found, using fallback user for development: ${authHeader}`,
+        ),
+      );
+    }
+>>>>>>> main
     if (!authHeader) {
       console.error("Unauthorized", authHeader);
       throw new HTTPException(401, { message: "Unauthorized" });
@@ -159,7 +175,7 @@ export function staffOnlyMiddleware(
 ) {
   return createMiddleware<AuthEnv>(async (c, next) => {
     const role = c.get("role");
-    if (role === "customer" && process.env.NODE_ENV === "production") {
+    if (role === "customer" && global.customEnv.NODE_ENV === "production") {
       throw new HTTPException(403, { message });
     }
     await next();

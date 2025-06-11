@@ -35,7 +35,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api/ws/chat": {
+      "/api/chat/ws": {
         target: "ws://localhost:3000",
         ws: true,
         changeOrigin: true,
@@ -47,7 +47,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: '../server/dist',
     chunkSizeWarningLimit: 1200,
     sourcemap: false,
     emptyOutDir: true,
@@ -59,6 +59,7 @@ export default defineConfig({
       },
     },
     rollupOptions: {
+      external: ["tentix-server"],
       output: {
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',

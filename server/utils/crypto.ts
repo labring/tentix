@@ -1,5 +1,5 @@
 import { logError } from "./log";
-
+import '../api/precede.ts'
 const crypto = globalThis.crypto;
 
 /**
@@ -38,7 +38,7 @@ async function importKeyFromString(keyStr: string): Promise<CryptoKey> {
  * Loads encryption key from environment variable or generates a new one
  */
 async function getEncryptionKey(): Promise<CryptoKey> {
-  const envKey = process.env.ENCRYPTION_KEY;
+  const envKey = global.customEnv.ENCRYPTION_KEY;
   if (envKey) {
     try {
       return await importKeyFromString(envKey);

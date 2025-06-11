@@ -12,30 +12,35 @@
   "tasks": {
     "build:types": {
       "dependsOn": [],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "server/tsconfig.json",
-        "server/src/**/*.ts"
-      ],
+      "inputs": ["$TURBO_DEFAULT$", "server/tsconfig.json", "server/src/{api|db|utils|scripts}/**/*.ts"],
       "outputs": ["server/output/**"]
     },
     "typecheck": {
-      "dependsOn": ["build:types", "^typecheck"],
+      "dependsOn": ["tentix-server#build:types", "^typecheck"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
-      "outputs": []
+      "outputs": ["packages/ui/types/**", "server/types/**"]
     },
     "frontend#typecheck": {
-      "dependsOn": ["build:types"],
+      "dependsOn": ["tentix-server#build:types"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
       "outputs": []
     },
+    "tentix-server#typecheck": {
+      "inputs": ["$TURBO_DEFAULT$", "server/tsconfig.json", "server/src/{api|db|utils|scripts}/**/*.ts"],
+      "outputs": ["server/types/**"]
+    },
+    "tentix-ui#typecheck": {
+      "dependsOn": ["tentix-server#build:types"],
+      "inputs": ["$TURBO_DEFAULT$", "packages/ui/tsconfig.json", "packages/ui/src/**"],
+      "outputs": ["packages/ui/types/**"]
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^typecheck", "tentix-server#build:types", "^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["server/dist"]
     },
     "frontend#build": {
-      "dependsOn": ["^typecheck", "build:types"],
+      "dependsOn": ["^typecheck", "tentix-server#build:types", "frontend#typecheck"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json", "frontend/src/**/*.tsx"],
       "outputs": ["server/dist/**"]
     },
@@ -43,8 +48,7 @@
       "dependsOn": ["^typecheck", "frontend#build"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "server/tsconfig.json",
-        "server/src/**/*.ts"
+        "server/tsconfig.json"
       ],
       "outputs": ["server/dist/**"]
     },
@@ -64,7 +68,6 @@
       "inputs": ["$TURBO_DEFAULT$", "eslint.config.*"],
       "outputs": []
     },
-
     "test": {
       "dependsOn": ["^test"],
       "inputs": ["$TURBO_DEFAULT$", "vitest.config.*", "jest.config.*"],

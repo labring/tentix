@@ -29,7 +29,7 @@ const playgroundRouter = factory
     "/signToken",
     describeRoute({
       tags: ["Playground"],
-      hide: process.env.NODE_ENV === "production",
+      
     }),
     zValidator(
       "form",
@@ -59,7 +59,7 @@ const playgroundRouter = factory
     "/agentmap",
     describeRoute({
       tags: ["Playground"],
-      hide: process.env.NODE_ENV === "production",
+      
       description: "Test endpoint. Not for production use.",
     }),
     async (c) => {
@@ -73,7 +73,7 @@ const playgroundRouter = factory
     "/sendFeishuCard",
     describeRoute({
       tags: ["Playground"],
-      hide: process.env.NODE_ENV === "production",
+      
       description: "Test endpoint. Not for production use.",
     }),
     async (c) => {
@@ -100,7 +100,7 @@ const playgroundRouter = factory
     "/snapshot",
     describeRoute({
       tags: ["Playground"],
-      hide: process.env.NODE_ENV === "production",
+      
     }),
     async (c) => {
       const snapshotPath = v8.writeHeapSnapshot();
@@ -112,7 +112,7 @@ const playgroundRouter = factory
     "/md2json",
     describeRoute({
       tags: ["Playground"],
-      hide: process.env.NODE_ENV === "production",
+      
     }),
     zValidator(
       "form",
@@ -130,7 +130,7 @@ const playgroundRouter = factory
     "/fastgpt",
     describeRoute({
       tags: ["Playground"],
-      hide: process.env.NODE_ENV === "production",
+      
     }),
     async (c) => {
       async function longRunningFunction(): Promise<string> {

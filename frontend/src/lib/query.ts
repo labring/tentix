@@ -1,13 +1,13 @@
 import {
+  queryOptions,
+  useSuspenseQuery as useSuspenseQueryTanStack,
+} from "@tanstack/react-query";
+import {
   moduleEnumArray,
   ticketPriorityEnumArray,
   ticketStatusEnumArray,
   WS_TOKEN_EXPIRY_TIME,
 } from "tentix-server/constants";
-import {
-  queryOptions,
-  useSuspenseQuery as useSuspenseQueryTanStack,
-} from "@tanstack/react-query";
 import { apiClient } from "./api-client";
 
 type ErrorMessage = {
@@ -24,7 +24,7 @@ declare module "@tanstack/react-query" {
 }
 
 const handler = {
-  apply (
+  apply(
     target: typeof useSuspenseQueryTanStack,
     _this: unknown,
     argumentsList: Parameters<typeof useSuspenseQueryTanStack>,
@@ -79,7 +79,7 @@ export const wsTokenQueryOptions = (testUserId?: string) =>
   queryOptions({
     queryKey: ["getWsToken"],
     queryFn: async () => {
-      const data = await apiClient.ws.token
+      const data = await apiClient.chat.token
         .$get({ query: { testUserId } })
         .then((r) => r.json());
       return data;

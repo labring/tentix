@@ -1,4 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "@db/schema.ts";
 import * as relations from "@db/relations.ts";
 import { userRoleType } from "@/utils/types.ts";
@@ -21,16 +22,17 @@ export type StaffMap = Map<
 >;
 
 export function connectDB() {
-  const params = {
-    connection: getCntFromEnv(),
-    schema: { ...schema, ...relations },
-  };
-  if (!global.db) global.db = drizzle(params);
+  const pool = new Pool({
+    connectionString: global.customEnv.DATABASE_URL,
+  });
+  const db = drizzle({ client: pool, schema: { ...schema, ...relations } });
+  if (!global.db) global.db = db;
   return global.db;
 }
 
-export const camelToKebab = (str: string) =>
-  str.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+export function camelToKebab(str: string) {
+  return str.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
 
 export const zs = {
   ticket: createSelectSchema(schema.tickets),
@@ -41,7 +43,7 @@ export const zs = {
 };
 
 export function getOrigin(c: Context) {
-  if (process.env.NODE_ENV !== "production") {
+  if (global.customEnv.NODE_ENV !== "production") {
     return "http://localhost:5173";
   }
   const url = new URL(c.req.url);

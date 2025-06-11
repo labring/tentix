@@ -139,7 +139,7 @@ const ticketRouter = factory
                 return "orange";
               case "low":
                 return "indigo";
-              case "normal":
+              default:
                 return "blue";
             }
           })();
@@ -181,22 +181,6 @@ const ticketRouter = factory
           message: "Failed to create ticket",
         });
       }
-
-      // Nodejs Event Loop: function in `then` will be executed after the current function is finished
-      // so we need to use a temp variable to store the ticketId.
-      // const temp = ticketId;
-      // getAIResponse(temp, [
-      //   {
-      //     role: "user",
-      //     content: extractText(payload.description),
-      //   },
-      // ])
-      //   .then((aiResponse) => {
-      //     saveMessageToDb(temp, 1, plainTextToJSONContent(aiResponse), false);
-      //   })
-      //   .catch((error) => {
-      //     console.error("Error handling AI interaction:", error);
-      //   });
 
       return c.json({
         status: "success",
@@ -333,7 +317,7 @@ const ticketRouter = factory
       }
 
       if (
-        process.env.NODE_ENV === "production" &&
+        global.customEnv.NODE_ENV === "production" &&
         data.customerId !== userId &&
         staffMap.get(userId) === undefined
       ) {

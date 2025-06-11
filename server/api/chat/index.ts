@@ -1,4 +1,6 @@
 /* eslint-disable drizzle/enforce-delete-with-where */
+import * as schema from "@/db/schema.ts";
+import { MyCache } from "@/utils/cache.ts";
 import { WS_TOKEN_EXPIRY_TIME } from "@/utils/const.ts";
 import {
   connectDB,
@@ -9,43 +11,37 @@ import {
   saveMessageToDb,
   withdrawMessage,
 } from "@/utils/index.ts";
+import { getAIResponse } from "@/utils/platform/ai.ts";
+import { runWithInterval } from "@/utils/runtime.ts";
+import {
+  MessageEmitter,
+  RoomEmitter,
+  roomObserveEmitter,
+} from "@/utils/pubSub.ts";
 import {
   extractText,
   JSONContentZod,
   userRoleType,
-  wsMessageSchema,
-  WSMessage,
+  wsMsgClientSchema,
+  wsMsgClientType,
 } from "@/utils/types.ts";
 import { zValidator } from "@hono/zod-validator";
 import { type ServerWebSocket } from "bun";
+import { UUID } from "crypto";
+import { and, count, eq } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver } from "hono-openapi/zod";
 import { createBunWebSocket } from "hono/bun";
 import { HTTPException } from "hono/http-exception";
-import type { WSContext } from "hono/ws";
+import { streamSSE } from "hono/streaming";
+import NodeCache from "node-cache";
 import { z } from "zod";
 import { authMiddleware, factory } from "../middleware.ts";
-import { UUID } from "crypto";
-import { and, count, eq } from "drizzle-orm";
-import * as schema from "@/db/schema.ts";
-import { MyCache } from "@/utils/cache.ts";
-import NodeCache from "node-cache";
-import { runWithInterval } from "@/utils/runtime.ts";
-import { getAIResponse } from "@/utils/platform/ai.ts";
-type wsInstance = WSContext<ServerWebSocket<undefined>>;
+import { sendUnreadSSE, sendWsMessage, wsInstance } from "./tools.ts";
 
-// Connection management constants
-const HEARTBEAT_INTERVAL = 30000; // Send heartbeat every 30 seconds
-const HEARTBEAT_TIMEOUT = 10000; // Wait 10 seconds for heartbeat response
-
-// Connection state tracking
-interface ConnectionState {
-  lastHeartbeat: number;
-  heartbeatTimeout?: NodeJS.Timeout;
-  isAlive: boolean;
-}
-
-const connectionStates = new Map<string, ConnectionState>();
+const msgEmitter = new MessageEmitter();
+const roomEmitter = new RoomEmitter();
+const broadcastToRoom = roomEmitter.broadcastToRoom.bind(roomEmitter);
 
 // Token management
 interface TokenData {
@@ -85,99 +81,7 @@ setInterval(() => {
       tokenMap.delete(token);
     }
   }
-}, 60000); // Clean up every minute
-
-// Helper functions for connection management
-const initializeConnection = (clientId: string, ws: wsInstance) => {
-  connectionStates.set(clientId, {
-    lastHeartbeat: Date.now(),
-    isAlive: true,
-  });
-
-  // Start heartbeat for this connection
-  const heartbeatInterval = setInterval(() => {
-    const state = connectionStates.get(clientId);
-    if (!state || !state.isAlive) {
-      clearInterval(heartbeatInterval);
-      return;
-    }
-
-    // Send heartbeat
-    ws.send(JSON.stringify({ type: "heartbeat", timestamp: Date.now() }));
-
-    // Set timeout for response
-    state.heartbeatTimeout = setTimeout(() => {
-      const currentState = connectionStates.get(clientId);
-      if (currentState) {
-        currentState.isAlive = false;
-        ws.close();
-      }
-    }, HEARTBEAT_TIMEOUT);
-  }, HEARTBEAT_INTERVAL);
-};
-
-const handleHeartbeat = (clientId: string) => {
-  const state = connectionStates.get(clientId);
-  if (state) {
-    // Clear previous timeout if exists
-    if (state.heartbeatTimeout) {
-      clearTimeout(state.heartbeatTimeout);
-    }
-    state.lastHeartbeat = Date.now();
-    state.isAlive = true;
-    connectionStates.set(clientId, state);
-  }
-};
-
-const cleanupConnection = (clientId: string) => {
-  const state = connectionStates.get(clientId);
-  if (state?.heartbeatTimeout) {
-    clearTimeout(state.heartbeatTimeout);
-  }
-  connectionStates.delete(clientId);
-};
-
-// In-memory storage for connected clients and room management
-const roomsMap = new Map<string, Map<string, wsInstance>>(); // roomId -> set of clientId
-
-// Helper function to broadcast a message to all clients in a room
-const broadcastToRoom = (
-  roomId: string,
-  message: WSMessage,
-  excludeClientId?: string | string[],
-) => {
-  const room = roomsMap.get(roomId);
-  if (!room) return;
-  const set = new Set<string>(
-    typeof excludeClientId === "string" ? [excludeClientId] : excludeClientId,
-  );
-
-  for (const [clientId, wsContext] of room) {
-    if (set.has(clientId)) continue;
-    wsContext.send(JSON.stringify(message));
-  }
-};
-
-// Helper function to add a client to a room
-const addClientToRoom = async (
-  roomId: string,
-  clientId: string,
-  ws: wsInstance,
-) => {
-  if (!roomsMap.has(roomId)) {
-    roomsMap.set(roomId, new Map());
-  }
-  const room = roomsMap.get(roomId)!;
-
-  room.set(clientId, ws);
-  return true;
-};
-
-// Helper function to remove a client from a room
-const removeClientFromRoom = (clientId: string, roomId: string) => {
-  const room = roomsMap.get(roomId)!;
-  room.delete(clientId);
-};
+}, 120000); // Clean up every 2 minutes
 
 const roomCustomerMap = new Map<string, UUID>();
 
@@ -268,18 +172,92 @@ namespace aiHandler {
       },
       (error: unknown) => {
         logError("Error handling AI response:", error);
-        ws.send(
-          JSON.stringify({
-            type: "error",
-            error: "Some error occurred in AI response.",
-          }),
-        );
+        sendWsMessage(ws, {
+          type: "error",
+          error: "Some error occurred in AI response.",
+        });
       },
     );
   }
 }
 
-const wsRouter = factory
+msgEmitter.on("new_message", async function ({ ws, ctx, message }) {
+  if (ctx.role === "customer") {
+    const currentCount = await aiHandler.getCurrentAIMsgCount(ctx.roomId);
+    if (currentCount <= aiHandler.MAX_AI_RESPONSES_PER_TICKET) {
+      aiHandler.handleAIResponse(ws, ctx.roomId, message.content);
+    }
+  }
+});
+
+msgEmitter.on("new_message", function ({ ws, ctx, message }) {
+  const broadcastExclude = message.isInternal
+    ? [ctx.clientId, roomCustomerMap.get(ctx.roomId)!]
+    : [ctx.clientId];
+  // Broadcast message to room
+  broadcastToRoom(
+    ctx.roomId,
+    {
+      type: "new_message",
+      messageId: message.messageId,
+      roomId: ctx.roomId,
+      userId: ctx.userId,
+      content: message.content,
+      timestamp: new Date(message.timestamp).getTime(),
+      isInternal: message.isInternal,
+    },
+    broadcastExclude,
+  );
+  sendWsMessage(ws, {
+    type: "message_sent",
+    tempId: message.tempId ?? 0,
+    messageId: message.messageId,
+    roomId: ctx.roomId,
+    timestamp: new Date(message.timestamp).getTime(),
+  });
+});
+
+msgEmitter.on("new_message", function (...[props]) {
+  roomObserveEmitter.emit("new_message", {
+    roomId: props.ctx.roomId,
+    userId: props.ctx.userId,
+    content: props.message.content,
+    tempId: props.message.tempId,
+    messageId: props.message.messageId,
+    timestamp: props.message.timestamp,
+    isInternal: props.message.isInternal,
+  });
+});
+
+roomEmitter.on("user_join", async function ({ clientId, roomId, role, ws }) {
+  if (role === "customer") {
+    roomCustomerMap.set(roomId, clientId);
+    const currentCount = await aiHandler.getCurrentAIMsgCount(roomId);
+    if (currentCount === 0) {
+      const db = connectDB();
+      db.query.tickets
+        .findFirst({
+          columns: {
+            title: true,
+            description: true,
+            errorMessage: true,
+          },
+          where: eq(schema.tickets.id, roomId),
+        })
+        .then((ticket) => {
+          if (ticket) {
+            aiHandler.handleAIResponse(ws, roomId, [
+              ticket.title,
+              extractText(ticket.description),
+              ticket.errorMessage,
+            ]);
+          }
+        });
+    }
+  }
+});
+
+const chatRouter = factory
   .createApp()
   .get(
     "/token",
@@ -322,10 +300,12 @@ const wsRouter = factory
     }),
     async (c) => {
       return c.json({
-        onlineClients: Array.from(roomsMap.entries()).map(([key, value]) => ({
-          roomId: key,
-          clients: Array.from(value.keys()),
-        })),
+        onlineClients: Array.from(roomEmitter.roomsMap.entries()).map(
+          ([key, value]) => ({
+            roomId: key,
+            clients: Array.from(value.keys()),
+          }),
+        ),
       });
     },
   )
@@ -333,7 +313,7 @@ const wsRouter = factory
     "/chat",
     describeRoute({
       tags: ["Chat"],
-      description: "WebSocket connection endpoint",
+      description: "Chat endpoint",
     }),
     zValidator(
       "query",
@@ -375,7 +355,7 @@ const wsRouter = factory
       if (
         role === "customer" &&
         !roomMembers.map((member) => member.id).includes(userId) &&
-        process.env.NODE_ENV === "production"
+        global.customEnv.NODE_ENV === "production"
       ) {
         throw new HTTPException(403, {
           message: "You do not have permission to access this ticket.",
@@ -383,119 +363,73 @@ const wsRouter = factory
       }
 
       return {
-        async onOpen(evt, ws) {
+        async onOpen(_evt, ws) {
           logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
-          await addClientToRoom(ticketId, clientId, ws);
-
-          // Initialize connection state and start heartbeat
-          initializeConnection(clientId, ws);
-
-          broadcastToRoom(
-            ticketId,
-            {
-              type: "user_joined",
-              userId,
-              roomId: ticketId,
-              timestamp: Date.now(),
-            },
+          roomEmitter.emit("user_join", {
             clientId,
-          );
-
-          if (role === "customer") {
-            roomCustomerMap.set(ticketId, clientId);
-            const currentCount = await aiHandler.getCurrentAIMsgCount(ticketId);
-            if (currentCount === 0) {
-              const db = connectDB();
-              db.query.tickets
-                .findFirst({
-                  columns: {
-                    title: true,
-                    description: true,
-                    errorMessage: true,
-                  },
-                  where: eq(schema.tickets.id, ticketId),
-                })
-                .then((ticket) => {
-                  if (ticket) {
-                    aiHandler.handleAIResponse(ws, ticketId, [
-                      ticket.title,
-                      extractText(ticket.description),
-                      ticket.errorMessage,
-                    ]);
-                  }
-                });
-            }
-          }
-
-          // Confirm to the user
-          ws.send(
-            JSON.stringify({
-              type: "join_success",
-              roomId: ticketId,
-              timestamp: Date.now(),
-            }),
-          );
+            roomId: ticketId,
+            userId,
+            role,
+            ws,
+          });
+          sendWsMessage(ws, {
+            type: "join_success",
+            roomId: ticketId,
+            timestamp: Date.now(),
+          });
         },
 
         async onMessage(evt, ws) {
           try {
+            // Check if connection is alive
+            const state = roomEmitter.connectionStates.get(clientId);
+            if (!state?.isAlive) {
+              sendWsMessage(ws, {
+                type: "error",
+                error: "Connection is not alive",
+              });
+              return;
+            }
             // Parse the message
             const messageData = evt.data.toString();
             const data = JSON.parse(messageData);
 
             // Validate message format
-            const validationResult = wsMessageSchema.safeParse(data);
+            const validationResult = wsMsgClientSchema.safeParse(data);
             if (!validationResult.success) {
-              ws.send(
-                JSON.stringify({
-                  type: "error",
-                  error: "Invalid message format",
-                  details: validationResult.error.errors,
-                }),
-              );
+              sendWsMessage(ws, {
+                type: "error",
+                error: "Invalid message format",
+              });
               logError(
                 "Invalid message format:",
-                validationResult.error.errors,
+                validationResult.error.issues,
               );
               return;
             }
 
-            const parsedMessage: WSMessage = validationResult.data;
+            const parsedMessage: wsMsgClientType = validationResult.data;
             // Handle different message types
             switch (parsedMessage.type) {
               case "heartbeat":
-                ws.send(
-                  JSON.stringify({
-                    type: "heartbeat_ack",
-                    timestamp: Date.now(),
-                  }),
-                );
+                sendWsMessage(ws, {
+                  type: "heartbeat_ack",
+                  timestamp: Date.now(),
+                });
                 break;
               case "heartbeat_ack":
-                handleHeartbeat(clientId);
+                roomEmitter.emit("heartbeat_ack", {
+                  clientId,
+                });
                 break;
 
               case "message": {
-                // Check if connection is alive
-                const state = connectionStates.get(clientId);
-                if (!state?.isAlive) {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Connection is not alive",
-                    }),
-                  );
-                  return;
-                }
-
                 // User is sending a message to a room
                 if (!parsedMessage.content) {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Message content is required",
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Message content is required",
+                  });
                   return;
                 }
 
@@ -508,74 +442,31 @@ const wsRouter = factory
                 );
 
                 if (messageResult) {
-                  if (role === "customer") {
-                    const currentCount =
-                      await aiHandler.getCurrentAIMsgCount(ticketId);
-                    if (currentCount <= aiHandler.MAX_AI_RESPONSES_PER_TICKET) {
-                      aiHandler.handleAIResponse(
-                        ws,
-                        ticketId,
-                        parsedMessage.content,
-                      );
-                    }
-                  }
-
-                  // Broadcast message to room
-                  let broadcastExclude = [clientId];
-                  if (parsedMessage.isInternal) {
-                    broadcastExclude = [
+                  msgEmitter.emit("new_message", {
+                    ws,
+                    ctx: {
                       clientId,
-                      roomCustomerMap.get(ticketId)!,
-                    ];
-                  }
-
-                  broadcastToRoom(
-                    ticketId,
-                    {
-                      type: "new_message",
-                      messageId: messageResult.id,
                       roomId: ticketId,
                       userId,
+                      role,
+                    },
+                    message: {
                       content: parsedMessage.content,
+                      tempId: parsedMessage.tempId ?? 0,
+                      messageId: messageResult.id,
                       timestamp: Date.now(),
                       isInternal: parsedMessage.isInternal ?? false,
                     },
-                    broadcastExclude,
-                  );
-
-                  // Confirm to sender
-                  ws.send(
-                    JSON.stringify({
-                      type: "message_sent",
-                      tempId: parsedMessage.tempId,
-                      messageId: messageResult.id,
-                      roomId: ticketId,
-                      timestamp: messageResult.createdAt,
-                    }),
-                  );
+                  });
                 } else {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Failed to save message",
-                      roomId: ticketId,
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Failed to save message",
+                  });
                 }
                 break;
               }
               case "typing": {
-                // Check if connection is alive
-                const typingState = connectionStates.get(clientId);
-                if (!typingState?.isAlive) {
-                  return; // Silently ignore typing events from dead connections
-                }
-
-                // User is typing in a room
-                if (!roomsMap.has(ticketId)) {
-                  return; // ignore if not in room
-                }
-
                 // Broadcast typing status to room
                 broadcastToRoom(
                   ticketId,
@@ -591,12 +482,10 @@ const wsRouter = factory
               }
               case "message_read": {
                 if (!parsedMessage.messageId) {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Message ID is required for read status",
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Something went wrong when sync read status",
+                  });
                   return;
                 }
 
@@ -665,58 +554,105 @@ const wsRouter = factory
                     broadcastExclude, // Exclude sender
                   );
                 } else {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      error: "Failed to withdraw message",
-                      roomId: ticketId,
-                    }),
-                  );
+                  sendWsMessage(ws, {
+                    type: "error",
+                    error: "Failed to withdraw message",
+                  });
                 }
                 break;
               }
             }
           } catch (error) {
             logError("Error handling WebSocket message:", error);
-            ws.send(
-              JSON.stringify({
-                type: "error",
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Internal server error",
-              }),
-            );
+            sendWsMessage(ws, {
+              type: "error",
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Internal server error",
+            });
           }
         },
-
-        onClose() {
-          // Clean up connection state
-          cleanupConnection(clientId);
-
-          // Get client info before removal
-          const room = roomsMap.get(ticketId);
-          if (room) {
-            broadcastToRoom(
-              ticketId,
-              {
-                type: "user_left",
-                userId,
-                roomId: ticketId,
-                timestamp: Date.now(),
-              },
-              clientId,
-            );
-            removeClientFromRoom(clientId, ticketId);
-
-            if (room.size === 0) {
-              roomsMap.delete(ticketId);
-            }
-          }
+        onClose(_evt, ws) {
+          roomEmitter.emit("user_leave", {
+            clientId,
+            roomId: ticketId,
+            userId,
+            role,
+            ws,
+          });
           logInfo(`Client disconnected: ${clientId}`);
         },
       };
     }),
+  )
+  .get(
+    "/unread",
+    authMiddleware,
+    describeRoute({
+      tags: ["Chat"],
+      description: "Get unread messages. Used for sync unread messages.",
+      responses: {
+        200: {
+          description: "Successful response",
+          content: {
+            "text/event-stream": {
+              schema: resolver(
+                z.object({
+                  data: z.string(),
+                  event: z.string(),
+                  id: z.string(),
+                }),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      return streamSSE(
+        c,
+        async (stream) => {
+          roomObserveEmitter.register(c.var.userId, stream);
+          let id = 0;
+          while (true) {
+            await sendUnreadSSE(stream, String(id), "heartbeat", {
+              text: "hello",
+            });
+            await stream.sleep(10000);
+            stream.onAbort(function () {
+              roomObserveEmitter.unregister(c.var.userId);
+            });
+          }
+        },
+        async function (err, stream) {
+          roomObserveEmitter.unregister(c.var.userId);
+          await stream.writeSSE({
+            data: "An error occurred!",
+            event: "error",
+          });
+          logError(err.message, err);
+        },
+      );
+    },
+  )
+  .post(
+    "/observe",
+    authMiddleware,
+    describeRoute({
+      tags: ["Chat"],
+      description: "Observe a room",
+    }),
+    zValidator(
+      "json",
+      z.object({
+        roomId: z.array(z.string()),
+      }),
+    ),
+    async (c) => {
+      const { roomId } = c.req.valid("json");
+      roomObserveEmitter.observe(c.var.userId, roomId);
+    },
   );
 
-export { websocket, wsRouter };
+export { websocket, chatRouter };

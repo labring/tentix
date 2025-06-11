@@ -6,7 +6,7 @@ import { HTTPException } from 'hono/http-exception';
 const cache = new NodeCache();
 
 function cacheResult(
-  target: unknown,
+  _target: unknown,
   propertyKey: string, 
   descriptor: PropertyDescriptor
 ) {

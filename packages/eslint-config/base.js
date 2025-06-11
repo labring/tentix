@@ -50,7 +50,15 @@ export const config = [
       "no-unused-vars": "off", // Handled by TypeScript
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_" },
+        {
+          "args": "all",
+          "argsIgnorePattern": "^_",
+          "caughtErrors": "all",
+          "caughtErrorsIgnorePattern": "^_",
+          "destructuredArrayIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "ignoreRestSiblings": true
+        }
       ],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-var-requires": "error",

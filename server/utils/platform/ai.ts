@@ -23,10 +23,10 @@ export async function getAIResponse(chatId: string, messages: { role: string; co
     detail: false,
     messages,
   };
-  const response = await fetch(process.env.FASTGPT_API_URL!, {
+  const response = await fetch(global.customEnv.FASTGPT_API_URL!, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.FASTGPT_API_KEY!}`,
+      Authorization: `Bearer ${global.customEnv.FASTGPT_API_KEY!}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
