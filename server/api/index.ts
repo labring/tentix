@@ -1,3 +1,6 @@
+import "./precede.ts";
+import "./initApp.ts";
+
 import { Scalar } from "@scalar/hono-api-reference";
 import { openAPISpecs } from "hono-openapi";
 import { serveStatic } from "hono/bun";
@@ -45,7 +48,6 @@ app.use(
           name: "Feishu",
           description: "Feishu related endpoints",
         },
-        
       ],
       servers: [
         {
@@ -80,7 +82,7 @@ app.get(
 );
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-const routes = app  // RPC routes
+const routes = app // RPC routes
   .basePath("/api")
   .route("/user", userRouter)
   .route("/ticket", ticketRouter)
@@ -88,8 +90,8 @@ const routes = app  // RPC routes
   .route("/chat", chatRouter)
   .route("/file", fileRouter)
   .route("/admin", adminRouter)
-  .route("/feishu", feishuRouter)
-if (process.env.NODE_ENV !== "production") {
+  .route("/feishu", feishuRouter);
+if (global.customEnv.NODE_ENV !== "production") {
   routes.route("/playground", playgroundRouter);
 }
 

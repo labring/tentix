@@ -16,12 +16,12 @@
       "outputs": ["server/output/**"]
     },
     "typecheck": {
-      "dependsOn": ["build:types", "^typecheck"],
+      "dependsOn": ["tentix-server#build:types", "^typecheck"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
       "outputs": ["packages/ui/types/**", "server/types/**"]
     },
     "frontend#typecheck": {
-      "dependsOn": ["build:types"],
+      "dependsOn": ["tentix-server#build:types"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json"],
       "outputs": []
     },
@@ -30,16 +30,17 @@
       "outputs": ["server/types/**"]
     },
     "tentix-ui#typecheck": {
+      "dependsOn": ["tentix-server#build:types"],
       "inputs": ["$TURBO_DEFAULT$", "packages/ui/tsconfig.json", "packages/ui/src/**"],
       "outputs": ["packages/ui/types/**"]
     },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^typecheck", "tentix-server#build:types", "^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["server/dist"]
     },
     "frontend#build": {
-      "dependsOn": ["^typecheck", "build:types"],
+      "dependsOn": ["^typecheck", "tentix-server#build:types", "frontend#typecheck"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig*.json", "frontend/src/**/*.tsx"],
       "outputs": ["server/dist/**"]
     },

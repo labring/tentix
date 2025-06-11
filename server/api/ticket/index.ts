@@ -317,7 +317,7 @@ const ticketRouter = factory
       }
 
       if (
-        process.env.NODE_ENV === "production" &&
+        global.customEnv.NODE_ENV === "production" &&
         data.customerId !== userId &&
         staffMap.get(userId) === undefined
       ) {

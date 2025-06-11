@@ -355,7 +355,7 @@ const chatRouter = factory
       if (
         role === "customer" &&
         !roomMembers.map((member) => member.id).includes(userId) &&
-        process.env.NODE_ENV === "production"
+        global.customEnv.NODE_ENV === "production"
       ) {
         throw new HTTPException(403, {
           message: "You do not have permission to access this ticket.",
