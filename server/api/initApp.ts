@@ -1,39 +1,21 @@
-import { connectDB, StaffMap } from "@/utils/tools";
-import * as schema from "@/db/schema";
 import * as relations from "@/db/relations";
-import { and, gte, lt, count, eq } from "drizzle-orm";
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { AppConfig, logInfo } from "@/utils";
-import i18next from "i18next";
+import * as schema from "@/db/schema";
+import { logInfo } from "@/utils";
 import { importKeyFromString } from "@/utils/crypto";
 import { readConfig } from "@/utils/env";
-
-type AppSchema = typeof schema & typeof relations;
-
-declare global {
-  // eslint-disable-next-line no-var -- only var works here
-  var db: NodePgDatabase<AppSchema> | undefined; // Fix for "sorry, too many clients already"
-  // eslint-disable-next-line no-var
-  var staffMap: StaffMap | undefined;
-  // eslint-disable-next-line no-var
-  var todayTicketCount: number | undefined;
-  // eslint-disable-next-line no-var
-  var config: AppConfig | undefined;
-  // eslint-disable-next-line no-var
-  var i18n: typeof i18next | undefined;
-  // eslint-disable-next-line no-var
-  var cryptoKey: CryptoKey | undefined;
-}
+import { connectDB } from "@/utils/tools";
+import { and, count, eq, gte, lt } from "drizzle-orm";
+import i18next from "i18next";
 
 export async function initGlobalVariables() {
   if (!global.config) {
     await readConfig();
   }
   if (!global.cryptoKey) {
-    if (!process.env.ENCRYPTION_KEY) {
+    if (!global.customEnv.ENCRYPTION_KEY) {
       throw new Error("ENCRYPTION_KEY is not set");
     }
-    global.cryptoKey = await importKeyFromString(process.env.ENCRYPTION_KEY);
+    global.cryptoKey = await importKeyFromString(global.customEnv.ENCRYPTION_KEY);
   }
 
   if (!global.staffMap) {
@@ -45,7 +27,6 @@ export async function initGlobalVariables() {
   if (!global.i18n) {
     global.i18n = i18next;
   }
-
 }
 
 // Reset the daily counter at midnight
@@ -120,7 +101,7 @@ export async function refreshStaffMap(stale: boolean = false) {
   if (
     global.staffMap === undefined ||
     stale ||
-    process.env.NODE_ENV !== "production"
+    global.customEnv.NODE_ENV !== "production"
   ) {
     logInfo("Staff map not initialized, initializing...");
     const db = connectDB();

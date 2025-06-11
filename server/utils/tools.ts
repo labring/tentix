@@ -41,7 +41,7 @@ export const zs = {
 };
 
 export function getOrigin(c: Context) {
-  if (process.env.NODE_ENV !== "production") {
+  if (global.customEnv.NODE_ENV !== "production") {
     return "http://localhost:5173";
   }
   const url = new URL(c.req.url);

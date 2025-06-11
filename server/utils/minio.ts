@@ -4,10 +4,10 @@ import { S3Client } from "bun";
 
 
 const bucket = new S3Client({
-  accessKeyId: process.env.MINIO_ACCESS_KEY,
-  secretAccessKey: process.env.MINIO_SECRET_KEY,
-  bucket: process.env.MINIO_BUCKET,
-  endpoint: process.env.MINIO_ENDPOINT,
+  accessKeyId: global.customEnv.MINIO_ACCESS_KEY,
+  secretAccessKey: global.customEnv.MINIO_SECRET_KEY,
+  bucket: global.customEnv.MINIO_BUCKET,
+  endpoint: global.customEnv.MINIO_ENDPOINT,
 });
 
 export async function getPresignedUrl(fileName: string, fileType: string): Promise<{ url: string; fileName: string }> {

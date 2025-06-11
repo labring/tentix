@@ -94,7 +94,7 @@ const adminRouter = factory
         c.req.valid("json");
 
       // Check if the user is authorized to raise requirements
-      if (userRole === "customer" && process.env.NODE_ENV === "production") {
+      if (userRole === "customer" && global.customEnv.NODE_ENV === "production") {
         throw new HTTPException(400, {
           message: "You are not authorized to raise requirements",
         });

@@ -36,7 +36,7 @@ const fileRouter = new Hono()
       const { fileName, fileType } = c.req.valid("query");
       const { url, fileName: newFileName } = await getPresignedUrl(fileName, fileType);
       return c.json({
-        srcUrl: `${process.env.MINIO_ENDPOINT}/${process.env.MINIO_BUCKET}/${newFileName}`,
+        srcUrl: `${global.customEnv.MINIO_ENDPOINT}/${global.customEnv.MINIO_BUCKET}/${newFileName}`,
         fileName: newFileName,
         url,
       });

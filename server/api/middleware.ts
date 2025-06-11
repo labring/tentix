@@ -33,7 +33,7 @@ function printErrorProp(title: string, content: string | undefined) {
 }
 
 function printError(err: Error, c: Context) {
-  if (process.env.NODE_ENV === "production") {
+  if (global.customEnv.NODE_ENV === "production") {
     console.error(`Error from ${c.req.path}:`);
     console.error(err);
     return;
@@ -119,10 +119,10 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   try {
     let authHeader = c.req.header("Authorization");
     if (
-      process.env.NODE_ENV !== "production" &&
+      global.customEnv.NODE_ENV !== "production" &&
       typeof authHeader !== "string"
     ) {
-      authHeader = process.env.DEV_USER;
+      authHeader = global.customEnv.DEV_FALLBACK_USER;
       console.warn(
         styleText(["bgYellow", "black", "bold"], "Warning"),
         styleText(
@@ -157,7 +157,7 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
 export function staffOnlyMiddleware(message: string = "Forbidden. Only staff can access this resource.") {
   return createMiddleware<AuthEnv>(async (c, next) => {
     const role = c.get("role");
-    if (role === "customer" && process.env.NODE_ENV === "production") {
+    if (role === "customer" && global.customEnv.NODE_ENV === "production") {
       throw new HTTPException(403, { message });
     }
     await next();

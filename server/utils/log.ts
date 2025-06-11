@@ -19,8 +19,8 @@ const LOG_STYLES: Record<LogLevel, LogStyle> = {
     text: ["green", "bold"],
   },
   warning: {
-    text: ["yellow", "bold"],
-    bg: "bgGray",
+    text: ["yellowBright", "bold"],
+    bg: "bgBlack",
   },
   error: {
     text: ["white", "bold"],
@@ -30,9 +30,13 @@ const LOG_STYLES: Record<LogLevel, LogStyle> = {
     text: ["magentaBright", "bold"],
   },
   start: {
-    text: ["cyanBright", "bold"],
+    text: ["cyanBright", "bold", "underline"],
   },
 };
+
+function pad(str: string, length: number, char = " ") {
+  return str.padStart((str.length + length) / 2, char).padEnd(length, char);
+}
 
 /**
  * Base logging function that applies consistent styling
@@ -49,6 +53,9 @@ function logWithStyle(level: LogLevel, message: string, prefix?: string) {
       case "debug":
         console.debug(message);
         break;
+      case "info":
+        console.info(message);
+        break;
       default:
         console.log(message);
         break;
@@ -62,9 +69,9 @@ function logWithStyle(level: LogLevel, message: string, prefix?: string) {
     : `[${timestamp}] ${message}`;
   const styles: BasicStyleTextParams[] = style.text;
   if (style.bg) {
-    styles.push(style.bg);
+    styles.unshift(style.bg);
   }
-  console.log(styleText(styles, formattedMessage));
+  console.log(styleText(styles, pad(level.toUpperCase(), 9)), formattedMessage);
 }
 
 /**
@@ -99,7 +106,7 @@ export function logError(message: string, error?: unknown) {
  * Log a debug message (only in development)
  */
 export function logDebug(message: string) {
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV !== "production") {
     logWithStyle("debug", message, "🔧");
   }
 }
@@ -134,4 +141,14 @@ export async function withTaskLog<T>(
     logError(`${taskName} failed!`, error);
     throw error;
   }
+}
+
+export function logUtilsTest() {
+  logInfo("Utils test");
+  logSuccess("Utils test");
+  logWarning("Utils test");
+  logError("Utils test");
+  logDebug("Utils test");
+  logStart("Utils test");
+  logComplete("Utils test");
 }
