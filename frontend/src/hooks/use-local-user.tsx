@@ -22,21 +22,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: userData } = useSuspenseQuery(userInfoQueryOptions());
 
   React.useEffect(() => {
-    const area = window.localStorage.getItem(
-      "area",
-    ) as (typeof areaEnumArray)[number] ?? 'hzh';
+    const area =
+      (window.localStorage.getItem("area") as (typeof areaEnumArray)[number]) ??
+      "hzh";
     // @ts-ignore
     setUser({ ...userData, area });
     setCk(getCk());
   }, [userData]);
 
-
-
-
   return (
     <AuthContext.Provider value={{ isAuthenticated, ck, user }}>
       {children}
-      
     </AuthContext.Provider>
   );
 }

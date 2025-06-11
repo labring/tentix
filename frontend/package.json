@@ -32,6 +32,7 @@
     "@tiptap/extension-text": "^2.11.9",
     "@tiptap/html": "^2.11.9",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@zjy365/sealos-desktop-sdk": "^0.1.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18n": "workspace:*",

@@ -35,12 +35,18 @@ interface AuthResponse {
   data: Data;
 }
 
-
-export async function signBearerToken(c: Context<MyEnv>, id: number, role: string) {
+export async function signBearerToken(
+  c: Context<MyEnv>,
+  id: number,
+  role: string,
+) {
   const cryptoKey = c.get("cryptoKey")();
   const now = new Date();
-  const expireTime = Math.floor(now.getTime()/1000) + 60 * 60 * 24 * 30;
-  const ciphertext = await aesEncryptToString(`${id}##${role}##${expireTime}`, cryptoKey);
+  const expireTime = Math.floor(now.getTime() / 1000) + 60 * 60 * 24 * 30;
+  const ciphertext = await aesEncryptToString(
+    `${id}##${role}##${expireTime}`,
+    cryptoKey,
+  );
   const token = `${ciphertext.ciphertext}+Tx*${ciphertext.iv}`;
   const connInfo = getConnInfo(c);
   const ip = connInfo.remote.address ?? "unknown";
@@ -50,7 +56,7 @@ export async function signBearerToken(c: Context<MyEnv>, id: number, role: strin
     loginTime: now.toUTCString(),
     userAgent: String(c.req.header("User-Agent")),
     ip,
-    token
+    token,
   });
   return {
     token,
@@ -92,18 +98,22 @@ const authRouter = factory.createApp().get(
   async (c) => {
     const db = connectDB();
     const query = c.req.valid("query");
-
+    console.log("query", query);
 
     const authRes = await fetch(
       `https://${query.area}.sealos.run/api/auth/info`,
       {
         method: "POST",
         headers: {
-          Authorization: `${query.token}`,
+          // Authorization: `${query.token}`,
+          Authorization: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3b3Jrc3BhY2VVaWQiOiIwYjVkOTVmYi1mODllLTRjNWQtOWQ0NC1hM2E3MzZjNDNkZTAiLCJ3b3Jrc3BhY2VJZCI6Im5zLWYwbGhzd3BoIiwicmVnaW9uVWlkIjoiZjhmZTBmOTctNDU1MC00NzJmLWFhOWEtNzJlZDM0ZTYwOTUyIiwidXNlckNyVWlkIjoiNTAzZGNlMmItYmE4Ny00Yjk2LWJiYzYtMWFmNjhjMjc5OTk0IiwidXNlckNyTmFtZSI6IjE2MGN2OHoyIiwidXNlcklkIjoiOFVfNFdaaXV3bCIsInVzZXJVaWQiOiJmYTFmYzgzOC02ZTRjLTQ3Y2YtYmYyYi05Zjc5ZjZkMzZjYjIiLCJpYXQiOjE3NDk0Nzk3MjEsImV4cCI6MTc1MDA4NDUyMX0.5Gj4OQ5VILs_5RRzTKDf9YKp_-ixfj0MX1GdagxQUb4`,
         },
       },
     );
+    console.log("authRes", authRes);
+    console.log("authRes.ok", authRes.ok);
     const authResJson: AuthResponse = await authRes.json();
+    console.log("authResJson", authResJson);
     if (!authRes.ok && authResJson.data !== null) {
       throw new HTTPException(401, {
         message: "Unauthorized",

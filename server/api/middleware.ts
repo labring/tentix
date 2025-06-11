@@ -118,19 +118,19 @@ export async function decryptToken(token: string, cryptoKey: CryptoKey) {
 export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   try {
     let authHeader = c.req.header("Authorization");
-    if (
-      process.env.NODE_ENV !== "production" &&
-      typeof authHeader !== "string"
-    ) {
-      authHeader = process.env.DEV_USER;
-      console.warn(
-        styleText(["bgYellow", "black", "bold"], "Warning"),
-        styleText(
-          "yellow",
-          `Authorization header is not found, using fallback user for development: ${authHeader}`,
-        ),
-      );
-    }
+    // if (
+    //   process.env.NODE_ENV !== "production" &&
+    //   typeof authHeader !== "string"
+    // ) {
+    //   authHeader = process.env.DEV_USER;
+    //   console.warn(
+    //     styleText(["bgYellow", "black", "bold"], "Warning"),
+    //     styleText(
+    //       "yellow",
+    //       `Authorization header is not found, using fallback user for development: ${authHeader}`,
+    //     ),
+    //   );
+    // }
     if (!authHeader) {
       console.error("Unauthorized", authHeader);
       throw new HTTPException(401, { message: "Unauthorized" });
@@ -154,7 +154,9 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   }
 });
 
-export function staffOnlyMiddleware(message: string = "Forbidden. Only staff can access this resource.") {
+export function staffOnlyMiddleware(
+  message: string = "Forbidden. Only staff can access this resource.",
+) {
   return createMiddleware<AuthEnv>(async (c, next) => {
     const role = c.get("role");
     if (role === "customer" && process.env.NODE_ENV === "production") {

@@ -36,7 +36,7 @@ export const ticketCategoryEnumArray = [
 
 /**
  * Ticket priority enum array
- * 
+ *
  * @example
  * "normal" // normal consultation
  * "low" // operation experience problem
@@ -59,10 +59,9 @@ export const ticketStatusEnumArray = [
   "scheduled",
 ] as const;
 
-
 /**
  * Ticket history type enum array
- * 
+ *
  * @description
  * | **history_type** | **meta(integer)**            |
  * |:----------------:|:--------------------------:|
@@ -74,7 +73,7 @@ export const ticketStatusEnumArray = [
  * | makeRequest      | who do this                |
  * | resolve          | who resolve this           |
  * | close            | who close this             |
- * 
+ *
  */
 export const ticketHistoryTypeEnumArray = [
   "create",
@@ -87,9 +86,8 @@ export const ticketHistoryTypeEnumArray = [
   "makeRequest",
   "resolve",
   "close",
-  "other"
+  "other",
 ] as const;
-
 
 export const userRoleEnumArray = [
   "system",
@@ -102,7 +100,7 @@ export const userRoleEnumArray = [
 
 /**
  * WebSocket token expiry time
- * 
+ *
  * @example
  * 12 * 60 * 60 * 1000 // 12 hour in milliseconds
  */
@@ -110,12 +108,11 @@ export const WS_TOKEN_EXPIRY_TIME = 12 * 60 * 60 * 1000;
 
 /**
  * Cookie expiry time
- * 
+ *
  * @example
  * 1000 * 60 * 60 * 24 * 30 // 30 days in milliseconds
  */
 export const COOKIE_EXPIRY_TIME = 1000 * 60 * 60 * 24 * 30;
-
 
 export function getIndex<T extends readonly string[]>(arr: T, key: T[number]) {
   return arr.findIndex((item) => item === key);
@@ -124,5 +121,3 @@ export function getIndex<T extends readonly string[]>(arr: T, key: T[number]) {
 export function getEnumKey<T extends readonly string[]>(arr: T, index: number) {
   return arr[index];
 }
-
-
