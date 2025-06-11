@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun x --bun vite",
     "start": "bun x --bun vite",
-    "build": "vite build --mode production --out-dir ../server/dist/",
+    "build": "vite build --mode production",
     "server": "vite preview",
     "test": "bun x --bun vitest run",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 150",

@@ -47,7 +47,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: '../server/dist',
     chunkSizeWarningLimit: 1200,
     sourcemap: false,
     emptyOutDir: true,
@@ -59,6 +59,7 @@ export default defineConfig({
       },
     },
     rollupOptions: {
+      external: ["tentix-server"],
       output: {
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
