@@ -62,11 +62,9 @@ function AuthGuard() {
         switch (role) {
           case "technician":
           case "agent":
-            console.log("Redirecting to staff dashboard");
             router.navigate({ to: "/staff/dashboard", replace: true });
             break;
           default:
-            console.log("Redirecting to user tickets list");
             router.navigate({ to: "/user/tickets/list", replace: true });
             break;
         }
