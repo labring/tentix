@@ -160,6 +160,7 @@ const authRouter = factory.createApp().get(
     })();
 
     const tokenInfo = await signBearerToken(c, userInfo.id, userInfo.role);
+    console.log("tokenInfo", tokenInfo.token);
 
     return c.json({
       id: userInfo.id,

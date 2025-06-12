@@ -8,236 +8,86 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-// Import Routes
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as UserRouteImport } from './routes/user'
+import { Route as StaffRouteImport } from './routes/staff'
+import { Route as NotLoginRouteImport } from './routes/notLogin'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as UserDashboardRouteImport } from './routes/user/dashboard'
+import { Route as StaffDashboardRouteImport } from './routes/staff/dashboard'
+import { Route as UserSettingIndexRouteImport } from './routes/user/setting/index'
+import { Route as UserNewticketIndexRouteImport } from './routes/user/newticket/index'
+import { Route as UserTicketsListRouteImport } from './routes/user/tickets/list'
+import { Route as UserTicketsIdRouteImport } from './routes/user/tickets/$id'
+import { Route as StaffTicketsListRouteImport } from './routes/staff/tickets/list'
+import { Route as StaffTicketsAllRouteImport } from './routes/staff/tickets/all'
+import { Route as StaffTicketsIdRouteImport } from './routes/staff/tickets/$id'
 
-import { Route as rootRoute } from './routes/__root'
-import { Route as UserImport } from './routes/user'
-import { Route as StaffImport } from './routes/staff'
-import { Route as NotLoginImport } from './routes/notLogin'
-import { Route as IndexImport } from './routes/index'
-import { Route as UserDashboardImport } from './routes/user/dashboard'
-import { Route as StaffDashboardImport } from './routes/staff/dashboard'
-import { Route as UserSettingIndexImport } from './routes/user/setting/index'
-import { Route as UserNewticketIndexImport } from './routes/user/newticket/index'
-import { Route as UserTicketsListImport } from './routes/user/tickets/list'
-import { Route as UserTicketsIdImport } from './routes/user/tickets/$id'
-import { Route as StaffTicketsListImport } from './routes/staff/tickets/list'
-import { Route as StaffTicketsAllImport } from './routes/staff/tickets/all'
-import { Route as StaffTicketsIdImport } from './routes/staff/tickets/$id'
-
-// Create/Update Routes
-
-const UserRoute = UserImport.update({
+const UserRoute = UserRouteImport.update({
   id: '/user',
   path: '/user',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const StaffRoute = StaffImport.update({
+const StaffRoute = StaffRouteImport.update({
   id: '/staff',
   path: '/staff',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const NotLoginRoute = NotLoginImport.update({
+const NotLoginRoute = NotLoginRouteImport.update({
   id: '/notLogin',
   path: '/notLogin',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const IndexRoute = IndexImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const UserDashboardRoute = UserDashboardImport.update({
+const UserDashboardRoute = UserDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => UserRoute,
 } as any)
-
-const StaffDashboardRoute = StaffDashboardImport.update({
+const StaffDashboardRoute = StaffDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => StaffRoute,
 } as any)
-
-const UserSettingIndexRoute = UserSettingIndexImport.update({
+const UserSettingIndexRoute = UserSettingIndexRouteImport.update({
   id: '/setting/',
   path: '/setting/',
   getParentRoute: () => UserRoute,
 } as any)
-
-const UserNewticketIndexRoute = UserNewticketIndexImport.update({
+const UserNewticketIndexRoute = UserNewticketIndexRouteImport.update({
   id: '/newticket/',
   path: '/newticket/',
   getParentRoute: () => UserRoute,
 } as any)
-
-const UserTicketsListRoute = UserTicketsListImport.update({
+const UserTicketsListRoute = UserTicketsListRouteImport.update({
   id: '/tickets/list',
   path: '/tickets/list',
   getParentRoute: () => UserRoute,
 } as any)
-
-const UserTicketsIdRoute = UserTicketsIdImport.update({
+const UserTicketsIdRoute = UserTicketsIdRouteImport.update({
   id: '/tickets/$id',
   path: '/tickets/$id',
   getParentRoute: () => UserRoute,
 } as any)
-
-const StaffTicketsListRoute = StaffTicketsListImport.update({
+const StaffTicketsListRoute = StaffTicketsListRouteImport.update({
   id: '/tickets/list',
   path: '/tickets/list',
   getParentRoute: () => StaffRoute,
 } as any)
-
-const StaffTicketsAllRoute = StaffTicketsAllImport.update({
+const StaffTicketsAllRoute = StaffTicketsAllRouteImport.update({
   id: '/tickets/all',
   path: '/tickets/all',
   getParentRoute: () => StaffRoute,
 } as any)
-
-const StaffTicketsIdRoute = StaffTicketsIdImport.update({
+const StaffTicketsIdRoute = StaffTicketsIdRouteImport.update({
   id: '/tickets/$id',
   path: '/tickets/$id',
   getParentRoute: () => StaffRoute,
 } as any)
-
-// Populate the FileRoutesByPath interface
-
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexImport
-      parentRoute: typeof rootRoute
-    }
-    '/notLogin': {
-      id: '/notLogin'
-      path: '/notLogin'
-      fullPath: '/notLogin'
-      preLoaderRoute: typeof NotLoginImport
-      parentRoute: typeof rootRoute
-    }
-    '/staff': {
-      id: '/staff'
-      path: '/staff'
-      fullPath: '/staff'
-      preLoaderRoute: typeof StaffImport
-      parentRoute: typeof rootRoute
-    }
-    '/user': {
-      id: '/user'
-      path: '/user'
-      fullPath: '/user'
-      preLoaderRoute: typeof UserImport
-      parentRoute: typeof rootRoute
-    }
-    '/staff/dashboard': {
-      id: '/staff/dashboard'
-      path: '/dashboard'
-      fullPath: '/staff/dashboard'
-      preLoaderRoute: typeof StaffDashboardImport
-      parentRoute: typeof StaffImport
-    }
-    '/user/dashboard': {
-      id: '/user/dashboard'
-      path: '/dashboard'
-      fullPath: '/user/dashboard'
-      preLoaderRoute: typeof UserDashboardImport
-      parentRoute: typeof UserImport
-    }
-    '/staff/tickets/$id': {
-      id: '/staff/tickets/$id'
-      path: '/tickets/$id'
-      fullPath: '/staff/tickets/$id'
-      preLoaderRoute: typeof StaffTicketsIdImport
-      parentRoute: typeof StaffImport
-    }
-    '/staff/tickets/all': {
-      id: '/staff/tickets/all'
-      path: '/tickets/all'
-      fullPath: '/staff/tickets/all'
-      preLoaderRoute: typeof StaffTicketsAllImport
-      parentRoute: typeof StaffImport
-    }
-    '/staff/tickets/list': {
-      id: '/staff/tickets/list'
-      path: '/tickets/list'
-      fullPath: '/staff/tickets/list'
-      preLoaderRoute: typeof StaffTicketsListImport
-      parentRoute: typeof StaffImport
-    }
-    '/user/tickets/$id': {
-      id: '/user/tickets/$id'
-      path: '/tickets/$id'
-      fullPath: '/user/tickets/$id'
-      preLoaderRoute: typeof UserTicketsIdImport
-      parentRoute: typeof UserImport
-    }
-    '/user/tickets/list': {
-      id: '/user/tickets/list'
-      path: '/tickets/list'
-      fullPath: '/user/tickets/list'
-      preLoaderRoute: typeof UserTicketsListImport
-      parentRoute: typeof UserImport
-    }
-    '/user/newticket/': {
-      id: '/user/newticket/'
-      path: '/newticket'
-      fullPath: '/user/newticket'
-      preLoaderRoute: typeof UserNewticketIndexImport
-      parentRoute: typeof UserImport
-    }
-    '/user/setting/': {
-      id: '/user/setting/'
-      path: '/setting'
-      fullPath: '/user/setting'
-      preLoaderRoute: typeof UserSettingIndexImport
-      parentRoute: typeof UserImport
-    }
-  }
-}
-
-// Create and export the route tree
-
-interface StaffRouteChildren {
-  StaffDashboardRoute: typeof StaffDashboardRoute
-  StaffTicketsIdRoute: typeof StaffTicketsIdRoute
-  StaffTicketsAllRoute: typeof StaffTicketsAllRoute
-  StaffTicketsListRoute: typeof StaffTicketsListRoute
-}
-
-const StaffRouteChildren: StaffRouteChildren = {
-  StaffDashboardRoute: StaffDashboardRoute,
-  StaffTicketsIdRoute: StaffTicketsIdRoute,
-  StaffTicketsAllRoute: StaffTicketsAllRoute,
-  StaffTicketsListRoute: StaffTicketsListRoute,
-}
-
-const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
-
-interface UserRouteChildren {
-  UserDashboardRoute: typeof UserDashboardRoute
-  UserTicketsIdRoute: typeof UserTicketsIdRoute
-  UserTicketsListRoute: typeof UserTicketsListRoute
-  UserNewticketIndexRoute: typeof UserNewticketIndexRoute
-  UserSettingIndexRoute: typeof UserSettingIndexRoute
-}
-
-const UserRouteChildren: UserRouteChildren = {
-  UserDashboardRoute: UserDashboardRoute,
-  UserTicketsIdRoute: UserTicketsIdRoute,
-  UserTicketsListRoute: UserTicketsListRoute,
-  UserNewticketIndexRoute: UserNewticketIndexRoute,
-  UserSettingIndexRoute: UserSettingIndexRoute,
-}
-
-const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -254,7 +104,6 @@ export interface FileRoutesByFullPath {
   '/user/newticket': typeof UserNewticketIndexRoute
   '/user/setting': typeof UserSettingIndexRoute
 }
-
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/notLogin': typeof NotLoginRoute
@@ -270,9 +119,8 @@ export interface FileRoutesByTo {
   '/user/newticket': typeof UserNewticketIndexRoute
   '/user/setting': typeof UserSettingIndexRoute
 }
-
 export interface FileRoutesById {
-  __root__: typeof rootRoute
+  __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/notLogin': typeof NotLoginRoute
   '/staff': typeof StaffRouteWithChildren
@@ -287,7 +135,6 @@ export interface FileRoutesById {
   '/user/newticket/': typeof UserNewticketIndexRoute
   '/user/setting/': typeof UserSettingIndexRoute
 }
-
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
@@ -336,7 +183,6 @@ export interface FileRouteTypes {
     | '/user/setting/'
   fileRoutesById: FileRoutesById
 }
-
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   NotLoginRoute: typeof NotLoginRoute
@@ -344,90 +190,142 @@ export interface RootRouteChildren {
   UserRoute: typeof UserRouteWithChildren
 }
 
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notLogin': {
+      id: '/notLogin'
+      path: '/notLogin'
+      fullPath: '/notLogin'
+      preLoaderRoute: typeof NotLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff': {
+      id: '/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof StaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user': {
+      id: '/user'
+      path: '/user'
+      fullPath: '/user'
+      preLoaderRoute: typeof UserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff/dashboard': {
+      id: '/staff/dashboard'
+      path: '/dashboard'
+      fullPath: '/staff/dashboard'
+      preLoaderRoute: typeof StaffDashboardRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/user/dashboard': {
+      id: '/user/dashboard'
+      path: '/dashboard'
+      fullPath: '/user/dashboard'
+      preLoaderRoute: typeof UserDashboardRouteImport
+      parentRoute: typeof UserRoute
+    }
+    '/staff/tickets/$id': {
+      id: '/staff/tickets/$id'
+      path: '/tickets/$id'
+      fullPath: '/staff/tickets/$id'
+      preLoaderRoute: typeof StaffTicketsIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/staff/tickets/all': {
+      id: '/staff/tickets/all'
+      path: '/tickets/all'
+      fullPath: '/staff/tickets/all'
+      preLoaderRoute: typeof StaffTicketsAllRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/staff/tickets/list': {
+      id: '/staff/tickets/list'
+      path: '/tickets/list'
+      fullPath: '/staff/tickets/list'
+      preLoaderRoute: typeof StaffTicketsListRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/user/tickets/$id': {
+      id: '/user/tickets/$id'
+      path: '/tickets/$id'
+      fullPath: '/user/tickets/$id'
+      preLoaderRoute: typeof UserTicketsIdRouteImport
+      parentRoute: typeof UserRoute
+    }
+    '/user/tickets/list': {
+      id: '/user/tickets/list'
+      path: '/tickets/list'
+      fullPath: '/user/tickets/list'
+      preLoaderRoute: typeof UserTicketsListRouteImport
+      parentRoute: typeof UserRoute
+    }
+    '/user/newticket/': {
+      id: '/user/newticket/'
+      path: '/newticket'
+      fullPath: '/user/newticket'
+      preLoaderRoute: typeof UserNewticketIndexRouteImport
+      parentRoute: typeof UserRoute
+    }
+    '/user/setting/': {
+      id: '/user/setting/'
+      path: '/setting'
+      fullPath: '/user/setting'
+      preLoaderRoute: typeof UserSettingIndexRouteImport
+      parentRoute: typeof UserRoute
+    }
+  }
+}
+
+interface StaffRouteChildren {
+  StaffDashboardRoute: typeof StaffDashboardRoute
+  StaffTicketsIdRoute: typeof StaffTicketsIdRoute
+  StaffTicketsAllRoute: typeof StaffTicketsAllRoute
+  StaffTicketsListRoute: typeof StaffTicketsListRoute
+}
+
+const StaffRouteChildren: StaffRouteChildren = {
+  StaffDashboardRoute: StaffDashboardRoute,
+  StaffTicketsIdRoute: StaffTicketsIdRoute,
+  StaffTicketsAllRoute: StaffTicketsAllRoute,
+  StaffTicketsListRoute: StaffTicketsListRoute,
+}
+
+const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
+
+interface UserRouteChildren {
+  UserDashboardRoute: typeof UserDashboardRoute
+  UserTicketsIdRoute: typeof UserTicketsIdRoute
+  UserTicketsListRoute: typeof UserTicketsListRoute
+  UserNewticketIndexRoute: typeof UserNewticketIndexRoute
+  UserSettingIndexRoute: typeof UserSettingIndexRoute
+}
+
+const UserRouteChildren: UserRouteChildren = {
+  UserDashboardRoute: UserDashboardRoute,
+  UserTicketsIdRoute: UserTicketsIdRoute,
+  UserTicketsListRoute: UserTicketsListRoute,
+  UserNewticketIndexRoute: UserNewticketIndexRoute,
+  UserSettingIndexRoute: UserSettingIndexRoute,
+}
+
+const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   NotLoginRoute: NotLoginRoute,
   StaffRoute: StaffRouteWithChildren,
   UserRoute: UserRouteWithChildren,
 }
-
-export const routeTree = rootRoute
+export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-/* ROUTE_MANIFEST_START
-{
-  "routes": {
-    "__root__": {
-      "filePath": "__root.tsx",
-      "children": [
-        "/",
-        "/notLogin",
-        "/staff",
-        "/user"
-      ]
-    },
-    "/": {
-      "filePath": "index.tsx"
-    },
-    "/notLogin": {
-      "filePath": "notLogin.tsx"
-    },
-    "/staff": {
-      "filePath": "staff.tsx",
-      "children": [
-        "/staff/dashboard",
-        "/staff/tickets/$id",
-        "/staff/tickets/all",
-        "/staff/tickets/list"
-      ]
-    },
-    "/user": {
-      "filePath": "user.tsx",
-      "children": [
-        "/user/dashboard",
-        "/user/tickets/$id",
-        "/user/tickets/list",
-        "/user/newticket/",
-        "/user/setting/"
-      ]
-    },
-    "/staff/dashboard": {
-      "filePath": "staff/dashboard.tsx",
-      "parent": "/staff"
-    },
-    "/user/dashboard": {
-      "filePath": "user/dashboard.tsx",
-      "parent": "/user"
-    },
-    "/staff/tickets/$id": {
-      "filePath": "staff/tickets/$id.tsx",
-      "parent": "/staff"
-    },
-    "/staff/tickets/all": {
-      "filePath": "staff/tickets/all.tsx",
-      "parent": "/staff"
-    },
-    "/staff/tickets/list": {
-      "filePath": "staff/tickets/list.tsx",
-      "parent": "/staff"
-    },
-    "/user/tickets/$id": {
-      "filePath": "user/tickets/$id.tsx",
-      "parent": "/user"
-    },
-    "/user/tickets/list": {
-      "filePath": "user/tickets/list.tsx",
-      "parent": "/user"
-    },
-    "/user/newticket/": {
-      "filePath": "user/newticket/index.tsx",
-      "parent": "/user"
-    },
-    "/user/setting/": {
-      "filePath": "user/setting/index.tsx",
-      "parent": "/user"
-    }
-  }
-}
-ROUTE_MANIFEST_END */

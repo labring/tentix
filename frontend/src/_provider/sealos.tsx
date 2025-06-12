@@ -10,12 +10,14 @@ import { createSealosApp, sealosApp } from "@zjy365/sealos-desktop-sdk/app";
 import { extractAreaFromSealosToken } from "@lib/sealos-area";
 import { useTranslation } from "i18n";
 
+let sealosInitPromise: Promise<void> | null = null;
+
 interface SealosContextType {
   isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
-  token: string | null;
-  area: string | null;
+  sealosToken: string | null;
+  sealosArea: string | null;
 }
 
 const SealosContext = createContext<SealosContextType | null>(null);
@@ -26,8 +28,8 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     isInitialized: false,
     isLoading: true,
     error: null,
-    token: null,
-    area: null,
+    sealosToken: null,
+    sealosArea: null,
   });
 
   const initializationRef = useRef(false);
@@ -68,20 +70,22 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
         }
 
         // get session info
+        console.info("Getting Sealos session...");
         const sealosSession = await sealosApp.getSession();
         const sealosToken = sealosSession.token as unknown as string;
         const sealosArea = extractAreaFromSealosToken(sealosToken ?? "");
 
         window.localStorage.setItem("identity", sealosToken);
         window.localStorage.setItem("area", sealosArea ?? "");
-        window.localStorage.setItem("token", sealosToken);
+
+        console.info("Sealos data saved to localStorage");
 
         setState({
           isInitialized: true,
           isLoading: false,
           error: null,
-          token: sealosToken,
-          area: sealosArea,
+          sealosToken: sealosToken,
+          sealosArea: sealosArea,
         });
 
         // cleanup
@@ -95,10 +99,11 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
           isLoading: false,
           error: error instanceof Error ? error.message : "Unknown error",
         }));
+        throw error;
       }
     };
 
-    initializeSealos().finally(() => {
+    sealosInitPromise = initializeSealos().finally(() => {
       console.info("##### sealos app and sealos info init completed #####");
     });
 
@@ -118,4 +123,19 @@ export function useSealos() {
     throw new Error("useSealos must be used within a SealosProvider");
   }
   return context;
+}
+
+export function waitForSealosInit(): Promise<void> {
+  if (!sealosInitPromise) {
+    // if not initialized, return a resolved promise (maybe server-side rendering or test environment)
+    console.warn(
+      "Sealos initialization promise not found, resolving immediately",
+    );
+    return Promise.resolve();
+  }
+  return sealosInitPromise.catch((error) => {
+    console.error("Sealos initialization failed:", error);
+    // even if initialization fails, do not throw an error, let the application continue running
+    return Promise.resolve();
+  });
 }
