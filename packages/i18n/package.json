@@ -5,7 +5,7 @@
   "types": "./dist/index.d.ts",
   "devDependencies": {
     "i18next": "^25.1.1",
-    "react-i18next": "^15.5.1"
+    "react-i18next": "^15.5.3"
   },
   "peerDependencies": {
     "typescript": "^5"
