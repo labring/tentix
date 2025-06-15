@@ -8,5 +8,5 @@
   },
   "include": ["./**/*.ts"],
   "files": ["./utils/rpc.ts"],
-  "exclude": ["node_modules", "dist", "output", "db/seed_old.ts", "api/ai/index.ts", "scripts", "test"]
+  "exclude": ["node_modules", "dist", "output", "scripts", "test"]
 }
