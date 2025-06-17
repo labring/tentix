@@ -6,7 +6,7 @@ import {
 import { areaEnumArray } from "tentix-server/constants";
 import { useAuth } from "../hooks/use-local-user";
 import { useEffect, useState } from "react";
-import { waitForSealosInit } from "../_provider/sealos";
+import { useSealos, waitForSealosInit } from "../_provider/sealos";
 
 export const Route = createFileRoute("/")({
   component: AuthGuard,
@@ -15,6 +15,8 @@ export const Route = createFileRoute("/")({
 function AuthGuard() {
   const router = useRouter();
   const authContext = useAuth();
+  const sealosContext = useSealos();
+  const { sealosUser } = sealosContext;
   const routeContext = useRouteContext({ from: "/" });
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,7 @@ function AuthGuard() {
       try {
         await waitForSealosInit();
 
+        console.log("sealosUser1", sealosUser);
         const identity = window.localStorage.getItem("identity");
         const area = window.localStorage.getItem("area");
 
@@ -34,11 +37,19 @@ function AuthGuard() {
 
         if (!authContext.isAuthenticated || !authContext.user) {
           const apiClient = routeContext.apiClient;
+          // todo add sealos user info
           const res = await (
-            await apiClient.auth.login.$get({
-              query: {
+            await apiClient.auth.login.$post({
+              json: {
                 token: identity,
                 area: area as (typeof areaEnumArray)[number],
+                userInfo: {
+                  id: sealosUser?.id ?? "",
+                  name: sealosUser?.name ?? "",
+                  avatar: sealosUser?.avatar ?? "",
+                  k8sUsername: sealosUser?.k8sUsername ?? "",
+                  nsid: sealosUser?.nsid ?? "",
+                },
               },
             })
           ).json();
@@ -55,6 +66,7 @@ function AuthGuard() {
             userData,
             area as (typeof areaEnumArray)[number],
           );
+          authContext.setIsAuthenticated(true);
         }
 
         const role = window.localStorage.getItem("role");

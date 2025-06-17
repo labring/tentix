@@ -7,6 +7,18 @@ export const areaEnumArray = [
   "test",
 ] as const;
 
+/**
+ * Area region UUID mapping
+ */
+export const areaRegionUuidMap = {
+  bja: "0dba3d90-2bae-4fb6-83f7-89620656574f",
+  hzh: "f8fe0f97-4550-472f-aa9a-72ed34e60952",
+  gzg: "6a216614-e658-4482-a244-e4311390715f",
+  io: "2e07bb48-e88c-4bb8-b2c8-03198b8fe66d",
+  usw: "00000000-0000-0000-0000-000000000000",
+  test: "00000000-0000-0000-0000-000000000000",
+} as const;
+
 export const moduleEnumArray = [
   "all",
   "applaunchpad",

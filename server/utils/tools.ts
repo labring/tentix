@@ -4,8 +4,8 @@ import * as schema from "@db/schema.ts";
 import * as relations from "@db/relations.ts";
 import { userRoleType } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
-import { getCntFromEnv } from "./env.ts";
 import { Context } from "hono";
+
 export type StaffMap = Map<
   number,
   {

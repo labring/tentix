@@ -4,11 +4,12 @@ import { SiteHeader } from "@comp/site-header";
 import { SidebarInset, SidebarProvider } from "tentix-ui";
 import { UserDashboardSidebar } from "@comp/user/dashboard-sidebar";
 import { Suspense } from "react";
-import { userTicketsQueryOptions} from "@lib/query";
+import { userTicketsQueryOptions } from "@lib/query";
 import { SkeletonTable } from "@comp/tickets-table/skeleton";
 
 export const Route = createFileRoute("/user/tickets/list")({
   loader: ({ context }) => {
+    console.info("authcontext", context.authContext);
     return context.queryClient.ensureQueryData(userTicketsQueryOptions());
   },
   component: RouteComponent,

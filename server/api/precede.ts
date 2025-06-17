@@ -15,6 +15,7 @@ const envSchema = z.object({
   FASTGPT_API_KEY: z.string().startsWith("fastgpt-").trim(),
   FASTGPT_API_LIMIT: z.coerce.number().default(10),
   DEV_FALLBACK_USER: z.string().trim().optional(),
+  SEALOS_APP_TOKEN: z.string().trim(),
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 
@@ -52,4 +53,3 @@ declare global {
     interface ProcessEnv extends z.infer<typeof envSchema> {}
   }
 }
-

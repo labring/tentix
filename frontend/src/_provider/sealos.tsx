@@ -7,8 +7,15 @@ import React, {
 } from "react";
 import { EVENT_NAME } from "@zjy365/sealos-desktop-sdk";
 import { createSealosApp, sealosApp } from "@zjy365/sealos-desktop-sdk/app";
-import { extractAreaFromSealosToken } from "@lib/sealos-area";
+import { extractAreaFromSealosToken } from "@lib/jwt";
 import { useTranslation } from "i18n";
+interface SealosUserInfo {
+  id: string;
+  name: string;
+  avatar: string;
+  k8sUsername: string;
+  nsid: string;
+}
 
 let sealosInitPromise: Promise<void> | null = null;
 
@@ -18,6 +25,7 @@ interface SealosContextType {
   error: string | null;
   sealosToken: string | null;
   sealosArea: string | null;
+  sealosUser: SealosUserInfo | null;
 }
 
 const SealosContext = createContext<SealosContextType | null>(null);
@@ -30,6 +38,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     error: null,
     sealosToken: null,
     sealosArea: null,
+    sealosUser: null,
   });
 
   const initializationRef = useRef(false);
@@ -86,6 +95,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
           error: null,
           sealosToken: sealosToken,
           sealosArea: sealosArea,
+          sealosUser: sealosSession.user,
         });
 
         // cleanup

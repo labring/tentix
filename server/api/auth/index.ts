@@ -1,6 +1,6 @@
 import { areaEnumArray } from "@/utils/const.ts";
 import { aesEncryptToString } from "@/utils/crypto";
-import { connectDB } from "@/utils/index.ts";
+import { connectDB, SealosJWT } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq } from "drizzle-orm";
 import { Context } from "hono";
@@ -10,6 +10,7 @@ import { getConnInfo } from "hono/bun";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { factory, MyEnv } from "../middleware";
+import { isJWTExpired, parseSealosJWT } from "@/utils/jwt";
 
 interface Data {
   info: {
@@ -64,7 +65,7 @@ export async function signBearerToken(
   };
 }
 
-const authRouter = factory.createApp().get(
+const authRouter = factory.createApp().post(
   "/login",
   describeRoute({
     description: "Login",
@@ -89,65 +90,60 @@ const authRouter = factory.createApp().get(
     },
   }),
   zValidator(
-    "query",
+    "json",
     z.object({
       token: z.string(),
       area: z.enum(areaEnumArray),
+      userInfo: z.object({
+        id: z.string(),
+        name: z.string(),
+        avatar: z.string(),
+        k8sUsername: z.string(),
+        nsid: z.string(),
+      }),
     }),
   ),
   async (c) => {
     const db = connectDB();
-    const query = c.req.valid("query");
-    console.log("query", query);
+    const payload = c.req.valid("json");
+    console.log("payload", payload);
+    const { token, area, userInfo: userInfoPayload } = payload;
 
-    const authRes = await fetch(
-      `https://${query.area}.sealos.run/api/auth/info`,
-      {
-        method: "POST",
-        headers: {
-          // Authorization: `${query.token}`,
-          Authorization: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3b3Jrc3BhY2VVaWQiOiIwYjVkOTVmYi1mODllLTRjNWQtOWQ0NC1hM2E3MzZjNDNkZTAiLCJ3b3Jrc3BhY2VJZCI6Im5zLWYwbGhzd3BoIiwicmVnaW9uVWlkIjoiZjhmZTBmOTctNDU1MC00NzJmLWFhOWEtNzJlZDM0ZTYwOTUyIiwidXNlckNyVWlkIjoiNTAzZGNlMmItYmE4Ny00Yjk2LWJiYzYtMWFmNjhjMjc5OTk0IiwidXNlckNyTmFtZSI6IjE2MGN2OHoyIiwidXNlcklkIjoiOFVfNFdaaXV3bCIsInVzZXJVaWQiOiJmYTFmYzgzOC02ZTRjLTQ3Y2YtYmYyYi05Zjc5ZjZkMzZjYjIiLCJpYXQiOjE3NDk0Nzk3MjEsImV4cCI6MTc1MDA4NDUyMX0.5Gj4OQ5VILs_5RRzTKDf9YKp_-ixfj0MX1GdagxQUb4`,
-        },
-      },
-    );
-    console.log("authRes", authRes);
-    console.log("authRes.ok", authRes.ok);
-    const authResJson: AuthResponse = await authRes.json();
-    console.log("authResJson", authResJson);
-    if (!authRes.ok && authResJson.data !== null) {
+    if (isJWTExpired(token)) {
       throw new HTTPException(401, {
         message: "Unauthorized",
-        cause: authResJson.message,
+        cause: "Token expired",
       });
     }
-    const info = authResJson.data.info;
-    // const baseUrl = new URL(c.req.url).origin;
+    let sealosJwtPayload: SealosJWT;
+    try {
+      sealosJwtPayload = parseSealosJWT(token);
+    } catch (error) {
+      throw new HTTPException(401, {
+        message: "Unauthorized",
+        cause: "Token invalid",
+      });
+    }
 
     const userInfo = await (async () => {
       const user = await db.query.users.findFirst({
-        where: eq(schema.users.uid, info.uid),
+        where: eq(schema.users.uid, sealosJwtPayload.userUid),
       });
       if (user === undefined) {
         const [newUser] = await db
           .insert(schema.users)
           .values({
-            uid: info.uid,
-            name: info.name,
-            nickname: info.nickname,
-            realName: info?.realName ?? "",
-            identity: info.id,
-            avatar: info.avatarUri,
-            registerTime: info.createdAt,
+            uid: sealosJwtPayload.userUid,
+            name: userInfoPayload.name,
+            nickname: "",
+            realName: "",
+            identity: userInfoPayload.id,
+            avatar: userInfoPayload.avatar,
+            registerTime: new Date().toISOString(),
             level: 1,
             role: "customer",
-            email:
-              info.oauthProvider.find(
-                (provider) => provider.providerType === "EMAIL",
-              )?.providerId || "",
-            phoneNum:
-              info.oauthProvider.find(
-                (provider) => provider.providerType === "PHONE",
-              )?.providerId || "",
+            email: "",
+            phoneNum: "",
           })
           .returning();
 
@@ -164,7 +160,7 @@ const authRouter = factory.createApp().get(
 
     return c.json({
       id: userInfo.id,
-      uid: info.uid,
+      uid: userInfo.uid,
       role: userInfo.role,
       ...tokenInfo,
     });

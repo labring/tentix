@@ -240,3 +240,17 @@ export const unreadSSESchema = z.object({
 });
 
 export type UnreadSSEType = z.infer<typeof unreadSSESchema>;
+
+export const sealosJWT = z.object({
+  workspaceUid: z.string(),
+  workspaceId: z.string(),
+  regionUid: z.string(),
+  userCrUid: z.string(),
+  userCrName: z.string(),
+  userId: z.string(),
+  userUid: z.string(),
+  iat: z.number(),
+  exp: z.number(),
+});
+
+export type SealosJWT = z.infer<typeof sealosJWT>;
