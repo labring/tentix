@@ -310,7 +310,7 @@ const chatRouter = factory
     },
   )
   .get(
-    "/chat",
+    "/ws",
     describeRoute({
       tags: ["Chat"],
       description: "Chat endpoint",

@@ -50,7 +50,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         rows_selected_one: "{{all}} of {{selected}} row selected",
         rows_selected_other: "{{all}} of {{selected}} rows selected",
         page_number: "Page {{page}} of {{all}}",
-        
+
         urgent: "urgent",
         high: "high",
         medium: "medium",
@@ -80,10 +80,10 @@ export const i18next = i18nBase.use(initReactI18next).init({
         mark_as_solved: "mark as solved",
         close: "close",
 
-        community: "community",
+        community: "Forum",
 
         tkt: "ticket",
-        tkt_list: "$t(tkt_other) list",
+        tkt_list: "Tickets",
         tkt_system: "$t(tkt_other) system",
         tkt_create: "create $t(tkt_one)",
         tkt_edit: "edit $t(tkt_one)",
@@ -97,21 +97,24 @@ export const i18next = i18nBase.use(initReactI18next).init({
         success: "Success",
         error: "Error",
         cancel: "Cancel",
-        
+
         // Update Status Modal
         update_status_title: "Update Ticket Status",
-        update_status_desc: "Change the status of ticket #{{id}}. This will notify all members of the ticket.",
+        update_status_desc:
+          "Change the status of ticket #{{id}}. This will notify all members of the ticket.",
         status_updated: "Ticket status updated successfully",
         failed_update_status: "Failed to update ticket status",
         select_status: "Select Status",
         status_change_reason: "Reason for Status Change",
-        status_change_reason_ph: "Why are you changing the status of this ticket?",
+        status_change_reason_ph:
+          "Why are you changing the status of this ticket?",
         status_change_desc: "Provide a brief explanation for the status change",
         updating: "Updating...",
-        
+
         // Transfer Modal
         transfer_ticket: "Transfer Ticket #{{id}}",
-        transfer_desc: "Transfer this ticket to another staff member. The current assignee will be notified.",
+        transfer_desc:
+          "Transfer this ticket to another staff member. The current assignee will be notified.",
         ticket_transferred: "Ticket transferred successfully",
         failed_transfer: "Failed to transfer ticket",
         select_staff: "Select Staff Member",
@@ -121,18 +124,21 @@ export const i18next = i18nBase.use(initReactI18next).init({
         transfer_reason_ph: "Why are you transferring this ticket?",
         transferring: "Transferring...",
         transfer_ticket_btn: "Transfer Ticket",
-        
+
         // Raise Requirement Modal
         raise_req_title: "Raise New Requirement",
-        raise_req_desc_linked: "Create a new requirement linked to ticket #{{id}}",
-        raise_req_desc_general: "Create a new requirement for system improvement or feature request",
+        raise_req_desc_linked:
+          "Create a new requirement linked to ticket #{{id}}",
+        raise_req_desc_general:
+          "Create a new requirement for system improvement or feature request",
         req_raised: "Requirement raised successfully",
         failed_raise_req: "Failed to raise requirement",
         req_title: "Title",
         req_title_ph: "Enter a clear title for the requirement",
         req_description: "Description",
         req_desc_ph: "Provide a detailed description of the requirement",
-        req_desc_help: "Include all relevant details, expected behavior, and business value",
+        req_desc_help:
+          "Include all relevant details, expected behavior, and business value",
         submitting: "Submitting...",
         raise_req_btn: "Raise Requirement",
 
@@ -145,7 +151,8 @@ export const i18next = i18nBase.use(initReactI18next).init({
         reset: "Reset",
         reload: "Reload",
         reset_login: "Reset login information",
-        unauthorized_message: "Please login through the correct channel, or try refreshing the page",
+        unauthorized_message:
+          "Please login through the correct channel, or try refreshing the page",
 
         create_new_ticket: "Create new ticket",
         select: "Select",
@@ -154,7 +161,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         title_ph: "Briefly describe your issue or request",
 
         module: "Module",
-        
+
         applaunchpad: "App Management",
         costcenter: "Cost Center",
         appmarket: "App Market",
@@ -299,7 +306,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         success: "成功",
         error: "错误",
         cancel: "取消",
-        
+
         // Update Status Modal
         update_status_title: "更新工单状态",
         update_status_desc: "更改工单 #{{id}} 的状态。这将通知所有工单成员。",
@@ -310,7 +317,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         status_change_reason_ph: "为什么要更改这个工单的状态？",
         status_change_desc: "提供状态变更的简要说明",
         updating: "更新中...",
-        
+
         // Transfer Modal
         transfer_ticket: "转移工单 #{{id}}",
         transfer_desc: "将此工单转移给另一位员工。当前负责人将收到通知。",
@@ -323,7 +330,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         transfer_reason_ph: "为什么要转移这个工单？",
         transferring: "转移中...",
         transfer_ticket_btn: "转移工单",
-        
+
         // Raise Requirement Modal
         raise_req_title: "提出新需求",
         raise_req_desc_linked: "创建与工单 #{{id}} 关联的新需求",
@@ -357,7 +364,6 @@ export const i18next = i18nBase.use(initReactI18next).init({
 
         module: "模块",
 
-        
         applaunchpad: "应用管理",
         costcenter: "费用中心",
         appmarket: "应用市场",
@@ -386,7 +392,6 @@ export const i18next = i18nBase.use(initReactI18next).init({
         error_msg_ph: "粘贴任何错误消息或日志",
         submit: "提交",
 
-
         no_sth_found: "没有找到{{sth}}",
         try_adjust_filters: "尝试调整过滤器",
         filter: "过滤器",
@@ -395,7 +400,6 @@ export const i18next = i18nBase.use(initReactI18next).init({
         unread: "未读",
         search: "搜索",
         view: "查看",
-
 
         tktH: {
           create: "$t(tkt)创建",

@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useThrottleFn } from "ahooks";
-import { type JSONContentZod, type wsMsgServerType, type wsMsgClientType } from "tentix-server/types";
+import {
+  type JSONContentZod,
+  type wsMsgServerType,
+  type wsMsgClientType,
+} from "tentix-server/types";
 import type { TicketType } from "tentix-server/rpc";
 import { useChatStore } from "../store";
 import { useToast } from "tentix-ui";
@@ -47,7 +51,7 @@ export function useTicketWebSocket({
     withdrawMessage: storeWithdrawMessage,
     removeSendingMessage,
     sendNewMessage,
-    readMessage
+    readMessage,
   } = useChatStore();
 
   // WebSocket related refs

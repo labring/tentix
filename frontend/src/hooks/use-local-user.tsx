@@ -15,7 +15,10 @@ export interface AuthContext {
 const AuthContext = React.createContext<AuthContext | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<AuthContext["user"]>(null);
+  const [user, setUser] = React.useState<AuthContext["user"]>(() => {
+    const storedUser = window.localStorage.getItem("user");
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
   const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(
     Boolean(window.localStorage.getItem("token")),
   );
@@ -26,13 +29,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.removeItem("token");
     window.localStorage.removeItem("role");
     window.localStorage.removeItem("id");
+    window.localStorage.removeItem("user");
     setIsAuthenticated(false);
     setUser(null);
   }, []);
 
   const updateUser = React.useCallback(
     (userData: UserType, area: (typeof areaEnumArray)[number]) => {
-      setUser({ ...userData, area });
+      const userWithArea = { ...userData, area };
+      setUser(userWithArea);
+      window.localStorage.setItem("user", JSON.stringify(userWithArea));
     },
     [],
   );

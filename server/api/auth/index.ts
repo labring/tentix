@@ -1,6 +1,6 @@
 import { areaEnumArray } from "@/utils/const.ts";
 import { aesEncryptToString } from "@/utils/crypto";
-import { connectDB, SealosJWT } from "@/utils/index.ts";
+import { connectDB, logError, SealosJWT } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq } from "drizzle-orm";
 import { Context } from "hono";
@@ -106,8 +106,8 @@ const authRouter = factory.createApp().post(
   async (c) => {
     const db = connectDB();
     const payload = c.req.valid("json");
-    console.log("payload", payload);
-    const { token, area, userInfo: userInfoPayload } = payload;
+
+    const { token, userInfo: userInfoPayload } = payload;
 
     if (isJWTExpired(token)) {
       throw new HTTPException(401, {
@@ -115,10 +115,12 @@ const authRouter = factory.createApp().post(
         cause: "Token expired",
       });
     }
+
     let sealosJwtPayload: SealosJWT;
     try {
       sealosJwtPayload = parseSealosJWT(token);
     } catch (error) {
+      logError("Error parsing sealos JWT:", error);
       throw new HTTPException(401, {
         message: "Unauthorized",
         cause: "Token invalid",
@@ -156,7 +158,6 @@ const authRouter = factory.createApp().post(
     })();
 
     const tokenInfo = await signBearerToken(c, userInfo.id, userInfo.role);
-    console.log("tokenInfo", tokenInfo.token);
 
     return c.json({
       id: userInfo.id,

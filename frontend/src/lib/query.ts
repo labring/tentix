@@ -38,15 +38,16 @@ const handler = {
 
 export const useSuspenseQuery = new Proxy(useSuspenseQueryTanStack, handler);
 
-export const userTicketsQueryOptions = (pageSize = 40, pageToken?: string) =>
+export const userTicketsQueryOptions = (pageSize = 40, page = 1, status?: string) =>
   queryOptions({
-    queryKey: ["getUserTickets", pageSize, pageToken],
+    queryKey: ["getUserTickets", pageSize, page, status],
     queryFn: async () => {
       const params: Record<string, string> = {
         pageSize: pageSize.toString(),
+        page: page.toString(),
       };
-      if (pageToken) {
-        params.pageToken = pageToken;
+      if (status && status !== "all") {
+        params.status = status;
       }
       const data = await apiClient.user.getTickets
         .$get({ query: params })

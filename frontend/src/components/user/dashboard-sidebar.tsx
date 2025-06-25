@@ -1,113 +1,71 @@
-import {
-  MessageSquare,
-  PlusCircle, Users
-} from "lucide-react";
+import { MessagesSquare, Plus } from "lucide-react";
 
-import useLocalUser from "@hook/use-local-user.tsx";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useTranslation } from "i18n";
 import {
-  Avatar, AvatarFallback, AvatarImage,
-  Button,
   Sidebar,
   SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
+  LayersIcon,
 } from "tentix-ui";
+
 export function UserDashboardSidebar() {
   const { t } = useTranslation();
   const pathname = useLocation().pathname;
-  const user = useLocalUser();
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b px-6 py-3">
-        <div className="flex items-center gap-2">
-          <Avatar className="h-6 w-6">
-            <AvatarImage src={user.avatar} />
-            <AvatarFallback>{user.name.slice(0, 2)}</AvatarFallback>
-          </Avatar>
-          <div className="text-sm font-medium">{user.name}</div>
+    <Sidebar className="w-fit">
+      <SidebarContent className="py-3 px-2 flex flex-col h-full items-center">
+        {/* 上面两个按钮组成一组 */}
+        <div className="flex flex-col gap-2 items-center">
+          <SidebarMenuButton
+            asChild
+            isActive={pathname === "/user/tickets/list"}
+            className="flex flex-col w-full h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500 data-[active=true]:bg-black/[0.04] data-[active=true]:text-zinc-900"
+          >
+            <Link
+              to="/user/tickets/list"
+              className="flex flex-col items-center justify-center gap-1 text-center"
+            >
+              <LayersIcon className="!w-6 !h-6" />
+              <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap">
+                {t("tkt_list")}
+              </span>
+            </Link>
+          </SidebarMenuButton>
+          <SidebarMenuButton
+            asChild
+            isActive={pathname === "/user/community"}
+            className="flex flex-col w-full h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500 data-[active=true]:bg-black/[0.04] data-[active=true]:text-zinc-900"
+          >
+            <a
+              href="https://forum.sealos.run"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center gap-1 text-center"
+            >
+              <MessagesSquare className="!w-6 !h-6" />
+              <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap">
+                {t("community")}
+              </span>
+            </a>
+          </SidebarMenuButton>
         </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarMenu>
-          {/* <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === "/user/dashboard"}
+        {/* 下面独立一个按钮，靠近底部 */}
+        <div className="flex-1 flex flex-col justify-end items-center">
+          <SidebarMenuButton
+            asChild
+            isActive={pathname === "/user/newticket"}
+            className="flex w-10 h-10 px-4 py-2 justify-center items-center gap-2 flex-shrink-0 rounded-lg border border-zinc-200 bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] hover:bg-zinc-100 text-zinc-500 hover:text-zinc-500 data-[active=true]:bg-zinc-100 data-[active=true]:text-zinc-900"
+          >
+            <Link
+              to="/user/newticket"
+              className="flex flex-col items-center justify-center"
             >
-              <Link to="/user/dashboard">
-                <Home />
-                <span>{t("dashboard")}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem> */}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === "/user/tickets/list"}
-            >
-              <Link to="/user/tickets/list">
-                <MessageSquare />
-                <span>{t("tkt_list")}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === "/user/newticket"}
-            >
-              <Link to="/user/newticket">
-                <PlusCircle />
-                <span>{t("tkt_create")}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          {/* <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link to="/user/knowledge-base">
-                <FileText />
-                <span>{t("knowledge_base")}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem> */}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === "/user/community"}
-            >
-              <a
-                href="https://forum.sealos.run"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Users />
-                <span>{t("community")}</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          {/* <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/user/settings"}>
-              <Link to="/user/settings">
-                <Settings />
-                <span>{t("settings")}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem> */}
-        </SidebarMenu>
+              <Plus className="!w-5 !h-5" />
+            </Link>
+          </SidebarMenuButton>
+        </div>
       </SidebarContent>
-      <SidebarFooter className="border-t p-4">
-        <Button variant="outline" className="w-full justify-start" asChild>
-          <Link to="/user/newticket">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            {t("tkt_create")}
-          </Link>
-        </Button>
-      </SidebarFooter>
     </Sidebar>
   );
 }

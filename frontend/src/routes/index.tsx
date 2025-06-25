@@ -25,8 +25,7 @@ function AuthGuard() {
     const initializeAndAuthenticate = async () => {
       try {
         await waitForSealosInit();
-
-        console.log("sealosUser1", sealosUser);
+        console.log("sealosUser", sealosUser);
         const identity = window.localStorage.getItem("identity");
         const area = window.localStorage.getItem("area");
 
@@ -60,7 +59,7 @@ function AuthGuard() {
 
           const userData = await apiClient.user.info
             .$get()
-            .then((r: any) => r.json());
+            .then((r) => r.json());
 
           authContext.updateUser(
             userData,
