@@ -20,22 +20,25 @@ export const i18next = i18nBase.use(initReactI18next).init({
         settings: "settings",
         docs_management: "docs management",
 
-        area: "area",
-        title: "title",
+        area: "Region",
+        title: "Title",
         category: "category",
         priority: "priority",
         status: "status",
         rqst_by: "requested by",
-        created_at: "created at",
-        updated_at: "updated at",
+        created_at: "Created at",
+        updated_at: "Last Updated",
         sbmt_date: "submitted at",
+        module: "Module",
 
-        all: "all",
-        pending: "pending",
-        in_progress: "in progress",
-        completed: "completed",
-        scheduled: "scheduled",
-        resolved: "resolved",
+        all: "All",
+        all_status: "All status",
+        pending: "Pending",
+        in_progress: "In Progress",
+        completed: "Completed",
+        scheduled: "Scheduled",
+        resolved: "Done",
+        status_filter: "Status Filter",
 
         no_results: "no results",
         rows_per_page: "rows per page",
@@ -79,10 +82,13 @@ export const i18next = i18nBase.use(initReactI18next).init({
         raise_req: "raise priority",
         mark_as_solved: "mark as solved",
         close: "close",
+        close_ticket: "close ticket",
+        ticket_closed: "Ticket closed successfully",
+        failed_close_ticket: "Failed to close ticket",
 
         community: "Forum",
 
-        tkt: "ticket",
+        tkt: "Ticket",
         tkt_list: "Tickets",
         tkt_system: "$t(tkt_other) system",
         tkt_create: "create $t(tkt_one)",
@@ -154,13 +160,12 @@ export const i18next = i18nBase.use(initReactI18next).init({
         unauthorized_message:
           "Please login through the correct channel, or try refreshing the page",
 
-        create_new_ticket: "Create new ticket",
+        create_new_ticket: "Create Ticket",
         select: "Select",
         details: "Details",
-        plz_pvd_info: "Provide information about your issue or request",
+        plz_pvd_info:
+          "Please provide details about the issue you’re experiencing or your specific request so we can assist you quickly and effectively.",
         title_ph: "Briefly describe your issue or request",
-
-        module: "Module",
 
         applaunchpad: "App Management",
         costcenter: "Cost Center",
@@ -198,6 +203,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         unread: "Unread",
         search: "Search",
         view: "View",
+        selected: "selected",
 
         tktH: {
           create: "$t(tkt) creation",
@@ -239,13 +245,16 @@ export const i18next = i18nBase.use(initReactI18next).init({
         created_at: "创建时间",
         updated_at: "更新时间",
         sbmt_date: "提交时间",
+        module: "模块",
 
         all: "全部",
+        all_status: "全部状态",
         pending: "待处理",
         in_progress: "处理中",
         completed: "已完成",
         scheduled: "计划中",
-        resolved: "已解决",
+        resolved: "已完成",
+        status_filter: "状态筛选",
 
         no_results: "没有结果",
         rows_per_page: "每页行数",
@@ -289,6 +298,9 @@ export const i18next = i18nBase.use(initReactI18next).init({
         raise_req: "提高优先级",
         mark_as_solved: "标记为已解决",
         close: "关闭",
+        close_ticket: "关闭工单",
+        ticket_closed: "工单已成功关闭",
+        failed_close_ticket: "关闭工单失败",
 
         community: "社区",
 
@@ -362,8 +374,6 @@ export const i18next = i18nBase.use(initReactI18next).init({
         plz_pvd_info: "请提供有关您的问题或请求的信息",
         title_ph: "简要描述您的问题或请求",
 
-        module: "模块",
-
         applaunchpad: "应用管理",
         costcenter: "费用中心",
         appmarket: "应用市场",
@@ -400,6 +410,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         unread: "未读",
         search: "搜索",
         view: "查看",
+        selected: "已选择",
 
         tktH: {
           create: "$t(tkt)创建",

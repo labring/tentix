@@ -1,95 +1,95 @@
-import { CalendarIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, TagIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import type { TicketType } from "tentix-server/rpc";
-import { Button, Card, CardContent, PriorityBadge, Separator, StatusBadge } from "tentix-ui";
+import { useTranslation } from "i18n";
+import { type JSONContent } from "@tiptap/react";
+import { PhotoProvider, PhotoView } from "react-photo-view";
 import ContentRenderer from "./content-renderer.tsx";
 
-export function TicketInfoBox({ ticket }: { ticket: TicketType }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [showButton, setShowButton] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
+function separateContent(content: JSONContent): {
+  textContent: JSONContent;
+  images: JSONContent[];
+} {
+  const textContent: JSONContent = { type: "doc", content: [] };
+  const images: JSONContent[] = [];
 
-  useEffect(() => {
-    const checkHeight = () => {
-      if (contentRef.current) {
-        const contentHeight = contentRef.current.scrollHeight;
-        const maxHeight = 15 * 16; // 15rem to pixels (1rem = 16px)
-        setShowButton(contentHeight > maxHeight);
-      }
-    };
+  function processNode(node: JSONContent): JSONContent | null {
+    if (!node) return null;
 
-    checkHeight();
-    // Add resize observer to handle dynamic content changes
-    const resizeObserver = new ResizeObserver(checkHeight);
-    if (contentRef.current) {
-      resizeObserver.observe(contentRef.current);
+    if (node.type === "image") {
+      images.push(node);
+      return null; // 不在文字内容中包含图片
     }
 
-    return () => resizeObserver.disconnect();
-  }, [ticket.description]);
+    if (node.content && node.content.length > 0) {
+      const filteredContent = node.content
+        .map((child) => processNode(child))
+        .filter((child) => child !== null) as JSONContent[];
+
+      if (filteredContent.length > 0) {
+        return { ...node, content: filteredContent };
+      } else if (node.type === "paragraph") {
+        return null; // 空段落不保留
+      }
+    }
+
+    return node;
+  }
+
+  if (content.content) {
+    const processedContent = content.content
+      .map((node) => processNode(node))
+      .filter((node) => node !== null) as JSONContent[];
+
+    textContent.content = processedContent;
+  }
+
+  return { textContent, images };
+}
+
+export function TicketInfoBox({ ticket }: { ticket: TicketType }) {
+  const { t } = useTranslation();
+  const { textContent, images } = separateContent(ticket.description);
 
   return (
-    <Card className="m-12 overflow-hidden border bg-muted/30">
-      <CardContent className="p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1 w-full flex flex-col">
-            <h3 className="text-base font-medium leading-none text-nowrap max-w-9/10 overflow-hidden text-ellipsis whitespace-nowrap block">
-              {ticket.title}
-            </h3>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <TagIcon className="h-3 w-3" />
-                {ticket.category}
-              </span>
-              <Separator orientation="vertical" className="h-3" />
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" />
-                {new Date(ticket.createdAt).toLocaleDateString()}
-              </span>
-              <Separator orientation="vertical" className="h-3" />
-              <span className="flex items-center gap-1">
-                <ClockIcon className="h-3 w-3" />
-                {new Date(ticket.createdAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={ticket.status} />
-              <PriorityBadge priority={ticket.priority} />
-            </div>
-          </div>
+    <div className="flex flex-col mb-10 px-6 py-5 gap-2 border border-zinc-200 bg-white rounded-xl shadow-sm">
+      {/* Title */}
+      <div className="flex flex-row justify-between items-start">
+        <p className="text-zinc-900 text-base font-semibold leading-6 flex-1 pr-4">
+          {ticket.title}
+        </p>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="inline-flex items-center justify-center gap-1 py-1 px-3 rounded-md border border-gray-200 text-xs font-medium text-zinc-900 bg-gray-50">
+            {t(ticket.module)}
+          </span>
         </div>
-        <div className="mt-2">
-          <div 
-            ref={contentRef}
-            className={`overflow-hidden transition-all duration-200 ${isExpanded ? 'max-h-none' : 'max-h-[15rem]'}`}
-          >
-            <ContentRenderer doc={ticket.description} />
-          </div>
-          {showButton && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full mt-2 flex items-center justify-center gap-1"
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
-              {isExpanded ? (
-                <>
-                  <ChevronUpIcon className="h-4 w-4" />
-                  Show Less
-                </>
-              ) : (
-                <>
-                  <ChevronDownIcon className="h-4 w-4" />
-                  Show More
-                </>
-              )}
-            </Button>
-          )}
+      </div>
+
+      {/* Text content */}
+      {textContent.content && textContent.content.length > 0 && (
+        <div className="mb-4 text-sm text-gray-700 leading-relaxed">
+          <ContentRenderer doc={textContent} />
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {/* Images */}
+      {images.length > 0 && (
+        <div className="space-y-2">
+          <PhotoProvider>
+            {images.map((image, index) => (
+              <div key={index} className="w-full">
+                <PhotoView src={image.attrs?.src || ""}>
+                  <img
+                    src={image.attrs?.src || ""}
+                    alt={image.attrs?.alt || ""}
+                    title={image.attrs?.title || ""}
+                    className="cursor-pointer rounded border border-gray-200 object-cover w-full"
+                    style={{ maxWidth: "100%", height: "170px" }}
+                  />
+                </PhotoView>
+              </div>
+            ))}
+          </PhotoProvider>
+        </div>
+      )}
+    </div>
   );
 }

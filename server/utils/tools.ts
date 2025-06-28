@@ -22,8 +22,13 @@ export type StaffMap = Map<
 >;
 
 export function connectDB() {
+  // Use global.customEnv if available, otherwise fallback to process.env
+  const databaseUrl = global.customEnv?.DATABASE_URL || process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is not set in environment variables");
+  }
   const pool = new Pool({
-    connectionString: global.customEnv.DATABASE_URL,
+    connectionString: databaseUrl,
   });
   const db = drizzle({ client: pool, schema: { ...schema, ...relations } });
   if (!global.db) global.db = db;

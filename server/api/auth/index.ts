@@ -12,30 +12,6 @@ import { z } from "zod";
 import { factory, MyEnv } from "../middleware";
 import { isJWTExpired, parseSealosJWT } from "@/utils/jwt";
 
-interface Data {
-  info: {
-    uid: string;
-    createdAt: string;
-    updatedAt: string;
-    avatarUri: string;
-    nickname: string;
-    id: string;
-    name: string;
-    status: string;
-    oauthProvider: {
-      providerType: string;
-      providerId: string;
-    }[];
-    realName: string;
-  };
-}
-
-interface AuthResponse {
-  code: number;
-  message: string;
-  data: Data;
-}
-
 export async function signBearerToken(
   c: Context<MyEnv>,
   id: number,
@@ -131,7 +107,9 @@ const authRouter = factory.createApp().post(
       const user = await db.query.users.findFirst({
         where: eq(schema.users.uid, sealosJwtPayload.userUid),
       });
+      console.log(user);
       if (user === undefined) {
+        console.log(1111);
         const [newUser] = await db
           .insert(schema.users)
           .values({

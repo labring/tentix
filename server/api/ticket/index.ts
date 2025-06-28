@@ -555,7 +555,6 @@ const ticketRouter = factory
   )
   .post(
     "/updateStatus",
-    staffOnlyMiddleware(),
     describeRoute({
       description: "Update a ticket status",
       tags: ["Admin", "Ticket"],
@@ -584,7 +583,15 @@ const ticketRouter = factory
     async (c) => {
       const db = c.var.db;
       const userId = c.var.userId;
+      const role = c.var.role;
       const { ticketId, status, description } = c.req.valid("form");
+
+      // Customer role restriction: can only update status to 'resolved'
+      if (role === "customer" && status !== "resolved") {
+        throw new HTTPException(403, {
+          message: "Customers can only update ticket status to 'resolved'",
+        });
+      }
 
       await db.transaction(async (tx) => {
         // 1. Record the ticket history

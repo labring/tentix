@@ -12,7 +12,7 @@ import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 
 const Toolbar = ({ editor }: { editor: Editor }) => (
-  <div className="border-border flex h-12 shrink-0 overflow-x-auto border-b p-2">
+  <div className="border-border flex h-13 shrink-0 overflow-x-auto border-b px-3 py-2">
     <div className="flex w-max items-center gap-px">
       <SectionTwo
         editor={editor}
@@ -63,19 +63,30 @@ export const DescriptionEditor = ({
     return null;
   }
 
+  // if click on the container, focus the editor
+  const handleContainerClick = (e: React.MouseEvent) => {
+    // if click on the container, focus the editor
+    if (!(e.target as HTMLElement).closest("[data-toolbar]")) {
+      editor.commands.focus();
+    }
+  };
+
   return (
     <MeasuredContainer
       as="div"
       name="editor"
       className={cn(
-        "border-input focus-within:border-primary min-data-[orientation=vertical]:h-72 flex h-auto w-full flex-col rounded-md border shadow-xs",
+        "border-input flex flex-col rounded-md border min-h-68 max-h-88 h-auto w-full cursor-text",
         className,
       )}
+      onClick={handleContainerClick}
     >
-      <Toolbar editor={editor} />
+      <div data-toolbar>
+        <Toolbar editor={editor} />
+      </div>
       <EditorContent
         editor={editor}
-        className={cn("minimal-tiptap-editor", editorContentClassName)}
+        className={cn("minimal-tiptap-editor flex-1", editorContentClassName)}
       />
       <LinkBubbleMenu editor={editor} />
     </MeasuredContainer>

@@ -1,12 +1,7 @@
 import { Badge } from "../ui/badge.tsx";
 import type { TicketsListItemType } from "tentix-server/rpc";
 import { useTranslation } from "i18n";
-import {
-  AlertTriangleIcon,
-  CheckCircle2Icon,
-  ClockIcon,
-  Loader2Icon,
-} from "lucide-react";
+import { PendingIcon, ProgressIcon, DoneIcon } from "../Icons/index.tsx";
 
 export function PriorityBadge({
   priority,
@@ -56,52 +51,47 @@ export function StatusBadge({
   status: TicketsListItemType["status"];
 }) {
   const { t } = useTranslation();
-  function getStatusIcon(status: TicketsListItemType["status"]) {
+  
+  function getStatusDisplay(status: TicketsListItemType["status"]) {
     switch (status) {
-      case "resolved":
-        return (
-          <>
-            <CheckCircle2Icon className="text-green-500 dark:text-green-400" />
-            {t("resolved")}
-          </>
-        );
-      case "in_progress":
-        return (
-          <>
-            <Loader2Icon className="text-amber-500 dark:text-amber-400" />
-            {t("in_progress")}
-          </>
-        );
       case "pending":
-        return (
-          <>
-            <ClockIcon className="text-blue-500 dark:text-blue-400" />
-            {t("pending")}
-          </>
-        );
       case "scheduled":
-        return (
-          <>
-            <ClockIcon className="text-purple-500 dark:text-purple-400" />
-            {t("scheduled")}
-          </>
-        );
+        return {
+          label: t("pending"),
+          icon: PendingIcon,
+          color: "text-blue-600",
+        };
+      case "in_progress":
+        return {
+          label: t("in_progress"),
+          icon: ProgressIcon,
+          color: "text-yellow-500",
+        };
+      case "resolved":
+        return {
+          label: t("resolved"),
+          icon: DoneIcon,
+          color: "text-blue-600",
+        };
       default:
-        return (
-          <>
-            <AlertTriangleIcon className="text-red-500 dark:text-red-400" />
-            {t("pending")}
-          </>
-        );
+        return {
+          label: t("pending"),
+          icon: PendingIcon,
+          color: "text-blue-600",
+        };
     }
   }
 
+  const statusDisplay = getStatusDisplay(status);
+
   return (
-    <Badge
-      variant="outline"
-      className="flex gap-1 px-1.5 text-muted-foreground [&_svg]:size-3 w-fit"
-    >
-      {getStatusIcon(status)}
-    </Badge>
+    <div className="flex items-center gap-1.5">
+      <statusDisplay.icon
+        className={`h-4 w-4 ${statusDisplay.color}`}
+      />
+      <span className="text-sm font-medium text-zinc-900 leading-5">
+        {statusDisplay.label}
+      </span>
+    </div>
   );
 }

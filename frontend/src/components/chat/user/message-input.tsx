@@ -1,7 +1,7 @@
 import { type JSONContentZod } from "tentix-server/types";
-import { Loader2Icon, SendIcon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import React, { useRef, useState } from "react";
-import { Button, UserChatEditor, type EditorRef } from "tentix-ui";
+import { SendIcon, Button, UserChatEditor, type EditorRef } from "tentix-ui";
 
 interface MessageInputProps {
   onSendMessage: (content: JSONContentZod) => void;
@@ -28,9 +28,9 @@ export function MessageInput({
   };
 
   return (
-    <div className="border-t p-4 lg:p-6">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="flex gap-2">
+    <div className="border-t relative">
+      <form onSubmit={handleSubmit}>
+        <div className="flex">
           <UserChatEditor
             ref={editorRef}
             value={newMessage}
@@ -43,23 +43,27 @@ export function MessageInput({
             editorContentClassName="overflow-auto h-full"
             placeholder="Comment here..."
             editable={true}
-            editorClassName="focus:outline-none px-5 py-4 h-full"
+            editorClassName="focus:outline-none p-4 h-full"
+            className="border-none"
           />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={
-              newMessage?.content?.at(0)?.content === undefined && newMessage?.content?.at(0)?.attrs?.id === undefined || isLoading
-            }
-          >
-            {isLoading ? (
-              <Loader2Icon className="h-4 w-4 animate-spin" />
-            ) : (
-              <SendIcon className="h-4 w-4" />
-            )}
-            <span className="sr-only">Send message</span>
-          </Button>
         </div>
+        <Button
+          type="submit"
+          size="icon"
+          className="absolute right-3 bottom-4 flex p-2 justify-center items-center rounded-[10px] bg-zinc-900"
+          disabled={
+            (newMessage?.content?.at(0)?.content === undefined &&
+              newMessage?.content?.at(0)?.attrs?.id === undefined) ||
+            isLoading
+          }
+        >
+          {isLoading ? (
+            <Loader2Icon className="h-5 w-5 animate-spin" />
+          ) : (
+            <SendIcon className="h-5 w-5" />
+          )}
+          <span className="sr-only">Send message</span>
+        </Button>
       </form>
     </div>
   );

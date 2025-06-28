@@ -110,7 +110,7 @@ export function UserChat({
 
   return (
     <PhotoProvider>
-      <div className="overflow-y-auto h-full relative w-full">
+      <div className="overflow-y-auto h-full relative w-full py-5 px-4">
         <TicketInfoBox ticket={ticket} />
         <MessageList
           messages={messages}

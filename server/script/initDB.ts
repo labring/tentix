@@ -52,6 +52,13 @@ export async function createAIUser() {
   // Register Staffs
   await withTaskLog("Registering staffs", async () => {
     const config = await readConfig();
+    
+    // Check if staffs array is empty
+    if (!config.staffs || config.staffs.length === 0) {
+      console.log(styleText("yellow", "No staffs configured - skipping staff registration"));
+      return;
+    }
+    
     type NewUser = typeof schema.users.$inferInsert;
     const insertValues: NewUser[] = config.staffs.map((staff) => {
       // Staff will register in config file
@@ -78,14 +85,6 @@ export async function createAIUser() {
     });
 
     const list = await db.insert(schema.users).values(insertValues).returning();
-
-    // Log success with user details
-    logSuccess(
-      `AI user created successfully - ID: ${result.id}, name: ${result.name}`,
-    );
-    logSuccess(
-      `System user created successfully - ID: ${systemUser.id}, name: ${systemUser.name}`,
-    );
 
     console.log(styleText("cyan", `Inserted ${list.length} staffs.`));
     console.log(
@@ -121,6 +120,14 @@ export async function createAIUser() {
       ),
     );
   });
+
+  // Log success with user details
+  logSuccess(
+    `AI user created successfully - ID: ${result.id}, name: ${result.name}`,
+  );
+  logSuccess(
+    `System user created successfully - ID: ${systemUser.id}, name: ${systemUser.name}`,
+  );
 }
 
 async function main() {

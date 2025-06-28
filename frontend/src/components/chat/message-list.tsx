@@ -150,7 +150,7 @@ export function MessageList({
 
   return (
     <>
-      <div ref={messagesListRef} className="flex-1 p-4 lg:p-6">
+      <div ref={messagesListRef} className="flex-1">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-2">
