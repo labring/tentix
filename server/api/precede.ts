@@ -16,6 +16,7 @@ const envSchema = z.object({
   FASTGPT_API_LIMIT: z.coerce.number().default(10),
   DEV_FALLBACK_USER: z.string().trim().optional(),
   SEALOS_APP_TOKEN: z.string().trim(),
+  MAX_AI_RESPONSES_PER_TICKET: z.coerce.number().default(3),
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 

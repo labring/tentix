@@ -7,6 +7,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* 全局高度约束，防止页面级别滚动 */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+#app {
+  height: 100vh;
+  overflow: hidden;
+}
+
 body {
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',

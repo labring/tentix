@@ -1,14 +1,5 @@
 import { useSessionMembersStore } from "@store/index";
-import { joinTrans } from "i18n";
-import {
-  ArrowUpCircleIcon,
-  CheckCircleIcon,
-  MessageSquareIcon,
-  PencilIcon,
-  PlusIcon,
-  XIcon,
-} from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "i18n";
 import {
   getEnumKey,
   ticketCategoryEnumArray,
@@ -19,13 +10,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  PriorityBadge,
   ScrollArea,
-  StatusBadge,
   timeAgo,
   PendingIcon,
   ProgressIcon,
@@ -72,13 +57,13 @@ export function TicketHistory({
   history: TicketType["ticketHistory"][number];
 }) {
   const { sessionMembers } = useSessionMembersStore();
+  const { t } = useTranslation();
   const memberName =
     sessionMembers?.find((member) => member.id === history.meta)?.nickname ??
-    "System";
+    t("system");
   const operatorName =
     sessionMembers?.find((member) => member.id === history.operatorId)?.name ??
-    "System";
-  const { t } = useTranslation();
+    t("system");
 
   const text = () => {
     switch (history.type) {
@@ -133,12 +118,12 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
         <div className="p-5 space-y-6">
           <div className="flex flex-col gap-4">
             <p className="text-black text-sm font-semibold leading-none">
-              {"Basic Info"}
+              {t("basic_info")}
             </p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               {/* Status */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                Status
+                {t("status")}
               </div>
               <div className="flex items-center gap-1.5 justify-start h-5">
                 <statusDisplay.icon
@@ -151,7 +136,7 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
 
               {/* Ticket ID */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                Ticket ID
+                {t("ticket_id")}
               </div>
               <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
                 {ticket.id}
@@ -159,7 +144,7 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
 
               {/* Created At */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                Created At
+                {t("created_at")}
               </div>
               <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
                 {new Date(ticket.createdAt).toLocaleString("zh-CN", {
@@ -173,7 +158,7 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
 
               {/* Region */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                Region
+                {t("area")}
               </div>
               <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
                 {ticket.area}
@@ -181,7 +166,7 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
 
               {/* Last Updated */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                Last Updated
+                {t("updated_at")}
               </div>
               <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
                 {timeAgo(ticket.updatedAt)}
@@ -193,7 +178,7 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
 
           <div className="flex flex-col gap-4">
             <p className="text-black text-sm font-semibold leading-none">
-              {"Assignees"}
+              {t("assignees")}
             </p>
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
@@ -210,7 +195,7 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
 
           <div className="flex flex-col gap-4">
             <p className="text-black text-sm font-semibold leading-none">
-              {"Activity"}
+              {t("activity")}
             </p>
 
             <ScrollArea className="h-full">

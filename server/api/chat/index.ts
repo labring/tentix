@@ -96,7 +96,8 @@ namespace aiHandler {
     checkperiod: 60 * 60 * 12,
   });
 
-  export const MAX_AI_RESPONSES_PER_TICKET = 4;
+  export const MAX_AI_RESPONSES_PER_TICKET =
+    global.customEnv.MAX_AI_RESPONSES_PER_TICKET;
 
   export async function getCurrentAIMsgCount(ticketId: string) {
     // Check if we've reached the AI response limit for this ticket
@@ -182,6 +183,9 @@ namespace aiHandler {
 }
 
 msgEmitter.on("new_message", async function ({ ws, ctx, message }) {
+  if (aiHandler.MAX_AI_RESPONSES_PER_TICKET <= 0) {
+    return;
+  }
   if (ctx.role === "customer") {
     const currentCount = await aiHandler.getCurrentAIMsgCount(ctx.roomId);
     if (currentCount <= aiHandler.MAX_AI_RESPONSES_PER_TICKET) {
@@ -233,6 +237,9 @@ roomEmitter.on("user_join", async function ({ clientId, roomId, role, ws }) {
   if (role === "customer") {
     roomCustomerMap.set(roomId, clientId);
     const currentCount = await aiHandler.getCurrentAIMsgCount(roomId);
+    if (aiHandler.MAX_AI_RESPONSES_PER_TICKET <= 0) {
+      return;
+    }
     if (currentCount === 0) {
       const db = connectDB();
       db.query.tickets

@@ -10,9 +10,13 @@ export const i18next = i18nBase.use(initReactI18next).init({
   resources: {
     en: {
       translation: {
+        // common
+        withdraw: "Recall",
+        prompt: "Prompt",
+
         hello: "Hello",
-        tkt_one: "ticket",
-        tkt_other: "tickets",
+        tkt_one: "Ticket",
+        tkt_other: "Tickets",
         team: "team",
         reports: "reports",
         klg_base: "knowledge base",
@@ -81,8 +85,8 @@ export const i18next = i18nBase.use(initReactI18next).init({
         adjust_prty: "adjust priority",
         raise_req: "raise priority",
         mark_as_solved: "mark as solved",
-        close: "close",
-        close_ticket: "close ticket",
+        close: "Close",
+        close_ticket: "Close Ticket",
         ticket_closed: "Ticket closed successfully",
         failed_close_ticket: "Failed to close ticket",
 
@@ -98,6 +102,8 @@ export const i18next = i18nBase.use(initReactI18next).init({
         tkt_status: "$t(tkt_other) status",
         tkt_status_pending: "pending",
         dashboard: "dashboard",
+        are_you_sure_submit_ticket:
+          "Are you sure you want to submit this ticket?",
 
         // Modal common texts
         success: "Success",
@@ -164,7 +170,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         select: "Select",
         details: "Details",
         plz_pvd_info:
-          "Please provide details about the issue you’re experiencing or your specific request so we can assist you quickly and effectively.",
+          "Please provide details about the issue you're experiencing or your specific request so we can assist you quickly and effectively.",
         title_ph: "Briefly describe your issue or request",
 
         applaunchpad: "App Management",
@@ -186,8 +192,9 @@ export const i18next = i18nBase.use(initReactI18next).init({
 
         occurrence_time_ph: "Select date and time of occurrence",
         type: "type",
-        desc: "description",
-        desc_ph: "Enter description here... Images can be dragged or pasted",
+        desc: "Description",
+        desc_ph:
+          "Describe the issue in detail, including steps to reproduce, expected and actual results. Drag & drop or paste screenshots/images here.",
 
         plz_fill_all_fields: "Please fill in all required fields",
         missing_fields: "Missing required fields: {{fields}}",
@@ -222,10 +229,41 @@ export const i18next = i18nBase.use(initReactI18next).init({
         assigned_to: "Assigned to",
         last_updated: "Last updated $t(time)",
         dateTime: "{{val, datetime}}",
+
+        // Additional translations for ticket details sidebar
+        basic_info: "Basic Info",
+        ticket_id: "Ticket ID",
+        assignees: "Assignees",
+        activity: "Activity",
+        system: "System",
+
+        // Form validation and ticket creation
+        field_required: "This field is required",
+        title_min_length: "Title must be at least 3 characters",
+        please_select_module: "Please select a module",
+        ticket_create_failed: "Failed to create ticket",
+        ticket_created: "Ticket created successfully",
+
+        // Table pagination
+        loading_more: "Loading more...",
+        load_more: "Load More",
+        retry: "Retry",
+        loading: "Loading...",
+        error_loading_tickets: "Error loading tickets",
+
+        // Empty state
+        no_tickets_created_yet: "No tickets created yet",
+        click_to_create_ticket:
+          "Click here to create a ticket with our support",
+        team_resolve_questions: "team and resolve your questions quickly.",
       },
     },
     zh: {
       translation: {
+        // common
+        withdraw: "撤回",
+        prompt: "提示",
+
         dashboard: "面板",
         tkt_one: "工单",
         tkt_other: "工单",
@@ -313,6 +351,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         tkt_view: "查看$t(tkt)",
         tkt_status: "$t(tkt)状态",
         tkt_status_pending: "待处理",
+        are_you_sure_submit_ticket: "确定要提交此工单吗？",
 
         // Modal common texts
         success: "成功",
@@ -394,7 +433,8 @@ export const i18next = i18nBase.use(initReactI18next).init({
         occurrence_time_ph: "选择发生日期和时间",
         type: "类型",
         desc: "描述",
-        desc_ph: "在此输入描述... 图片可以拖拽或粘贴",
+        desc_ph:
+          "详细描述问题，包括重现步骤、预期结果和实际结果。拖拽或粘贴截图/图片",
 
         plz_fill_all_fields: "请填写所有必填字段",
         missing_fields: "缺少以下必填字段: {{fields}}",
@@ -430,6 +470,32 @@ export const i18next = i18nBase.use(initReactI18next).init({
         assigned_to: "指派给",
         last_updated: "最后更新$t(time)",
         dateTime: "{{val, datetime}}",
+
+        // Additional translations for ticket details sidebar
+        basic_info: "基本信息",
+        ticket_id: "工单ID",
+        assignees: "负责人",
+        activity: "活动记录",
+        system: "系统",
+
+        // Form validation and ticket creation
+        field_required: "此字段为必填项",
+        title_min_length: "标题至少需要3个字符",
+        please_select_module: "请选择模块",
+        ticket_create_failed: "创建工单失败",
+        ticket_created: "工单创建成功",
+
+        // Table pagination
+        loading_more: "加载更多...",
+        load_more: "加载更多",
+        retry: "重试",
+        loading: "加载中...",
+        error_loading_tickets: "加载工单时出错",
+
+        // Empty state
+        no_tickets_created_yet: "暂无工单",
+        click_to_create_ticket: "点击这里创建工单，我们的支持",
+        team_resolve_questions: "团队将快速帮您解决问题。",
       },
     },
   },

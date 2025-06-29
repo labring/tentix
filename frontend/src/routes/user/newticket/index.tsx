@@ -35,7 +35,7 @@ import {
   moduleEnumArray,
   areaEnumArray,
 } from "tentix-server/constants";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, TriangleAlertIcon } from "lucide-react";
 
 // Client-side validation schema - 只验证用户需要填写的字段
 const createTicketFormSchema = (t: (key: string) => string) =>
@@ -99,8 +99,8 @@ function TicketForm({
               placeholder={t("title_ph")}
               className={
                 errors.title
-                  ? "border-red-500 focus:border-red-500 rounded-lg focus:ring-0 focus-visible:ring-0"
-                  : "rounded-lg focus:border-zinc-900 focus:ring-0 focus-visible:ring-0"
+                  ? "border-red-500 focus:border-red-500 rounded-lg"
+                  : "rounded-lg"
               }
             />
             {errors.title && (
@@ -125,8 +125,8 @@ function TicketForm({
                     id="module"
                     className={
                       errors.module
-                        ? "border-red-500 focus:border-red-500 rounded-lg focus:ring-0"
-                        : "rounded-lg focus:border-zinc-900 focus:ring-0"
+                        ? "border-red-500 focus:border-red-500 rounded-lg"
+                        : "rounded-lg"
                     }
                   >
                     <SelectValue
@@ -323,7 +323,7 @@ function RouteComponent() {
   return (
     <div className="flex flex-col h-screen bg-zinc-50">
       {/* Header */}
-      <header className="flex h-24 items-center border-b px-10 justify-between">
+      <header className="sticky top-0 z-10 flex h-24 items-center border-b px-10 justify-between bg-white">
         <div className="flex items-center gap-3">
           <ArrowLeftIcon
             className="h-6 w-6 cursor-pointer"
@@ -350,7 +350,10 @@ function RouteComponent() {
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="w-96 p-6">
           <DialogHeader>
-            <DialogTitle>⚠️ {t("prompt")}</DialogTitle>
+            <DialogTitle className="flex items-center gap-1.5">
+              <TriangleAlertIcon className="!h-4 !w-4 text-yellow-600" />
+              {t("prompt")}
+            </DialogTitle>
             <DialogDescription>
               {t("are_you_sure_submit_ticket")}
             </DialogDescription>

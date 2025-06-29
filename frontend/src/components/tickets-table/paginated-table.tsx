@@ -26,6 +26,7 @@ import {
   UserRoundPlusIcon,
   EllipsisIcon,
   CircleStopIcon,
+  SearchIcon,
 } from "lucide-react";
 import * as React from "react";
 import { useMemo, useState, useCallback } from "react";
@@ -45,6 +46,7 @@ import {
   PriorityBadge,
   StatusBadge,
   toast,
+  Input,
 } from "tentix-ui";
 
 interface PaginatedTableProps {
@@ -69,10 +71,26 @@ export function PaginatedDataTable({
   const [tabValue, setTabValue] = useState<
     TicketsAllListItemType["status"] | "all"
   >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSmallScreen, setIsSmallScreen] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 1316 : false,
+  );
 
   const { openTransferModal, transferModal } = useTransferModal();
   const { updateStatusModal, openUpdateStatusModal } = useUpdateStatusModal();
   const { raiseReqModal, openRaiseReqModal } = useRaiseReqModal();
+
+  // Listen for window resize to update screen size
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 1316);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
+    }
+  }, []);
 
   // Close ticket mutation
   const closeTicketMutation = useMutation({
@@ -119,7 +137,7 @@ export function PaginatedDataTable({
     isLoading,
     error,
   } = useInfiniteQuery({
-    queryKey: ["getUserTickets", pageSize, tabValue],
+    queryKey: ["getUserTickets", pageSize, tabValue, searchQuery],
     queryFn: async ({ pageParam }) => {
       const params: Record<string, string> = {
         pageSize: pageSize.toString(),
@@ -161,14 +179,55 @@ export function PaginatedDataTable({
     };
   }, [data]);
 
-  // Filter tickets based on tab selection
+  // Filter tickets based on tab selection and search query
   const filteredTickets = useMemo(() => {
-    if (tabValue === "all") return allTickets;
-    return allTickets.filter((ticket) => ticket.status === tabValue);
-  }, [allTickets, tabValue]);
+    let tickets = allTickets;
 
-  // Define column widths with specific ratios to ensure alignment
+    // Filter by status tab
+    if (tabValue !== "all") {
+      tickets = tickets.filter((ticket) => ticket.status === tabValue);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      tickets = tickets.filter((ticket) =>
+        ticket.title.toLowerCase().includes(searchQuery.toLowerCase()),
+      );
+    }
+
+    return tickets;
+  }, [allTickets, tabValue, searchQuery]);
+
+  // Define column widths with responsive behavior - 1fr on small screens for adaptive sizing
   const columnWidths = React.useMemo(() => {
+    if (isSmallScreen) {
+      // On small screens, use 1fr for all columns to distribute space evenly
+      const smallScreenWidths =
+        character === "staff"
+          ? {
+              title: "1fr",
+              status: "1fr",
+              priority: "1fr",
+              submittedDate: "1fr",
+              updatedDate: "1fr",
+              area: "1fr",
+              module: "1fr",
+              submittedBy: "1fr",
+              actions: "60px", // Keep actions column minimal
+            }
+          : {
+              title: "1fr",
+              status: "1fr",
+              submittedDate: "1fr",
+              updatedDate: "1fr",
+              area: "1fr",
+              module: "1fr",
+              actions: "50px", // Keep actions column minimal
+            };
+      return smallScreenWidths;
+    }
+
+    // On larger screens, use optimized fixed widths
     const baseWidths =
       character === "staff"
         ? {
@@ -192,7 +251,7 @@ export function PaginatedDataTable({
             actions: "68px",
           };
     return baseWidths;
-  }, [character]);
+  }, [character, isSmallScreen]);
 
   const columns = React.useMemo<ColumnDef<TicketsAllListItemType>[]>(() => {
     const baseColumns: ColumnDef<TicketsAllListItemType>[] = [
@@ -201,7 +260,14 @@ export function PaginatedDataTable({
         header: t("title"),
         cell: ({ row }) => {
           return (
-            <p className="text-black text-sm font-medium leading-none">
+            <p
+              className={`text-black text-sm font-medium leading-none truncate ${
+                isSmallScreen
+                  ? "max-w-[120px]" // 小屏幕：更严格的截断
+                  : "max-w-[200px]" // 大屏幕：较宽松的截断
+              }`}
+              title={row.original.title} // 悬停时显示完整标题
+            >
               {row.original.title}
             </p>
           );
@@ -378,7 +444,7 @@ export function PaginatedDataTable({
         header: t("rqst_by"),
         cell: ({ row }) => (
           <p className="text-zinc-600 text-sm font-normal leading-normal">
-            {row.original.customer.nickname}
+            {row.original.customer.name}
           </p>
         ),
       });
@@ -388,6 +454,7 @@ export function PaginatedDataTable({
   }, [
     character,
     t,
+    isSmallScreen,
     openTransferModal,
     openUpdateStatusModal,
     openRaiseReqModal,
@@ -419,10 +486,6 @@ export function PaginatedDataTable({
     onClick?: (row: TicketsAllListItemType) => void,
   ) => {
     const rows = table.getRowModel().rows;
-    const noResultsMessage =
-      tabValue !== "all"
-        ? `No ${tabValue.toLowerCase()} ${character === "user" ? "requests" : "work orders"}.`
-        : t("no_results");
 
     // Get visible columns and their keys
     const visibleColumns = table.getVisibleLeafColumns();
@@ -437,9 +500,9 @@ export function PaginatedDataTable({
       .join(" ");
 
     return (
-      <div className="flex flex-col gap-3 h-full">
+      <div className="flex-1 min-h-0 flex flex-col px-4 lg:px-6 pb-4 gap-3">
         {/* Table Header - Fixed */}
-        <div className="flex-shrink-0 overflow-hidden bg-white rounded-lg border border-zinc-200">
+        <div className="flex-shrink-0 bg-white rounded-lg border border-zinc-200">
           <div
             className="grid items-center px-6 h-10 text-zinc-500 text-sm font-normal leading-normal"
             style={{
@@ -461,62 +524,62 @@ export function PaginatedDataTable({
           </div>
         </div>
 
-        {/* Table Body - Scrollable */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          {rows.length > 0 ? (
-            <div className="flex-1 bg-white border border-zinc-200 rounded-xl overflow-hidden flex flex-col">
-              <div className="flex-1 overflow-y-auto">
-                {rows.map((row, index) => (
-                  <div
-                    key={row.id}
-                    className={`grid items-center px-6 h-14 text-black text-sm font-medium leading-none hover:bg-zinc-50 transition-colors ${onClick ? "cursor-pointer" : ""} ${
-                      index < rows.length - 1 ? "border-b border-zinc-200" : ""
-                    }`}
-                    style={{
-                      gridTemplateColumns,
-                    }}
-                    {...(onClick && {
-                      onClick: (e) => {
-                        // avoid click on button or anchor element
-                        if (
-                          e.target instanceof HTMLButtonElement ||
-                          e.target instanceof HTMLAnchorElement ||
-                          (e.target as HTMLElement).closest("button") ||
-                          (e.target as HTMLElement).closest("a")
-                        ) {
-                          return;
-                        }
+        {/* Table Body - Single Scrollable Container */}
+        {rows.length > 0 ? (
+          <div className="flex-1 min-h-0 bg-white border border-zinc-200 rounded-xl mt-3">
+            <div className="h-full overflow-y-auto">
+              {rows.map((row, index) => (
+                <div
+                  key={row.id}
+                  className={`grid items-center px-6 h-14 text-black text-sm font-medium leading-none hover:bg-zinc-50 transition-colors ${onClick ? "cursor-pointer" : ""} ${
+                    index < rows.length - 1 ? "border-b border-zinc-200" : ""
+                  } ${index === 0 ? "hover:rounded-t-xl" : ""} ${
+                    index === rows.length - 1 ? "hover:rounded-b-xl" : ""
+                  }`}
+                  style={{
+                    gridTemplateColumns,
+                  }}
+                  {...(onClick && {
+                    onClick: (e) => {
+                      // avoid click on button or anchor element
+                      if (
+                        e.target instanceof HTMLButtonElement ||
+                        e.target instanceof HTMLAnchorElement ||
+                        (e.target as HTMLElement).closest("button") ||
+                        (e.target as HTMLElement).closest("a")
+                      ) {
+                        return;
+                      }
 
-                        if (
-                          (e.target as HTMLElement).closest(
-                            '[role="menuitem"]',
-                          ) ||
-                          (e.target as HTMLElement).closest(
-                            "[data-radix-popper-content-wrapper]",
-                          )
-                        ) {
-                          return;
-                        }
+                      if (
+                        (e.target as HTMLElement).closest(
+                          '[role="menuitem"]',
+                        ) ||
+                        (e.target as HTMLElement).closest(
+                          "[data-radix-popper-content-wrapper]",
+                        )
+                      ) {
+                        return;
+                      }
 
-                        onClick(row.original);
-                      },
-                    })}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <div key={cell.id} className="flex items-center">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
+                      onClick(row.original);
+                    },
+                  })}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <div key={cell.id} className="flex items-center">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
 
-              {/* Load More Button */}
+              {/* Load More Button - Inside scroll container */}
               {hasNextPage && (
-                <div className="flex-shrink-0 flex justify-center p-4 border-t border-zinc-200">
+                <div className="flex justify-center p-4 border-t border-zinc-200 bg-white">
                   <Button
                     variant="default"
                     onClick={() => fetchNextPage()}
@@ -525,28 +588,59 @@ export function PaginatedDataTable({
                     {isFetchingNextPage ? (
                       <>
                         <Loader2Icon className="h-4 w-4 animate-spin mr-2" />
-                        Loading more...
+                        {t("loading_more")}
                       </>
                     ) : (
-                      "Load More"
+                      t("load_more")
                     )}
                   </Button>
                 </div>
               )}
             </div>
-          ) : (
-            <div className="flex-shrink-0 flex items-center justify-center text-center h-14 bg-white border border-zinc-200 rounded-xl text-black text-sm font-medium">
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <Loader2Icon className="h-4 w-4 animate-spin mr-2" />
-                  Loading...
-                </div>
-              ) : (
-                noResultsMessage
-              )}
+          </div>
+        ) : isLoading ? (
+          <div className="flex-1 flex items-center justify-center ">
+            <div className="flex items-center justify-center text-zinc-500 text-sm font-medium">
+              <Loader2Icon className="h-4 w-4 animate-spin mr-2 text-zinc-500" />
+              {t("loading")}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div
+            className="flex-1 flex items-center justify-center border border-dashed border-zinc-300 rounded-2xl bg-no-repeat bg-center relative"
+            style={{
+              backgroundImage: "url(/tentix-bg.svg)",
+              backgroundSize: "80%",
+            }}
+          >
+            <div
+              className={`flex flex-col items-center justify-center z-10 relative ${
+                character === "user" ? "cursor-pointer" : ""
+              }`}
+              onClick={() => {
+                if (character === "user") {
+                  router.navigate({
+                    to: "/user/newticket",
+                  });
+                }
+              }}
+            >
+              <div className="flex flex-col items-center justify-center text-center mt-19.5">
+                <p className="text-black text-2xl font-medium leading-8 mb-1">
+                  {t("no_tickets_created_yet")}
+                </p>
+                <div className="flex flex-col items-center justify-center text-center">
+                  <p className="text-gray-600 text-base font-normal leading-6">
+                    {t("click_to_create_ticket")}
+                  </p>
+                  <p className="text-gray-600 text-base font-normal leading-6">
+                    {t("team_resolve_questions")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -555,9 +649,9 @@ export function PaginatedDataTable({
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <p className="text-red-500">Error loading tickets</p>
+          <p className="text-red-500">{t("error_loading_tickets")}</p>
           <Button variant="outline" onClick={() => window.location.reload()}>
-            Retry
+            {t("retry")}
           </Button>
         </div>
       </div>
@@ -565,9 +659,9 @@ export function PaginatedDataTable({
   }
 
   return (
-    <div className="flex w-full h-full flex-col justify-start min-h-0">
+    <div className="h-full flex flex-1 flex-col min-w-0 bg-zinc-50">
       {/* Header - Fixed */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 lg:px-6 h-24">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 lg:px-6 h-24 bg-zinc-50">
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setTabValue("all")}
@@ -668,33 +762,43 @@ export function PaginatedDataTable({
           </button>
         </div>
 
-        {character === "user" && (
-          <Link to="/user/newticket">
-            <Button
-              variant="default"
-              size="sm"
-              className="h-[40px] px-4 gap-2 flex justify-center items-center rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] border-none"
-            >
-              <PlusIcon className="w-4 h-4" />
-              <span className="hidden lg:inline">
-                {joinTrans([t("create"), t("tkt_one")])}
-              </span>
-              <span className="lg:hidden">{t("create")}</span>
-            </Button>
-          </Link>
-        )}
+        {/* search */}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={joinTrans([t("search"), t("tkt_other")])}
+              className="pl-10 pr-3 text-sm leading-none h-10 rounded-lg"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {character === "user" && (
+            <Link to="/user/newticket">
+              <Button
+                variant="default"
+                size="sm"
+                className="h-[40px] px-4 gap-2 flex justify-center items-center rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] border-none"
+              >
+                <PlusIcon className="w-4 h-4" />
+                <span className="hidden lg:inline">
+                  {joinTrans([t("create"), t("tkt_one")])}
+                </span>
+                <span className="lg:hidden">{t("create")}</span>
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
-      {/* Content - Scrollable */}
-      <div className="flex-1 min-h-0 px-4 lg:px-6 pb-4">
-        {renderTableContent((row) => {
-          router.navigate({
-            to:
-              character === "user" ? `/user/tickets/$id` : `/staff/tickets/$id`,
-            params: { id: row.id },
-          });
-        })}
-      </div>
+      {/* Content - Flex container with proper height constraint */}
+      {renderTableContent((row) => {
+        router.navigate({
+          to: character === "user" ? `/user/tickets/$id` : `/staff/tickets/$id`,
+          params: { id: row.id },
+        });
+      })}
 
       {transferModal}
       {updateStatusModal}

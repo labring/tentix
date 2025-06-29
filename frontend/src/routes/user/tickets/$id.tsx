@@ -60,6 +60,7 @@ function RouteComponent() {
                 title={ticket.title}
                 sidebarVisible={!isSidebarCollapsed}
                 toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                ticket={ticket}
               />
             </div>
             <UserChat ticket={ticket} token={token.token} key={ticket.id} />

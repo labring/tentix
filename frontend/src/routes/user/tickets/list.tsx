@@ -18,15 +18,11 @@ function RouteComponent() {
   const data = Route.useLoaderData();
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-screen w-full overflow-hidden">
       <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col bg-zinc-50">
-          <Suspense fallback={<SkeletonTable />}>
-            <PaginatedDataTable character="user" initialData={data} />
-          </Suspense>
-        </div>
-      </div>
+      <Suspense fallback={<SkeletonTable />}>
+        <PaginatedDataTable character="user" initialData={data} />
+      </Suspense>
     </div>
   );
 }
