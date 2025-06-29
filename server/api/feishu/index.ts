@@ -81,13 +81,15 @@ const feishuRouter = factory
       }
       const config = await readConfig();
       // Just for verification(redirect_uri must be the same as the one in the login url)
-      const nowPath = new URL(c.req.path, c.var.origin);
+      // const nowPath = new URL(c.req.path, c.var.origin);
+      const redirectUri = new URL("/api/feishu/callback", c.var.origin);
       const body = {
         grant_type: "authorization_code",
         client_id: config.feishu_app_id,
         client_secret: config.feishu_app_secret,
         code,
-        redirect_uri: nowPath.toString(),
+        // redirect_uri: nowPath.toString(),
+        redirect_uri: redirectUri.toString(),
       };
       const res = await myFetch(
         "https://open.feishu.cn/open-apis/authen/v2/oauth/token",
@@ -143,6 +145,7 @@ const feishuRouter = factory
 
         type NewUser = typeof schema.users.$inferInsert;
 
+        console.log(userInfo);
         const newUser: NewUser = {
           uid: userInfo.union_id,
           name: userInfo.name,

@@ -107,9 +107,7 @@ const authRouter = factory.createApp().post(
       const user = await db.query.users.findFirst({
         where: eq(schema.users.uid, sealosJwtPayload.userUid),
       });
-      console.log(user);
       if (user === undefined) {
-        console.log(1111);
         const [newUser] = await db
           .insert(schema.users)
           .values({
