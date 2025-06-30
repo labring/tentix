@@ -1,120 +1,74 @@
-import { Link, useLocation } from '@tanstack/react-router'
-import { joinTrans, useTranslation } from "i18n"
-import { LayoutDashboard, Ticket } from "lucide-react"
-import { cn, ScrollArea } from "tentix-ui"
+import { Link, useLocation } from "@tanstack/react-router";
+import { joinTrans, useTranslation } from "i18n";
+import { LayoutDashboard, Ticket, MessagesSquare } from "lucide-react";
+import { Button } from "tentix-ui";
+
 export function StaffDashboardSidebar() {
   const pathname = useLocation().pathname;
   const { t } = useTranslation();
 
-
   return (
-    <div className="border-r bg-background capitalize">
-      <ScrollArea className="h-full">
-        <div className="flex h-full flex-col gap-2 p-2">
-          <div className="flex h-14 items-center border-b px-4">
-            <Link to="/staff/dashboard" className="flex items-center gap-2 font-semibold">
-              <LayoutDashboard className="h-5 w-5" />
-              <span>{t("tkt_system")}</span>
-            </Link>
-          </div>
-          <div className="flex-1 py-2">
-            <nav className="grid gap-1 px-2">
-              <Link
-                to="/staff/dashboard"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/dashboard" ? "bg-accent" : "transparent",
-                )}
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                {t("dashboard")}
-              </Link>
-              <Link
-                to="/staff/tickets/list"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/tickets" || pathname.startsWith("/staff/tickets/") ? "bg-accent" : "transparent",
-                )}
-              >
-                <Ticket className="h-4 w-4" />
-                {t("tkt_list")}
-              </Link>
-              <Link
-                to="/staff/tickets/all"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/tickets/all" ? "bg-accent" : "transparent",
-                )}
-              >
-                <Ticket className="h-4 w-4" />
-                {joinTrans([t("all"), t("tkt_other")])}
-              </Link>
-              {/* <Link
-                to="/staff/team"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/team" ? "bg-accent" : "transparent",
-                )}
-              >
-                <Users className="h-4 w-4" />
-                {t("team")}
-              </Link>
-              <Link
-                to="/staff/reports"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/reports" ? "bg-accent" : "transparent",
-                )}
-              >
-                <BarChart className="h-4 w-4" />
-                {t("reports")}
-              </Link>
-              <Link
-                to="/staff/knowledge-base"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/knowledge-base" ? "bg-accent" : "transparent",
-                )}
-              >
-                <FileText className="h-4 w-4" />
-                {t("klg_base")}
-              </Link>
-              <Link
-                to="/staff/docs-management"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/docs-management" || pathname.startsWith("/staff/docs-management/")
-                    ? "bg-accent"
-                    : "transparent",
-                )}
-              >
-                <FileText className="h-4 w-4" />
-                {t("docs_management")}
-              </Link>
-              <Link
-                to="/staff/notifications"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/notifications" ? "bg-accent" : "transparent",
-                )}
-              >
-                <MessageSquare className="h-4 w-4" />
-                {t("ntfcs")}
-              </Link>
-              <Link
-                to="/staff/settings"
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  pathname === "/staff/settings" ? "bg-accent" : "transparent",
-                )}
-              >
-                <Settings className="h-4 w-4" />
-                {t("settings")}
-              </Link> */}
-            </nav>
-          </div>
-        </div>
-      </ScrollArea>
+    <div className="py-3 px-2 flex flex-col h-full items-center w-fit border-r-[0.8px] border-solid border-zinc-200 bg-zinc-50">
+      <div className="flex flex-col gap-2 items-center">
+        <Button
+          asChild
+          variant="ghost"
+          className={`flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500 ${
+            pathname === "/staff/dashboard"
+              ? "bg-black/[0.04] text-zinc-900"
+              : ""
+          }`}
+        >
+          <Link
+            to="/staff/dashboard"
+            className="flex flex-col items-center justify-center gap-1 text-center"
+          >
+            <LayoutDashboard className="!w-6 !h-6" />
+            <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
+              {t("dashboard")}
+            </span>
+          </Link>
+        </Button>
+        <Button
+          asChild
+          variant="ghost"
+          className={`flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500 ${
+            pathname === "/staff/tickets/list" ||
+            (pathname.startsWith("/staff/tickets/") && pathname !== "/staff/tickets/all")
+              ? "bg-black/[0.04] text-zinc-900"
+              : ""
+          }`}
+        >
+          <Link
+            to="/staff/tickets/list"
+            className="flex flex-col items-center justify-center gap-1 text-center"
+          >
+            <Ticket className="!w-6 !h-6" />
+            <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
+              {t("tkt_list")}
+            </span>
+          </Link>
+        </Button>
+        <Button
+          asChild
+          variant="ghost"
+          className={`flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500 ${
+            pathname === "/staff/tickets/all"
+              ? "bg-black/[0.04] text-zinc-900"
+              : ""
+          }`}
+        >
+          <Link
+            to="/staff/tickets/all"
+            className="flex flex-col items-center justify-center gap-1 text-center"
+          >
+            <MessagesSquare className="!w-6 !h-6" />
+            <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
+              {joinTrans([t("all"), t("tkt_other")])}
+            </span>
+          </Link>
+        </Button>
+      </div>
     </div>
-  )
+  );
 }

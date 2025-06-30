@@ -1,6 +1,6 @@
 import { type JSONContentZod } from "tentix-server/types";
 import { Loader2Icon, SendIcon } from "lucide-react";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { Button, StaffChatEditor, type EditorRef } from "tentix-ui";
 
 interface MessageInputProps {
@@ -20,17 +20,40 @@ export function StaffMessageInput({
   });
   const editorRef = useRef<EditorRef>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage || isLoading) return;
-    onSendMessage(newMessage, editorRef.current?.isInternal);
-    editorRef.current?.clearContent();
-  };
+  const handleSubmit = useCallback(
+    (e?: React.FormEvent) => {
+      e?.preventDefault();
+      if (!newMessage || isLoading) return;
+      onSendMessage(newMessage, editorRef.current?.isInternal);
+      editorRef.current?.clearContent();
+      setNewMessage({
+        type: "doc",
+        content: [],
+      });
+    },
+    [newMessage, isLoading, onSendMessage],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      // Check for Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
+      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const isShortcut = isMac
+        ? e.metaKey && e.key === "Enter"
+        : e.ctrlKey && e.key === "Enter";
+
+      if (isShortcut) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    },
+    [handleSubmit],
+  );
 
   return (
-    <div className="border-t p-4 lg:p-6">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="flex gap-2">
+    <div className="border-t relative">
+      <form onSubmit={handleSubmit}>
+        <div className="flex" onKeyDown={handleKeyDown}>
           <StaffChatEditor
             ref={editorRef}
             value={newMessage}
@@ -41,23 +64,27 @@ export function StaffMessageInput({
             throttleDelay={500}
             editorContentClassName="overflow-auto h-full"
             editable={true}
-            editorClassName="focus:outline-none px-5 py-4 h-full"
+            editorClassName="focus:outline-none p-4 h-full"
+            className="border-none"
           />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={
-              newMessage?.content?.at(0)?.content === undefined && newMessage?.content?.at(0)?.attrs?.id === undefined || isLoading
-            }
-          >
-            {isLoading ? (
-              <Loader2Icon className="h-4 w-4 animate-spin" />
-            ) : (
-              <SendIcon className="h-4 w-4" />
-            )}
-            <span className="sr-only">Send message</span>
-          </Button>
         </div>
+        <Button
+          type="submit"
+          size="icon"
+          className="absolute right-3 bottom-4 flex p-2 justify-center items-center rounded-[10px] bg-zinc-900"
+          disabled={
+            (newMessage?.content?.at(0)?.content === undefined &&
+              newMessage?.content?.at(0)?.attrs?.id === undefined) ||
+            isLoading
+          }
+        >
+          {isLoading ? (
+            <Loader2Icon className="h-5 w-5 animate-spin" />
+          ) : (
+            <SendIcon className="h-5 w-5" />
+          )}
+          <span className="sr-only">Send message</span>
+        </Button>
       </form>
     </div>
   );

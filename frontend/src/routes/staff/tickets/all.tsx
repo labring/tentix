@@ -1,45 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DataTable } from "@comp/tickets-table/table";
-import { SiteHeader } from "@comp/site-header";
-import { SidebarInset, SidebarProvider } from "tentix-ui";
-import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar"
-import { allTicketsQueryOptions } from "@lib/query";
-import { Suspense } from "react";
-import { SkeletonTable } from "@comp/tickets-table/skeleton";
-
-
+import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar";
 
 export const Route = createFileRoute("/staff/tickets/all")({
-  loader: ({ context }) => {
-    return context.queryClient.ensureQueryData(allTicketsQueryOptions());
-  },
   head: () => ({
     meta: [
       {
         title: "全部工单列表 | Tentix",
-      }
+      },
     ],
   }),
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const data = Route.useLoaderData();
   return (
-    <SidebarProvider>
+    <div className="flex h-screen w-full overflow-hidden bg-zinc-50">
       <StaffDashboardSidebar />
-      <SidebarInset>
-        <SiteHeader title="All Tickets" />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <Suspense fallback={<SkeletonTable />}>
-                <DataTable data={data} character="staff" />
-              </Suspense>
-            </div>
-          </div>
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+          <DataTable character="staff" />
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </div>
   );
 }

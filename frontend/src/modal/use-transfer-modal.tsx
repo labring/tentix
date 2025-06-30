@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { staffListQueryOptions, useSuspenseQuery } from "@lib/query";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBoolean } from "ahooks";
 import { useTranslation } from "i18n";
 import { useState } from "react";
@@ -72,6 +72,7 @@ export function useTransferModal() {
   const [searchQuery, setSearchQuery] = useState("");
   const user = useLocalUser();
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
 
   // Get staff list from API
   const { data: staffList } = useSuspenseQuery(staffListQueryOptions());
@@ -93,6 +94,13 @@ export function useTransferModal() {
         title: t("success"),
         description: t("ticket_transferred"),
         variant: "default",
+      });
+      // Invalidate all ticket-related queries to refresh data
+      queryClient.invalidateQueries({
+        queryKey: ["getAllTickets"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getUserTickets"],
       });
       setFalse();
       form.reset();

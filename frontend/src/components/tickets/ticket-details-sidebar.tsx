@@ -114,8 +114,8 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
 
   if (agent) {
     return (
-      <div className="flex-1 min-h-0 border-l">
-        <div className="p-5 space-y-6">
+      <div className="flex flex-col h-full border-l">
+        <div className="flex-shrink-0 p-5 space-y-6">
           <div className="flex flex-col gap-4">
             <p className="text-black text-sm font-semibold leading-none">
               {t("basic_info")}
@@ -192,14 +192,16 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
           </div>
 
           <div className="h-px bg-zinc-200"></div>
+        </div>
 
-          <div className="flex flex-col gap-4">
+        <div className="flex-1 min-h-0 px-5 pb-5">
+          <div className="flex flex-col gap-4 h-full">
             <p className="text-black text-sm font-semibold leading-none">
               {t("activity")}
             </p>
 
-            <ScrollArea className="h-full">
-              <div className="space-y-3">
+            <ScrollArea className="flex-1">
+              <div className="space-y-3 pr-4">
                 {ticket.ticketHistory
                   .sort(
                     (a, b) =>

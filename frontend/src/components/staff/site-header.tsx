@@ -2,10 +2,9 @@ import { useRaiseReqModal } from "@modal/use-raise-req-modal";
 import { useTransferModal } from "@modal/use-transfer-modal";
 import { useUpdateStatusModal } from "@modal/use-update-status-modal";
 import { useTranslation } from "i18n";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { type TicketType } from "tentix-server/rpc";
-import { Button, Separator, SidebarTrigger } from "tentix-ui";
-
+import { Button } from "tentix-ui";
 
 interface SiteHeaderProps {
   ticket: TicketType;
@@ -25,17 +24,25 @@ export function StaffSiteHeader({
     useUpdateStatusModal();
   const { t } = useTranslation();
 
-
-  
   return (
-    <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
-      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
-        <SidebarTrigger className="-ml-1" />
-        <Separator
-          orientation="vertical"
-          className="mx-2 data-[orientation=vertical]:h-4"
-        />
-        <h1 className="text-base font-medium max-w-200 truncate block">{`${t("tkt_one")} ORD-${ticket.id}: ${ticket.title}`}</h1>
+    <header className="flex h-14 w-full border-b items-center justify-between px-4 ">
+      <div className="flex items-center gap-1">
+        {toggleSidebar && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 justify-center items-center rounded-md cursor-pointer flex xl:flex"
+            onClick={toggleSidebar}
+            aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
+          >
+            <PanelLeft className="h-5 w-5" />
+          </Button>
+        )}
+        <h1 className="text-base font-medium max-w-200 truncate block">
+          {ticket.title}
+        </h1>
+      </div>
+      <div className="flex items-center gap-2">
         <Button
           onClick={() => openRaiseReqModal(ticket.id)}
           disabled={isRaisingReq}
@@ -54,24 +61,6 @@ export function StaffSiteHeader({
         >
           {t("update_status")}
         </Button>
-
-        {toggleSidebar && (
-          <div className="ml-auto hidden md:block">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full bg-background shadow-xs hover:bg-muted"
-              onClick={toggleSidebar}
-              aria-label={sidebarVisible ? "Expand panel" : "Collapse panel"}
-            >
-              {sidebarVisible ? (
-                <ChevronRightIcon className="h-4 w-4" />
-              ) : (
-                <ChevronLeftIcon className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        )}
       </div>
       {raiseReqModal}
       {transferModal}

@@ -7,12 +7,14 @@ import { areaEnumArray } from "tentix-server/constants";
 import { useAuth } from "../hooks/use-local-user";
 import { useEffect, useState } from "react";
 import { useSealos, waitForSealosInit } from "../_provider/sealos";
+import { useTranslation } from "i18n";
 
 export const Route = createFileRoute("/")({
   component: AuthGuard,
 });
 
 function AuthGuard() {
+  const { t } = useTranslation();
   const router = useRouter();
   const authContext = useAuth();
   const sealosContext = useSealos();
@@ -93,12 +95,33 @@ function AuthGuard() {
   }, [router, authContext]);
 
   if (error) {
-    return <div>认证失败: {error}</div>;
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center p-6">
+          <h2 className="text-lg font-medium text-foreground mb-2">{t("auth_failed")}</h2>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
   }
 
   if (isInitializing) {
-    return <div>正在初始化...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted border-t-foreground mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">{t("initializing")}</p>
+        </div>
+      </div>
+    );
   }
 
-  return <div>认证完成，正在跳转...</div>;
+  return (
+    <div className="flex items-center justify-center h-screen bg-background">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted border-t-foreground mx-auto mb-4"></div>
+        <p className="text-sm text-muted-foreground">{t("auth_complete_redirecting")}</p>
+      </div>
+    </div>
+  );
 }

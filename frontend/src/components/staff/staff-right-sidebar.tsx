@@ -17,10 +17,6 @@ import {
   AvatarFallback,
   AvatarImage,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Label,
   Popover,
   PopoverContent,
@@ -30,10 +26,7 @@ import {
   RadioGroupItem,
   ScrollArea,
   StatusBadge,
-  Tabs,
-  TabsContent,
   toast,
-  useLeftResizablePanel,
 } from "tentix-ui";
 import { TicketHistory } from "../tickets/ticket-details-sidebar.tsx";
 
@@ -50,17 +43,10 @@ const IconMap: Record<NormalCategory, React.ReactNode> = {
 };
 
 export function StaffRightSidebar({ id }: { id: string }) {
-  const { LeftResizablePanel } = useLeftResizablePanel({
-    defaultWidth: 250,
-    minWidth: 250,
-    maxWidth: 500,
-  });
-
   const { data: ticket, isSuccess } = useQuery(ticketsQueryOptions(id));
 
   console.log(ticket);
 
-  // const [activeTab, setActiveTab] = useState<string>("user");
   const { t } = useTranslation();
 
   const updateCategoryMutation = useMutation({
@@ -94,233 +80,212 @@ export function StaffRightSidebar({ id }: { id: string }) {
     const assignedTo = ticket.agent;
 
     return (
-      <div className="hidden border-l md:block max-h-full">
-        <LeftResizablePanel>
-          <Tabs
-            defaultValue="user"
-            className="h-full"
-            // onValueChange={setActiveTab}
-          >
-            {/* <div className="border-b px-4 py-2">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="user">User</TabsTrigger>
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="related">Related</TabsTrigger>
-            </TabsList>
-          </div> */}
+      <div className="flex flex-col h-full border-l">
+        <div className="flex-shrink-0 p-5 space-y-6">
+          <div className="flex flex-col gap-4">
+            <p className="text-black text-sm font-semibold leading-none">
+              {t("info")}
+            </p>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={customer.avatar} alt={customer.name} />
+                  <AvatarFallback>
+                    {customer.name.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium">{customer.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {customer.role}
+                  </p>
+                </div>
+              </div>
 
-            <ScrollArea className="w-full p-4">
-              <TabsContent
-                value="user"
-                className="mt-0 space-y-4 h-full w-full"
-              >
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      {t("info")}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage
-                          src={customer.avatar}
-                          alt={customer.name}
-                        />
-                        <AvatarFallback>
-                          {customer.name.charAt(0) || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{customer.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {customer.role}
-                        </p>
-                      </div>
-                    </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                  {t("rqst_by")}
+                </div>
+                <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
+                  {customer.sealosId}
+                </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">{t("rqst_by")}</Label>
-                        <p className="text-sm">{customer.sealosId}</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs">{t("nickname")}</Label>
-                        <p className="text-sm">{customer.nickname}</p>
-                      </div>
-                    </div>
+                <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                  {t("nickname")}
+                </div>
+                <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
+                  {customer.nickname}
+                </div>
 
-                    <div>
-                      <Label className="text-xs">{t("module")}</Label>
-                      <p className="text-sm">{t(ticket.module)}</p>
-                    </div>
+                <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                  {t("module")}
+                </div>
+                <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
+                  {t(ticket.module)}
+                </div>
 
-                    <div>
-                      <Label className="text-xs">{t("area")}</Label>
-                      <p className="text-sm">{ticket.area}</p>
-                    </div>
+                <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                  {t("area")}
+                </div>
+                <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
+                  {ticket.area}
+                </div>
+              </div>
+            </div>
+          </div>
 
-                    {/* <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-1.5"
-                  >
-                    <UserIcon className="h-3.5 w-3.5" />
-                    View User Profile
-                  </Button> */}
-                  </CardContent>
-                </Card>
+          <div className="h-px bg-zinc-200"></div>
 
-                <Card className="w-full">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      {t("details")}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <div>
-                      <Label className="text-xs">{t("title")}</Label>
-                      <p className="text-sm font-medium">{ticket.title}</p>
-                    </div>
+          <div className="flex flex-col gap-4">
+            <p className="text-black text-sm font-semibold leading-none">
+              {t("details")}
+            </p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                {t("title")}
+              </div>
+              <div className="text-zinc-900 font-medium leading-none flex items-center h-5">
+                {ticket.title}
+              </div>
 
-                    <div>
-                      <Label className="text-xs mr-2">{t("category")}</Label>
-                      {ticket.category === "uncategorized" ? (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              {t("uncategorized")}（{t("assign_category")}）
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent>
-                            <RadioGroup
-                              className="grid grid-cols-2 gap-2 pt-1 md:grid-cols-4 max-w-72"
-                              onValueChange={(val: NormalCategory) => {
-                                updateCategoryMutation.mutate({
-                                  ticketId: ticket.id,
-                                  category: val,
-                                });
-                              }}
-                            >
-                              {ticketCategoryEnumArray
-                                .filter((cat) => cat !== "uncategorized")
-                                .map((cat: NormalCategory) => (
-                                  <div key={cat}>
-                                    <RadioGroupItem
-                                      value={cat}
-                                      id={cat}
-                                      className="peer sr-only"
-                                    />
-                                    <Label
-                                      htmlFor={cat}
-                                      className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 text-xs hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                                    >
-                                      {IconMap[cat]}
-                                      {t(cat)}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </RadioGroup>
-                          </PopoverContent>
-                        </Popover>
-                      ) : (
-                        <p className="text-sm">{t(ticket.category)}</p>
-                      )}
-                    </div>
+              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                {t("category")}
+              </div>
+              <div className="flex items-center h-5">
+                {ticket.category === "uncategorized" ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="sm" variant="outline" className="text-xs h-6 px-2">
+                        {t("uncategorized")}（{t("assign_category")}）
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent>
+                      <RadioGroup
+                        className="grid grid-cols-2 gap-1 pt-1 md:grid-cols-4 max-w-72"
+                        onValueChange={(val: NormalCategory) => {
+                          updateCategoryMutation.mutate({
+                            ticketId: ticket.id,
+                            category: val,
+                          });
+                        }}
+                      >
+                        {ticketCategoryEnumArray
+                          .filter((cat) => cat !== "uncategorized")
+                          .map((cat: NormalCategory) => (
+                            <div key={cat}>
+                              <RadioGroupItem
+                                value={cat}
+                                id={cat}
+                                className="peer sr-only"
+                              />
+                              <Label
+                                htmlFor={cat}
+                                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-1 text-[10px] hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                              >
+                                {IconMap[cat]}
+                                {t(cat)}
+                              </Label>
+                            </div>
+                          ))}
+                      </RadioGroup>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <span className="text-zinc-900 font-normal leading-none">
+                    {t(ticket.category)}
+                  </span>
+                )}
+              </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">
-                          {`${t("tkt_one")} ID`}
-                        </Label>
-                        <p className="text-sm">{ticket.id}</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs">{t("status")}</Label>
-                        <StatusBadge status={ticket.status} />
-                      </div>
-                    </div>
+              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                {`${t("tkt_one")} ID`}
+              </div>
+              <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
+                {ticket.id}
+              </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">{t("created_at")}</Label>
-                        <div className="flex items-center gap-1 text-sm">
-                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                          {new Date(ticket.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
+              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                {t("status")}
+              </div>
+              <div className="flex items-center h-5">
+                <StatusBadge status={ticket.status} />
+              </div>
 
-                    <div>
-                      <Label className="text-xs">{t("occurrence_time")}</Label>
-                      <div className="flex items-center gap-1 text-sm">
-                        <ClockIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        {new Date(ticket.occurrenceTime).toLocaleString()}
-                      </div>
-                    </div>
+              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                {t("created_at")}
+              </div>
+              <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
+                <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+                {new Date(ticket.createdAt).toLocaleString()}
+              </div>
 
-                    {ticket.errorMessage && (
-                      <div>
-                        <Label className="text-xs">{t("error_msg")}</Label>
-                        <p className="text-sm text-red-500 p-2 bg-red-50 rounded-md">
-                          {ticket.errorMessage}
-                        </p>
-                      </div>
-                    )}
+              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                {t("occurrence_time")}
+              </div>
+              <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
+                <ClockIcon className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+                {new Date(ticket.occurrenceTime).toLocaleString()}
+              </div>
 
-                    <div className="border-t pt-3">
-                      <Label className="text-xs">{t("assigned_to")}</Label>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-5 w-5">
-                            <AvatarImage
-                              src={assignedTo.avatar}
-                              alt={assignedTo.name}
-                            />
-                            <AvatarFallback>
-                              {assignedTo.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <p className="text-sm font-medium">
-                            {assignedTo.name}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+              {ticket.errorMessage && (
+                <>
+                  <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                    {t("error_msg")}
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-sm text-red-500 p-2 bg-red-50 rounded-md">
+                      {ticket.errorMessage}
+                    </p>
+                  </div>
+                </>
+              )}
 
-                    <div>
-                      <Label className="text-xs">{t("priority")}</Label>
-                      <div className="flex items-center justify-between">
-                        <PriorityBadge priority={ticket.priority} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                {t("assigned_to")}
+              </div>
+              <div className="flex items-center gap-2 h-5">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={assignedTo.avatar} alt={assignedTo.name} />
+                  <AvatarFallback>{assignedTo.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <span className="text-zinc-900 font-medium leading-none">
+                  {assignedTo.name}
+                </span>
+              </div>
 
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      {t("activity")}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm">
-                    <div className="space-y-3">
-                      {ticket.ticketHistory
-                        .sort(
-                          (a, b) =>
-                            new Date(b.createdAt).getTime() -
-                            new Date(a.createdAt).getTime(),
-                        )
-                        .map((history) => (
-                          <TicketHistory key={history.id} history={history} />
-                        ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+                {t("priority")}
+              </div>
+              <div className="flex items-center h-5">
+                <PriorityBadge priority={ticket.priority} />
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-zinc-200"></div>
+        </div>
+
+        <div className="flex-1 min-h-0 px-5 pb-5">
+          <div className="flex flex-col gap-4 h-full">
+            <p className="text-black text-sm font-semibold leading-none">
+              {t("activity")}
+            </p>
+
+            <ScrollArea className="flex-1">
+              <div className="space-y-3 pr-4">
+                {ticket.ticketHistory
+                  .sort(
+                    (a, b) =>
+                      new Date(b.createdAt).getTime() -
+                      new Date(a.createdAt).getTime(),
+                  )
+                  .map((history) => (
+                    <TicketHistory key={history.id} history={history} />
+                  ))}
+              </div>
             </ScrollArea>
-          </Tabs>
-        </LeftResizablePanel>
+          </div>
+        </div>
       </div>
     );
   }

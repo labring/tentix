@@ -256,6 +256,13 @@ export const i18next = i18nBase.use(initReactI18next).init({
         click_to_create_ticket:
           "Click here to create a ticket with our support",
         team_resolve_questions: "team and resolve your questions quickly.",
+
+        // Auth loading states
+        initializing: "Initializing...",
+        auth_complete_redirecting: "Authentication complete, redirecting...",
+        auth_failed: "Authentication failed",
+        setup_session: "Please wait while we set up your session",
+        redirecting_dashboard: "Redirecting to your dashboard...",
       },
     },
     zh: {
@@ -496,6 +503,13 @@ export const i18next = i18nBase.use(initReactI18next).init({
         no_tickets_created_yet: "暂无工单",
         click_to_create_ticket: "点击这里创建工单，我们的支持",
         team_resolve_questions: "团队将快速帮您解决问题。",
+
+        // Auth loading states
+        initializing: "正在初始化...",
+        auth_complete_redirecting: "认证完成，正在跳转...",
+        auth_failed: "认证失败",
+        setup_session: "请稍候，正在设置您的会话",
+        redirecting_dashboard: "正在跳转到您的面板...",
       },
     },
   },

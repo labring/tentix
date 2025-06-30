@@ -15,14 +15,15 @@ import "react-photo-view/dist/react-photo-view.css";
 import { Button } from "tentix-ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { joinTicketAsTechnician } from "@lib/query";
+import useLocalUser from "@hook/use-local-user.tsx";
 
 interface StaffChatProps {
   ticket: TicketType;
   token: string;
-  userId: number;
 }
 
-export function StaffChat({ ticket, token, userId }: StaffChatProps) {
+export function StaffChat({ ticket, token }: StaffChatProps) {
+  const { id: userId } = useLocalUser();
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
   const hadFirstMsg = useRef<boolean>(
     ticket.messages.some((msg) => msg.senderId === userId),
@@ -165,42 +166,38 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
 
   return (
     <PhotoProvider>
-      <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="overflow-y-auto h-full relative">
-            <TicketInfoBox ticket={ticket} />
-            <MessageList
-              messages={messages}
-              isLoading={isLoading}
-              typingUser={
-                sessionMembers?.find((member) => member.id === otherTyping)?.id
-              }
-              onMessageInView={handleMessageInView}
-            />
-          </div>
-          {!isTicketMember ? (
-            <div className="bg-white p-4 border-t dark:border-gray-800 dark:bg-gray-950 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-sm text-gray-500 mb-2">
-                  你尚未加入该工单，无法发送消息
-                </p>
-                <Button
-                  onClick={handleJoinTicket}
-                  disabled={joinTicketMutation.isPending}
-                >
-                  {joinTicketMutation.isPending ? "加入中..." : "加入此工单"}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <StaffMessageInput
-              onSendMessage={handleSendMessage}
-              onTyping={sendTypingIndicator}
-              isLoading={isLoading}
-            />
-          )}
-        </div>
+      <div className="overflow-y-auto h-full relative w-full py-5 px-4">
+        <TicketInfoBox ticket={ticket} />
+        <MessageList
+          messages={messages}
+          isLoading={isLoading}
+          typingUser={
+            sessionMembers?.find((member) => member.id === otherTyping)?.id
+          }
+          onMessageInView={handleMessageInView}
+        />
       </div>
+      {!isTicketMember ? (
+        <div className="bg-white p-4 border-t dark:border-gray-800 dark:bg-gray-950 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm text-gray-500 mb-2">
+              你尚未加入该工单，无法发送消息
+            </p>
+            <Button
+              onClick={handleJoinTicket}
+              disabled={joinTicketMutation.isPending}
+            >
+              {joinTicketMutation.isPending ? "加入中..." : "加入此工单"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <StaffMessageInput
+          onSendMessage={handleSendMessage}
+          onTyping={sendTypingIndicator}
+          isLoading={isLoading}
+        />
+      )}
     </PhotoProvider>
   );
 }

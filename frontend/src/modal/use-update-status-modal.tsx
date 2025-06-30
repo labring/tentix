@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateTicketStatus } from "@lib/query";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBoolean } from "ahooks";
 import { useTranslation } from "i18n";
 import { useState } from "react";
@@ -49,6 +49,7 @@ export function useUpdateStatusModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false);
   const [ticketId, setTicketId] = useState<string>("");
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
 
   // Initialize form with React Hook Form
   const form = useForm<UpdateStatusFormValues>({
@@ -67,6 +68,13 @@ export function useUpdateStatusModal() {
         title: t("success"),
         description: data.message || t("status_updated"),
         variant: "default",
+      });
+      // Invalidate all ticket-related queries to refresh data
+      queryClient.invalidateQueries({
+        queryKey: ["getAllTickets"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getUserTickets"],
       });
       setFalse();
       form.reset();

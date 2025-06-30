@@ -78,10 +78,12 @@ export function UserTicketSidebar({
   data,
   currentTicketId,
   isCollapsed,
+  isLoading,
 }: {
   data: TicketsListItemType[];
   currentTicketId: string;
   isCollapsed: boolean;
+  isLoading?: boolean;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<
@@ -164,9 +166,17 @@ export function UserTicketSidebar({
 
   // Check if a ticket is unread
   const isTicketUnread = (ticket: TicketsListItemType) => {
-    return !ticket.messages
-      .at(-1)
-      ?.readStatus.some((message) => message.userId === userId);
+    // 如果没有任何消息，则不算未读
+    if (!ticket.messages || ticket.messages.length === 0) {
+      return false;
+    }
+    
+    const lastMessage = ticket.messages.at(-1);
+    if (!lastMessage?.readStatus) {
+      return false;
+    }
+    
+    return !lastMessage.readStatus.some((status) => status.userId === userId);
   };
 
   // Filter tickets based on search query, selected statuses, and unread status
@@ -285,68 +295,72 @@ export function UserTicketSidebar({
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full">
           <div className="flex flex-col items-center gap-4 p-4">
-            {sortedTickets.map((ticket) => {
-              const statusDisplay = getStatusDisplay(ticket.status, t);
-              const isUnread = isTicketUnread(ticket);
-              const isSelected = ticket.id === currentTicketId;
-              const descriptionText = extractTextFromDescription(
-                ticket.description,
-              );
+            {isLoading ? (
+              <div className="text-sm text-muted-foreground">{t("loading")}</div>
+            ) : (
+              sortedTickets.map((ticket) => {
+                const statusDisplay = getStatusDisplay(ticket.status, t);
+                const isUnread = isTicketUnread(ticket);
+                const isSelected = ticket.id === currentTicketId;
+                const descriptionText = extractTextFromDescription(
+                  ticket.description,
+                );
 
-              return (
-                <Link
-                  key={ticket.id}
-                  to="/user/tickets/$id"
-                  params={{ id: ticket.id }}
-                  className={`
-                    relative block w-[266px] rounded-[8px] border border-zinc-200 p-4 transition-all
-                    ${isSelected ? "bg-zinc-100" : "hover:bg-zinc-50"}
-                  `}
-                >
-                  {/* Unread indicator */}
-                  {isUnread && (
-                    <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
-                  )}
+                return (
+                  <Link
+                    key={ticket.id}
+                    to="/user/tickets/$id"
+                    params={{ id: ticket.id }}
+                    className={`
+                      relative block w-[266px] rounded-[8px] border border-zinc-200 p-4 transition-all
+                      ${isSelected ? "bg-zinc-100" : "hover:bg-zinc-50"}
+                    `}
+                  >
+                    {/* Unread indicator */}
+                    {isUnread && (
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+                    )}
 
-                  {/* First part: Status + Time */}
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <statusDisplay.icon
-                        className={`h-4 w-4 ${statusDisplay.color}`}
-                      />
-                      <span className="text-sm font-medium text-zinc-900 leading-5">
-                        {statusDisplay.label}
+                    {/* First part: Status + Time */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-1.5">
+                        <statusDisplay.icon
+                          className={`h-4 w-4 ${statusDisplay.color}`}
+                        />
+                        <span className="text-sm font-medium text-zinc-900 leading-5">
+                          {statusDisplay.label}
+                        </span>
+                      </div>
+                      <span className="text-sm font-normal text-[#3F3F46] leading-5">
+                        {new Date(ticket.updatedAt).toLocaleString()}
                       </span>
                     </div>
-                    <span className="text-sm font-normal text-[#3F3F46] leading-5">
-                      {new Date(ticket.updatedAt).toLocaleString()}
-                    </span>
-                  </div>
 
-                  {/* Divider line */}
-                  <div className="h-[0.8px] bg-zinc-200 w-full mb-3"></div>
+                    {/* Divider line */}
+                    <div className="h-[0.8px] bg-zinc-200 w-full mb-3"></div>
 
-                  {/* Second part: Title + Description */}
-                  <div className="mb-3">
-                    <h3 className="text-sm font-semibold text-zinc-900 leading-5 mb-1 line-clamp-1">
-                      {ticket.title}
-                    </h3>
-                    {descriptionText && (
-                      <p className="text-xs font-normal text-[#3F3F46] leading-4 line-clamp-2">
-                        {descriptionText}
-                      </p>
-                    )}
-                  </div>
+                    {/* Second part: Title + Description */}
+                    <div className="mb-3">
+                      <h3 className="text-sm font-semibold text-zinc-900 leading-5 mb-1 line-clamp-1">
+                        {ticket.title}
+                      </h3>
+                      {descriptionText && (
+                        <p className="text-xs font-normal text-[#3F3F46] leading-4 line-clamp-2">
+                          {descriptionText}
+                        </p>
+                      )}
+                    </div>
 
-                  {/* Third part: Module */}
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center justify-center gap-2.5 py-0.5 px-2.5 rounded-md border border-zinc-200 text-xs font-normal text-zinc-900 leading-4">
-                      {t(ticket.module)}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
+                    {/* Third part: Module */}
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center justify-center gap-2.5 py-0.5 px-2.5 rounded-md border border-zinc-200 text-xs font-normal text-zinc-900 leading-4">
+                        {t(ticket.module)}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })
+            )}
           </div>
         </ScrollArea>
       </div>

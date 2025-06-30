@@ -10,48 +10,61 @@ import {
 import { useSessionMembersStore, useTicketStore } from "@store/index.ts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@comp/user/sidebar";
 
 export const Route = createFileRoute("/user/tickets/$id")({
-  loader: async ({ context: { queryClient, authContext }, params }) => {
+  loader: async ({ context: { queryClient, authContext } }) => {
     return {
-      data: await queryClient.fetchQuery(userTicketsQueryOptions()),
-      ticket: await queryClient.fetchQuery(ticketsQueryOptions(params.id)),
       token: await queryClient.ensureQueryData(
         wsTokenQueryOptions(authContext.user?.id?.toString() ?? "1"),
       ),
-
-      // data: await queryClient.ensureQueryData(userTicketsQueryOptions()),
-      // ticket: await queryClient.ensureQueryData(ticketsQueryOptions(params.id)),
-      // token: await queryClient.ensureQueryData(
-      //   wsTokenQueryOptions(authContext.user?.id?.toString() ?? "1"),
-      // ),
     };
   },
-  preloadStaleTime: 0,
-  staleTime: 0,
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const { data, ticket, token } = Route.useLoaderData();
+  const { token } = Route.useLoaderData();
+  const { id: ticketId } = Route.useParams();
   const { setTicket } = useTicketStore();
   const { setSessionMembers } = useSessionMembersStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // 在组件中获取用户 tickets 数据，这样可以响应 invalidateQueries
+  const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
+    userTicketsQueryOptions(),
+  );
+
+  // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
+  const { data: ticket, isLoading: isTicketLoading } = useQuery(
+    ticketsQueryOptions(ticketId),
+  );
+
   useEffect(() => {
-    setTicket(ticket);
-    setSessionMembers(ticket);
+    if (ticket) {
+      setTicket(ticket);
+      setSessionMembers(ticket);
+    }
   }, [ticket, setTicket, setSessionMembers]);
 
-  if (data !== undefined && ticket !== undefined) {
+  if (isTicketLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="text-sm text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (ticket !== undefined) {
     return (
       <div className="flex h-screen w-full">
         <Sidebar />
         <UserTicketSidebar
-          data={data.tickets}
+          data={userTicketsData?.tickets || []}
           currentTicketId={ticket.id}
           isCollapsed={isSidebarCollapsed}
+          isLoading={isUserTicketsLoading}
         />
         <div className="@container/main flex flex-1 flex-row">
           <div className="flex flex-col h-full w-[66%] xl:w-[74%]">

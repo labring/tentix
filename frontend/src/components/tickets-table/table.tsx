@@ -1,6 +1,9 @@
+import { updateTicketStatus } from "@lib/query";
+import { allTicketsQueryOptions } from "@lib/query";
 import { useRaiseReqModal } from "@modal/use-raise-req-modal.tsx";
 import { useTransferModal } from "@modal/use-transfer-modal.tsx";
 import { useUpdateStatusModal } from "@modal/use-update-status-modal.tsx";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import {
   type ColumnDef,
@@ -28,10 +31,11 @@ import {
   ClipboardListIcon, ColumnsIcon, MoreVerticalIcon,
   PlusIcon,
   Settings2,
-  UserRoundPlusIcon
+  UserRoundPlusIcon,
+  Loader2Icon
 } from "lucide-react";
 import * as React from "react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { type TicketsAllListItemType } from "tentix-server/rpc";
 import {
   Badge, Button, Checkbox, DropdownMenu,
@@ -53,19 +57,19 @@ import {
   TableHead,
   TableHeader,
   TableRow, Tabs, TabsList,
-  TabsTrigger
+  TabsTrigger,
+  toast
 } from "tentix-ui";
 
 
 export function DataTable({
-  data,
   character,
 }: {
-  data: TicketsAllListItemType[];
   character: "user" | "staff";
 }) {
   const { t } = useTranslation();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -79,10 +83,48 @@ export function DataTable({
     pageSize: 10,
   });
 
+  // Fetch data using useQuery
+  const { data, isLoading, error } = useQuery(allTicketsQueryOptions());
 
   const { openTransferModal, transferModal } = useTransferModal();
   const { updateStatusModal, openUpdateStatusModal } = useUpdateStatusModal();
   const { raiseReqModal, openRaiseReqModal } = useRaiseReqModal();
+
+  // Close ticket mutation
+  const closeTicketMutation = useMutation({
+    mutationFn: updateTicketStatus,
+    onSuccess: (response) => {
+      toast({
+        title: t("success"),
+        description: response.message || t("ticket_closed"),
+        variant: "default",
+      });
+      // Invalidate getAllTickets query to refresh data
+      queryClient.invalidateQueries({
+        queryKey: ["getAllTickets"],
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("error"),
+        description: error.message || t("failed_close_ticket"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle close ticket
+  const handleCloseTicket = useCallback(
+    (ticketId: string, event?: React.MouseEvent) => {
+      event?.stopPropagation(); // avoid click on button or anchor element
+      closeTicketMutation.mutate({
+        ticketId,
+        status: "resolved",
+        description: t("close_ticket"),
+      });
+    },
+    [closeTicketMutation, t],
+  );
 
   const columns = React.useMemo<ColumnDef<TicketsAllListItemType>[]>(() => {
     const baseColumns: ColumnDef<TicketsAllListItemType>[] = [
@@ -241,7 +283,9 @@ export function DataTable({
                         <ClipboardListIcon className="mr-2 h-4 w-4" />
                         {t("raise_req")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => console.log(ticketId)}>
+                      <DropdownMenuItem
+                        onClick={(e) => handleCloseTicket(ticketId, e)}
+                      >
                         <CheckCircle2Icon className="mr-2 h-4 w-4" />
                         {t("mark_as_solved")}
                       </DropdownMenuItem>
@@ -251,7 +295,9 @@ export function DataTable({
                     <DropdownMenuItem>Track Progress</DropdownMenuItem>
                   )} */}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => handleCloseTicket(ticketId, e)}
+                  >
                     {joinTrans([t("close"), t("tkt_one")])}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -279,10 +325,12 @@ export function DataTable({
     openTransferModal,
     openUpdateStatusModal,
     openRaiseReqModal,
+    handleCloseTicket,
+    router,
   ]);
 
   const table = useReactTable({
-    data,
+    data: data || [],
     columns,
     state: {
       sorting,
@@ -310,6 +358,14 @@ export function DataTable({
 
 
   const getStatusCounts = React.useMemo(() => {
+    if (!data) {
+      return {
+        pending: 0,
+        inProgress: 0,
+        completed: 0,
+        scheduled: 0,
+      };
+    }
     return {
       pending: data.filter((item) => item.status === "pending").length,
       inProgress: data.filter((item) => item.status === "in_progress").length,
@@ -331,6 +387,28 @@ export function DataTable({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabValue]);
+
+  // Handle loading and error states
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2Icon className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-500">{t("error_loading_tickets")}</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            {t("retry")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const renderTableContent = (filteredStatus: typeof tabValue) => {
     const filteredRows = table.getRowModel().rows;

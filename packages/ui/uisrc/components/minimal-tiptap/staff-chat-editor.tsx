@@ -55,7 +55,7 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
         as="div"
         name="editor"
         className={cn(
-          "border-input focus-within:border-primary flex flex-col rounded-md border shadow-xs max-h-96 h-auto w-full",
+          "border-input flex flex-col rounded-md border shadow-xs min-h-42 max-h-96 h-auto w-full",
           className,
         )}
       >
@@ -85,7 +85,9 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
             <ToggleGroup
               type="single"
               value={messageType}
-              onValueChange={(value: "public" | "internal") => setMessageType(value)}
+              onValueChange={(value: "public" | "internal") =>
+                setMessageType(value)
+              }
             >
               <ToggleGroupItem
                 value="public"

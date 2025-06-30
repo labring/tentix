@@ -1,6 +1,6 @@
 import { type JSONContentZod } from "tentix-server/types";
 import { Loader2Icon } from "lucide-react";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { SendIcon, Button, UserChatEditor, type EditorRef } from "tentix-ui";
 
 interface MessageInputProps {
@@ -20,8 +20,8 @@ export function MessageInput({
   });
   const editorRef = useRef<EditorRef>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!newMessage || isLoading) return;
     onSendMessage(newMessage);
     editorRef.current?.clearContent();
@@ -29,12 +29,23 @@ export function MessageInput({
       type: "doc",
       content: [],
     });
-  };
+  }, [newMessage, isLoading, onSendMessage]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Check for Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const isShortcut = isMac ? e.metaKey && e.key === 'Enter' : e.ctrlKey && e.key === 'Enter';
+    
+    if (isShortcut) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }, [handleSubmit]);
 
   return (
     <div className="border-t relative">
       <form onSubmit={handleSubmit}>
-        <div className="flex">
+        <div className="flex" onKeyDown={handleKeyDown}>
           <UserChatEditor
             ref={editorRef}
             value={newMessage}
