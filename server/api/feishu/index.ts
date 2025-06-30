@@ -14,7 +14,7 @@ import { HTTPException } from "hono/http-exception";
 import NodeCache from "node-cache";
 
 import { readConfig } from "@/utils/env.ts";
-import { refreshStaffMap } from "../initApp.ts";
+// import { refreshStaffMap } from "../initApp.ts";
 import { signBearerToken } from "../auth/index.ts";
 const cache = new NodeCache();
 
@@ -81,15 +81,13 @@ const feishuRouter = factory
       }
       const config = await readConfig();
       // Just for verification(redirect_uri must be the same as the one in the login url)
-      // const nowPath = new URL(c.req.path, c.var.origin);
-      const redirectUri = new URL("/api/feishu/callback", c.var.origin);
+      const nowPath = new URL(c.req.path, c.var.origin);
       const body = {
         grant_type: "authorization_code",
         client_id: config.feishu_app_id,
         client_secret: config.feishu_app_secret,
         code,
-        // redirect_uri: nowPath.toString(),
-        redirect_uri: redirectUri.toString(),
+        redirect_uri: nowPath.toString(),
       };
       const res = await myFetch(
         "https://open.feishu.cn/open-apis/authen/v2/oauth/token",
@@ -121,7 +119,7 @@ const feishuRouter = factory
       const [user] = await db
         .select()
         .from(schema.users)
-        .where(eq(schema.users.uid, userInfo.union_id));
+        .where(eq(schema.users.feishuUnionId, userInfo.union_id));
 
       const redirectUrl = new URL(
         cache.get(state) ?? "/staff/dashboard",
@@ -129,55 +127,63 @@ const feishuRouter = factory
       );
 
       if (user === undefined) {
-        // Don't use js import, else it will be bundled into the server
-        const config = await readConfig();
-
-        // Staff will register in config file
-        const role = (() => {
-          if (config.agents_ids.includes(userInfo.union_id)) {
-            return "agent";
-          }
-          if (config.admin_ids.includes(userInfo.union_id)) {
-            return "admin";
-          }
-          return "technician";
-        })();
-
-        type NewUser = typeof schema.users.$inferInsert;
-
-        console.log(userInfo);
-        const newUser: NewUser = {
-          uid: userInfo.union_id,
-          name: userInfo.name,
-          nickname:
-            config.staffs.find((staff) => staff.union_id === userInfo.union_id)
-              ?.nickname ?? userInfo.name,
-          realName: userInfo.name,
-          phoneNum: "",
-          identity: userInfo.user_id,
-          role,
-          avatar: userInfo.avatar_url,
-          registerTime: new Date().toISOString(),
-        };
-
-        const [registeredUser] = await db
-          .insert(schema.users)
-          .values(newUser)
-          .returning();
-        if (!registeredUser) {
-          throw new HTTPException(500, {
-            message: "Failed to create user.",
-          });
-        }
-        await refreshStaffMap(true);
-        const tokenInfo = await signBearerToken(
-          c,
-          registeredUser.id,
-          registeredUser.role,
-        );
-        redirectUrl.searchParams.set("token", tokenInfo.token);
-        return c.redirect(redirectUrl.toString());
+        throw new HTTPException(403, {
+          message: "Feishu User not found. Please contact the administrator.",
+          cause: "Feishu User not found. Please contact the administrator.",
+        });
       }
+
+      // if (user === undefined) {
+      //   // Don't use js import, else it will be bundled into the server
+      //   const config = await readConfig();
+
+      //   // Staff will register in config file
+      //   const role = (() => {
+      //     if (config.agents_ids.includes(userInfo.union_id)) {
+      //       return "agent";
+      //     }
+      //     if (config.admin_ids.includes(userInfo.union_id)) {
+      //       return "admin";
+      //     }
+      //     return "technician";
+      //   })();
+
+      //   type NewUser = typeof schema.users.$inferInsert;
+
+      //   const newUser: NewUser = {
+      //     sealosId: userInfo.union_id,
+      //     feishuUnionId: userInfo.union_id,
+      //     name: userInfo.name,
+      //     nickname:
+      //       config.staffs.find(
+      //         (staff) => staff.feishuUnionId === userInfo.union_id,
+      //       )?.nickname ?? userInfo.name,
+      //     realName: userInfo.name,
+      //     phoneNum: "",
+      //     role,
+      //     avatar: userInfo.avatar_url,
+      //     registerTime: new Date().toISOString(),
+      //   };
+
+      //   const [registeredUser] = await db
+      //     .insert(schema.users)
+      //     .values(newUser)
+      //     .returning();
+      //   if (!registeredUser) {
+      //     throw new HTTPException(500, {
+      //       message: "Failed to create user.",
+      //     });
+      //   }
+      //   await refreshStaffMap(true);
+      //   const tokenInfo = await signBearerToken(
+      //     c,
+      //     registeredUser.id,
+      //     registeredUser.role,
+      //   );
+      //   redirectUrl.searchParams.set("token", tokenInfo.token);
+      //   return c.redirect(redirectUrl.toString());
+      // }
+
       const tokenInfo = await signBearerToken(c, user.id, user.role);
       redirectUrl.searchParams.set("token", tokenInfo.token);
       return c.redirect(redirectUrl.toString());

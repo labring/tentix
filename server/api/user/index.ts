@@ -262,7 +262,7 @@ const userRouter = factory
           avatar: schema.users.avatar,
           role: schema.users.role,
           email: schema.users.email,
-          identity: schema.users.identity,
+          sealosId: schema.users.sealosId,
           registerTime: schema.users.registerTime,
           level: schema.users.level,
         })
@@ -412,7 +412,10 @@ const userRouter = factory
       ]);
 
       if (roomObserveEmitter.isOnline(userId)) {
-        roomObserveEmitter.observe(userId, ticketsResult.tickets.map((t) => t.id));
+        roomObserveEmitter.observe(
+          userId,
+          ticketsResult.tickets.map((t) => t.id),
+        );
       }
 
       return c.json({

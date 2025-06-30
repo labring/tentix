@@ -2,11 +2,11 @@ import "./styles/index.css";
 
 import { type Editor, EditorContent } from "@tiptap/react";
 import { cn } from "../../lib/utils";
-import { Separator } from "../ui/separator";
+// import { Separator } from "../ui/separator";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
 import { MeasuredContainer } from "./components/measured-container.tsx";
-import { SectionFive } from "./components/section/five.tsx";
-import { SectionFour } from "./components/section/four.tsx";
+// import { SectionFive } from "./components/section/five.tsx";
+// import { SectionFour } from "./components/section/four.tsx";
 import { SectionTwo } from "./components/section/two.tsx";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
@@ -21,13 +21,13 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
           "italic",
           "underline",
           "code",
-          "strikethrough",
-          "clearFormatting",
+          // "strikethrough",
+          // "clearFormatting",
         ]}
         mainActionCount={4}
       />
 
-      <Separator orientation="vertical" className="mx-2" />
+      {/* <Separator orientation="vertical" className="mx-2" />
 
       <SectionFour
         editor={editor}
@@ -41,7 +41,7 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
         editor={editor}
         activeActions={["codeBlock", "blockquote", "horizontalRule"]}
         mainActionCount={1}
-      />
+      /> */}
     </div>
   </div>
 );

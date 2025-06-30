@@ -18,7 +18,11 @@ import { authMiddleware, factory, staffOnlyMiddleware } from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
 import { readConfig } from "@/utils/env.ts";
-import { getIndex, ticketCategoryEnumArray, ticketPriorityEnumArray } from "@/utils/const.ts";
+import {
+  getIndex,
+  ticketCategoryEnumArray,
+  ticketPriorityEnumArray,
+} from "@/utils/const.ts";
 
 const createResponseSchema = z.array(
   z.object({
@@ -45,8 +49,6 @@ const updateTicketStatusSchema = z.object({
   status: z.enum(schema.ticketStatus.enumValues),
   description: z.string(),
 });
-
-
 
 const ticketRouter = factory
   .createApp()
@@ -81,7 +83,7 @@ const ticketRouter = factory
 
       const staffMap = c.var.staffMap();
       const staffMapEntries = Array.from(staffMap.entries());
-      const [assigneeId, { feishuId: assigneeFeishuId }] = staffMapEntries
+      const [assigneeId, { feishuUnionId: assigneeFeishuId }] = staffMapEntries
         .filter(([_, info]) => info.role === "agent")
         .sort((a, b) => a[1].remainingTickets - b[1].remainingTickets)[0]!;
 
@@ -458,9 +460,9 @@ const ticketRouter = factory
       const card = getFeishuCard("transfer", {
         title: ticketInfo.title,
         comment: description,
-        assignee: agent.openId,
+        assignee: agent.feishuOpenId,
         module: c.var.i18n.t(ticketInfo.module),
-        transfer_to: assignee.openId,
+        transfer_to: assignee.feishuOpenId,
         internal_url: {
           url: appLink,
         },
@@ -480,10 +482,10 @@ const ticketRouter = factory
       );
       sendFeishuMsg(
         "open_id",
-        assignee.openId,
+        assignee.feishuOpenId,
         "text",
         JSON.stringify({
-          text: `<at user_id="${operator.openId}">${operator.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${description}`,
+          text: `<at user_id="${operator.feishuOpenId}">${operator.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${description}`,
         }),
         tenant_access_token,
       );
@@ -646,9 +648,12 @@ const ticketRouter = factory
         },
       },
     }),
-    zValidator("form", z.object({
-      ticketId: z.string(),
-    })),
+    zValidator(
+      "form",
+      z.object({
+        ticketId: z.string(),
+      }),
+    ),
     async (c) => {
       const db = c.var.db;
       const userId = c.var.userId;

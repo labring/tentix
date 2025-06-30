@@ -50,66 +50,88 @@ export const users = tentix.table(
   "users",
   {
     id: serial("id").primaryKey().notNull(),
-    uid: varchar("uid", { length: 64 }).notNull(),
-    name: varchar("name", { length: 64 }).notNull(),
-    nickname: varchar("nickname", { length: 64 }).notNull(),
-    realName: varchar("real_name", { length: 64 }).notNull(),
+    sealosId: varchar("sealos_id", { length: 64 }).default("").notNull(),
+    name: varchar("name", { length: 64 }).default("").notNull(),
+    nickname: varchar("nickname", { length: 64 }).default("").notNull(),
+    realName: varchar("real_name", { length: 64 }).default("").notNull(),
     phoneNum: varchar("phone_num", { length: 64 }).default("").notNull(),
-    identity: varchar("identity", { length: 64 }).notNull(),
     role: userRole("role").default("customer").notNull(),
     avatar: text("avatar").default("").notNull(),
     registerTime: timestamp("register_time", {
       precision: 6,
       mode: "string",
+      withTimezone: true,
     }).notNull(),
     level: smallint("level").default(0).notNull(),
     email: varchar("email", { length: 254 }).default("").notNull(),
+    feishuUnionId: varchar("feishu_union_id", { length: 64 })
+      .default("")
+      .notNull(),
+    feishuOpenId: varchar("feishu_open_id", { length: 64 })
+      .default("")
+      .notNull(),
   },
-  (table) => [unique("users_identity_key").on(table.identity)],
+  (table) => [unique("users_sealos_id_key").on(table.sealosId)],
 );
 
-export const tickets = tentix.table("tickets", {
-  id: char("id", { length: 13 }).primaryKey().$defaultFn(myNanoId(13)).notNull(),
-  title: varchar("title", { length: 254 }).notNull(),
-  description: jsonb().$type<JSONContentZod>().notNull(),
-  status: ticketStatus("status")
-    .notNull()
-    .$default(() => "pending"),
-  module: module("module").notNull(),
-  area: area("area").notNull(),
-  occurrenceTime: timestamp("occurrence_time", {
-    precision: 6,
-    mode: "string",
-  }).notNull(),
-  category: ticketCategory("category").default("uncategorized").notNull(),
-  priority: ticketPriority("priority").notNull(),
-  errorMessage: text("error_message"),
-  customerId: integer("customer_id")
-    .notNull()
-    .references(() => users.id),
-  agentId: integer("agent_id")
-    .default(0)
-    .notNull()
-    .references(() => users.id),
-  createdAt: timestamp("created_at", { precision: 3, mode: "string" })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { precision: 3, mode: "string" })
-    .defaultNow()
-    .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-}, (table) => [
-  foreignKey({
-    columns: [table.customerId],
-    foreignColumns: [users.id],
-    name: "tickets_customer_id_users_id_fk",
-  }),
-  foreignKey({
-    columns: [table.agentId],
-    foreignColumns: [users.id],
-    name: "tickets_agent_id_users_id_fk",
-  }),
-]);
+export const tickets = tentix.table(
+  "tickets",
+  {
+    id: char("id", { length: 13 })
+      .primaryKey()
+      .$defaultFn(myNanoId(13))
+      .notNull(),
+    title: varchar("title", { length: 254 }).notNull(),
+    description: jsonb().$type<JSONContentZod>().notNull(),
+    status: ticketStatus("status")
+      .notNull()
+      .$default(() => "pending"),
+    module: module("module").notNull(),
+    area: area("area").notNull(),
+    occurrenceTime: timestamp("occurrence_time", {
+      precision: 6,
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    category: ticketCategory("category").default("uncategorized").notNull(),
+    priority: ticketPriority("priority").notNull(),
+    errorMessage: text("error_message"),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => users.id),
+    agentId: integer("agent_id")
+      .default(0)
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.customerId],
+      foreignColumns: [users.id],
+      name: "tickets_customer_id_users_id_fk",
+    }),
+    foreignKey({
+      columns: [table.agentId],
+      foreignColumns: [users.id],
+      name: "tickets_agent_id_users_id_fk",
+    }),
+  ],
+);
 
 export const tags = tentix.table("tags", {
   id: serial("id").primaryKey().notNull(),
@@ -130,7 +152,11 @@ export const ticketHistory = tentix.table(
     operatorId: integer("operator_id")
       .notNull()
       .references(() => users.id),
-    createdAt: timestamp("created_at", { precision: 3, mode: "string" })
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
       .defaultNow()
       .notNull(),
   },
@@ -170,7 +196,11 @@ export const chatMessages = tentix.table(
       .notNull()
       .references(() => users.id),
     content: jsonb().$type<JSONContentZod>().notNull(),
-    createdAt: timestamp("created_at", { precision: 3, mode: "string" })
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
       .defaultNow()
       .notNull(),
     isInternal: boolean("is_internal").default(false).notNull(),
@@ -201,7 +231,11 @@ export const messageReadStatus = tentix.table(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id),
-    readAt: timestamp("read_at", { precision: 3, mode: "string" })
+    readAt: timestamp("read_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
       .defaultNow()
       .notNull(),
   },
@@ -216,24 +250,21 @@ export const messageReadStatus = tentix.table(
       foreignColumns: [users.id],
       name: "message_read_status_user_id_users_id_fk",
     }),
-    unique('message_read_status_unique').on(table.messageId, table.userId),
+    unique("message_read_status_unique").on(table.messageId, table.userId),
   ],
 );
 
-
 export const techniciansToTickets = tentix.table(
-  'technicians_to_tickets',
+  "technicians_to_tickets",
   {
-    userId: integer('user_id')
+    userId: integer("user_id")
       .notNull()
       .references(() => users.id),
-    ticketId: char('ticket_id', { length: 13 })
+    ticketId: char("ticket_id", { length: 13 })
       .notNull()
       .references(() => tickets.id),
   },
-  (t) => [
-		primaryKey({ columns: [t.userId, t.ticketId] })
-	],
+  (t) => [primaryKey({ columns: [t.userId, t.ticketId] })],
 );
 
 export const userSession = tentix.table(
@@ -243,7 +274,11 @@ export const userSession = tentix.table(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id),
-    loginTime: timestamp("login_time", { precision: 3, mode: "string" })
+    loginTime: timestamp("login_time", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
       .defaultNow()
       .notNull(),
     userAgent: text("user_agent").notNull(),
@@ -267,11 +302,21 @@ export const requirements = tentix.table(
     description: jsonb().$type<JSONContentZod>().notNull(),
     module: module("module").notNull(),
     priority: ticketPriority("priority").notNull(),
-    relatedTicket: char("related_ticket", { length: 13 }).references(() => tickets.id),
-    createAt: timestamp("create_at", { precision: 3, mode: "string" })
+    relatedTicket: char("related_ticket", { length: 13 }).references(
+      () => tickets.id,
+    ),
+    createAt: timestamp("create_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
       .defaultNow()
       .notNull(),
-    updateAt: timestamp("update_at", { precision: 3, mode: "string" })
+    updateAt: timestamp("update_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
       .defaultNow()
       .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
       .notNull(),
@@ -284,5 +329,3 @@ export const requirements = tentix.table(
     }),
   ],
 );
-
-

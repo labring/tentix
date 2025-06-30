@@ -316,7 +316,7 @@ export function PaginatedDataTable({
         header: t("module"),
         cell: ({ row }) => (
           <p className="text-zinc-600 text-sm font-normal leading-normal">
-            {row.original.module}
+            {t(row.original.module)}
           </p>
         ),
       },
@@ -501,28 +501,30 @@ export function PaginatedDataTable({
 
     return (
       <div className="flex-1 min-h-0 flex flex-col px-4 lg:px-6 pb-4 gap-3">
-        {/* Table Header - Fixed */}
-        <div className="flex-shrink-0 bg-white rounded-lg border border-zinc-200">
-          <div
-            className="grid items-center px-6 h-10 text-zinc-500 text-sm font-normal leading-normal"
-            style={{
-              gridTemplateColumns,
-            }}
-          >
-            {table.getHeaderGroups().map((headerGroup) =>
-              headerGroup.headers.map((header) => (
-                <div key={header.id} className="flex items-center">
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                </div>
-              )),
-            )}
+        {/* 只有在有数据或正在加载时才显示表头 */}
+        {(rows.length > 0 || isLoading) && (
+          <div className="flex-shrink-0 bg-white rounded-lg border border-zinc-200">
+            <div
+              className="grid items-center px-6 h-10 text-zinc-500 text-sm font-normal leading-normal"
+              style={{
+                gridTemplateColumns,
+              }}
+            >
+              {table.getHeaderGroups().map((headerGroup) =>
+                headerGroup.headers.map((header) => (
+                  <div key={header.id} className="flex items-center">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </div>
+                )),
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Table Body - Single Scrollable Container */}
         {rows.length > 0 ? (
@@ -625,7 +627,7 @@ export function PaginatedDataTable({
                 }
               }}
             >
-              <div className="flex flex-col items-center justify-center text-center mt-19.5">
+              <div className="flex flex-col items-center justify-center text-center mt-23">
                 <p className="text-black text-2xl font-medium leading-8 mb-1">
                   {t("no_tickets_created_yet")}
                 </p>

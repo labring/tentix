@@ -15,13 +15,23 @@ import { StaffRightSidebar } from "@comp/staff/staff-right-sidebar";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
   loader: async ({ context: { queryClient, authContext }, params }) => {
+    // 如果没有认证，返回null数据，让beforeLoad处理重定向
+    if (!authContext.isAuthenticated || !authContext.user) {
+      return {
+        data: null,
+        ticket: null,
+        token: null,
+        authContext,
+      };
+    }
+
     return {
       data: await queryClient.ensureQueryData(
         userTicketsQueryOptions(),
       ),
       ticket: await queryClient.ensureQueryData(ticketsQueryOptions(params.id)),
       token: await queryClient.ensureQueryData(
-        wsTokenQueryOptions(authContext.user!.id.toString()),
+        wsTokenQueryOptions(authContext.user.id.toString()),
       ),
       authContext,
     };
@@ -45,10 +55,23 @@ function RouteComponent() {
 
   // Set up initial ticket data
   useEffect(() => {
-    setTicket(ticket);
-    setSessionMembers(ticket);
+    if (ticket) {
+      setTicket(ticket);
+      setSessionMembers(ticket);
+    }
   }, [ticket, setTicket, setSessionMembers]);
 
+  // 如果数据为空（未认证），显示加载状态
+  if (!data || !ticket || !wsToken) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">正在验证身份...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>

@@ -54,7 +54,7 @@ const authRouter = factory.createApp().post(
             schema: resolver(
               z.object({
                 id: z.string(),
-                uid: z.string(),
+                sealosId: z.string(),
                 role: z.string(),
                 token: z.string(),
                 expireTime: z.number(),
@@ -71,7 +71,7 @@ const authRouter = factory.createApp().post(
       token: z.string(),
       area: z.enum(areaEnumArray),
       userInfo: z.object({
-        id: z.string(),
+        sealosId: z.string(),
         name: z.string(),
         avatar: z.string(),
         k8sUsername: z.string(),
@@ -105,17 +105,16 @@ const authRouter = factory.createApp().post(
 
     const userInfo = await (async () => {
       const user = await db.query.users.findFirst({
-        where: eq(schema.users.uid, sealosJwtPayload.userUid),
+        where: eq(schema.users.sealosId, sealosJwtPayload.userId),
       });
       if (user === undefined) {
         const [newUser] = await db
           .insert(schema.users)
           .values({
-            uid: sealosJwtPayload.userUid,
+            sealosId: sealosJwtPayload.userId,
             name: userInfoPayload.name,
             nickname: "",
             realName: "",
-            identity: userInfoPayload.id,
             avatar: userInfoPayload.avatar,
             registerTime: new Date().toISOString(),
             level: 1,
@@ -137,7 +136,7 @@ const authRouter = factory.createApp().post(
 
     return c.json({
       id: userInfo.id,
-      uid: userInfo.uid,
+      sealosId: userInfo.sealosId,
       role: userInfo.role,
       ...tokenInfo,
     });

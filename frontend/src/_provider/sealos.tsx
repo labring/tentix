@@ -84,7 +84,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
         const sealosToken = sealosSession.token as unknown as string;
         const sealosArea = extractAreaFromSealosToken(sealosToken ?? "");
 
-        window.localStorage.setItem("identity", sealosToken);
+        window.localStorage.setItem("sealosToken", sealosToken);
         window.localStorage.setItem("area", sealosArea ?? "");
 
         console.info("Sealos data saved to localStorage");

@@ -25,6 +25,10 @@ export function MessageInput({
     if (!newMessage || isLoading) return;
     onSendMessage(newMessage);
     editorRef.current?.clearContent();
+    setNewMessage({
+      type: "doc",
+      content: [],
+    });
   };
 
   return (

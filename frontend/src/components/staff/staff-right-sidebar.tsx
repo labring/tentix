@@ -17,7 +17,10 @@ import {
   AvatarFallback,
   AvatarImage,
   Button,
-  Card, CardContent, CardHeader, CardTitle,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   Label,
   Popover,
   PopoverContent,
@@ -27,8 +30,10 @@ import {
   RadioGroupItem,
   ScrollArea,
   StatusBadge,
-  Tabs, TabsContent,
-  toast, useLeftResizablePanel,
+  Tabs,
+  TabsContent,
+  toast,
+  useLeftResizablePanel,
 } from "tentix-ui";
 import { TicketHistory } from "../tickets/ticket-details-sidebar.tsx";
 
@@ -45,12 +50,11 @@ const IconMap: Record<NormalCategory, React.ReactNode> = {
 };
 
 export function StaffRightSidebar({ id }: { id: string }) {
-  const { LeftResizablePanel } =
-    useLeftResizablePanel({
-      defaultWidth: 250,
-      minWidth: 250,
-      maxWidth: 500,
-    });
+  const { LeftResizablePanel } = useLeftResizablePanel({
+    defaultWidth: 250,
+    minWidth: 250,
+    maxWidth: 500,
+  });
 
   const { data: ticket, isSuccess } = useQuery(ticketsQueryOptions(id));
 
@@ -138,7 +142,7 @@ export function StaffRightSidebar({ id }: { id: string }) {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs">{t("rqst_by")}</Label>
-                        <p className="text-sm">{customer.identity}</p>
+                        <p className="text-sm">{customer.sealosId}</p>
                       </div>
                       <div>
                         <Label className="text-xs">{t("nickname")}</Label>
@@ -227,7 +231,7 @@ export function StaffRightSidebar({ id }: { id: string }) {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs">
-                          {`${t("tkt_one")  } ID`}
+                          {`${t("tkt_one")} ID`}
                         </Label>
                         <p className="text-sm">{ticket.id}</p>
                       </div>

@@ -12,7 +12,7 @@ CREATE TABLE "tentix"."chat_messages" (
 	"ticket_id" char(13) NOT NULL,
 	"sender_id" integer NOT NULL,
 	"content" jsonb NOT NULL,
-	"created_at" timestamp(3) DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"is_internal" boolean DEFAULT false NOT NULL,
 	"withdrawn" boolean DEFAULT false NOT NULL
 );
@@ -21,7 +21,7 @@ CREATE TABLE "tentix"."message_read_status" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"message_id" integer NOT NULL,
 	"user_id" integer NOT NULL,
-	"read_at" timestamp(3) DEFAULT now() NOT NULL,
+	"read_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "message_read_status_unique" UNIQUE("message_id","user_id")
 );
 --> statement-breakpoint
@@ -32,8 +32,8 @@ CREATE TABLE "tentix"."requirements" (
 	"module" "tentix"."module" NOT NULL,
 	"priority" "tentix"."ticket_priority" NOT NULL,
 	"related_ticket" char(13),
-	"create_at" timestamp(3) DEFAULT now() NOT NULL,
-	"update_at" timestamp(3) DEFAULT now() NOT NULL
+	"create_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"update_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "tentix"."tags" (
@@ -55,7 +55,7 @@ CREATE TABLE "tentix"."ticket_history" (
 	"description" varchar(190),
 	"ticket_id" char(13) NOT NULL,
 	"operator_id" integer NOT NULL,
-	"created_at" timestamp(3) DEFAULT now() NOT NULL
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "tentix"."tickets" (
@@ -65,14 +65,14 @@ CREATE TABLE "tentix"."tickets" (
 	"status" "tentix"."ticket_status" NOT NULL,
 	"module" "tentix"."module" NOT NULL,
 	"area" "tentix"."area" NOT NULL,
-	"occurrence_time" timestamp(6) NOT NULL,
+	"occurrence_time" timestamp(6) with time zone NOT NULL,
 	"category" "tentix"."ticket_category" DEFAULT 'uncategorized' NOT NULL,
 	"priority" "tentix"."ticket_priority" NOT NULL,
 	"error_message" text,
 	"customer_id" integer NOT NULL,
 	"agent_id" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp(3) DEFAULT now() NOT NULL,
-	"updated_at" timestamp(3) DEFAULT now() NOT NULL
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "tentix"."tickets_tags" (
@@ -84,7 +84,7 @@ CREATE TABLE "tentix"."tickets_tags" (
 CREATE TABLE "tentix"."user_session" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
-	"login_time" timestamp(3) DEFAULT now() NOT NULL,
+	"login_time" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_agent" text NOT NULL,
 	"ip" text NOT NULL,
 	"token" text NOT NULL
@@ -92,18 +92,19 @@ CREATE TABLE "tentix"."user_session" (
 --> statement-breakpoint
 CREATE TABLE "tentix"."users" (
 	"id" serial PRIMARY KEY NOT NULL,
-	"uid" varchar(64) NOT NULL,
-	"name" varchar(64) NOT NULL,
-	"nickname" varchar(64) NOT NULL,
-	"real_name" varchar(64) NOT NULL,
+	"sealos_id" varchar(64) DEFAULT '' NOT NULL,
+	"name" varchar(64) DEFAULT '' NOT NULL,
+	"nickname" varchar(64) DEFAULT '' NOT NULL,
+	"real_name" varchar(64) DEFAULT '' NOT NULL,
 	"phone_num" varchar(64) DEFAULT '' NOT NULL,
-	"identity" varchar(64) NOT NULL,
 	"role" "tentix"."user_role" DEFAULT 'customer' NOT NULL,
 	"avatar" text DEFAULT '' NOT NULL,
-	"register_time" timestamp(6) NOT NULL,
+	"register_time" timestamp(6) with time zone NOT NULL,
 	"level" smallint DEFAULT 0 NOT NULL,
 	"email" varchar(254) DEFAULT '' NOT NULL,
-	CONSTRAINT "users_identity_key" UNIQUE("identity")
+	"feishu_union_id" varchar(64) DEFAULT '' NOT NULL,
+	"feishu_open_id" varchar(64) DEFAULT '' NOT NULL,
+	CONSTRAINT "users_sealos_id_key" UNIQUE("sealos_id")
 );
 --> statement-breakpoint
 ALTER TABLE "tentix"."chat_messages" ADD CONSTRAINT "chat_messages_ticket_id_tickets_id_fk" FOREIGN KEY ("ticket_id") REFERENCES "tentix"."tickets"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

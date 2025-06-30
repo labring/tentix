@@ -119,14 +119,15 @@ export async function refreshStaffMap(stale: boolean = false) {
       })
     ).map((staff) => ({
       id: staff.id,
+      sealosId: staff.sealosId,
       realName: staff.name,
       nickname: staff.nickname,
       avatar: staff.avatar,
       remainingTickets: staff.ticketAgent.length,
       role: staff.role,
-      feishuId: staff.uid as `on_${string}`,
-      openId: staff.identity as `ou_${string}`,
-      department: getDepartment(staff.uid as `on_${string}`),
+      feishuUnionId: staff.feishuUnionId as `on_${string}`,
+      feishuOpenId: staff.feishuOpenId as `ou_${string}`,
+      department: getDepartment(staff.feishuUnionId as `on_${string}`),
     }));
 
     const technicians = (
@@ -147,6 +148,7 @@ export async function refreshStaffMap(stale: boolean = false) {
       })
     ).map((staff) => ({
       id: staff.id,
+      sealosId: staff.sealosId,
       realName: staff.name,
       nickname: staff.nickname,
       avatar: staff.avatar,
@@ -154,9 +156,9 @@ export async function refreshStaffMap(stale: boolean = false) {
         (ticket) => ticket.ticket.status === "in_progress",
       ).length,
       role: staff.role,
-      feishuId: staff.uid as `on_${string}`,
-      openId: staff.identity as `ou_${string}`,
-      department: getDepartment(staff.uid as `on_${string}`),
+      feishuUnionId: staff.feishuUnionId as `on_${string}`,
+      feishuOpenId: staff.feishuOpenId as `ou_${string}`,
+      department: getDepartment(staff.feishuUnionId as `on_${string}`),
     }));
 
     const staffs = agents.concat(technicians);

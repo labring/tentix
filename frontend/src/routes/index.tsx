@@ -25,11 +25,11 @@ function AuthGuard() {
     const initializeAndAuthenticate = async () => {
       try {
         await waitForSealosInit();
-        console.log("sealosUser", sealosUser);
-        const identity = window.localStorage.getItem("identity");
+        const sealosToken = window.localStorage.getItem("sealosToken");
         const area = window.localStorage.getItem("area");
 
-        if (!identity || !area) {
+        console.log("sealosUser", sealosUser);
+        if (!sealosToken || !area) {
           router.navigate({ to: "/notLogin", replace: true });
           return;
         }
@@ -40,10 +40,10 @@ function AuthGuard() {
           const res = await (
             await apiClient.auth.login.$post({
               json: {
-                token: identity,
+                token: sealosToken,
                 area: area as (typeof areaEnumArray)[number],
                 userInfo: {
-                  id: sealosUser?.id ?? "",
+                  sealosId: sealosUser?.id ?? "",
                   name: sealosUser?.name ?? "",
                   avatar: sealosUser?.avatar ?? "",
                   k8sUsername: sealosUser?.k8sUsername ?? "",

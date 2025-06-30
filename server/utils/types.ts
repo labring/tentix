@@ -191,16 +191,15 @@ export type AppConfig = {
   feishu_app_secret: string;
   feishu_chat_id: `oc_${string}`;
   department_ids: `od-${string}`[];
-  agents_ids: `on_${string}`[];
-  admin_ids: `on_${string}`[];
+  agents_ids: string[];
+  admin_ids: string[];
   aiProfile: {
-    uid: string;
+    sealosId: string;
     name: string;
     nickname: string;
     realName: string;
     status: string;
     phoneNum: string;
-    identity: string;
     role: "ai";
     avatar: string;
     registerTime: string;
@@ -215,10 +214,11 @@ export type AppConfig = {
     name: string;
     nickname?: string;
     description: string;
-    open_id: `ou_${string}`;
-    union_id: `on_${string}`;
-    user_id: string;
+    feishuOpenId?: `ou_${string}`;
+    feishuUnionId?: `on_${string}`;
+    sealosId: string;
     avatar: string;
+    phoneNum: string;
   }[];
 };
 

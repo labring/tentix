@@ -38,7 +38,11 @@ const handler = {
 
 export const useSuspenseQuery = new Proxy(useSuspenseQueryTanStack, handler);
 
-export const userTicketsQueryOptions = (pageSize = 40, page = 1, status?: string) =>
+export const userTicketsQueryOptions = (
+  pageSize = 40,
+  page = 1,
+  status?: string,
+) =>
   queryOptions({
     queryKey: ["getUserTickets", pageSize, page, status],
     queryFn: async () => {
@@ -103,7 +107,7 @@ export const userInfoQueryOptions = () =>
           avatar: "",
           role: "customer",
           email: "",
-          identity: "",
+          sealosId: "",
           registerTime: "",
           level: 0,
         };

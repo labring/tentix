@@ -264,11 +264,10 @@ async function main() {
 
         await tx.insert(schema.users).values({
           id: 0,
-          uid: "System",
+          sealosId: "System",
           name: "System",
           nickname: "System",
           realName: "System",
-          identity: "System",
           role: "system" as const,
           avatar: aiUser.avatar,
           registerTime: aiUser.registerTime,
@@ -277,22 +276,23 @@ async function main() {
         // Create staff users from config
         const staffUsers: NewUser[] = config.staffs.map((staff) => {
           const role = (() => {
-            if (config.agents_ids.includes(staff.union_id)) {
+            if (config.agents_ids.includes(staff.sealosId)) {
               return "agent" as const;
             }
-            if (config.admin_ids.includes(staff.union_id)) {
+            if (config.admin_ids.includes(staff.sealosId)) {
               return "admin" as const;
             }
             return "technician" as const;
           })();
 
           return {
-            uid: staff.union_id,
+            sealosId: staff.sealosId,
             name: staff.name,
             nickname: staff.nickname ?? staff.name,
             realName: staff.name,
-            phoneNum: staff.user_id,
-            identity: staff.open_id,
+            phoneNum: staff.phoneNum,
+            feishuOpenId: staff.feishuOpenId,
+            feishuUnionId: staff.feishuUnionId,
             role,
             avatar: staff.avatar,
             registerTime: new Date().toISOString(),
@@ -305,12 +305,11 @@ async function main() {
         const customerUsersInsert: NewUser[] = Array.from(
           { length: 80 },
           () => ({
-            uid: faker.string.uuid(),
+            sealosId: faker.string.uuid().slice(0, 7),
             name: faker.person.fullName(),
             nickname: faker.internet.username(),
             realName: faker.person.fullName(),
             phoneNum: faker.phone.number(),
-            identity: faker.string.uuid(),
             role: "customer" as const,
             avatar: faker.image.avatar(),
             registerTime: faker.date.past().toUTCString(),
