@@ -20,27 +20,52 @@ export function MessageInput({
   });
   const editorRef = useRef<EditorRef>(null);
 
-  const handleSubmit = useCallback((e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!newMessage || isLoading) return;
-    onSendMessage(newMessage);
-    editorRef.current?.clearContent();
-    setNewMessage({
-      type: "doc",
-      content: [],
-    });
-  }, [newMessage, isLoading, onSendMessage]);
+  const handleSubmit = useCallback(
+    (e?: React.FormEvent) => {
+      e?.preventDefault();
+      if (!newMessage || isLoading) return;
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Check for Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const isShortcut = isMac ? e.metaKey && e.key === 'Enter' : e.ctrlKey && e.key === 'Enter';
-    
-    if (isShortcut) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  }, [handleSubmit]);
+      onSendMessage(newMessage);
+
+      // 延迟清除，让插件有时间识别这是发送操作
+      setTimeout(() => {
+        editorRef.current?.clearContent();
+      }, 50);
+
+      setNewMessage({
+        type: "doc",
+        content: [],
+      });
+    },
+    [newMessage, isLoading, onSendMessage],
+  );
+
+  // const handleSubmit = useCallback((e?: React.FormEvent) => {
+  //   e?.preventDefault();
+  //   if (!newMessage || isLoading) return;
+  //   onSendMessage(newMessage);
+  //   editorRef.current?.clearContent();
+  //   setNewMessage({
+  //     type: "doc",
+  //     content: [],
+  //   });
+  // }, [newMessage, isLoading, onSendMessage]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      // Check for Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
+      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const isShortcut = isMac
+        ? e.metaKey && e.key === "Enter"
+        : e.ctrlKey && e.key === "Enter";
+
+      if (isShortcut) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    },
+    [handleSubmit],
+  );
 
   return (
     <div className="border-t relative">
@@ -51,7 +76,6 @@ export function MessageInput({
             value={newMessage}
             onChange={(value) => {
               onTyping?.();
-              console.log(value);
               setNewMessage(value as JSONContentZod);
             }}
             throttleDelay={500}

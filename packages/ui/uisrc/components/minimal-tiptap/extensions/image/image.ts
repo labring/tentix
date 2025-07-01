@@ -1,7 +1,11 @@
-import { Image as TiptapImage, type ImageOptions } from "@tiptap/extension-image";
+import {
+  Image as TiptapImage,
+  type ImageOptions,
+} from "@tiptap/extension-image";
 import type { Attrs } from "@tiptap/pm/model";
 import { ReplaceStep } from "@tiptap/pm/transform";
 import { ReactNodeViewRenderer, type Editor } from "@tiptap/react";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import {
   filterFiles,
   randomId,
@@ -326,24 +330,90 @@ export const Image = TiptapImage.extend<CustomImageOptions>({
     };
   },
 
-  onTransaction({ transaction }) {
-    transaction.steps.forEach((step) => {
-      if (step instanceof ReplaceStep && step.slice.size === 0) {
-        const deletedPages = transaction.before.content.cut(step.from, step.to);
+  addProseMirrorPlugins() {
+    const imageTrackingPluginKey = new PluginKey("imageTracking");
 
-        deletedPages.forEach((node) => {
-          if (node.type.name === "image") {
-            const attrs = node.attrs;
-
-            if (attrs.src.startsWith("blob:")) {
-              URL.revokeObjectURL(attrs.src);
+    return [
+      new Plugin({
+        key: imageTrackingPluginKey,
+        state: {
+          init: (_, state) => {
+            const images = new Map<string, Attrs>();
+            state.doc.descendants((node: any) => {
+              if (node.type.name === "image") {
+                const imageKey = node.attrs.id || node.attrs.src;
+                if (imageKey) {
+                  images.set(imageKey, node.attrs);
+                }
+              }
+            });
+            return { images, lastClearTime: 0 };
+          },
+          apply: (tr, oldState) => {
+            if (!tr.docChanged) {
+              return oldState;
             }
 
-            this.options.onImageRemoved?.(attrs);
-          }
-        });
-      }
-    });
+            const currentImages = new Map<string, Attrs>();
+            tr.doc.descendants((node: any) => {
+              if (node.type.name === "image") {
+                const imageKey = node.attrs.id || node.attrs.src;
+                if (imageKey) {
+                  currentImages.set(imageKey, node.attrs);
+                }
+              }
+            });
+
+            const { images: oldImages } = oldState;
+
+            // 检测是否是完整清除操作（所有图片被同时删除）
+            const isCompleteClear =
+              oldImages.size > 0 && currentImages.size === 0;
+            const currentTime = Date.now();
+
+            if (isCompleteClear) {
+              console.log("检测到完整清除操作，跳过图片删除回调");
+              return { images: currentImages, lastClearTime: currentTime };
+            }
+
+            // 检测是否在短时间内进行的批量操作
+            const timeSinceLastClear = currentTime - oldState.lastClearTime;
+            const isQuickOperation = timeSinceLastClear < 500; // 500ms内的操作视为批量操作
+
+            if (isQuickOperation && oldImages.size > currentImages.size) {
+              console.log("检测到快速批量删除，跳过图片删除回调");
+              return {
+                images: currentImages,
+                lastClearTime: oldState.lastClearTime,
+              };
+            }
+
+            // 正常的单个图片删除操作
+            const processedImages = new Set<string>();
+            oldImages.forEach((attrs, imageKey) => {
+              if (
+                !currentImages.has(imageKey) &&
+                !processedImages.has(imageKey)
+              ) {
+                processedImages.add(imageKey);
+
+                if (attrs.src && attrs.src.startsWith("blob:")) {
+                  URL.revokeObjectURL(attrs.src);
+                }
+
+                console.log("正常删除单个图片:", attrs);
+                this.options.onImageRemoved?.(attrs);
+              }
+            });
+
+            return {
+              images: currentImages,
+              lastClearTime: oldState.lastClearTime,
+            };
+          },
+        },
+      }),
+    ];
   },
 
   addNodeView() {
