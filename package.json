@@ -31,7 +31,7 @@
     }
   },
   "devDependencies": {
-    "@tanstack/react-query": "^5.74.4",
+    "@tanstack/react-query": "^5.81.5",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "@workspace/eslint-config": "workspace:*",
