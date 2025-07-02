@@ -1,17 +1,14 @@
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { InfoIcon, TrashIcon } from "lucide-react";
+import { InfoIcon } from "lucide-react";
 import * as React from "react";
 import { Controlled as ControlledZoom } from "react-medium-image-zoom";
 import { cn } from "uisrc/lib/utils.ts";
 import { Spinner } from "../../../components/spinner.tsx";
-import { blobUrlToBase64, randomId } from "../../../utils.ts";
+import { blobUrlToBase64 } from "../../../utils.ts";
 import {
   useDragResize,
   type ElementDimensions,
 } from "../hooks/use-drag-resize.ts";
-import { useImageActions } from "../hooks/use-image-actions.ts";
-import type { UploadReturnType } from "../image.ts";
-import { ActionButton, ActionWrapper, ImageActions } from "./image-actions.tsx";
 import { ImageOverlay } from "./image-overlay.tsx";
 import { ResizeHandle } from "./resize-handle.tsx";
 
@@ -21,17 +18,12 @@ const MIN_WIDTH = 120;
 
 interface ImageState {
   src: string;
-  isServerUploading: boolean;
+  isConverting: boolean;
   imageLoaded: boolean;
   isZoomed: boolean;
   error: boolean;
   naturalSize: ElementDimensions;
 }
-
-const normalizeUploadResponse = (res: UploadReturnType) => ({
-  src: typeof res === "string" ? res : res.src,
-  id: typeof res === "string" ? randomId() : res.id,
-});
 
 export const ImageViewBlock: React.FC<NodeViewProps> = ({
   editor,
@@ -43,9 +35,8 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
     src: initialSrc,
     width: initialWidth,
     height: initialHeight,
-    fileName,
   } = node.attrs;
-  const uploadAttemptedRef = React.useRef(false);
+  const convertAttemptedRef = React.useRef(false);
 
   const initSrc = React.useMemo(() => {
     if (typeof initialSrc === "string") {
@@ -56,7 +47,7 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
 
   const [imageState, setImageState] = React.useState<ImageState>({
     src: initSrc,
-    isServerUploading: false,
+    isConverting: false,
     imageLoaded: false,
     isZoomed: false,
     error: false,
@@ -85,15 +76,6 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
         ),
       )
     : Infinity;
-
-  const { isLink, onView, onDownload, onCopy, onCopyLink, onRemoveImg } =
-    useImageActions({
-      editor,
-      node,
-      src: imageState.src,
-      onViewClick: (isZoomed) =>
-        setImageState((prev) => ({ ...prev, isZoomed })),
-    });
 
   // calculate the default size of the image
   const getDefaultSize = () => {
@@ -132,8 +114,6 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
     minHeight: MIN_HEIGHT,
     maxWidth: containerMaxWidth > 0 ? containerMaxWidth : maxWidth,
   });
-
-  const shouldMerge = React.useMemo(() => currentWidth <= 180, [currentWidth]);
 
   const handleImageLoad = React.useCallback(
     (ev: React.SyntheticEvent<HTMLImageElement>) => {
@@ -208,6 +188,13 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
     setActiveResizeHandle(null);
   }, []);
 
+  // 点击图片放大
+  const handleImageClick = React.useCallback(() => {
+    if (!imageState.error && imageState.imageLoaded) {
+      setImageState((prev) => ({ ...prev, isZoomed: true }));
+    }
+  }, [imageState.error, imageState.imageLoaded]);
+
   React.useEffect(() => {
     if (!isResizing) {
       handleResizeEnd();
@@ -216,55 +203,39 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
 
   React.useEffect(() => {
     const handleImage = async () => {
-      if (!initSrc.startsWith("blob:") || uploadAttemptedRef.current) {
+      if (!initSrc.startsWith("blob:") || convertAttemptedRef.current) {
         return;
       }
 
-      uploadAttemptedRef.current = true;
-      const imageExtension = editor.options.extensions.find(
-        (ext) => ext.name === "image",
-      );
-      const { uploadFn } = imageExtension?.options ?? {};
+      convertAttemptedRef.current = true;
 
-      if (!uploadFn) {
-        try {
-          const base64 = await blobUrlToBase64(initSrc);
-          setImageState((prev) => ({ ...prev, src: base64 }));
-          updateAttributes({ src: base64 });
-        } catch {
-          setImageState((prev) => ({ ...prev, error: true }));
-        }
-        return;
-      }
-
+      // 将 blob url 转为 base64 并保存到图片的 src 属性中
+      // 暂不清楚 这里的好处是什么
       try {
-        setImageState((prev) => ({ ...prev, isServerUploading: true }));
-        const response = await fetch(initSrc);
-        const blob = await response.blob();
-        const file = new File([blob], fileName, { type: blob.type });
-
-        const url = await uploadFn(file, editor);
-        const normalizedData = normalizeUploadResponse(url);
-
+        setImageState((prev) => ({ ...prev, isConverting: true }));
+        const base64 = await blobUrlToBase64(initSrc);
         setImageState((prev) => ({
           ...prev,
-          ...normalizedData,
-          isServerUploading: false,
+          src: base64,
+          isConverting: false,
         }));
-
-        updateAttributes(normalizedData);
-      } catch (error) {
-        console.error(error);
+        // 更新图片的 src 属性
+        updateAttributes({ src: base64 });
+        // 清理原始的 blob URL，防止内存泄漏
+        URL.revokeObjectURL(initSrc);
+      } catch {
         setImageState((prev) => ({
           ...prev,
           error: true,
-          isServerUploading: false,
+          isConverting: false,
         }));
+        // 即使转换失败，也要清理 blob URL
+        URL.revokeObjectURL(initSrc);
       }
     };
 
     handleImage();
-  }, [editor, fileName, initSrc, updateAttributes]);
+  }, [initSrc, updateAttributes]);
 
   return (
     <NodeViewWrapper
@@ -292,7 +263,7 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
         >
           <div className="h-full contain-paint">
             <div className="relative h-full">
-              {imageState.isServerUploading && !imageState.error && (
+              {imageState.isConverting && !imageState.error && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Spinner className="size-7" />
                 </div>
@@ -315,7 +286,7 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
               >
                 <img
                   className={cn(
-                    "h-auto rounded object-contain transition-shadow",
+                    "h-auto rounded object-contain transition-shadow cursor-pointer",
                     {
                       "opacity-0": !imageState.imageLoaded || imageState.error,
                     },
@@ -330,6 +301,7 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
                   src={imageState.src}
                   onError={handleImageError}
                   onLoad={handleImageLoad}
+                  onClick={handleImageClick}
                   alt={node.attrs.alt || ""}
                   title={node.attrs.title || ""}
                   id={node.attrs.id}
@@ -337,12 +309,12 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
               </ControlledZoom>
             </div>
 
-            {imageState.isServerUploading && <ImageOverlay />}
+            {imageState.isConverting && <ImageOverlay />}
 
             {editor.isEditable &&
               imageState.imageLoaded &&
               !imageState.error &&
-              !imageState.isServerUploading && (
+              !imageState.isConverting && (
                 <>
                   <ResizeHandle
                     onPointerDown={handleResizeStart("left")}
@@ -361,29 +333,6 @@ export const ImageViewBlock: React.FC<NodeViewProps> = ({
                 </>
               )}
           </div>
-
-          {imageState.error && (
-            <ActionWrapper>
-              <ActionButton
-                icon={<TrashIcon className="size-4" />}
-                tooltip="Remove image"
-                onClick={onRemoveImg}
-              />
-            </ActionWrapper>
-          )}
-
-          {!isResizing &&
-            !imageState.error &&
-            !imageState.isServerUploading && (
-              <ImageActions
-                shouldMerge={shouldMerge}
-                isLink={isLink}
-                onView={onView}
-                onDownload={onDownload}
-                onCopy={onCopy}
-                onCopyLink={onCopyLink}
-              />
-            )}
         </div>
       </div>
     </NodeViewWrapper>

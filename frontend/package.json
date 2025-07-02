@@ -45,8 +45,7 @@
     "tailwindcss": "catalog:",
     "tailwindcss-animate": "^1.0.7",
     "tentix-ui": "workspace:*",
-    "terser": "^5.39.1",
-    "tiptap-extension-resize-image": "^1.2.2"
+    "terser": "^5.39.1"
   },
   "devDependencies": {
     "@types/node": "catalog:",

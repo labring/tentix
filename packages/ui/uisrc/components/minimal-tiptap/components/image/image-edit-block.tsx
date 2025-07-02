@@ -1,59 +1,49 @@
-import * as React from "react"
-import type { Editor } from "@tiptap/react"
-import { Button } from "uisrc/components/ui/button.tsx"
-import { Label } from "uisrc/components/ui/label.tsx"
-import { Input } from "uisrc/components/ui/input.tsx"
+import * as React from "react";
+import type { Editor } from "@tiptap/react";
+import { Button } from "uisrc/components/ui/button.tsx";
+import { Label } from "uisrc/components/ui/label.tsx";
+import { Input } from "uisrc/components/ui/input.tsx";
 
 interface ImageEditBlockProps {
-  editor: Editor
-  close: () => void
+  editor: Editor;
+  close: () => void;
 }
 
 export const ImageEditBlock: React.FC<ImageEditBlockProps> = ({
   editor,
   close,
 }) => {
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const [link, setLink] = React.useState("")
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [link, setLink] = React.useState("");
 
   const handleClick = React.useCallback(() => {
-    fileInputRef.current?.click()
-  }, [])
+    fileInputRef.current?.click();
+  }, []);
 
   const handleFile = React.useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files
-      if (!files?.length) return
+      const files = e.target.files;
+      if (!files?.length) return;
 
-      const insertImages = async () => {
-        const contentBucket = []
-        const filesArray = Array.from(files)
-
-        for (const file of filesArray) {
-          contentBucket.push({ src: file })
-        }
-
-        editor.commands.setImages(contentBucket)
-      }
-
-      await insertImages()
-      close()
+      const filesArray = Array.from(files);
+      editor.commands.setImages(filesArray);
+      close();
     },
-    [editor, close]
-  )
+    [editor, close],
+  );
 
   const handleSubmit = React.useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault()
-      e.stopPropagation()
+      e.preventDefault();
+      e.stopPropagation();
 
       if (link) {
-        editor.commands.setImages([{ src: link }])
-        close()
+        editor.commands.setImages([{ src: link }]);
+        close();
       }
     },
-    [editor, link, close]
-  )
+    [editor, link, close],
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -88,7 +78,7 @@ export const ImageEditBlock: React.FC<ImageEditBlockProps> = ({
         onChange={handleFile}
       />
     </form>
-  )
-}
+  );
+};
 
-export default ImageEditBlock
+export default ImageEditBlock;

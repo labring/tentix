@@ -229,3 +229,38 @@ export const filterFiles = <T extends FileInput>(
 
   return [validFiles, errors]
 }
+
+/**
+ * 清理编辑器中所有的 Blob URLs，防止内存泄漏
+ * @param editor TipTap 编辑器实例
+ * @param beforeClear 是否在清空内容前收集 blob URLs（用于 clearContent 操作）
+ */
+export const cleanupBlobUrls = (editor: Editor | null, beforeClear = false) => {
+  if (!editor || editor.isDestroyed) return;
+
+  try {
+    const blobUrls: string[] = [];
+    
+    // 收集需要清理的 blob URLs
+    editor.state.doc.descendants((node) => {
+      if (
+        node.type.name === "image" &&
+        node.attrs.src?.startsWith("blob:") &&
+        node.attrs.isLocalFile
+      ) {
+        blobUrls.push(node.attrs.src);
+      }
+    });
+
+    // 清理所有收集到的 blob URLs
+    blobUrls.forEach(url => {
+      URL.revokeObjectURL(url);
+    });
+
+    if (blobUrls.length > 0) {
+      console.log(`已清理 ${blobUrls.length} 个 Blob URLs`);
+    }
+  } catch (error) {
+    console.warn("清理 blob URLs 时出错:", error);
+  }
+};
