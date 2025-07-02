@@ -1,4 +1,4 @@
-// 修复后的 MessageInput 组件
+// 3. 更新的 MessageInput 组件
 
 import { type JSONContentZod } from "tentix-server/types";
 import { Loader2Icon, UploadIcon } from "lucide-react";
@@ -10,7 +10,7 @@ import {
   useToast,
   type EditorRef,
 } from "tentix-ui";
-import { processFilesAndUpload } from "./upload-utils";
+import { processFilesAndUpload } from "./upload-utils"; // 上面的上传工具函数
 
 // 错误处理工具函数
 const getErrorMessage = (error: unknown): string => {
@@ -112,6 +112,18 @@ export function MessageInput({
     return newMessage?.content?.some(hasNodeContent) || false;
   }, [newMessage]);
 
+  // 显示上传成功提示
+  const showUploadSuccessToast = useCallback(
+    (fileCount: number) => {
+      toast({
+        title: "上传成功",
+        description: `成功上传 ${fileCount} 个文件`,
+        variant: "default",
+      });
+    },
+    [toast],
+  );
+
   // 显示错误提示
   const showErrorToast = useCallback(
     (error: unknown) => {
@@ -136,17 +148,23 @@ export function MessageInput({
 
   // 处理文件上传流程
   const handleFileUpload = useCallback(
-    async (content: JSONContentZod): Promise<JSONContentZod> => {
+    async (
+      content: JSONContentZod,
+      fileCount: number,
+    ): Promise<JSONContentZod> => {
+      console.log(`需要上传 ${fileCount} 个文件...`);
+
       const { processedContent } = await processFilesAndUpload(
         content,
         (progress) => setUploadProgress(progress),
       );
 
       setUploadProgress(null);
+      showUploadSuccessToast(fileCount);
 
       return processedContent;
     },
-    [],
+    [showUploadSuccessToast],
   );
 
   // 处理消息提交
@@ -163,7 +181,7 @@ export function MessageInput({
 
         // 如果有文件需要上传，先处理上传
         if (fileStats.hasFiles) {
-          contentToSend = await handleFileUpload(newMessage);
+          contentToSend = await handleFileUpload(newMessage, fileStats.count);
         }
 
         // 发送消息
@@ -186,7 +204,6 @@ export function MessageInput({
       showErrorToast,
     ],
   );
-
   const editorProps = useMemo(
     () => ({
       handleKeyDown: (view: any, event: any) => {
@@ -212,9 +229,6 @@ export function MessageInput({
     return !isLoading && !uploadProgress && hasMessageContent;
   }, [isLoading, uploadProgress, hasMessageContent]);
 
-  // 计算上传进度条高度（用于动态调整布局）
-  const progressBarHeight = uploadProgress ? 60 : 0; // 根据实际高度调整
-
   // 渲染上传进度条
   const renderUploadProgress = () => {
     if (!uploadProgress) return null;
@@ -224,7 +238,7 @@ export function MessageInput({
     );
 
     return (
-      <div className="absolute top-0 left-0 right-0 bg-blue-50 px-4 py-2 border-b z-10">
+      <div className="absolute top-0 left-0 right-0 bg-blue-50 px-4 py-2 border-b">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
             <UploadIcon className="h-4 w-4 animate-pulse" />
@@ -247,7 +261,16 @@ export function MessageInput({
 
   // 渲染发送按钮内容
   const renderSendButtonContent = () => {
-    if (isLoading || uploadProgress) {
+    if (uploadProgress) {
+      return (
+        <div className="flex items-center gap-2 p-2">
+          <Loader2Icon className="h-5 w-5 animate-spin" />
+          <span className="text-xs">{uploadProgress.uploaded}</span>
+        </div>
+      );
+    }
+
+    if (isLoading) {
       return <Loader2Icon className="h-5 w-5 animate-spin" />;
     }
 
@@ -261,14 +284,7 @@ export function MessageInput({
       {/* 上传进度指示器 */}
       {renderUploadProgress()}
 
-      {/* 主要内容区域 - 动态调整顶部间距 */}
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          marginTop: progressBarHeight,
-          transition: "margin-top 0.3s ease-in-out",
-        }}
-      >
+      <form onSubmit={handleSubmit}>
         <div className="flex">
           <UserChatEditor
             ref={editorRef}
@@ -290,7 +306,7 @@ export function MessageInput({
         <Button
           type="submit"
           size="icon"
-          className="absolute right-3 bottom-4 flex p-2 justify-center items-center rounded-[10px] bg-zinc-900 z-20"
+          className="absolute right-3 bottom-4 flex p-2 justify-center items-center rounded-[10px] bg-zinc-900"
           disabled={!canSend}
         >
           {renderSendButtonContent()}

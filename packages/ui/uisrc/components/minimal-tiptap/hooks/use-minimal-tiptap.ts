@@ -17,8 +17,8 @@ import {
   Selection,
   Color,
   UnsetAllMarks,
-  ResetMarksOnEnter,
   FileHandler,
+  ChatKeyboardExtension,
 } from "../extensions/index.ts";
 import { cn } from "uisrc/lib/utils.ts";
 import { getOutput, randomId, cleanupBlobUrls } from "../utils.ts";
@@ -37,6 +37,7 @@ export interface UseMinimalTiptapEditorProps extends UseEditorOptions {
   // 🎯 性能选项
   enablePerformanceMode?: boolean;
   isSSR?: boolean;
+  editorProps?: any;
 }
 
 type FileUploadErrorReason =
@@ -67,6 +68,7 @@ const createExtensions = (
     code: { HTMLAttributes: { class: "inline", spellcheck: "false" } },
     dropcursor: { width: 2, class: "ProseMirror-dropcursor border" },
   }),
+  ChatKeyboardExtension,
   Link,
   Underline,
 
@@ -161,7 +163,6 @@ const createExtensions = (
   Typography,
   UnsetAllMarks,
   HorizontalRule,
-  ResetMarksOnEnter,
   CodeBlockLowlight,
   Placeholder.configure({ placeholder: () => placeholder }),
 ];
@@ -176,6 +177,7 @@ export const useMinimalTiptapEditor = ({
   onBlur,
   enablePerformanceMode = true,
   isSSR = false,
+  editorProps: externalEditorProps,
   ...props
 }: UseMinimalTiptapEditorProps) => {
   const { toast } = useToast();
@@ -225,18 +227,23 @@ export const useMinimalTiptapEditor = ({
   );
 
   const editorConfig = useMemo(() => {
+    // 🔥 合并内部和外部的 editorProps
+    const mergedEditorProps = {
+      attributes: {
+        autocomplete: "off",
+        autocorrect: "off",
+        autocapitalize: "off",
+        class: cn("focus:outline-hidden", editorClassName),
+        // 如果外部有 attributes，会合并
+        ...externalEditorProps?.attributes,
+      },
+      // 合并其他 editorProps（如 handleKeyDown）
+      ...externalEditorProps,
+    };
+
     const baseConfig: UseEditorOptions = {
       extensions: createExtensions(placeholder, toast),
-
-      editorProps: {
-        attributes: {
-          autocomplete: "off",
-          autocorrect: "off",
-          autocapitalize: "off",
-          class: cn("focus:outline-hidden", editorClassName),
-        },
-      },
-
+      editorProps: mergedEditorProps, // 🔥 使用合并后的 editorProps
       onUpdate: ({ editor }: { editor: Editor }) => handleUpdate(editor),
       onCreate: ({ editor }: { editor: Editor }) => handleCreate(editor),
       onBlur: ({ editor }: { editor: Editor }) => handleBlur(editor),
@@ -268,6 +275,7 @@ export const useMinimalTiptapEditor = ({
     handleUpdate,
     handleCreate,
     handleBlur,
+    externalEditorProps,
     props,
   ]);
 
