@@ -179,8 +179,10 @@ export function useTicketWebSocket({
 
             case "message_sent":
               // Store the mapping between tempId and real messageId
+              // This also updates the message ID in store from tempId to realId
               addMessageIdMapping(data.tempId, data.messageId);
-              removeSendingMessage(data.tempId);
+              // Remove sending status using realId since addMessageIdMapping already converted it
+              removeSendingMessage(data.messageId);
               break;
 
             case "message_withdrawn":
@@ -329,21 +331,19 @@ export function useTicketWebSocket({
   const withdrawMessage = useCallback(
     (messageId: number) => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        // Get the real message ID from the store
-        const realMessageId = getRealMessageId(messageId);
-
+        // 现在store统一使用realId，不需要转换
         wsRef.current.send(
           JSON.stringify({
             type: "withdraw_message",
             userId,
-            messageId: realMessageId,
+            messageId,
             roomId: ticket.id,
             timestamp: Date.now(),
           }),
         );
       }
     },
-    [ticket.id, userId, getRealMessageId],
+    [ticket.id, userId],
   );
 
   // Close connection

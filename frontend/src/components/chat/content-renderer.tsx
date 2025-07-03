@@ -63,7 +63,16 @@ const RenderContent = ({content}: {content: JSONContent}): ReactNode => {
 
   if (content.type === 'paragraph') {
     return (
-      <p key={Math.random()} className="content-paragraph">
+      <p 
+        key={Math.random()} 
+        className="content-paragraph"
+        style={{
+          wordBreak: 'break-all',
+          overflowWrap: 'anywhere',
+          maxWidth: '100%',
+          minWidth: 0
+        }}
+      >
         {content.content?.map((node, index) => <RenderContent key={index} content={node} />)}
       </p>
     );
@@ -157,7 +166,15 @@ const RenderContent = ({content}: {content: JSONContent}): ReactNode => {
 };
 
 const ContentRenderer = ({ doc, isMine = false }: { doc: JSONContent, isMine?: boolean }) => {
-  return <div className={`content-renderer ${isMine ? 'my-msg' : 'other-msg'}`}>
+  return <div 
+    className={`content-renderer ${isMine ? 'my-msg' : 'other-msg'}`}
+    style={{
+      wordBreak: 'break-all',
+      overflowWrap: 'anywhere',
+      maxWidth: '100%',
+      minWidth: 0
+    }}
+  >
     <RenderContent content={doc} />
   </div>;
 };

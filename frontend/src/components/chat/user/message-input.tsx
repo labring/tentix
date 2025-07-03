@@ -224,20 +224,20 @@ export function MessageInput({
     );
 
     return (
-      <div className="absolute top-0 left-0 right-0 bg-blue-50 px-4 py-2 border-b z-10">
+      <div className="absolute top-0 left-0 right-0 bg-zinc-100 px-4 py-2 border-b z-10">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
-            <UploadIcon className="h-4 w-4 animate-pulse" />
-            <span>
+            <UploadIcon className="h-4 w-4 animate-pulse text-zinc-600" />
+            <span className="text-zinc-600">
               上传中 {uploadProgress.uploaded}/{uploadProgress.total}
               {uploadProgress.currentFile && ` - ${uploadProgress.currentFile}`}
             </span>
           </div>
-          <div className="text-blue-600">{progressPercent}%</div>
+          <div className="text-zinc-600">{progressPercent}%</div>
         </div>
-        <div className="mt-1 bg-blue-200 rounded-full h-1">
+        <div className="mt-1 bg-zinc-200 rounded-full h-1">
           <div
-            className="bg-blue-600 h-1 rounded-full transition-all duration-300"
+            className="bg-zinc-600 h-1 rounded-full transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

@@ -42,9 +42,10 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
       isInternal: messageType === "internal",
     }));
 
-    const handleTemplateSelect = (content: string) => {
-      editor?.commands.insertContent(content);
-    };
+    // TODO: 添加模板选择功能
+    // const handleTemplateSelect = (content: string) => {
+    //   editor?.commands.insertContent(content);
+    // };
 
     if (!editor) {
       return null;

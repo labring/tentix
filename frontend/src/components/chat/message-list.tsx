@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useLayoutEffect } from "react";
-import { MessageItem } from "./message-item.tsx";
+import { useEffect, useRef, useState, useLayoutEffect, useMemo } from "react";
+import MessageItem from "./message-item.tsx";
 import { TypingIndicator } from "./typing-indicator.tsx";
 import { type TicketType } from "tentix-server/rpc";
 import useLocalUser from "@hook/use-local-user.tsx";
@@ -107,7 +107,10 @@ export function MessageList({
     return groups;
   };
 
-  const messageGroups = groupMessagesByDate(messages);
+  const messageGroups = useMemo(
+    () => groupMessagesByDate(messages),
+    [messages],
+  );
 
   const sentReadStatusRef = useRef(new Set<number>());
 
@@ -201,7 +204,7 @@ export function MessageList({
                     }}
                   >
                     <MessageItem
-                      key={`${message.senderId}-msg-${message.id}`}
+                      // key={`${message.senderId}-msg-${message.id}`}
                       message={message}
                     />
                   </div>

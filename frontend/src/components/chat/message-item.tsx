@@ -14,6 +14,7 @@ import useLocalUser from "../../hooks/use-local-user.tsx";
 import { useChatStore, useSessionMembersStore } from "../../store/index.ts";
 import ContentRenderer from "./content-renderer.tsx";
 import { useTranslation } from "i18n";
+import { memo } from "react";
 
 interface MessageItemProps {
   message: TicketType["messages"][number];
@@ -34,7 +35,7 @@ const OtherMessage = ({
 
   return (
     <div className="flex animate-fadeIn justify-start">
-      <div className="flex max-w-[85%] gap-3">
+      <div className="flex max-w-[85%] gap-3 min-w-0">
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarImage
             src={messageSender?.avatar}
@@ -44,7 +45,7 @@ const OtherMessage = ({
             {messageSender?.nickname?.charAt(0) ?? "U"}
           </AvatarFallback>
         </Avatar>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 min-w-0 flex-1">
           {/* name and time */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground">
@@ -63,7 +64,7 @@ const OtherMessage = ({
 
           {/* content */}
           <div
-            className={`p-0 transition-colors text-base font-normal leading-6 text-zinc-900 ${
+            className={`p-0 transition-colors text-base font-normal leading-6 text-zinc-900 break-words break-all overflow-hidden ${
               isMessageSending(message.id) ? "opacity-70" : ""
             } ${
               message.isInternal ? "border-2 border-dashed bg-yellow-500" : ""
@@ -93,7 +94,7 @@ const MyMessage = ({
 
   return (
     <div className="flex animate-fadeIn justify-end">
-      <div className="flex max-w-[85%]  flex-row-reverse">
+      <div className="flex max-w-[85%]  flex-row-reverse min-w-0">
         <Avatar className="h-8 w-8 shrink-0 ml-3">
           <AvatarImage
             src={messageSender?.avatar}
@@ -103,7 +104,7 @@ const MyMessage = ({
             {messageSender?.nickname?.charAt(0) ?? "U"}
           </AvatarFallback>
         </Avatar>
-        <div className="flex flex-col gap-2 rounded-xl bg-zinc-100 py-4 px-5 ml-1">
+        <div className="flex flex-col gap-2 rounded-xl bg-zinc-100 py-4 px-5 ml-1 min-w-0 flex-1">
           {/* name and time */}
           <div className="flex items-center gap-2 flex-row-reverse">
             <span className="text-xs font-medium text-muted-foreground">
@@ -122,7 +123,7 @@ const MyMessage = ({
 
           {/* content */}
           <div
-            className={`p-0 transition-colors text-base font-normal leading-6 text-zinc-900 ${
+            className={`p-0 transition-colors text-base font-normal leading-6 text-zinc-900 break-words break-all overflow-hidden ${
               isMessageSending(message.id) ? "opacity-70" : ""
             } ${
               message.isInternal ? "border-2 border-dashed bg-yellow-500" : ""
@@ -162,7 +163,8 @@ const MyMessage = ({
   );
 };
 
-export function MessageItem({ message }: MessageItemProps) {
+const MessageItem = ({ message }: MessageItemProps) => {
+  console.log(`🔄 MessageItem ${message.id} 重新渲染`);
   const { id: userId } = useLocalUser();
   const { sessionMembers } = useSessionMembersStore();
 
@@ -176,4 +178,6 @@ export function MessageItem({ message }: MessageItemProps) {
   ) : (
     <OtherMessage message={message} />
   );
-}
+};
+
+export default memo(MessageItem);
