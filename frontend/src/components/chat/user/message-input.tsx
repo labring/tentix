@@ -35,7 +35,7 @@ interface UploadProgress {
 
 // 组件 Props 接口
 interface MessageInputProps {
-  onSendMessage: (content: JSONContentZod) => void;
+  onSendMessage: (content: JSONContentZod) => Promise<void>;
   onTyping?: () => void;
   isLoading: boolean;
 }
@@ -166,13 +166,18 @@ export function MessageInput({
           contentToSend = await handleFileUpload(newMessage);
         }
 
-        // 发送消息
-        onSendMessage(contentToSend);
+        // 等待消息发送完成
+        await onSendMessage(contentToSend);
+
+        // 只有发送成功后才清理编辑器
         clearEditor();
       } catch (error) {
         console.error("发送消息失败:", error);
         setUploadProgress(null);
         showErrorToast(error);
+
+        // 发送失败时不清理编辑器，让用户可以重试
+        // 编辑器内容保持不变，用户可以再次尝试发送
       }
     },
     [

@@ -17,6 +17,7 @@ export function MessageList({
   typingUser,
   onMessageInView,
 }: MessageListProps) {
+  console.log("messagelist render");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesListRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);

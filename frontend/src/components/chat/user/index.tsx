@@ -9,6 +9,7 @@ import { useSessionMembersStore, useChatStore } from "@store/index";
 import { type TicketType } from "tentix-server/rpc";
 import "react-photo-view/dist/react-photo-view.css";
 import { PhotoProvider } from "react-photo-view";
+import { useToast } from "tentix-ui";
 export function UserChat({
   ticket,
   token,
@@ -24,6 +25,7 @@ export function UserChat({
   const { messages, setMessages, setWithdrawMessageFunc } = useChatStore();
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   const sentReadStatusRef = useRef<Set<number>>(new Set());
+  const { toast } = useToast();
 
   // Handle user typing
   const handleUserTyping = (typingUserId: number, status: "start" | "stop") => {
@@ -102,10 +104,30 @@ export function UserChat({
   };
 
   // Send message
-  const handleSendMessage = (content: JSONContentZod) => {
+  const handleSendMessage = async (content: JSONContentZod) => {
     const messageId = Date.now();
-    // Send through WebSocket
-    sendMessage(content, messageId);
+
+    try {
+      // 等待消息发送完成
+      await sendMessage(content, messageId);
+      console.log("消息发送成功");
+    } catch (error) {
+      console.error("消息发送失败:", error);
+
+      // 显示错误提示
+      toast({
+        title: "发送失败",
+        description:
+          error instanceof Error ? error.message : "发送消息时出现错误",
+        variant: "destructive",
+      });
+
+      // 将发送失败的消息标记为失败状态（可选）
+      // markMessageAsFailed(messageId);
+
+      // 重新抛出错误，让 MessageInput 知道发送失败
+      throw error;
+    }
   };
 
   return (
