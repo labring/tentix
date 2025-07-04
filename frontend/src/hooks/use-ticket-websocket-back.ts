@@ -217,7 +217,7 @@ export function useTicketWebSocket({
 
             case "message_read_update":
               readMessage(data.messageId, data.userId, data.readAt);
-              console.log("message_read_update", data);
+              console.info("message_read_update", data);
               break;
 
             case "user_typing":

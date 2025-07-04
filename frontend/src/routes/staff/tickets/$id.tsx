@@ -14,24 +14,18 @@ import { StaffRightSidebar } from "@comp/staff/staff-right-sidebar";
 import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
-  loader: async ({ context: { queryClient, authContext }, params }) => {
+  loader: async ({ context: { queryClient, authContext } }) => {
     // 如果没有认证，返回null数据，让beforeLoad处理重定向
     if (!authContext.isAuthenticated || !authContext.user) {
       return {
-        data: null,
-        ticket: null,
         token: null,
-        authContext,
       };
     }
 
     return {
-      data: await queryClient.ensureQueryData(userTicketsQueryOptions()),
-      ticket: await queryClient.ensureQueryData(ticketsQueryOptions(params.id)),
       token: await queryClient.ensureQueryData(
         wsTokenQueryOptions(authContext.user.id.toString()),
       ),
-      authContext,
     };
   },
   head: ({ params }) => ({
@@ -45,14 +39,14 @@ export const Route = createFileRoute("/staff/tickets/$id")({
 });
 
 function RouteComponent() {
-  const { data, ticket: loaderTicket, token: wsToken } = Route.useLoaderData();
+  const { token: wsToken } = Route.useLoaderData();
   const { id } = Route.useParams();
   const { setTicket } = useTicketStore();
   const { setSessionMembers } = useSessionMembersStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 在组件中获取用户 tickets 数据，这样可以响应 invalidateQueries
-  const { data: userTicketsData } = useQuery(
+  const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
     userTicketsQueryOptions(),
   );
 
@@ -63,15 +57,14 @@ function RouteComponent() {
 
   // Set up initial ticket data - 所有 hooks 必须在条件渲染之前调用
   useEffect(() => {
-    const currentTicket = ticket || loaderTicket;
-    if (currentTicket) {
-      setTicket(currentTicket);
-      setSessionMembers(currentTicket);
+    if (ticket) {
+      setTicket(ticket);
+      setSessionMembers(ticket);
     }
-  }, [ticket, loaderTicket, setTicket, setSessionMembers]);
+  }, [ticket, setTicket, setSessionMembers]);
 
   // 如果数据为空（未认证），显示加载状态
-  if (!data || !loaderTicket || !wsToken) {
+  if (!wsToken) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -82,7 +75,7 @@ function RouteComponent() {
     );
   }
 
-  if (isTicketLoading && !loaderTicket) {
+  if (isTicketLoading || isUserTicketsLoading || !ticket) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="text-sm text-muted-foreground">Loading...</div>
@@ -90,41 +83,30 @@ function RouteComponent() {
     );
   }
 
-  // 使用组件中的最新数据，如果正在加载则使用 loader 的数据作为fallback
-  const currentTicket = ticket || loaderTicket;
-  const currentUserTickets = userTicketsData || data;
-
-  // 此时我们知道 loaderTicket 不为 null（因为上面已经检查过），
-  // 所以 currentTicket 也不会为 null，但需要类型断言来告诉 TypeScript
-  if (!currentTicket) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="text-sm text-muted-foreground">Ticket not found</div>
-      </div>
-    );
-  }
+  // console.log("tickets", userTicketsData?.tickets);
 
   return (
     <div className="flex h-screen w-full">
       <StaffDashboardSidebar />
       <StaffTicketSidebar
-        currentTicketId={currentTicket.id}
-        tickets={currentUserTickets?.tickets || []}
+        currentTicketId={ticket.id}
+        tickets={userTicketsData?.tickets || []}
         isCollapsed={isSidebarCollapsed}
       />
       <div className="@container/main flex flex-1 flex-row">
         <div className="flex flex-col h-full w-[66%] xl:w-[74%]">
           <div className="flex-shrink-0">
             <StaffSiteHeader
-              ticket={currentTicket}
+              ticket={ticket}
               sidebarVisible={!isSidebarCollapsed}
               toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             />
           </div>
           <StaffChat
-            ticket={currentTicket}
+            ticket={ticket}
             token={wsToken.token}
-            key={currentTicket.id}
+            key={ticket.id}
+            isTicketLoading={isTicketLoading}
           />
         </div>
         <div className="flex flex-col h-full w-[34%] xl:w-[26%]">

@@ -13,9 +13,11 @@ import { useToast } from "tentix-ui";
 export function UserChat({
   ticket,
   token,
+  isTicketLoading,
 }: {
   ticket: TicketType;
   token: string;
+  isTicketLoading: boolean;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
@@ -59,18 +61,26 @@ export function UserChat({
   });
 
   useEffect(() => {
-    setIsLoading(wsLoading);
+    setIsLoading(wsLoading || isTicketLoading);
     setWithdrawMessageFunc(withdrawMessage);
-  }, [wsLoading]);
+  }, [wsLoading, isTicketLoading]);
 
+  // 分离组件挂载/卸载逻辑
   useEffect(() => {
-    setSessionMembers(ticket);
-    setMessages(ticket.messages);
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       closeConnection();
+      setSessionMembers(null);
+      setMessages([]);
     };
-  }, [ticket.id, closeConnection]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 分离数据更新逻辑
+  useEffect(() => {
+    setSessionMembers(ticket);
+    setMessages(ticket.messages);
+  }, [ticket, setSessionMembers, setMessages]);
 
   // Track unread messages
   useEffect(() => {

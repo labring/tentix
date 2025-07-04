@@ -1,10 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { TicketInfoBox } from "../ticket-info-box.tsx";
-import {
-  useTicketStore,
-  useSessionMembersStore,
-  useChatStore,
-} from "@store/index";
+import { useSessionMembersStore, useChatStore } from "@store/index";
 import { useTicketWebSocket } from "@hook/use-ticket-websocket";
 import { StaffMessageInput } from "./message-input.tsx";
 import { MessageList } from "../message-list.tsx";
@@ -20,9 +16,11 @@ import useLocalUser from "@hook/use-local-user.tsx";
 interface StaffChatProps {
   ticket: TicketType;
   token: string;
+  isTicketLoading: boolean;
 }
 
-export function StaffChat({ ticket, token }: StaffChatProps) {
+export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { id: userId } = useLocalUser();
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
@@ -36,8 +34,7 @@ export function StaffChat({ ticket, token }: StaffChatProps) {
 
   // Store hooks
   const { sessionMembers, setSessionMembers } = useSessionMembersStore();
-  const { setTicket } = useTicketStore();
-  const { messages, setMessages } = useChatStore();
+  const { messages, setMessages, setWithdrawMessageFunc } = useChatStore();
 
   const sentReadStatusRef = useRef<Set<number>>(new Set());
 
@@ -85,11 +82,13 @@ export function StaffChat({ ticket, token }: StaffChatProps) {
   };
 
   const {
-    isLoading,
+    isLoading: wsLoading,
     sendMessage,
     sendTypingIndicator,
     sendReadStatus,
     sendCustomMsg,
+    closeConnection,
+    withdrawMessage,
   } = useTicketWebSocket({
     ticket,
     token,
@@ -97,19 +96,26 @@ export function StaffChat({ ticket, token }: StaffChatProps) {
     onUserTyping: handleUserTyping,
     onError: (error) => console.error("WebSocket error:", error),
   });
-
-  // Set up initial ticket data
   useEffect(() => {
-    setTicket(ticket);
+    setIsLoading(wsLoading || isTicketLoading);
+    setWithdrawMessageFunc(withdrawMessage);
+  }, [wsLoading, isTicketLoading]);
+
+  // 数据更新
+  useEffect(() => {
     setSessionMembers(ticket);
     setMessages(ticket.messages);
-  }, [ticket, setTicket, setSessionMembers]);
+  }, [ticket, setSessionMembers, setMessages]);
 
   // cleanup function
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      closeConnection();
+      setSessionMembers(null);
+      setMessages([]);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Track unread messages

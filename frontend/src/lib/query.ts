@@ -58,6 +58,9 @@ export const userTicketsQueryOptions = (
         .then((r) => r.json());
       return data;
     },
+    staleTime: 0, // 数据立即过期
+    refetchOnMount: true, // 每次组件挂载时重新获取
+    refetchOnWindowFocus: true, // 窗口聚焦时重新获取
   });
 
 export const allTicketsQueryOptions = () =>
@@ -78,6 +81,9 @@ export const ticketsQueryOptions = (id: string) =>
         .then((r) => r.json());
       return data;
     },
+    staleTime: 0, // 数据立即过期
+    refetchOnMount: true, // 每次组件挂载时重新获取
+    refetchOnWindowFocus: true, // 窗口聚焦时重新获取
   });
 
 export const wsTokenQueryOptions = (testUserId?: string) =>
