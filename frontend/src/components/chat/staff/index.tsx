@@ -12,7 +12,7 @@ import { type JSONContentZod } from "tentix-server/types";
 import { type TicketType } from "tentix-server/rpc";
 import { PhotoProvider } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";
-import { Button } from "tentix-ui";
+import { Button, useToast } from "tentix-ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { joinTicketAsTechnician } from "@lib/query";
 import useLocalUser from "@hook/use-local-user.tsx";
@@ -23,6 +23,7 @@ interface StaffChatProps {
 }
 
 export function StaffChat({ ticket, token }: StaffChatProps) {
+  const { toast } = useToast();
   const { id: userId } = useLocalUser();
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
   const hadFirstMsg = useRef<boolean>(
@@ -36,10 +37,7 @@ export function StaffChat({ ticket, token }: StaffChatProps) {
   // Store hooks
   const { sessionMembers, setSessionMembers } = useSessionMembersStore();
   const { setTicket } = useTicketStore();
-  const { 
-    messages, 
-    setMessages,
-  } = useChatStore();
+  const { messages, setMessages } = useChatStore();
 
   const sentReadStatusRef = useRef<Set<number>>(new Set());
 
@@ -91,7 +89,7 @@ export function StaffChat({ ticket, token }: StaffChatProps) {
     sendMessage,
     sendTypingIndicator,
     sendReadStatus,
-    sendCustomMsg, 
+    sendCustomMsg,
   } = useTicketWebSocket({
     ticket,
     token,
@@ -113,7 +111,6 @@ export function StaffChat({ ticket, token }: StaffChatProps) {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, []);
-
 
   // Track unread messages
   useEffect(() => {
@@ -148,19 +145,39 @@ export function StaffChat({ ticket, token }: StaffChatProps) {
   };
 
   // Handle send message
-  const handleSendMessage = (content: JSONContentZod, isInternal = false) => {
+  const handleSendMessage = async (
+    content: JSONContentZod,
+    isInternal = false,
+  ) => {
     if (isLoading) return;
-    const tempId =Number(window.crypto.getRandomValues(new Uint32Array(1)));
+    const tempId = Number(window.crypto.getRandomValues(new Uint32Array(1)));
     // Add to sending message store to show loading state
     // Send message via WebSocket
-    sendMessage(content, tempId, isInternal);
-    if (!hadFirstMsg.current) {
-      sendCustomMsg({
-        type: "agent_first_message",
-        timestamp: Date.now(),
-        roomId: ticket.id,
+    try {
+      await sendMessage(content, tempId, isInternal);
+      if (!hadFirstMsg.current) {
+        sendCustomMsg({
+          type: "agent_first_message",
+          timestamp: Date.now(),
+          roomId: ticket.id,
+        });
+        hadFirstMsg.current = true;
+      }
+    } catch (error) {
+      console.error("消息发送失败:", error);
+      // 显示错误提示
+      toast({
+        title: "发送失败",
+        description:
+          error instanceof Error ? error.message : "发送消息时出现错误",
+        variant: "destructive",
       });
-      hadFirstMsg.current = true;
+
+      // 将发送失败的消息标记为失败状态（可选）
+      // markMessageAsFailed(messageId);
+
+      // 重新抛出错误，让 StaffMessageInput 知道发送失败
+      throw error;
     }
   };
 

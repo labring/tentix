@@ -164,7 +164,6 @@ const MyMessage = ({
 };
 
 const MessageItem = ({ message }: MessageItemProps) => {
-  console.log(`🔄 MessageItem ${message.id} 重新渲染`);
   const { id: userId } = useLocalUser();
   const { sessionMembers } = useSessionMembersStore();
 

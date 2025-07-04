@@ -36,6 +36,7 @@ import {
   areaEnumArray,
 } from "tentix-server/constants";
 import { ArrowLeftIcon, TriangleAlertIcon } from "lucide-react";
+import { processFilesAndUpload } from "@comp/chat/upload-utils";
 
 // Client-side validation schema - 只验证用户需要填写的字段
 const createTicketFormSchema = (t: (key: string) => string) =>
@@ -181,6 +182,13 @@ function TicketForm({
   );
 }
 
+// 上传进度接口
+interface UploadProgress {
+  uploaded: number;
+  total: number;
+  currentFile?: string;
+}
+
 // Custom hook for ticket creation logic
 function useTicketCreation() {
   const { t } = useTranslation();
@@ -188,6 +196,7 @@ function useTicketCreation() {
   const { toast } = useToast();
   const { area } = useLocalUser();
   const queryClient = useQueryClient();
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
   // Create schema with translation
   const ticketFormSchema = createTicketFormSchema(t);
@@ -240,6 +249,29 @@ function useTicketCreation() {
     },
   });
 
+  // 检查内容节点是否为本地文件
+  const isLocalFileNode = (node: any): boolean => {
+    return node.type === "image" && node.attrs?.isLocalFile;
+  };
+
+  // 检查是否有需要上传的文件
+  const hasFilesToUpload = (content: JSONContentZod): boolean => {
+    let hasFiles = false;
+
+    const traverse = (node: any): void => {
+      if (isLocalFileNode(node)) {
+        hasFiles = true;
+        return;
+      }
+      if (node.content) {
+        node.content.forEach(traverse);
+      }
+    };
+
+    content.content?.forEach(traverse);
+    return hasFiles;
+  };
+
   // Submit handlers
   const submitTicket = async () => {
     const isValid = await form.trigger();
@@ -261,15 +293,60 @@ function useTicketCreation() {
       return false;
     }
 
-    const formData = form.getValues();
-    createTicketMutation.mutate(formData);
-    return true;
+    try {
+      const formData = form.getValues();
+      let processedDescription = formData.description;
+
+      // 检查描述中是否有需要上传的文件
+      if (formData.description && hasFilesToUpload(formData.description)) {
+        try {
+          // 处理文件上传
+          const { processedContent } = await processFilesAndUpload(
+            formData.description,
+            (progress) => setUploadProgress(progress),
+          );
+          
+          processedDescription = processedContent;
+          setUploadProgress(null);
+        } catch (uploadError) {
+          setUploadProgress(null);
+          console.error("文件上传失败:", uploadError);
+          
+          toast({
+            title: "文件上传失败",
+            description: uploadError instanceof Error ? uploadError.message : "文件上传时出现错误",
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
+
+      // 使用处理后的描述内容
+      const finalFormData = {
+        ...formData,
+        description: processedDescription,
+      };
+
+      createTicketMutation.mutate(finalFormData);
+      return true;
+    } catch (error) {
+      setUploadProgress(null);
+      console.error("提交工单失败:", error);
+      
+      toast({
+        title: t("ticket_create_failed"),
+        description: error instanceof Error ? error.message : "提交时出现未知错误",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
 
   return {
     form,
     submitTicket,
-    isLoading: createTicketMutation.isPending,
+    isLoading: createTicketMutation.isPending || uploadProgress !== null,
+    uploadProgress,
   };
 }
 
@@ -284,7 +361,7 @@ function RouteComponent() {
   const [showDialog, setShowDialog] = useState(false);
 
   // Ticket creation logic
-  const { form, submitTicket, isLoading } = useTicketCreation();
+  const { form, submitTicket, isLoading, uploadProgress } = useTicketCreation();
   const {
     register,
     control,
@@ -355,7 +432,17 @@ function RouteComponent() {
               {t("prompt")}
             </DialogTitle>
             <DialogDescription>
-              {t("are_you_sure_submit_ticket")}
+              {uploadProgress ? (
+                <div className="space-y-2">
+                  <div>{t("are_you_sure_submit_ticket")}</div>
+                  <div className="text-sm text-zinc-600">
+                    正在上传文件 {uploadProgress.uploaded}/{uploadProgress.total}
+                    {uploadProgress.currentFile && ` - ${uploadProgress.currentFile}`}
+                  </div>
+                </div>
+              ) : (
+                t("are_you_sure_submit_ticket")
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -367,7 +454,12 @@ function RouteComponent() {
               className="w-20 h-10 px-4 py-2 bg-black"
               disabled={isLoading}
             >
-              {isLoading ? "..." : t("submit")}
+              {uploadProgress 
+                ? `${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
+                : isLoading 
+                  ? "..." 
+                  : t("submit")
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

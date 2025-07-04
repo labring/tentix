@@ -28,7 +28,7 @@ interface UseTicketWebSocketReturn {
     content: JSONContentZod,
     tempId: number,
     isInternal?: boolean,
-  ) => Promise<void>;
+  ) => void;
   sendTypingIndicator: () => void;
   sendReadStatus: (messageId: number) => void;
   closeConnection: () => void;
@@ -70,11 +70,6 @@ export function useTicketWebSocket({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isConnectingRef = useRef(false);
-  const lastConnectionParamsRef = useRef<{
-    ticketId: string;
-    token: string;
-    userId: number;
-  } | null>(null);
   const { toast } = useToast();
 
   const { run: sendTyping } = useThrottleFn(
@@ -122,7 +117,7 @@ export function useTicketWebSocket({
   // Handle reconnection
   const handleReconnect = useCallback(() => {
     if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-      console.info("Maximum reconnection attempts reached");
+      console.log("Maximum reconnection attempts reached");
       return;
     }
 
@@ -131,7 +126,7 @@ export function useTicketWebSocket({
     }
 
     reconnectTimeoutRef.current = setTimeout(() => {
-      console.info(
+      console.log(
         `Attempting to reconnect (${reconnectAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})`,
       );
       reconnectAttemptsRef.current += 1;
@@ -145,30 +140,6 @@ export function useTicketWebSocket({
       if (!token || reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS)
         return;
 
-      // 防护：如果正在连接，直接返回
-      if (isConnectingRef.current) return;
-
-      // 检查关键参数是否发生变化
-      const currentParams = { ticketId: id, token, userId };
-      const paramsChanged =
-        !lastConnectionParamsRef.current ||
-        lastConnectionParamsRef.current.ticketId !== currentParams.ticketId ||
-        lastConnectionParamsRef.current.token !== currentParams.token ||
-        lastConnectionParamsRef.current.userId !== currentParams.userId;
-
-      // 如果已有连接且状态正常，且参数没有变化，直接返回
-      if (
-        wsRef.current &&
-        wsRef.current.readyState === WebSocket.OPEN &&
-        !paramsChanged
-      ) {
-        return;
-      }
-
-      // 设置连接状态
-      isConnectingRef.current = true;
-      setIsLoading(true);
-
       // Create WebSocket connection
       const wsOrigin = import.meta.env.DEV
         ? "ws://localhost:3000"
@@ -178,21 +149,15 @@ export function useTicketWebSocket({
       url.searchParams.set("ticketId", id.toString());
       url.searchParams.set("token", token);
 
-      // 如果已有连接，根据情况清理
+      // 如果已有连接，先清理
       if (wsRef.current) {
-        // 如果参数变化了或连接状态异常，强制关闭
-        if (paramsChanged || wsRef.current.readyState !== WebSocket.OPEN) {
-          wsRef.current.close();
-          wsRef.current = null;
-        }
+        wsRef.current.close();
+        wsRef.current = null;
       }
 
-      // 创建新的WebSocket连接
+      // 总是创建新的WebSocket连接
       const ws = new WebSocket(url.toString());
       wsRef.current = ws;
-
-      // 更新连接参数记录
-      lastConnectionParamsRef.current = currentParams;
 
       // WebSocket event handling
       ws.onopen = () => {
@@ -252,7 +217,7 @@ export function useTicketWebSocket({
 
             case "message_read_update":
               readMessage(data.messageId, data.userId, data.readAt);
-              console.info("message_read_update", data);
+              console.log("message_read_update", data);
               break;
 
             case "user_typing":
@@ -315,7 +280,6 @@ export function useTicketWebSocket({
         pendingMessages.current.clear();
 
         stopHeartbeat();
-        isConnectingRef.current = false;
         // TODO: revalidate token
         handleReconnect();
       };
@@ -325,7 +289,6 @@ export function useTicketWebSocket({
         console.error("WebSocket error:", event);
         if (onError) onError(event);
         setIsLoading(false);
-        isConnectingRef.current = false;
       };
     },
     [token, userId],
@@ -333,8 +296,10 @@ export function useTicketWebSocket({
 
   // Initialize WebSocket connection
   useEffect(() => {
-    if (!token) return;
+    if (isConnectingRef.current || !token) return;
 
+    isConnectingRef.current = true;
+    setIsLoading(true);
     connectWebSocket(ticket.id);
 
     // Cleanup function
@@ -348,7 +313,6 @@ export function useTicketWebSocket({
         wsRef.current = null;
       }
       isConnectingRef.current = false;
-      lastConnectionParamsRef.current = null;
     };
   }, [token, connectWebSocket, ticket.id]);
 
@@ -461,8 +425,6 @@ export function useTicketWebSocket({
       wsRef.current.close();
       wsRef.current = null;
     }
-    isConnectingRef.current = false;
-    lastConnectionParamsRef.current = null;
   }, []);
 
   function sendCustomMsg(props: wsMsgClientType) {

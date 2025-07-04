@@ -1,11 +1,11 @@
 /* eslint-disable drizzle/enforce-delete-with-where */
-import { Hono } from "hono";
+import type { Context, Next } from "hono"; // 导入类型
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import { getPresignedUrl, removeFile } from "@/utils/minio.ts";
 import { getConnInfo } from "hono/bun";
-import { authMiddleware, factory } from "../middleware.ts";
+import { authMiddleware, factory, AuthEnv } from "tentix-server/api/middleware";
 import { rateLimiter } from "hono-rate-limiter";
 
 // 为customer用户创建限流器（只创建一次）
@@ -21,15 +21,12 @@ const customerRateLimiter = rateLimiter({
   },
 });
 
-// 条件限流中间件：只对customer用户应用限流
-const conditionalRateLimit = async (c: any, next: any) => {
+const conditionalRateLimit = async (c: Context<AuthEnv>, next: Next) => {
   const role = c.var.role;
-  
   if (role === "customer") {
     // 对customer用户应用限流
-    return customerRateLimiter(c, next);
+    return customerRateLimiter(c as any, next);
   }
-  
   // 非customer用户直接通过
   await next();
 };
@@ -58,7 +55,10 @@ const fileRouter = factory
     ),
     async (c) => {
       const { fileName, fileType } = c.req.valid("query");
-      const { url, fileName: newFileName } = await getPresignedUrl(fileName, fileType);
+      const { url, fileName: newFileName } = await getPresignedUrl(
+        fileName,
+        fileType,
+      );
       return c.json({
         srcUrl: `${global.customEnv.MINIO_ENDPOINT}/${global.customEnv.MINIO_BUCKET}/${newFileName}`,
         fileName: newFileName,

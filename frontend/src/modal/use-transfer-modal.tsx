@@ -8,17 +8,26 @@ import { useForm } from "react-hook-form";
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage, Button, Dialog,
+  AvatarImage,
+  Button,
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle, Form,
+  DialogTitle,
+  Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage, Input, Label, RadioGroup, RadioGroupItem, Textarea, toast
+  FormMessage,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+  Textarea,
+  toast,
 } from "tentix-ui";
 import { z } from "zod";
 import useLocalUser from "@hook/use-local-user";
@@ -116,7 +125,7 @@ export function useTransferModal() {
 
   // Handle form submission
   const onSubmit = (values: TransferFormValues) => {
-    console.log(values);
+    // console.log(values);
     transferMutation.mutate({
       ticketId,
       targetStaffId: parseInt(values.staffId),
@@ -136,9 +145,7 @@ export function useTransferModal() {
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>{t("transfer_ticket", { id: ticketId })}</DialogTitle>
-          <DialogDescription>
-            {t("transfer_desc")}
-          </DialogDescription>
+          <DialogDescription>{t("transfer_desc")}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

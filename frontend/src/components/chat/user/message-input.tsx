@@ -10,7 +10,7 @@ import {
   useToast,
   type EditorRef,
 } from "tentix-ui";
-import { processFilesAndUpload } from "./upload-utils";
+import { processFilesAndUpload } from "../upload-utils";
 
 // 错误处理工具函数
 const getErrorMessage = (error: unknown): string => {

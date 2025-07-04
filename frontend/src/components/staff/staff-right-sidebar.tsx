@@ -45,8 +45,6 @@ const IconMap: Record<NormalCategory, React.ReactNode> = {
 export function StaffRightSidebar({ id }: { id: string }) {
   const { data: ticket, isSuccess } = useQuery(ticketsQueryOptions(id));
 
-  console.log(ticket);
-
   const { t } = useTranslation();
 
   const updateCategoryMutation = useMutation({
@@ -155,7 +153,11 @@ export function StaffRightSidebar({ id }: { id: string }) {
                 {ticket.category === "uncategorized" ? (
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button size="sm" variant="outline" className="text-xs h-6 px-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-6 px-2"
+                      >
                         {t("uncategorized")}（{t("assign_category")}）
                       </Button>
                     </PopoverTrigger>

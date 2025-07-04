@@ -110,7 +110,6 @@ export function UserChat({
     try {
       // 等待消息发送完成
       await sendMessage(content, messageId);
-      console.log("消息发送成功");
     } catch (error) {
       console.error("消息发送失败:", error);
 

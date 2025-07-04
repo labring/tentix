@@ -30,7 +30,7 @@ function AuthGuard() {
         const sealosToken = window.localStorage.getItem("sealosToken");
         const area = window.localStorage.getItem("area");
 
-        console.log("sealosUser", sealosUser);
+        // console.log("sealosUser", sealosUser);
         if (!sealosToken || !area) {
           router.navigate({ to: "/notLogin", replace: true });
           return;
@@ -98,7 +98,9 @@ function AuthGuard() {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center p-6">
-          <h2 className="text-lg font-medium text-foreground mb-2">{t("auth_failed")}</h2>
+          <h2 className="text-lg font-medium text-foreground mb-2">
+            {t("auth_failed")}
+          </h2>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -120,7 +122,9 @@ function AuthGuard() {
     <div className="flex items-center justify-center h-screen bg-background">
       <div className="text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-muted border-t-foreground mx-auto mb-4"></div>
-        <p className="text-sm text-muted-foreground">{t("auth_complete_redirecting")}</p>
+        <p className="text-sm text-muted-foreground">
+          {t("auth_complete_redirecting")}
+        </p>
       </div>
     </div>
   );
