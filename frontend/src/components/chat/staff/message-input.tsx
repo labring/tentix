@@ -195,7 +195,7 @@ export function StaffMessageInput({
 
   const editorProps = useMemo(
     () => ({
-      handleKeyDown: (view: any, event: any) => {
+      handleKeyDown: (_: any, event: any) => {
         // 🔥 Enter 键 -> 发送消息
         if (
           event.key === "Enter" &&
