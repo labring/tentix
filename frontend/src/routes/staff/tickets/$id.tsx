@@ -6,7 +6,11 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSessionMembersStore, useTicketStore } from "../../../store";
+import {
+  useSessionMembersStore,
+  useTicketStore,
+  useChatStore,
+} from "../../../store";
 import { StaffSiteHeader } from "@comp/staff/site-header";
 import { StaffTicketSidebar } from "@comp/staff/staff-ticket-sidebar";
 import { StaffChat } from "@comp/chat/staff/index";
@@ -21,7 +25,6 @@ export const Route = createFileRoute("/staff/tickets/$id")({
         token: null,
       };
     }
-
     return {
       token: await queryClient.ensureQueryData(
         wsTokenQueryOptions(authContext.user.id.toString()),
@@ -43,11 +46,12 @@ function RouteComponent() {
   const { id } = Route.useParams();
   const { setTicket } = useTicketStore();
   const { setSessionMembers } = useSessionMembersStore();
+  const { setCurrentTicketId, clearMessages } = useChatStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 在组件中获取用户 tickets 数据，这样可以响应 invalidateQueries
   const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
-    userTicketsQueryOptions(),
+    userTicketsQueryOptions(40, 1, id.toString()),
   );
 
   // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
@@ -62,6 +66,22 @@ function RouteComponent() {
       setSessionMembers(ticket);
     }
   }, [ticket, setTicket, setSessionMembers]);
+
+  // 路由切换时的清理
+  useEffect(() => {
+    // 路由切换时设置新的 ticketId
+    if (ticket) {
+      setCurrentTicketId(ticket.id);
+    }
+
+    return () => {
+      // 当路由组件卸载时，清理全局状态
+      setTicket(null);
+      setSessionMembers(null);
+      setCurrentTicketId(null);
+      clearMessages();
+    };
+  }, [id]); // 依赖 id，确保路由切换时触发
 
   // 如果数据为空（未认证），显示加载状态
   if (!wsToken) {
@@ -83,8 +103,6 @@ function RouteComponent() {
     );
   }
 
-  // console.log("tickets", userTicketsData?.tickets);
-
   return (
     <div className="flex h-screen w-full">
       <StaffDashboardSidebar />
@@ -102,15 +120,17 @@ function RouteComponent() {
               toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             />
           </div>
+          {/* 使用 key={id} 确保组件在路由切换时完全重新创建 */}
           <StaffChat
             ticket={ticket}
             token={wsToken.token}
-            key={ticket.id}
+            key={id}
             isTicketLoading={isTicketLoading}
           />
         </div>
         <div className="flex flex-col h-full w-[34%] xl:w-[26%]">
-          <StaffRightSidebar id={id} />
+          {/* 同样使用 key 确保侧边栏也重新创建 */}
+          <StaffRightSidebar id={id} key={id} />
         </div>
       </div>
     </div>

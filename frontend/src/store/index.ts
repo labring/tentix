@@ -1,13 +1,14 @@
 import { type TicketType } from "tentix-server/rpc";
 import { create } from "zustand";
+
 interface TicketStore {
   ticket: TicketType | null;
-  setTicket: (newTicket: TicketType) => void;
+  setTicket: (newTicket: TicketType | null) => void;
 }
 
 export const useTicketStore = create<TicketStore>((set) => ({
   ticket: null as TicketType | null,
-  setTicket: (newTicket: TicketType) => set({ ticket: newTicket }),
+  setTicket: (newTicket: TicketType | null) => set({ ticket: newTicket }),
 }));
 
 type BasicUser = TicketType["agent"];
@@ -60,8 +61,10 @@ interface ChatStore {
   messages: ChatMessage[];
   messageIdMap: Map<number, number>;
   sendingMessageIds: Set<number>;
+  currentTicketId: string | null; // 新增：当前 ticketId
   withdrawMessageFunc: (id: number) => void;
   setWithdrawMessageFunc: (func: (id: number) => void) => void;
+  setCurrentTicketId: (ticketId: string | null) => void; // 新增方法
   addMessage: (message: ChatMessage) => void;
   updateMessage: (id: number, updates: Partial<ChatMessage>) => void;
   withdrawMessage: (messageId: number) => void;
@@ -73,20 +76,32 @@ interface ChatStore {
   removeSendingMessage: (id: number) => void;
   isMessageSending: (id: number) => boolean;
   readMessage: (messageId: number, userId: number, readAt: string) => void;
+  clearMessages: () => void; // 新增：清理消息
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   messageIdMap: new Map(),
   sendingMessageIds: new Set<number>(),
+  currentTicketId: null,
   withdrawMessageFunc: () => {},
 
   setWithdrawMessageFunc(func) {
     set({ withdrawMessageFunc: func });
   },
 
+  setCurrentTicketId: (ticketId) => set({ currentTicketId: ticketId }),
+
   addMessage: (message) =>
     set((state) => {
+      // 验证消息是否属于当前 ticket
+      if (state.currentTicketId && message.ticketId !== state.currentTicketId) {
+        console.warn(
+          `Attempted to add message for wrong ticket. Current: ${state.currentTicketId}, Message: ${message.ticketId}`,
+        );
+        return state;
+      }
+
       // 检查消息是否已存在，避免重复添加
       const messageExists = state.messages.some((msg) => msg.id === message.id);
       if (messageExists) {
@@ -244,15 +259,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             ? {
                 ...msg,
                 readStatus: [
-                  ...msg.readStatus,
+                  // 过滤掉相同 userId 的旧记录（如果存在）
+                  ...msg.readStatus.filter(
+                    (status) => status.userId !== userId,
+                  ),
+                  // 添加新的已读记录 - 去掉了不必要的 id 生成
                   {
-                    id: Number(
-                      window.crypto.getRandomValues(new Uint32Array(1)),
-                    ),
                     messageId,
                     userId,
                     readAt,
-                  },
+                  } as any,
                 ],
               }
             : msg,
@@ -260,4 +276,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       };
     });
   },
+
+  clearMessages: () =>
+    set({
+      messages: [],
+      messageIdMap: new Map(),
+      sendingMessageIds: new Set(),
+    }),
 }));

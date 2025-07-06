@@ -112,8 +112,6 @@ export function MessageList({
     [messages],
   );
 
-  const sentReadStatusRef = useRef(new Set<number>());
-
   // Create intersection observer for message visibility
   useEffect(() => {
     if (!messagesListRef.current || !onMessageInView) return;
@@ -125,9 +123,8 @@ export function MessageList({
             const messageId = Number(
               entry.target.getAttribute("data-message-id"),
             );
-            if (messageId && !sentReadStatusRef.current.has(messageId)) {
+            if (messageId) {
               onMessageInView(messageId);
-              sentReadStatusRef.current.add(messageId);
             }
           }
         });

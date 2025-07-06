@@ -10,6 +10,7 @@ import { type TicketType } from "tentix-server/rpc";
 import "react-photo-view/dist/react-photo-view.css";
 import { PhotoProvider } from "react-photo-view";
 import { useToast } from "tentix-ui";
+
 export function UserChat({
   ticket,
   token,
@@ -24,7 +25,13 @@ export function UserChat({
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { sessionMembers, setSessionMembers } = useSessionMembersStore();
   const { id: userId } = useLocalUser();
-  const { messages, setMessages, setWithdrawMessageFunc } = useChatStore();
+  const {
+    messages,
+    setMessages,
+    setWithdrawMessageFunc,
+    setCurrentTicketId,
+    clearMessages,
+  } = useChatStore();
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   const sentReadStatusRef = useRef<Set<number>>(new Set());
   const { toast } = useToast();
@@ -63,23 +70,38 @@ export function UserChat({
   useEffect(() => {
     setIsLoading(wsLoading || isTicketLoading);
     setWithdrawMessageFunc(withdrawMessage);
-  }, [wsLoading, isTicketLoading]);
+  }, [wsLoading, isTicketLoading, withdrawMessage, setWithdrawMessageFunc]);
 
-  // 分离组件挂载/卸载逻辑
+  // 设置当前 ticketId 并在卸载时清理
   useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      closeConnection();
-      setSessionMembers(null);
-      setMessages([]);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // 设置当前 ticketId
+    setCurrentTicketId(ticket.id);
 
-  // 分离数据更新逻辑
+    return () => {
+      // 组件卸载时清理
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // 立即关闭 WebSocket 连接
+      closeConnection();
+
+      // 清理 store 状态
+      setCurrentTicketId(null);
+      setSessionMembers(null);
+      clearMessages();
+
+      // 清理已读状态追踪
+      sentReadStatusRef.current.clear();
+    };
+  }, [ticket.id]); // 只依赖 ticket.id
+
+  // 单独处理数据更新
   useEffect(() => {
     setSessionMembers(ticket);
     setMessages(ticket.messages);
+    // 清理已读状态追踪，因为是新的 ticket
+    sentReadStatusRef.current.clear();
   }, [ticket, setSessionMembers, setMessages]);
 
   // Track unread messages
@@ -95,7 +117,7 @@ export function UserChat({
       }
     });
     setUnreadMessages(newUnreadMessages);
-  }, [messages.length, userId, messages]);
+  }, [messages, userId]);
 
   // Send read status when messages come into view
   const handleMessageInView = (messageId: number) => {
@@ -103,6 +125,7 @@ export function UserChat({
       unreadMessages.has(messageId) &&
       !sentReadStatusRef.current.has(messageId)
     ) {
+      // console.log("sendReadStatus", messageId);
       sendReadStatus(messageId);
       sentReadStatusRef.current.add(messageId);
       setUnreadMessages((prev) => {
@@ -130,9 +153,6 @@ export function UserChat({
           error instanceof Error ? error.message : "发送消息时出现错误",
         variant: "destructive",
       });
-
-      // 将发送失败的消息标记为失败状态（可选）
-      // markMessageAsFailed(messageId);
 
       // 重新抛出错误，让 MessageInput 知道发送失败
       throw error;

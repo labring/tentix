@@ -71,6 +71,11 @@ const OtherMessage = ({
             }`}
           >
             <ContentRenderer doc={message.content} isMine={false} />
+            {message.readStatus.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {message.readStatus.map((status) => status.userId).join(", ")}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -130,6 +135,11 @@ const MyMessage = ({
             }`}
           >
             <ContentRenderer doc={message.content} isMine={true} />
+            {message.readStatus.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {message.readStatus.map((status) => status.userId).join(", ")}
+              </div>
+            )}
           </div>
         </div>
 

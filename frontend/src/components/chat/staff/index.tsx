@@ -31,12 +31,17 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   // Refs
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Store hooks
-  const { sessionMembers, setSessionMembers } = useSessionMembersStore();
-  const { messages, setMessages, setWithdrawMessageFunc } = useChatStore();
-
   const sentReadStatusRef = useRef<Set<number>>(new Set());
+
+  // Store hooks - 添加 setCurrentTicketId 和 clearMessages
+  const { sessionMembers, setSessionMembers } = useSessionMembersStore();
+  const {
+    messages,
+    setMessages,
+    setWithdrawMessageFunc,
+    setCurrentTicketId,
+    clearMessages,
+  } = useChatStore();
 
   // Check if current user is a member of this ticket
   const isTicketMember = useMemo(() => {
@@ -96,27 +101,47 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
     onUserTyping: handleUserTyping,
     onError: (error) => console.error("WebSocket error:", error),
   });
+
   useEffect(() => {
     setIsLoading(wsLoading || isTicketLoading);
     setWithdrawMessageFunc(withdrawMessage);
-  }, [wsLoading, isTicketLoading]);
+  }, [wsLoading, isTicketLoading, withdrawMessage, setWithdrawMessageFunc]);
 
-  // 数据更新
+  // 设置当前 ticketId 并在卸载时清理
+  useEffect(() => {
+    // 设置当前 ticketId
+    setCurrentTicketId(ticket.id);
+
+    return () => {
+      // 组件卸载时清理
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // 立即关闭 WebSocket 连接
+      closeConnection();
+
+      // 清理 store 状态
+      setCurrentTicketId(null);
+      setSessionMembers(null);
+      clearMessages();
+
+      // 清理已读状态追踪
+      sentReadStatusRef.current.clear();
+    };
+  }, [ticket.id]); // 只依赖 ticket.id
+
+  // 单独处理数据更新
   useEffect(() => {
     setSessionMembers(ticket);
     setMessages(ticket.messages);
-  }, [ticket, setSessionMembers, setMessages]);
-
-  // cleanup function
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      closeConnection();
-      setSessionMembers(null);
-      setMessages([]);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // 清理已读状态追踪，因为是新的 ticket
+    sentReadStatusRef.current.clear();
+    // 更新 hadFirstMsg ref
+    hadFirstMsg.current = ticket.messages.some(
+      (msg) => msg.senderId === userId,
+    );
+  }, [ticket, setSessionMembers, setMessages, userId]);
 
   // Track unread messages
   useEffect(() => {
@@ -131,7 +156,7 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
       }
     });
     setUnreadMessages(newUnreadMessages);
-  }, [messages.length, userId, messages]);
+  }, [messages, userId]);
 
   // Send read status when messages come into view
   const handleMessageInView = (messageId: number) => {
@@ -157,10 +182,11 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
   ) => {
     if (isLoading) return;
     const tempId = Number(window.crypto.getRandomValues(new Uint32Array(1)));
-    // Add to sending message store to show loading state
-    // Send message via WebSocket
+
     try {
+      // Send message via WebSocket
       await sendMessage(content, tempId, isInternal);
+
       if (!hadFirstMsg.current) {
         sendCustomMsg({
           type: "agent_first_message",
@@ -171,6 +197,7 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
       }
     } catch (error) {
       console.error("消息发送失败:", error);
+
       // 显示错误提示
       toast({
         title: "发送失败",
@@ -178,9 +205,6 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
           error instanceof Error ? error.message : "发送消息时出现错误",
         variant: "destructive",
       });
-
-      // 将发送失败的消息标记为失败状态（可选）
-      // markMessageAsFailed(messageId);
 
       // 重新抛出错误，让 StaffMessageInput 知道发送失败
       throw error;

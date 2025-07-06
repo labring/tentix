@@ -41,10 +41,11 @@ export const useSuspenseQuery = new Proxy(useSuspenseQueryTanStack, handler);
 export const userTicketsQueryOptions = (
   pageSize = 40,
   page = 1,
+  id?: string,
   status?: string,
 ) =>
   queryOptions({
-    queryKey: ["getUserTickets", pageSize, page, status],
+    queryKey: ["getUserTickets", pageSize, page, status, id],
     queryFn: async () => {
       const params: Record<string, string> = {
         pageSize: pageSize.toString(),

@@ -172,10 +172,21 @@ export function UserTicketSidebar({
     }
     
     const lastMessage = ticket.messages.at(-1);
-    if (!lastMessage?.readStatus) {
+    if (!lastMessage) {
       return false;
     }
     
+    // 如果最后一条消息是自己发送的，则不算未读
+    if (lastMessage.senderId === userId) {
+      return false;
+    }
+    
+    // 如果没有 readStatus，则算未读
+    if (!lastMessage.readStatus) {
+      return true;
+    }
+    
+    // 如果 readStatus 中有自己的记录，则不算未读
     return !lastMessage.readStatus.some((status) => status.userId === userId);
   };
 
@@ -317,7 +328,7 @@ export function UserTicketSidebar({
                     `}
                   >
                     {/* Unread indicator */}
-                    {isUnread && (
+                    {isUnread && !isSelected && (
                       <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
                     )}
 

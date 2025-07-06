@@ -7,7 +7,11 @@ import {
   userTicketsQueryOptions,
   wsTokenQueryOptions,
 } from "@lib/query";
-import { useSessionMembersStore, useTicketStore } from "@store/index.ts";
+import {
+  useSessionMembersStore,
+  useTicketStore,
+  useChatStore,
+} from "@store/index.ts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -29,12 +33,13 @@ function RouteComponent() {
   const { id: ticketId } = Route.useParams();
   const { setTicket } = useTicketStore();
   const { setSessionMembers } = useSessionMembersStore();
+  const { setCurrentTicketId, clearMessages } = useChatStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 在组件中获取用户 tickets 数据，这样可以响应 invalidateQueries
   // 数据立即过期，每次组件挂载时重新获取 ,窗口聚焦时重新获取
   const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
-    userTicketsQueryOptions(),
+    userTicketsQueryOptions(40, 1, ticketId.toString()),
   );
 
   // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
@@ -43,12 +48,29 @@ function RouteComponent() {
     ticketsQueryOptions(ticketId),
   );
 
+  // 设置 ticket 和 sessionMembers
   useEffect(() => {
     if (ticket) {
       setTicket(ticket);
       setSessionMembers(ticket);
     }
   }, [ticket, setTicket, setSessionMembers]);
+
+  // 路由切换时的清理
+  useEffect(() => {
+    // 路由切换时设置新的 ticketId
+    if (ticket) {
+      setCurrentTicketId(ticket.id);
+    }
+
+    return () => {
+      // 当路由组件卸载时，清理全局状态
+      setTicket(null);
+      setSessionMembers(null);
+      setCurrentTicketId(null);
+      clearMessages();
+    };
+  }, [ticketId]); // 依赖 ticketId，确保路由切换时触发
 
   if (isTicketLoading || isUserTicketsLoading || !ticket) {
     return (
@@ -57,8 +79,6 @@ function RouteComponent() {
       </div>
     );
   }
-
-  // console.log("tickets", userTicketsData?.tickets);
 
   return (
     <div className="flex h-screen w-full">
@@ -79,15 +99,17 @@ function RouteComponent() {
               ticket={ticket}
             />
           </div>
+          {/* 使用 key={ticketId} 确保组件在路由切换时完全重新创建 */}
           <UserChat
             ticket={ticket}
             token={token.token}
-            key={ticket.id}
+            key={ticketId}
             isTicketLoading={isTicketLoading}
           />
         </div>
         <div className="flex flex-col h-full w-[34%] xl:w-[26%]">
-          <TicketDetailsSidebar ticket={ticket} key={ticket.id} />
+          {/* 同样使用 key 确保侧边栏也重新创建 */}
+          <TicketDetailsSidebar ticket={ticket} key={ticketId} />
         </div>
       </div>
     </div>
