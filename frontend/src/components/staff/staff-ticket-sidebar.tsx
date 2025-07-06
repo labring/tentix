@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger, Input, ScrollArea,
 } from "tentix-ui";
 import { useTicketFavorites } from "../../store/ticket-favorites.ts";
+import useLocalUser from "@hook/use-local-user";
 
 function groupTickets<T extends Record<string, unknown>>(
   tickets: T[] | undefined = [],
@@ -108,11 +109,13 @@ function timeAgo(date: string) {
 type TicketItemProps = {
   ticket: TicketsListItemType;
   currentTicketId: string;
+  isUnread?: boolean;
 };
 
 const TicketItem = ({ 
   ticket, 
-  currentTicketId, 
+  currentTicketId,
+  isUnread = false,
 }: TicketItemProps) => {
   const {
     isStarred,
@@ -134,6 +137,11 @@ const TicketItem = ({
         ${isSelected ? "bg-zinc-100" : "hover:bg-zinc-50"}
       `}
     >
+      {/* Unread indicator */}
+      {isUnread && !isSelected && (
+        <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+      )}
+
       {/* Header with Avatar and Actions */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -233,11 +241,13 @@ export function StaffTicketSidebar({
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { id: userId } = useLocalUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<
     "all" | "grouped" | "pinned" | "starred"
   >("all");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   const {
     isStarred,
@@ -246,6 +256,32 @@ export function StaffTicketSidebar({
     setExpandedGroups,
     toggleGroup,
   } = useTicketFavorites();
+
+  // Check if a ticket is unread
+  const isTicketUnread = (ticket: TicketsListItemType) => {
+    // 如果没有任何消息，则不算未读
+    if (!ticket.messages || ticket.messages.length === 0) {
+      return false;
+    }
+    
+    const lastMessage = ticket.messages.at(-1);
+    if (!lastMessage) {
+      return false;
+    }
+    
+    // 如果最后一条消息是自己发送的，则不算未读
+    if (lastMessage.senderId === userId) {
+      return false;
+    }
+    
+    // 如果没有 readStatus，则算未读
+    if (!lastMessage.readStatus) {
+      return true;
+    }
+    
+    // 如果 readStatus 中有自己的记录，则不算未读
+    return !lastMessage.readStatus.some((status) => status.userId === userId);
+  };
 
   // Group tickets by group - with safeguards
   const groupedTickets = useMemo(() => 
@@ -267,7 +303,7 @@ export function StaffTicketSidebar({
     }
   }, [groupedTickets, expandedGroups, setExpandedGroups]);
 
-  // Filter tickets based on search query and status filter
+  // Filter tickets based on search query, status filter, and unread status
   const filteredTickets = useMemo(() => {
     if (!tickets || !Array.isArray(tickets)) return [];
     
@@ -282,9 +318,10 @@ export function StaffTicketSidebar({
             .includes(searchQuery.toLowerCase())) &&
         (statusFilter === null || ticket.status === statusFilter) &&
         (viewMode !== "pinned" || isPinned(ticket.id)) &&
-        (viewMode !== "starred" || isStarred(ticket.id)),
+        (viewMode !== "starred" || isStarred(ticket.id)) &&
+        (!showUnreadOnly || isTicketUnread(ticket)),
     );
-  }, [tickets, searchQuery, statusFilter, viewMode]);
+  }, [tickets, searchQuery, statusFilter, viewMode, showUnreadOnly, isTicketUnread]);
 
   // Sort tickets: pinned first, then by updated time
   const sortedTickets = useMemo(() => {
@@ -326,6 +363,7 @@ export function StaffTicketSidebar({
     setSearchQuery("");
     setStatusFilter(null);
     setViewMode("all");
+    setShowUnreadOnly(false);
   };
 
   const renderEmptyState = () => (
@@ -339,7 +377,7 @@ export function StaffTicketSidebar({
           {t("try_adjust_filters")}
         </p>
       </div>
-      {(searchQuery || statusFilter || viewMode !== "all") && (
+      {(searchQuery || statusFilter || viewMode !== "all" || showUnreadOnly) && (
         <Button
           variant="outline"
           size="sm"
@@ -408,6 +446,13 @@ export function StaffTicketSidebar({
                 )}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowUnreadOnly(!showUnreadOnly)}>
+                <span className="flex-1">{t("unread")} Only</span>
+                {showUnreadOnly && (
+                  <CheckCircleIcon className="ml-2 h-4 w-4 text-primary" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setStatusFilter("pending")}>
                 <span className="flex-1">Pending Status</span>
                 {statusFilter === "pending" && (
@@ -462,7 +507,7 @@ export function StaffTicketSidebar({
           )}
         </div>
 
-        {(statusFilter || viewMode !== "all") && (
+        {(statusFilter || viewMode !== "all" || showUnreadOnly) && (
           <div className="flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs">
             <div className="flex flex-1 flex-wrap gap-1">
               {statusFilter && (
@@ -497,6 +542,22 @@ export function StaffTicketSidebar({
                   </Button>
                 </Badge>
               )}
+              {showUnreadOnly && (
+                <Badge
+                  variant="outline"
+                  className="flex items-center gap-1 bg-background"
+                >
+                  {t("unread")} Only
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-1 h-3 w-3 rounded-full"
+                    onClick={() => setShowUnreadOnly(false)}
+                  >
+                    <XIcon className="h-2 w-2" />
+                  </Button>
+                </Badge>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -522,6 +583,7 @@ export function StaffTicketSidebar({
                       key={ticket.id}
                       ticket={ticket}
                       currentTicketId={currentTicketId}
+                      isUnread={isTicketUnread(ticket)}
                     />
                   ))
                 ) : renderEmptyState()}
@@ -541,7 +603,8 @@ export function StaffTicketSidebar({
                         JSON.stringify(ticket.messages.at(-1)?.content)
                           ?.toLowerCase()
                           .includes(searchQuery.toLowerCase())) &&
-                      (statusFilter === null || ticket.status === statusFilter),
+                      (statusFilter === null || ticket.status === statusFilter) &&
+                      (!showUnreadOnly || isTicketUnread(ticket)),
                   );
 
                   // Skip empty groups
@@ -580,6 +643,7 @@ export function StaffTicketSidebar({
                                 key={ticket.id}
                                 ticket={ticket}
                                 currentTicketId={currentTicketId}
+                                isUnread={isTicketUnread(ticket)}
                               />
                             ))}
                         </div>
