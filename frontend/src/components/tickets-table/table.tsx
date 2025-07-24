@@ -1,209 +1,183 @@
-import { updateTicketStatus } from "@lib/query";
 import { allTicketsQueryOptions } from "@lib/query";
-import { useRaiseReqModal } from "@modal/use-raise-req-modal.tsx";
-import { useTransferModal } from "@modal/use-transfer-modal.tsx";
-import { useUpdateStatusModal } from "@modal/use-update-status-modal.tsx";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useRouter } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
 import {
   type ColumnDef,
-  type ColumnFiltersState,
-  type SortingState,
-  type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import { joinTrans, useTranslation } from "i18n";
 import {
-  AlertTriangleIcon,
-  CheckCircle2Icon,
-  ChevronDownIcon,
+  Loader2Icon,
+  SearchIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
-  ClipboardListIcon, ColumnsIcon, MoreVerticalIcon,
-  PlusIcon,
-  Settings2,
-  UserRoundPlusIcon,
-  Loader2Icon
 } from "lucide-react";
 import * as React from "react";
-import { useState, useCallback } from "react";
-import { type TicketsAllListItemType } from "tentix-server/rpc";
+import { useMemo, useState } from "react";
 import {
-  Badge, Button, Checkbox, DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger, Label,
+  type GetAllTicketsResponseType,
+  type TicketsAllListItemType,
+} from "tentix-server/rpc";
+import {
+  LayersIcon,
+  PendingIcon,
+  ProgressIcon,
+  DoneIcon,
+  Badge,
+  Button,
   PriorityBadge,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   StatusBadge,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow, Tabs, TabsList,
-  TabsTrigger,
-  toast
+  Input,
+  ScrollArea,
 } from "tentix-ui";
+import useDebounce from "@hook/use-debounce";
+import { allTicketsTablePagination } from "@store/table-pagination";
 
+interface PaginatedTableProps {
+  initialData?: GetAllTicketsResponseType;
+}
 
-export function DataTable({
-  character,
-}: {
-  character: "user" | "staff";
-}) {
+export function DataTable({ initialData }: PaginatedTableProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
+  // 使用 zustand store 管理分页状态
+  const {
+    currentPage,
+    pageSize,
+    searchQuery,
+    statuses,
+    setCurrentPage,
+    setSearchQuery,
+    setStatuses,
+  } = allTicketsTablePagination();
+
+  const handleStatusToggle = (
+    status: "pending" | "in_progress" | "resolved",
+  ) => {
+    const newStatuses = statuses.includes(status)
+      ? statuses.filter((s) => s !== status)
+      : [...statuses, status];
+
+    const mainStatuses: string[] = ["pending", "in_progress", "resolved"];
+    const allMainStatusesSelected = mainStatuses.every((s) =>
+      newStatuses.includes(s),
+    );
+
+    if (allMainStatusesSelected && newStatuses.length === mainStatuses.length) {
+      setStatuses([]);
+    } else {
+      setStatuses(newStatuses);
+    }
+  };
+
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [isSmallScreen, setIsSmallScreen] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 1316 : false,
   );
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [pagination, setPagination] = React.useState({
-    pageIndex: 0,
-    pageSize: 10,
+
+  // Listen for window resize to update screen size
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 1316);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
+    }
+  }, []);
+
+  // Use regular query for page-based pagination
+  const { data, isLoading, error } = useQuery({
+    ...allTicketsQueryOptions(
+      pageSize,
+      currentPage,
+      debouncedSearchQuery,
+      statuses,
+    ),
+    initialData:
+      initialData &&
+      currentPage === 1 &&
+      statuses.length === 0 &&
+      !debouncedSearchQuery
+        ? initialData
+        : undefined,
   });
 
-  // Fetch data using useQuery
-  const { data, isLoading, error } = useQuery(allTicketsQueryOptions());
+  // Get tickets and stats directly from API response
+  const tickets = data?.tickets || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = data?.totalPages || 0;
 
-  const { openTransferModal, transferModal } = useTransferModal();
-  const { updateStatusModal, openUpdateStatusModal } = useUpdateStatusModal();
-  const { raiseReqModal, openRaiseReqModal } = useRaiseReqModal();
+  const stats = useMemo(() => {
+    const statsData = data?.stats || [];
+    const statsMap = new Map(
+      statsData.map((stat) => [stat.status, stat.count]),
+    );
 
-  // Close ticket mutation
-  const closeTicketMutation = useMutation({
-    mutationFn: updateTicketStatus,
-    onSuccess: (response) => {
-      toast({
-        title: t("success"),
-        description: response.message || t("ticket_closed"),
-        variant: "default",
-      });
-      // Invalidate getAllTickets query to refresh data
-      queryClient.invalidateQueries({
-        queryKey: ["getAllTickets"],
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t("error"),
-        description: error.message || t("failed_close_ticket"),
-        variant: "destructive",
-      });
-    },
-  });
+    return {
+      pending: statsMap.get("pending") || 0,
+      inProgress: statsMap.get("in_progress") || 0,
+      resolved: statsMap.get("resolved") || 0,
+      scheduled: statsMap.get("scheduled") || 0,
+    };
+  }, [data?.stats]);
 
-  // Handle close ticket
-  const handleCloseTicket = useCallback(
-    (ticketId: string, event?: React.MouseEvent) => {
-      event?.stopPropagation(); // avoid click on button or anchor element
-      closeTicketMutation.mutate({
-        ticketId,
-        status: "resolved",
-        description: t("close_ticket"),
-      });
-    },
-    [closeTicketMutation, t],
-  );
+  // Define column widths with responsive behavior - 1fr on small screens for adaptive sizing
+  const columnWidths = React.useMemo(() => {
+    if (isSmallScreen) {
+      // On small screens, use 1fr for all columns to distribute space evenly
+      const smallScreenWidths = {
+        title: "1fr",
+        status: "1fr",
+        priority: "1fr",
+        submittedDate: "1fr",
+        updatedDate: "1fr",
+        area: "1fr",
+        module: "1fr",
+        submittedBy: "1fr",
+      };
+      return smallScreenWidths;
+    }
+
+    // On larger screens, use optimized fixed widths
+    const baseWidths = {
+      title: "250px",
+      status: "150px",
+      priority: "100px",
+      submittedDate: "1fr",
+      updatedDate: "1fr",
+      area: "100px",
+      module: "120px",
+      submittedBy: "150px",
+    };
+    return baseWidths;
+  }, [isSmallScreen]);
 
   const columns = React.useMemo<ColumnDef<TicketsAllListItemType>[]>(() => {
     const baseColumns: ColumnDef<TicketsAllListItemType>[] = [
-      {
-        id: "select",
-        header: ({ table }) => (
-          <div className="flex items-center justify-center">
-            <Checkbox
-              checked={
-                table.getIsAllPageRowsSelected() ||
-                (table.getIsSomePageRowsSelected() && "indeterminate")
-              }
-              onCheckedChange={(value) =>
-                table.toggleAllPageRowsSelected(!!value)
-              }
-              aria-label="Select all"
-            />
-          </div>
-        ),
-        cell: ({ row }) => (
-          <div className="flex items-center justify-center">
-            <Checkbox
-              checked={row.getIsSelected?.() || false}
-              onCheckedChange={(value) => row.toggleSelected?.(!!value)}
-              aria-label="Select row"
-            />
-          </div>
-        ),
-        enableSorting: false,
-        enableHiding: false,
-      },
-      {
-        accessorKey: "id",
-        header: t("id"),
-        cell: ({ row }) => <div>{row.original.id}</div>,
-      },
       {
         accessorKey: "title",
         header: t("title"),
         cell: ({ row }) => {
           return (
-            <Link
-              className="text-ellipsis overflow-hidden whitespace-nowrap max-w-192 block hover:underline hover:text-primary"
-              to={character === "user" ? `/user/tickets/$id` : `/staff/tickets/$id`}
-              params={{ id: row.original.id }}
+            <p
+              className={`text-black text-sm font-medium leading-none truncate ${
+                isSmallScreen
+                  ? "max-w-[80px]" // 小屏幕：更严格的截断
+                  : "max-w-[240px]" // 大屏幕：较宽松的截断
+              }`}
+              title={row.original.title} // 悬停时显示完整标题
             >
               {row.original.title}
-            </Link>
+            </p>
           );
         },
-        enableHiding: false,
-      },
-      {
-        accessorKey: "area",
-        header: t("area"),
-        cell: ({ row }) => <div>{row.original.area}</div>,
-      },
-      {
-        accessorKey: "submittedDate",
-        header: t("sbmt_date"),
-        cell: ({ row }) => {
-          const date = new Date(row.original.createdAt);
-          return date.toLocaleDateString();
-        },
-      },
-
-      {
-        accessorKey: "category",
-        header: t("category"),
-        cell: ({ row }) => (
-          <Badge variant="outline" className="px-1.5 text-muted-foreground">
-            {t(row.original.category)}
-          </Badge>
-        ),
-      },
-      {
-        accessorKey: "priority",
-        header: t("priority"),
-        cell: ({ row }) => <PriorityBadge priority={row.original.priority} />,
       },
       {
         accessorKey: "status",
@@ -211,191 +185,323 @@ export function DataTable({
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
-        id: "actions",
+        accessorKey: "priority",
+        header: t("priority"),
+        cell: ({ row }) => <PriorityBadge priority={row.original.priority} />,
+      },
+      {
+        accessorKey: "submittedDate",
+        header: t("created_at"),
         cell: ({ row }) => {
-          const ticket = row.original;
-          const ticketId = ticket.id;
-          const staffData =
-            character === "staff"
-              ? {
-                  assignedTo: "",
-                  status: row.original.status,
-                }
-              : null;
-
+          const date = new Date(row.original.createdAt);
           return (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex size-8 text-muted-foreground data-[state=open]:bg-muted"
-                    size="icon"
-                  >
-                    <MoreVerticalIcon />
-                    <span className="sr-only">{t("open_menu")}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem
-                    onClick={() =>
-                      router.navigate({
-                        to: `/${character}/tickets/${ticketId}`,
-                      })
-                    }
-                  >
-                    {t("view_details")}
-                  </DropdownMenuItem>
-                  {character === "staff" && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => openTransferModal(ticketId)}
-                      >
-                        <UserRoundPlusIcon className="mr-2 h-4 w-4" />
-                        {t("transfer")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          openUpdateStatusModal(
-                            ticketId,
-                            staffData?.status || "",
-                          )
-                        }
-                      >
-                        <AlertTriangleIcon className="mr-2 h-4 w-4" />
-                        {t("adjust_prty")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          openUpdateStatusModal(
-                            ticketId,
-                            staffData?.status || "",
-                          )
-                        }
-                      >
-                        <Settings2 className="mr-2 h-4 w-4" />
-                        {t("update_status")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => openRaiseReqModal(ticketId)}
-                      >
-                        <ClipboardListIcon className="mr-2 h-4 w-4" />
-                        {t("raise_req")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => handleCloseTicket(ticketId, e)}
-                      >
-                        <CheckCircle2Icon className="mr-2 h-4 w-4" />
-                        {t("mark_as_solved")}
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {/* {character === "user" && (
-                    <DropdownMenuItem>Track Progress</DropdownMenuItem>
-                  )} */}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={(e) => handleCloseTicket(ticketId, e)}
-                  >
-                    {joinTrans([t("close"), t("tkt_one")])}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+            <p className="text-sm font-normal leading-normal text-zinc-600">
+              {date.toLocaleString("sv-SE", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
           );
         },
       },
-    ];
-
-    // Add staff-specific columns
-    if (character === "staff") {
-      baseColumns.splice(3, 0, {
+      {
+        accessorKey: "updatedDate",
+        header: t("updated_at"),
+        cell: ({ row }) => {
+          const date = new Date(row.original.updatedAt);
+          return (
+            <p className="text-sm font-normal leading-normal text-zinc-600">
+              {date.toLocaleString("sv-SE", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          );
+        },
+      },
+      {
+        accessorKey: "area",
+        header: t("area"),
+        cell: ({ row }) => (
+          <p className="text-zinc-600 text-sm font-normal leading-normal">
+            {row.original.area}
+          </p>
+        ),
+      },
+      {
+        accessorKey: "module",
+        header: t("module"),
+        cell: ({ row }) => (
+          <p className="text-zinc-600 text-sm font-normal leading-normal">
+            {t(row.original.module)}
+          </p>
+        ),
+      },
+      {
         accessorKey: "submittedBy",
         header: t("rqst_by"),
-        cell: ({ row }) => <div>{row.original.customer.nickname}</div>,
-      });
-    }
-
-    // User-specific columns
+        cell: ({ row }) => (
+          <p className="text-zinc-600 text-sm font-normal leading-normal">
+            {row.original.customer.name}
+          </p>
+        ),
+      },
+    ];
     return baseColumns;
-  }, [
-    character,
-    t,
-    openTransferModal,
-    openUpdateStatusModal,
-    openRaiseReqModal,
-    handleCloseTicket,
-    router,
-  ]);
+  }, [t, isSmallScreen]);
 
   const table = useReactTable({
-    data: data || [],
+    data: tickets,
     columns,
-    state: {
-      sorting,
-      columnVisibility,
-      rowSelection,
-      columnFilters,
-      pagination,
-    },
-    getRowId: (row) => row.id.toString(),
-    enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
-    onPaginationChange: setPagination,
+    getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    manualFiltering: false,
+    manualPagination: true,
   });
 
+  const StatusTabBadge = ({ count }: { count: number }) => {
+    if (count <= 0) return null;
 
-
-  const getStatusCounts = React.useMemo(() => {
-    if (!data) {
-      return {
-        pending: 0,
-        inProgress: 0,
-        completed: 0,
-        scheduled: 0,
-      };
-    }
-    return {
-      pending: data.filter((item) => item.status === "pending").length,
-      inProgress: data.filter((item) => item.status === "in_progress").length,
-      completed: data.filter((item) => item.status === "resolved").length,
-      scheduled: data.filter((item) => item.status === "scheduled").length,
-    };
-  }, [data]);
-
-  const [tabValue, setTabValue] = useState<
-    TicketsAllListItemType["status"] | "all"
-  >("all");
-
-  React.useEffect(() => {
-    table.setPageIndex(0);
-    if (tabValue !== "all") {
-      table.getColumn("status")?.setFilterValue(tabValue);
-    } else {
-      table.setColumnFilters([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabValue]);
-
-  // Handle loading and error states
-  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2Icon className="h-8 w-8 animate-spin" />
+      <Badge
+        variant="secondary"
+        className="w-5 h-5 flex justify-center items-center rounded-full border-[0.5px] border-zinc-200 bg-zinc-100 text-zinc-500 text-xs font-normal leading-none"
+      >
+        {count}
+      </Badge>
+    );
+  };
+
+  const renderTableContent = (
+    onClick?: (row: TicketsAllListItemType) => void,
+  ) => {
+    const rows = table.getRowModel().rows;
+
+    // Get visible columns and their keys
+    const visibleColumns = table.getVisibleLeafColumns();
+    const columnKeys = visibleColumns.map((col) => col.id);
+
+    // Generate CSS grid template columns based on column widths
+    const gridTemplateColumns = columnKeys
+      .map((key) => {
+        const columnKey = key as keyof typeof columnWidths;
+        return columnWidths[columnKey] || "1fr";
+      })
+      .join(" ");
+
+    return (
+      <div className="flex-1 min-h-0 flex flex-col px-4 lg:px-6  gap-3">
+        {/* Table Header - Fixed */}
+        {(rows.length > 0 || isLoading) && (
+          <div className="flex-shrink-0 bg-white rounded-lg border border-zinc-200">
+            <div
+              className="grid items-center px-6 h-10 text-zinc-500 text-sm font-normal leading-normal"
+              style={{
+                gridTemplateColumns,
+              }}
+            >
+              {table.getHeaderGroups().map((headerGroup) =>
+                headerGroup.headers.map((header) => (
+                  <div key={header.id} className="flex items-center">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </div>
+                )),
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Table Body - Scrollable Container */}
+        <ScrollArea className="flex-1 overflow-auto">
+          {rows.length > 0 ? (
+            <div className="bg-white border border-zinc-200 rounded-xl">
+              {rows.map((row, index) => (
+                <div
+                  key={row.id}
+                  className={`grid items-center px-6 h-14 text-black text-sm font-medium leading-none hover:bg-zinc-50 transition-colors ${onClick ? "cursor-pointer" : ""} ${
+                    index < rows.length - 1 ? "border-b border-zinc-200" : ""
+                  } ${index === 0 ? "hover:rounded-t-xl" : ""} ${
+                    index === rows.length - 1 ? "hover:rounded-b-xl" : ""
+                  }`}
+                  style={{
+                    gridTemplateColumns,
+                  }}
+                  {...(onClick && {
+                    onClick: (e) => {
+                      // avoid click on button or anchor element
+                      if (
+                        e.target instanceof HTMLButtonElement ||
+                        e.target instanceof HTMLAnchorElement ||
+                        (e.target as HTMLElement).closest("button") ||
+                        (e.target as HTMLElement).closest("a")
+                      ) {
+                        return;
+                      }
+
+                      if (
+                        (e.target as HTMLElement).closest(
+                          '[role="menuitem"]',
+                        ) ||
+                        (e.target as HTMLElement).closest(
+                          "[data-radix-popper-content-wrapper]",
+                        )
+                      ) {
+                        return;
+                      }
+
+                      onClick(row.original);
+                    },
+                  })}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <div key={cell.id} className="flex items-center">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="flex items-center justify-center text-zinc-500 text-sm font-medium">
+                <Loader2Icon className="h-4 w-4 animate-spin mr-2 text-zinc-500" />
+                {t("loading")}
+              </div>
+            </div>
+          ) : (
+            <div
+              className="flex items-center justify-center border border-dashed border-zinc-300 rounded-2xl bg-no-repeat bg-center relative h-full"
+              style={{
+                backgroundImage: "url(/tentix-bg.svg)",
+                backgroundSize: "80%",
+              }}
+            >
+              <div
+                className={
+                  "flex flex-col items-center justify-center mt-23 z-10 relative"
+                }
+              >
+                <div className="flex flex-col items-center justify-center text-center">
+                  <p className="text-black text-2xl font-medium leading-8 mb-1">
+                    {t("no_tickets_found")}
+                  </p>
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <p className="text-gray-600 text-base font-normal leading-6">
+                      {t("no_tickets_received")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Pagination Controls */}
+        {rows.length > 0 && !isLoading && (
+          <div className="flex-shrink-0 flex items-center justify-between py-3">
+            {/* Left side - Total count */}
+            <div className="text-sm font-normal leading-normal text-zinc-500">
+              {t("total")}: {totalCount}
+            </div>
+
+            {/* Right side - Pagination controls */}
+            <div className="flex items-center gap-2">
+              {/* First page */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage <= 1 || isLoading}
+              >
+                <ChevronsLeftIcon
+                  className={`h-4 w-4 ${currentPage <= 1 || isLoading ? "text-zinc-300" : "text-zinc-900"}`}
+                />
+              </Button>
+
+              {/* Previous page */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage <= 1 || isLoading}
+              >
+                <ChevronLeftIcon
+                  className={`h-4 w-4 ${currentPage <= 1 || isLoading ? "text-zinc-300" : "text-zinc-900"}`}
+                />
+              </Button>
+
+              {/* Current page / Total pages */}
+              <div className="flex items-center text-sm mx-2">
+                <span className="text-zinc-900  font-medium leading-normal">
+                  {currentPage}
+                </span>
+                <span className="text-zinc-500 font-medium leading-normal mx-1">
+                  /
+                </span>
+                <span className="text-zinc-500 font-medium leading-normal">
+                  {totalPages}
+                </span>
+              </div>
+
+              {/* Next page */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= totalPages || isLoading}
+              >
+                <ChevronRightIcon
+                  className={`h-4 w-4 ${currentPage >= totalPages || isLoading ? "text-zinc-300" : "text-zinc-900"}`}
+                />
+              </Button>
+
+              {/* Last page */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage >= totalPages || isLoading}
+              >
+                <ChevronsRightIcon
+                  className={`h-4 w-4 ${currentPage >= totalPages || isLoading ? "text-zinc-300" : "text-zinc-900"}`}
+                />
+              </Button>
+
+              {/* Page size indicator */}
+              <div className="flex items-center text-sm ml-4">
+                <span className="text-zinc-900 font-normal leading-normal">
+                  {pageSize}
+                </span>
+                <span className="text-zinc-500 font-normal leading-normal mx-1">
+                  /
+                </span>
+                <span className="text-zinc-500 font-normal leading-normal">
+                  {t("page")}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
-  }
+  };
 
   if (error) {
     return (
@@ -410,271 +516,139 @@ export function DataTable({
     );
   }
 
-  const renderTableContent = (filteredStatus: typeof tabValue) => {
-    const filteredRows = table.getRowModel().rows;
-
-    const noResultsMessage =
-      filteredStatus !== "all"
-        ? `No ${filteredStatus.toLowerCase()} ${character === "user" ? "requests" : "work orders"}.`
-        : t("no_results");
-
-    return (
-      <div className="overflow-hidden rounded-lg border">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} colSpan={header.colSpan}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody
-            className={
-              !filteredStatus ? "first:data-[slot=table-cell]:**:w-8" : ""
-            }
-          >
-            {filteredRows.length > 0 ? (
-              filteredRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  {noResultsMessage}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    );
-  };
-
-  // 提取分页控件到独立组件
-  const renderPagination = () => (
-    <div className="flex items-center justify-between px-4">
-      <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-        {t("rows_selected_one", {
-          selected: table.getFilteredSelectedRowModel().rows.length,
-          all: table.getFilteredRowModel().rows.length,
-        })}
-      </div>
-      <div className="flex w-full items-center gap-8 lg:w-fit">
-        <div className="hidden items-center gap-2 lg:flex">
-          <Label htmlFor="rows-per-page" className="text-sm font-medium">
-            {t("rows_per_page")}
-          </Label>
-          <Select
-            value={`${table.getState().pagination.pageSize}`}
-            onValueChange={(value) => {
-              table.setPageSize(Number(value));
-            }}
-          >
-            <SelectTrigger className="w-20" id="rows-per-page">
-              <SelectValue placeholder={table.getState().pagination.pageSize} />
-            </SelectTrigger>
-            <SelectContent side="top">
-              {[10, 20, 30, 40, 50].map((pageSize) => (
-                <SelectItem key={pageSize} value={`${pageSize}`}>
-                  {pageSize}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex w-fit items-center justify-center text-sm font-medium">
-          {t("page_number", {
-            page: table.getState().pagination.pageIndex + 1,
-            all: table.getPageCount(),
-          })}
-        </div>
-        <div className="ml-auto flex items-center gap-2 lg:ml-0">
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">{t("go_to_first_page")}</span>
-            <ChevronsLeftIcon />
-          </Button>
-          <Button
-            variant="outline"
-            className="size-8"
-            size="icon"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">{t("go_to_previous_page")}</span>
-            <ChevronLeftIcon />
-          </Button>
-          <Button
-            variant="outline"
-            className="size-8"
-            size="icon"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">{t("go_to_next_page")}</span>
-            <ChevronRightIcon />
-          </Button>
-          <Button
-            variant="outline"
-            className="hidden size-8 lg:flex"
-            size="icon"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">{t("go_to_last_page")}</span>
-            <ChevronsRightIcon />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const StatusTabBadge = ({ count }: { count: number }) => {
-    if (count <= 0) return null;
-
-    return (
-      <Badge
-        variant="secondary"
-        className="flex h-5 w-5 items-center justify-center rounded-full bg-muted-foreground/30"
-      >
-        {count}
-      </Badge>
-    );
-  };
-
   return (
-    <Tabs
-      value={tabValue}
-      onValueChange={(value) => {
-        setTabValue(value as typeof tabValue);
-        table.resetPageIndex();
-      }}
-      defaultValue="all"
-      className="flex w-full flex-col justify-start gap-6"
-    >
-      <div className="flex items-center justify-between px-4 lg:px-6">
-        <Label htmlFor="view-selector" className="sr-only">
-          View
-        </Label>
-        <Select defaultValue="all">
-          <SelectTrigger
-            className="@4xl/main:hidden flex w-fit"
-            id="view-selector"
+    <div className="h-full flex flex-1 flex-col min-w-0 bg-zinc-50">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 flex items-center justify-between px-4 lg:px-6 h-24 bg-zinc-50">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setStatuses([])}
+            className={`h-10 flex justify-center items-center gap-2 self-stretch px-3 rounded-lg border border-zinc-200 transition-colors ${
+              statuses.length === 0 ? "bg-black/[0.03]" : "hover:bg-zinc-50"
+            }`}
           >
-            <SelectValue placeholder="Select a view" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("all")}</SelectItem>
-            <SelectItem value="pending">{t("pending")}</SelectItem>
-            <SelectItem value="in_progress">{t("in_progress")}</SelectItem>
-            <SelectItem value="resolved">{t("completed")}</SelectItem>
-            <SelectItem value="scheduled">{t("scheduled")}</SelectItem>
-          </SelectContent>
-        </Select>
-        <TabsList className="@4xl/main:flex hidden">
-          <TabsTrigger value="all">{t("all")}</TabsTrigger>
-          <TabsTrigger value="pending" className="gap-1">
-            {`${t("pending")  } `}
-            <StatusTabBadge count={getStatusCounts.pending} />
-          </TabsTrigger>
-          <TabsTrigger value="in_progress" className="gap-1">
-            {`${t("in_progress")  } `}
-            <StatusTabBadge count={getStatusCounts.inProgress} />
-          </TabsTrigger>
-          <TabsTrigger value="resolved" className="gap-1">
-            {`${t("completed")  } `}
-            <StatusTabBadge count={getStatusCounts.completed} />
-          </TabsTrigger>
-          <TabsTrigger value="scheduled" className="gap-1">
-            {`${t("scheduled")  } `}
-            <StatusTabBadge count={getStatusCounts.scheduled} />
-          </TabsTrigger>
-        </TabsList>
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <ColumnsIcon />
-                <span className="hidden lg:inline">
-                  {t("customize_columns")}
-                </span>
-                <span className="lg:hidden">{t("columns")}</span>
-                <ChevronDownIcon />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {table
-                .getAllColumns()
-                .filter(
-                  (column) =>
-                    typeof column.accessorFn !== "undefined" &&
-                    column.getCanHide(),
-                )
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {character === "user" && (
-            <Link to="/user/newticket">
-              <Button variant="outline" size="sm">
-                <PlusIcon />
-                <span className="hidden lg:inline">
-                  {joinTrans([t("create"), t("tkt_one")])}
-                </span>
-                <span className="lg:hidden">{t("create")}</span>
-              </Button>
-            </Link>
-          )}
+            <LayersIcon
+              className={`h-4 w-4 ${
+                statuses.length === 0 ? "text-foreground" : "text-zinc-500"
+              }`}
+            />
+            <span
+              className={`text-center text-sm leading-5 ${
+                statuses.length === 0
+                  ? "text-foreground font-semibold"
+                  : "text-zinc-900 font-normal"
+              }`}
+            >
+              {t("all")}
+            </span>
+            <StatusTabBadge
+              count={
+                Number(stats.pending) +
+                Number(stats.inProgress) +
+                Number(stats.resolved) +
+                Number(stats.scheduled)
+              }
+            />
+          </button>
+          <button
+            onClick={() => handleStatusToggle("pending")}
+            className={`flex justify-center items-center gap-2 self-stretch px-3 py-1 rounded-lg border border-zinc-200 transition-colors ${
+              statuses.includes("pending")
+                ? "bg-black/[0.03]"
+                : "hover:bg-zinc-50"
+            }`}
+          >
+            <PendingIcon
+              className={`h-4 w-4 ${
+                statuses.includes("pending") ? "text-blue-600" : "text-zinc-500"
+              }`}
+            />
+            <span
+              className={`text-center text-sm leading-5 ${
+                statuses.includes("pending")
+                  ? "text-foreground font-semibold"
+                  : "text-zinc-900 font-normal"
+              }`}
+            >
+              {t("pending")}
+            </span>
+            <StatusTabBadge count={Number(stats.pending)} />
+          </button>
+          <button
+            onClick={() => handleStatusToggle("in_progress")}
+            className={`flex justify-center items-center gap-2 self-stretch px-3 py-1 rounded-lg border border-zinc-200 transition-colors ${
+              statuses.includes("in_progress")
+                ? "bg-black/[0.03]"
+                : "hover:bg-zinc-50"
+            }`}
+          >
+            <ProgressIcon
+              className={`h-4 w-4 ${
+                statuses.includes("in_progress")
+                  ? "text-yellow-500"
+                  : "text-zinc-500"
+              }`}
+            />
+            <span
+              className={`text-center text-sm leading-5 ${
+                statuses.includes("in_progress")
+                  ? "text-foreground font-semibold"
+                  : "text-zinc-900 font-normal"
+              }`}
+            >
+              {t("in_progress")}
+            </span>
+            <StatusTabBadge count={Number(stats.inProgress)} />
+          </button>
+          <button
+            onClick={() => handleStatusToggle("resolved")}
+            className={`flex justify-center items-center gap-2 self-stretch px-3 py-1 rounded-lg border border-zinc-200 transition-colors ${
+              statuses.includes("resolved")
+                ? "bg-black/[0.03]"
+                : "hover:bg-zinc-50"
+            }`}
+          >
+            <DoneIcon
+              className={`h-4 w-4 ${
+                statuses.includes("resolved")
+                  ? "text-blue-600"
+                  : "text-zinc-500"
+              }`}
+            />
+            <span
+              className={`text-center text-sm leading-5 ${
+                statuses.includes("resolved")
+                  ? "text-foreground font-semibold"
+                  : "text-zinc-900 font-normal"
+              }`}
+            >
+              {t("completed")}
+            </span>
+            <StatusTabBadge count={Number(stats.resolved)} />
+          </button>
+        </div>
+
+        {/* search */}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={joinTrans([t("search"), t("tkt_other")])}
+              className="pl-10 pr-3 text-sm leading-none h-10 rounded-lg"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </div>
-      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
-        {renderTableContent(tabValue)}
-        {renderPagination()}
-      </div>
 
-      {transferModal}
-      {updateStatusModal}
-      {raiseReqModal}
-    </Tabs>
+      {/* Content - Flex container with proper height constraint */}
+      {renderTableContent((row) => {
+        router.navigate({
+          to: "/staff/tickets/$id",
+          params: { id: row.id },
+        });
+      })}
+    </div>
   );
 }

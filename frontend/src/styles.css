@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-
 @source "../../packages/ui/**/*.tsx";
 @source "src/**/*.tsx";
 @import "tentix-ui/uisrc/styles/globals.css";
@@ -8,7 +7,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /* 全局高度约束，防止页面级别滚动 */
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
 }
@@ -20,16 +20,17 @@ html, body {
 
 body {
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
   font-family:
-    source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+    source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
+
 /* 
 :root {
   --background: oklch(1 0 0);

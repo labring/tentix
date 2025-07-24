@@ -21,6 +21,16 @@ export const myFetch = ky.extend({
         if (response.ok) {
           return response;
         }
+        if (response.status === 401) {
+          window.localStorage.removeItem("sealosToken");
+          window.localStorage.removeItem("sealosArea");
+          window.localStorage.removeItem("sealosNs");
+          window.localStorage.removeItem("token");
+          window.localStorage.removeItem("role");
+          window.localStorage.removeItem("id");
+          window.localStorage.removeItem("user");
+          window.location.href = "/";
+        }
         throw await response.json();
       },
     ],

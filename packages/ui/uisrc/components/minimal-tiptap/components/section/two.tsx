@@ -99,6 +99,7 @@ interface SectionTwoProps extends VariantProps<typeof toggleVariants> {
   editor: Editor;
   activeActions?: TextStyleAction[];
   mainActionCount?: number;
+  className?: string;
 }
 
 export const SectionTwo: React.FC<SectionTwoProps> = ({
@@ -107,6 +108,7 @@ export const SectionTwo: React.FC<SectionTwoProps> = ({
   mainActionCount = 2,
   size,
   variant,
+  className,
 }) => {
   return (
     <ToolbarSection
@@ -119,6 +121,7 @@ export const SectionTwo: React.FC<SectionTwoProps> = ({
       dropdownClassName="w-8"
       size={size}
       variant={variant}
+      className={className}
     />
   );
 };

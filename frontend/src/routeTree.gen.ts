@@ -13,7 +13,6 @@ import { Route as UserRouteImport } from './routes/user'
 import { Route as StaffRouteImport } from './routes/staff'
 import { Route as NotLoginRouteImport } from './routes/notLogin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as UserDashboardRouteImport } from './routes/user/dashboard'
 import { Route as StaffDashboardRouteImport } from './routes/staff/dashboard'
 import { Route as UserSettingIndexRouteImport } from './routes/user/setting/index'
 import { Route as UserNewticketIndexRouteImport } from './routes/user/newticket/index'
@@ -42,11 +41,6 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const UserDashboardRoute = UserDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => UserRoute,
 } as any)
 const StaffDashboardRoute = StaffDashboardRouteImport.update({
   id: '/dashboard',
@@ -95,7 +89,6 @@ export interface FileRoutesByFullPath {
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
   '/staff/dashboard': typeof StaffDashboardRoute
-  '/user/dashboard': typeof UserDashboardRoute
   '/staff/tickets/$id': typeof StaffTicketsIdRoute
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
@@ -110,7 +103,6 @@ export interface FileRoutesByTo {
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
   '/staff/dashboard': typeof StaffDashboardRoute
-  '/user/dashboard': typeof UserDashboardRoute
   '/staff/tickets/$id': typeof StaffTicketsIdRoute
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
@@ -126,7 +118,6 @@ export interface FileRoutesById {
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
   '/staff/dashboard': typeof StaffDashboardRoute
-  '/user/dashboard': typeof UserDashboardRoute
   '/staff/tickets/$id': typeof StaffTicketsIdRoute
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
@@ -143,7 +134,6 @@ export interface FileRouteTypes {
     | '/staff'
     | '/user'
     | '/staff/dashboard'
-    | '/user/dashboard'
     | '/staff/tickets/$id'
     | '/staff/tickets/all'
     | '/staff/tickets/list'
@@ -158,7 +148,6 @@ export interface FileRouteTypes {
     | '/staff'
     | '/user'
     | '/staff/dashboard'
-    | '/user/dashboard'
     | '/staff/tickets/$id'
     | '/staff/tickets/all'
     | '/staff/tickets/list'
@@ -173,7 +162,6 @@ export interface FileRouteTypes {
     | '/staff'
     | '/user'
     | '/staff/dashboard'
-    | '/user/dashboard'
     | '/staff/tickets/$id'
     | '/staff/tickets/all'
     | '/staff/tickets/list'
@@ -226,13 +214,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/staff/dashboard'
       preLoaderRoute: typeof StaffDashboardRouteImport
       parentRoute: typeof StaffRoute
-    }
-    '/user/dashboard': {
-      id: '/user/dashboard'
-      path: '/dashboard'
-      fullPath: '/user/dashboard'
-      preLoaderRoute: typeof UserDashboardRouteImport
-      parentRoute: typeof UserRoute
     }
     '/staff/tickets/$id': {
       id: '/staff/tickets/$id'
@@ -303,7 +284,6 @@ const StaffRouteChildren: StaffRouteChildren = {
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
 
 interface UserRouteChildren {
-  UserDashboardRoute: typeof UserDashboardRoute
   UserTicketsIdRoute: typeof UserTicketsIdRoute
   UserTicketsListRoute: typeof UserTicketsListRoute
   UserNewticketIndexRoute: typeof UserNewticketIndexRoute
@@ -311,7 +291,6 @@ interface UserRouteChildren {
 }
 
 const UserRouteChildren: UserRouteChildren = {
-  UserDashboardRoute: UserDashboardRoute,
   UserTicketsIdRoute: UserTicketsIdRoute,
   UserTicketsListRoute: UserTicketsListRoute,
   UserNewticketIndexRoute: UserNewticketIndexRoute,

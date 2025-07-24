@@ -1,23 +1,30 @@
 import useLocalUser from "@hook/use-local-user";
 import { Link } from "@tanstack/react-router";
 import { joinTrans, useTranslation } from "i18n";
-import { ArrowLeftIcon, SearchIcon, ChevronDownIcon } from "lucide-react";
-import React, { useState } from "react";
+import type { TFunction } from "i18next";
+import {
+  ArrowLeftIcon,
+  SearchIcon,
+  ChevronDownIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
 import { type TicketsListItemType } from "tentix-server/rpc";
 import type { JSONContent } from "@tiptap/react";
 import {
   Button,
   Input,
   ScrollArea,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
   PendingIcon,
   ProgressIcon,
   DoneIcon,
 } from "tentix-ui";
+import { userTablePagination } from "@store/table-pagination";
+import { useQuery } from "@tanstack/react-query";
+import { userTicketsQueryOptions } from "@lib/query";
+import useDebounce from "@hook/use-debounce";
 
 // Function to extract text content from JSONContent description
 function extractTextFromDescription(content: JSONContent): string {
@@ -41,17 +48,14 @@ function extractTextFromDescription(content: JSONContent): string {
 }
 
 // Custom status display function
-function getStatusDisplay(
-  status: TicketsListItemType["status"],
-  t: (key: string) => string,
-) {
+function getStatusDisplay(status: TicketsListItemType["status"], t: TFunction) {
   switch (status) {
     case "pending":
     case "scheduled":
       return {
         label: t("pending"),
         icon: PendingIcon,
-        color: "text-blue-600",
+        color: "text-zinc-400",
       };
     case "in_progress":
       return {
@@ -69,29 +73,70 @@ function getStatusDisplay(
       return {
         label: t("pending"),
         icon: PendingIcon,
-        color: "text-blue-600",
+        color: "text-zinc-400",
       };
   }
 }
 
 export function UserTicketSidebar({
-  data,
   currentTicketId,
   isCollapsed,
-  isLoading,
+  isTicketLoading,
 }: {
-  data: TicketsListItemType[];
   currentTicketId: string;
   isCollapsed: boolean;
-  isLoading?: boolean;
+  isTicketLoading: boolean;
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<
-    ("all" | "pending" | "in_progress" | "resolved")[]
-  >(["all"]);
-  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
   const { id: userId } = useLocalUser();
+
+  // 使用 table-pagination store
+  const {
+    currentPage,
+    pageSize,
+    searchQuery,
+    statuses,
+    readStatus,
+    setSearchQuery,
+    setStatuses,
+    setReadStatus,
+    setCurrentPage,
+  } = userTablePagination();
+
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // 🔥 将数据查询移到组件内部 - 这样状态变化只影响当前组件
+  const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
+    userTicketsQueryOptions(
+      pageSize,
+      currentPage,
+      debouncedSearchQuery,
+      statuses,
+      readStatus,
+      currentTicketId,
+    ),
+  );
+
+  const totalPages = userTicketsData?.totalPages || 0;
+
+  // 点击外部关闭下拉框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Status options
   const statusOptions = [
@@ -116,31 +161,31 @@ export function UserTicketSidebar({
   ) => {
     if (status === "all") {
       if (checked) {
-        setSelectedStatuses(["all"]);
+        setStatuses([]); // 空数组表示显示所有状态
       } else {
-        setSelectedStatuses([]);
+        setStatuses([]); // 取消全选也是空数组
       }
     } else {
       if (checked) {
-        const newStatuses = selectedStatuses.filter((s) => s !== "all");
-        newStatuses.push(status);
-        setSelectedStatuses(newStatuses);
+        const newStatuses = [...statuses];
+        if (!newStatuses.includes(status)) {
+          newStatuses.push(status);
+        }
+        setStatuses(newStatuses);
       } else {
-        const newStatuses = selectedStatuses.filter(
-          (s) => s !== status && s !== "all",
-        );
-        setSelectedStatuses(newStatuses);
+        const newStatuses = statuses.filter((s) => s !== status);
+        setStatuses(newStatuses);
       }
     }
   };
 
   // Get display text for the trigger
   const getDisplayText = () => {
-    if (selectedStatuses.includes("all") || selectedStatuses.length === 0) {
+    if (statuses.length === 0) {
       return t("all_status");
     }
-    if (selectedStatuses.length === 1) {
-      const status = selectedStatuses[0];
+    if (statuses.length === 1) {
+      const status = statuses[0];
       return statusOptions.find((opt) => opt.value === status)?.label || "";
     }
     // For multiple selections, don't show text, only icons
@@ -149,11 +194,10 @@ export function UserTicketSidebar({
 
   // Get display icons for the trigger
   const getDisplayIcons = () => {
-    if (selectedStatuses.includes("all") || selectedStatuses.length === 0) {
+    if (statuses.length === 0) {
       return [];
     }
-    return selectedStatuses
-      .filter((status) => status !== "all")
+    return statuses
       .map((status) => {
         const option = statusOptions.find((opt) => opt.value === status);
         return { icon: option?.icon, status };
@@ -170,55 +214,98 @@ export function UserTicketSidebar({
     if (!ticket.messages || ticket.messages.length === 0) {
       return false;
     }
-    
+
     const lastMessage = ticket.messages.at(-1);
     if (!lastMessage) {
       return false;
     }
-    
+
     // 如果最后一条消息是自己发送的，则不算未读
     if (lastMessage.senderId === userId) {
       return false;
     }
-    
+
     // 如果没有 readStatus，则算未读
     if (!lastMessage.readStatus) {
       return true;
     }
-    
+
     // 如果 readStatus 中有自己的记录，则不算未读
     return !lastMessage.readStatus.some((status) => status.userId === userId);
   };
 
-  // Filter tickets based on search query, selected statuses, and unread status
-  const filteredTickets =
-    data?.filter(
-      (ticket) =>
-        ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        (selectedStatuses.includes("all") ||
-          selectedStatuses.includes(
-            ticket.status as "pending" | "in_progress" | "resolved",
-          )) &&
-        (!showUnreadOnly || isTicketUnread(ticket)),
-    ) || [];
+  const tickets = userTicketsData?.tickets || [];
 
   // Sort tickets by updated time
-  const sortedTickets = [...filteredTickets].sort(
+  const sortedTickets = [...tickets].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 
   return (
     <div
-      className={`w-75 h-full border-r bg-white transition-all duration-300 flex-col ${isCollapsed ? "hidden" : "hidden xl:flex"}`}
+      // className={`w-75 h-full border-r bg-white transition-all duration-300 flex-col ${isCollapsed ? "hidden" : "hidden xl:flex"}`}
+      className={`h-full border-r bg-white transition-all duration-300 ease-in-out flex-col overflow-hidden ${
+        isCollapsed
+          ? "w-0 opacity-0 xl:w-0 xl:opacity-0"
+          : "w-75 opacity-100 xl:flex xl:w-75 xl:opacity-100"
+      } hidden xl:flex`}
     >
       {/* Header - fixed height */}
-      <div className="flex h-14 px-4 items-center gap-2 border-b flex-shrink-0">
-        <Link to="/user/tickets/list">
-          <ArrowLeftIcon className="h-5 w-5 text-black" />
-        </Link>
-        <p className="text-sm font-semibold leading-none text-black">
-          {joinTrans([t("my"), t("tkt_other")])}
-        </p>
+      <div className="flex h-14 px-4 items-center border-b flex-shrink-0 justify-between">
+        <div className="flex items-center gap-2">
+          <Link to="/user/tickets/list">
+            <ArrowLeftIcon className="h-5 w-5 text-black" />
+          </Link>
+          <p className="text-sm font-semibold leading-none text-black">
+            {joinTrans([t("my"), t("tkt_other")])}
+          </p>
+        </div>
+
+        {tickets.length > 0 && !isUserTicketsLoading && !isTicketLoading && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage <= 1 || isUserTicketsLoading}
+            >
+              <ChevronLeftIcon
+                className={`h-4 w-4 ${
+                  currentPage <= 1 || isUserTicketsLoading
+                    ? "text-zinc-300"
+                    : "text-zinc-900"
+                }`}
+              />
+            </Button>
+            <div className="flex items-center text-sm mx-2">
+              <span className="text-zinc-900 font-medium leading-normal">
+                {currentPage}
+              </span>
+              <span className="text-zinc-500 font-medium leading-normal mx-1">
+                /
+              </span>
+              <span className="text-zinc-500 font-medium leading-normal">
+                {totalPages}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage >= totalPages || isUserTicketsLoading}
+            >
+              <ChevronRightIcon
+                className={`h-4 w-4 ${
+                  currentPage >= totalPages || isUserTicketsLoading
+                    ? "text-zinc-300"
+                    : "text-zinc-900"
+                }`}
+              />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Search - fixed height */}
@@ -234,68 +321,88 @@ export function UserTicketSidebar({
         </div>
 
         <div className="flex gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-10 flex-1 px-3 justify-between text-sm font-normal leading-none rounded-[8px]"
-              >
-                <div className="flex items-center gap-2">
-                  {getDisplayIcons().map(
-                    ({ icon: IconComponent, status }, index) => (
-                      <IconComponent
-                        key={index}
-                        className={`h-4 w-4 ${
-                          status === "in_progress"
-                            ? "text-yellow-500"
-                            : status === "resolved"
-                              ? "text-blue-600"
-                              : ""
-                        }`}
-                      />
-                    ),
-                  )}
-                  {(selectedStatuses.includes("all") ||
-                    selectedStatuses.length === 0 ||
-                    selectedStatuses.length === 1) && (
-                    <span className="text-sm font-normal">
-                      {getDisplayText()}
-                    </span>
-                  )}
-                </div>
-                <ChevronDownIcon className="h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="w-56 py-2 rounded-xl shadow-[0px_4px_12px_0px_rgba(0,0,0,0.08)]"
-              align="start"
+          <div className="relative flex-1" ref={dropdownRef}>
+            <Button
+              variant="outline"
+              className="h-10 w-full px-3 justify-between text-sm font-normal leading-none rounded-[8px]"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <DropdownMenuLabel className="text-xs font-medium text-muted-foreground h-7">
-                {t("status_filter")}
-              </DropdownMenuLabel>
-              {statusOptions.map((option) => (
-                <DropdownMenuCheckboxItem
-                  key={option.value}
-                  checked={selectedStatuses.includes(option.value)}
-                  onCheckedChange={(checked) =>
-                    handleStatusChange(option.value, checked)
-                  }
-                  className="text-sm font-normal text-foreground hover:rounded-lg focus:bg-accent focus:text-accent-foreground gap-2"
-                >
-                  <span>{option.label}</span>
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <div className="flex items-center gap-2">
+                {getDisplayIcons().map(
+                  ({ icon: IconComponent, status }, index) => (
+                    <IconComponent
+                      key={index}
+                      className={`h-4 w-4 ${
+                        status === "in_progress"
+                          ? "text-yellow-500"
+                          : status === "resolved"
+                            ? "text-blue-600"
+                            : status === "pending"
+                              ? "text-zinc-400"
+                              : ""
+                      }`}
+                    />
+                  ),
+                )}
+                {(statuses.length === 0 || statuses.length === 1) && (
+                  <span className="text-sm font-normal">
+                    {getDisplayText()}
+                  </span>
+                )}
+              </div>
+              <ChevronDownIcon className="h-4 w-4 opacity-50" />
+            </Button>
+
+            {isDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 py-2 bg-white border border-zinc-200 rounded-xl shadow-[0px_4px_12px_0px_rgba(0,0,0,0.08)] z-50">
+                <div className="px-3 py-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {t("status_filter")}
+                  </span>
+                </div>
+                {statusOptions.map((option) => {
+                  const isChecked =
+                    option.value === "all"
+                      ? statuses.length === 0
+                      : statuses.includes(option.value);
+
+                  return (
+                    <div
+                      key={option.value}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 cursor-pointer"
+                      onClick={() =>
+                        handleStatusChange(option.value, !isChecked)
+                      }
+                    >
+                      <div
+                        className={`w-4 h-4 border rounded border-zinc-300 flex items-center justify-center ${
+                          isChecked ? "bg-blue-600 border-blue-600" : "bg-white"
+                        }`}
+                      >
+                        {isChecked && (
+                          <CheckIcon className="w-3 h-3 text-white" />
+                        )}
+                      </div>
+                      <span className="text-sm font-normal text-foreground">
+                        {option.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <Button
             variant="outline"
             size="sm"
             className={`h-10 flex px-3 text-center text-sm leading-5 rounded-[8px] border border-zinc-200 transition-all ${
-              showUnreadOnly
+              readStatus === "unread"
                 ? "bg-black/[0.03] font-semibold"
                 : "font-normal hover:bg-black/[0.03]"
             }`}
-            onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+            onClick={() =>
+              setReadStatus(readStatus === "unread" ? "all" : "unread")
+            }
           >
             {t("unread")}
           </Button>
@@ -306,8 +413,10 @@ export function UserTicketSidebar({
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full">
           <div className="flex flex-col items-center gap-4 p-4">
-            {isLoading ? (
-              <div className="text-sm text-muted-foreground">{t("loading")}</div>
+            {isUserTicketsLoading || isTicketLoading ? (
+              <div className="text-sm text-muted-foreground">
+                {t("loading")}
+              </div>
             ) : (
               sortedTickets.map((ticket) => {
                 const statusDisplay = getStatusDisplay(ticket.status, t);

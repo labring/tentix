@@ -1,9 +1,17 @@
-import { Ellipsis, Loader2Icon, Undo2 } from "lucide-react";
+import {
+  Ellipsis,
+  Loader2Icon,
+  Undo2,
+  HeadsetIcon,
+  UserIcon,
+  EyeOffIcon,
+} from "lucide-react";
 import { type TicketType } from "tentix-server/rpc";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
+  Badge,
   Button,
   Popover,
   PopoverContent,
@@ -15,6 +23,7 @@ import { useChatStore, useSessionMembersStore } from "../../store/index.ts";
 import ContentRenderer from "./content-renderer.tsx";
 import { useTranslation } from "i18n";
 import { memo } from "react";
+import { cn } from "@lib/utils";
 
 interface MessageItemProps {
   message: TicketType["messages"][number];
@@ -28,6 +37,8 @@ const OtherMessage = ({
 }) => {
   const { sessionMembers } = useSessionMembersStore();
   const { isMessageSending } = useChatStore();
+  const { role } = useLocalUser();
+  const notCustomer = role !== "customer";
 
   const messageSender = sessionMembers?.find(
     (member) => member.id === message.senderId,
@@ -45,14 +56,16 @@ const OtherMessage = ({
             {messageSender?.nickname?.charAt(0) ?? "U"}
           </AvatarFallback>
         </Avatar>
-        <div className="flex flex-col gap-2 min-w-0 flex-1">
+        <div
+          className={cn(
+            "flex flex-col gap-2 min-w-0 flex-1",
+            message.isInternal ? "bg-violet-50 rounded-xl py-4 px-5" : "",
+          )}
+        >
           {/* name and time */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground">
-              {messageSender?.nickname ?? "Unknown"}
-              {message.isInternal && (
-                <span className="ml-2 text-xs text-yellow-500">(Internal)</span>
-              )}
+              {messageSender?.name ?? "Unknown"}
             </span>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               {isMessageSending(message.id) && (
@@ -60,15 +73,51 @@ const OtherMessage = ({
               )}
               {timeAgo(message.createdAt)}
             </span>
+            {notCustomer && (
+              <>
+                <div className="w-px h-[18px] bg-zinc-200"></div>
+                <Badge
+                  className={cn(
+                    "border-zinc-200 bg-zinc-50  gap-1 justify-center items-center rounded border",
+                    message.isInternal ? "border-violet-200 bg-violet-100" : "",
+                  )}
+                >
+                  {messageSender?.role === "customer" ? (
+                    <UserIcon className="h-3 w-3 text-zinc-500" />
+                  ) : (
+                    <HeadsetIcon className="h-3 w-3 text-zinc-500" />
+                  )}
+                  {messageSender?.role === "customer" ? (
+                    <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
+                      {"User"}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
+                      {"CSR"}
+                    </span>
+                  )}
+                </Badge>
+                {message.isInternal && (
+                  <>
+                    <div className="w-px h-[18px] bg-zinc-200"></div>
+                    <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5">
+                      <EyeOffIcon className="h-3 w-3 text-zinc-500" />
+                      <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
+                        {"Internal"}
+                      </span>
+                    </Badge>
+                  </>
+                )}
+              </>
+            )}
           </div>
 
           {/* content */}
           <div
-            className={`p-0 transition-colors text-base font-normal leading-6 text-zinc-900 break-words break-all overflow-hidden ${
-              isMessageSending(message.id) ? "opacity-70" : ""
-            } ${
-              message.isInternal ? "border-2 border-dashed bg-yellow-500" : ""
-            }`}
+            className={cn(
+              "p-0 transition-colors text-base font-normal leading-6 text-zinc-900 break-words break-all overflow-hidden",
+              isMessageSending(message.id) ? "opacity-70" : "",
+            )}
           >
             <ContentRenderer doc={message.content} isMine={false} />
             {/* {message.readStatus.length > 0 && (
@@ -109,30 +158,45 @@ const MyMessage = ({
             {messageSender?.nickname?.charAt(0) ?? "U"}
           </AvatarFallback>
         </Avatar>
-        <div className="flex flex-col gap-2 rounded-xl bg-zinc-100 py-4 px-5 ml-1 min-w-0 flex-1">
+        <div
+          className={cn(
+            "flex flex-col gap-2 rounded-xl py-4 px-5 ml-1 min-w-0 flex-1",
+            message.isInternal ? "bg-violet-50" : "bg-zinc-100",
+          )}
+        >
           {/* name and time */}
-          <div className="flex items-center gap-2 flex-row-reverse">
-            <span className="text-xs font-medium text-muted-foreground">
-              {messageSender?.nickname ?? "Unknown"}
-              {message.isInternal && (
-                <span className="ml-2 text-xs text-yellow-500">(Internal)</span>
-              )}
-            </span>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              {isMessageSending(message.id) && (
-                <Loader2Icon className="h-3 w-3 animate-spin" />
-              )}
-              {timeAgo(message.createdAt)}
-            </span>
+          <div className="flex gap-3 items-center">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {messageSender?.name ?? "Unknown"}
+              </span>
+
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {isMessageSending(message.id) && (
+                  <Loader2Icon className="h-3 w-3 animate-spin" />
+                )}
+                {timeAgo(message.createdAt)}
+              </span>
+            </div>
+            {message.isInternal && (
+              <>
+                <div className="w-px h-[18px] bg-zinc-200"></div>
+                <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5">
+                  <EyeOffIcon className="h-3 w-3 text-zinc-500" />
+                  <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
+                    {"Internal"}
+                  </span>
+                </Badge>
+              </>
+            )}
           </div>
 
           {/* content */}
           <div
-            className={`p-0 transition-colors text-base font-normal leading-6 text-zinc-900 break-words break-all overflow-hidden ${
-              isMessageSending(message.id) ? "opacity-70" : ""
-            } ${
-              message.isInternal ? "border-2 border-dashed bg-yellow-500" : ""
-            }`}
+            className={cn(
+              "p-0 transition-colors text-base font-normal leading-6 text-zinc-900 break-words break-all overflow-hidden",
+              isMessageSending(message.id) ? "opacity-70" : "",
+            )}
           >
             <ContentRenderer doc={message.content} isMine={true} />
             {/* {message.readStatus.length > 0 && (

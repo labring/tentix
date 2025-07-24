@@ -38,6 +38,8 @@ export const moduleEnumArray = [
   "other",
 ] as const;
 
+export type Module = (typeof moduleEnumArray)[number];
+
 export const ticketCategoryEnumArray = [
   "uncategorized",
   "bug",
@@ -57,11 +59,11 @@ export const ticketCategoryEnumArray = [
  * "urgent" // urgent
  */
 export const ticketPriorityEnumArray = [
+  "urgent",
+  "high",
+  "medium",
   "normal",
   "low",
-  "medium",
-  "high",
-  "urgent",
 ] as const;
 
 export const ticketStatusEnumArray = [
@@ -70,6 +72,8 @@ export const ticketStatusEnumArray = [
   "resolved",
   "scheduled",
 ] as const;
+
+export type TicketStatus = (typeof ticketStatusEnumArray)[number];
 
 /**
  * Ticket history type enum array

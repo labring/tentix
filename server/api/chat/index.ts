@@ -28,7 +28,7 @@ import {
 import { zValidator } from "@hono/zod-validator";
 import { type ServerWebSocket } from "bun";
 import { UUID } from "crypto";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, desc } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver } from "hono-openapi/zod";
 import { createBunWebSocket } from "hono/bun";
@@ -84,6 +84,125 @@ setInterval(() => {
 }, 120000); // Clean up every 2 minutes
 
 const roomCustomerMap = new Map<string, UUID>();
+
+// 获取工单最后一条消息的函数
+async function getLastMessageFromTicket(ticketId: string) {
+  const db = connectDB();
+
+  try {
+    const lastMessage = await db.query.chatMessages.findFirst({
+      where: eq(schema.chatMessages.ticketId, ticketId),
+      orderBy: [desc(schema.chatMessages.createdAt)],
+      columns: {
+        id: true,
+        senderId: true,
+        createdAt: true,
+        isInternal: true,
+      },
+    });
+
+    return lastMessage;
+  } catch (error) {
+    logError("Error getting last message from ticket:", error);
+    return null;
+  }
+}
+
+// 🔥 新增处理用户离开时的票务状态更新
+async function handleUserLeaveStatusUpdate(
+  ticketId: string,
+  userId: number,
+  role: userRoleType,
+) {
+  const db = connectDB();
+
+  try {
+    // 1. 获取工单当前状态
+    const ticket = await db.query.tickets.findFirst({
+      where: eq(schema.tickets.id, ticketId),
+      columns: {
+        status: true,
+      },
+    });
+
+    // 2. 如果工单已解决，则不进行任何操作
+    if (ticket?.status === "resolved") {
+      logInfo(
+        `Ticket ${ticketId} is already resolved, no status change on user leave.`,
+      );
+      return;
+    }
+
+    // 3. 获取工单的最后一条消息
+    const lastMessage = await getLastMessageFromTicket(ticketId);
+
+    // 如果没有消息，或最后一条消息不是该用户发的，则不进行任何操作
+    if (!lastMessage || lastMessage.senderId !== userId) {
+      return;
+    }
+
+    // 4. 根据角色更新状态
+    if (role === "customer") {
+      // 如果状态已经是 pending，则不进行任何操作
+      if (ticket?.status === "pending") {
+        return;
+      }
+      // 客户离开，且最后一条消息是自己发的，状态变为 pending
+      await db.transaction(async (tx) => {
+        await tx
+          .update(schema.tickets)
+          .set({
+            status: "pending",
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(schema.tickets.id, ticketId));
+
+        await tx.insert(schema.ticketHistory).values({
+          ticketId,
+          type: "update",
+          meta: userId,
+          description:
+            "Status automatically changed to pending - customer left after sending last message",
+          operatorId: userId,
+        });
+      });
+
+      logInfo(
+        `Ticket ${ticketId} status changed to pending - customer left after sending last message`,
+      );
+    } else if (role === "agent") {
+      // 如果状态已经是 in_progress，则不进行任何操作
+      if (ticket?.status === "in_progress") {
+        return;
+      }
+      // Agent 离开，且最后一条消息是自己发的，状态变为 in_progress
+      await db.transaction(async (tx) => {
+        await tx
+          .update(schema.tickets)
+          .set({
+            status: "in_progress",
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(schema.tickets.id, ticketId));
+
+        await tx.insert(schema.ticketHistory).values({
+          ticketId,
+          type: "update",
+          meta: userId,
+          description:
+            "Status automatically changed to in_progress - agent left after sending last message",
+          operatorId: userId,
+        });
+      });
+
+      logInfo(
+        `Ticket ${ticketId} status changed to in_progress - agent left after sending last message`,
+      );
+    }
+  } catch (error) {
+    logError("Error updating ticket status on user leave:", error);
+  }
+}
 
 // WebSocket setup
 const { upgradeWebSocket, websocket } = createBunWebSocket<ServerWebSocket>();
@@ -235,6 +354,8 @@ msgEmitter.on("new_message", function (...[props]) {
 
 roomEmitter.on("user_join", async function ({ clientId, roomId, role, ws }) {
   if (role === "customer") {
+    // 多设备消息不同步，因为一个 roomId 只能存一个 客户的 客服端 id，多设备只存储一个，后面覆盖前面
+    // 优化点，改为 userId 存储，而不是 clientId，解决多设备消息不同步问题
     roomCustomerMap.set(roomId, clientId);
     const currentCount = await aiHandler.getCurrentAIMsgCount(roomId);
     if (aiHandler.MAX_AI_RESPONSES_PER_TICKET <= 0) {
@@ -581,6 +702,10 @@ const chatRouter = factory
           }
         },
         onClose(_evt, ws) {
+          // 如果是 customer 离开首先检查 房间是否有 agent，如果没有 agent 则将 ticket 状态变为 pending，如果有 检查ticket 最近一条消息是否是自己发的，如果是则 pending
+          // 如果不是 customer 离开，则检查 ticket 最近一条消息是否是自己发的，如果是自己发的 则状态改为 in progress
+          handleUserLeaveStatusUpdate(ticketId, userId, role);
+
           roomEmitter.emit("user_leave", {
             clientId,
             roomId: ticketId,
@@ -589,6 +714,14 @@ const chatRouter = factory
             ws,
           });
           logInfo(`Client disconnected: ${clientId}`);
+        },
+
+        onError(evt, ws) {
+          logError(
+            `Client ${clientId} UserId: ${userId} Error handling WebSocket message:`,
+            evt,
+          );
+          ws.close();
         },
       };
     }),
@@ -621,15 +754,17 @@ const chatRouter = factory
         c,
         async (stream) => {
           roomObserveEmitter.register(c.var.userId, stream);
-          let id = 0;
+
+          stream.onAbort(function () {
+            roomObserveEmitter.unregister(c.var.userId);
+          });
+
+          const id = 0;
           while (true) {
             await sendUnreadSSE(stream, String(id), "heartbeat", {
               text: "hello",
             });
             await stream.sleep(10000);
-            stream.onAbort(function () {
-              roomObserveEmitter.unregister(c.var.userId);
-            });
           }
         },
         async function (err, stream) {

@@ -33,11 +33,12 @@
     "@tiptap/html": "^2.11.9",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@zjy365/sealos-desktop-sdk": "^0.1.16",
+    "ahooks": "^3.8.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18n": "workspace:*",
     "ky": "^1.8.1",
-    "lucide-react": "^0.476.0",
+    "lucide-react": "^0.510.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-syntax-highlighter": "^15.6.1",
@@ -45,10 +46,12 @@
     "tailwindcss": "catalog:",
     "tailwindcss-animate": "^1.0.7",
     "tentix-ui": "workspace:*",
-    "terser": "^5.39.1"
+    "terser": "^5.39.1",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@tanstack/react-query": "^5.74.4",
     "@tanstack/react-query-devtools": "^5.74.7",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",

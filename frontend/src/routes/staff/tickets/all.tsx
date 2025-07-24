@@ -1,8 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DataTable } from "@comp/tickets-table/table";
-import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar";
+import { StaffSidebar } from "@comp/staff/sidebar";
+import { allTicketsTablePagination } from "@store/table-pagination";
+import { allTicketsQueryOptions } from "@lib/query";
+import { Suspense } from "react";
+import { SkeletonTable } from "@comp/tickets-table/skeleton";
 
 export const Route = createFileRoute("/staff/tickets/all")({
+  beforeLoad: () => {
+    allTicketsTablePagination
+      .getState()
+      .setStatuses(["pending", "in_progress"]);
+    return {};
+  },
+  loader: ({ context }) => {
+    return context.queryClient.ensureQueryData(allTicketsQueryOptions());
+  },
   head: () => ({
     meta: [
       {
@@ -14,14 +27,13 @@ export const Route = createFileRoute("/staff/tickets/all")({
 });
 
 function RouteComponent() {
+  const data = Route.useLoaderData();
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-zinc-50">
-      <StaffDashboardSidebar />
-      <div className="@container/main flex flex-1 flex-col gap-2">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-          <DataTable character="staff" />
-        </div>
-      </div>
+    <div className="flex h-screen w-full overflow-hidden">
+      <StaffSidebar />
+      <Suspense fallback={<SkeletonTable />}>
+        <DataTable initialData={data} />
+      </Suspense>
     </div>
   );
 }

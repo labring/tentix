@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "main": "./src/index.tsx",
-  "module": "./src/index.tsx",
-  "types": "./src/index.tsx",
+  "main": "./uisrc/index.tsx",
+  "module": "./uisrc/index.tsx",
+  "types": "./uisrc/index.tsx",
   "sideEffects": [
     "**/*.css"
   ],

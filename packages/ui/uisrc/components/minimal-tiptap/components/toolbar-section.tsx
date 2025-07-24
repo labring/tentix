@@ -23,6 +23,7 @@ interface ToolbarSectionProps extends VariantProps<typeof toggleVariants> {
   dropdownIcon?: React.ReactNode;
   dropdownTooltip?: string;
   dropdownClassName?: string;
+  className?: string;
 }
 
 export const ToolbarSection: React.FC<ToolbarSectionProps> = ({
@@ -34,6 +35,7 @@ export const ToolbarSection: React.FC<ToolbarSectionProps> = ({
   dropdownTooltip = "More options",
   dropdownClassName = "w-12",
   size,
+  className,
   variant,
 }) => {
   const { mainActions, dropdownActions } = React.useMemo(() => {
@@ -61,11 +63,12 @@ export const ToolbarSection: React.FC<ToolbarSectionProps> = ({
         aria-label={action.label}
         size={size}
         variant={variant}
+        className={className}
       >
         {action.icon}
       </ToolbarButton>
     ),
-    [editor, size, variant],
+    [editor, size, variant, className],
   );
 
   const renderDropdownMenuItem = React.useCallback(

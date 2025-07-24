@@ -1,9 +1,18 @@
-import { PanelLeft, CircleStopIcon } from "lucide-react";
-import { Button, toast } from "tentix-ui";
+import { PanelLeft, CircleStopIcon, TriangleAlertIcon } from "lucide-react";
+import {
+  Button,
+  toast,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "tentix-ui";
 import { updateTicketStatus } from "@lib/query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "i18n";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { type TicketType } from "tentix-server/rpc";
 
 interface SiteHeaderProps {
@@ -14,13 +23,14 @@ interface SiteHeaderProps {
 }
 
 export function SiteHeader({
-  title = "Work Orders",
+  title,
   sidebarVisible,
   toggleSidebar,
   ticket,
 }: SiteHeaderProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [showDialog, setShowDialog] = useState(false);
 
   // Close ticket mutation
   const closeTicketMutation = useMutation({
@@ -62,41 +72,78 @@ export function SiteHeader({
 
   const isResolved = ticket?.status === "resolved";
 
+  const handleDialogConfirm = () => {
+    if (ticket) {
+      handleCloseTicket(ticket.id);
+    }
+    setShowDialog(false);
+  };
+
+  const handleDialogCancel = () => {
+    setShowDialog(false);
+  };
+
   return (
-    <div className="flex h-14 w-full border-b items-center justify-between px-4 ">
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 justify-center items-center rounded-md cursor-pointer hidden xl:flex"
-          onClick={toggleSidebar}
-          aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
-        >
-          <PanelLeft className="h-5 w-5" />
-        </Button>
-        <h1
-          className="max-w-100 truncate block 
+    <>
+      <div className="flex h-14 w-full border-b items-center justify-between px-4 ">
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 justify-center items-center rounded-md cursor-pointer hidden xl:flex"
+            onClick={toggleSidebar}
+            aria-label={sidebarVisible ? t("hide_sidebar") : t("show_sidebar")}
+          >
+            <PanelLeft className="h-5 w-5" />
+          </Button>
+          <h1
+            className="max-w-100 truncate block 
                        text-[#000] 
                        text-[16px] 
                        font-[600] 
                        leading-[100%]"
-        >
-          {title}
-        </h1>
+          >
+            {title || t("work_orders")}
+          </h1>
+        </div>
+        {ticket && (
+          <Button
+            variant="default"
+            className="bg-black hover:bg-black/90 px-3 py-2 h-auto flex items-center"
+            disabled={isResolved || closeTicketMutation.isPending}
+            onClick={() => setShowDialog(true)}
+          >
+            <CircleStopIcon className="h-4 w-4 text-white" />
+            <span className="text-white text-sm font-medium leading-[20px]">
+              {closeTicketMutation.isPending ? t("closing") : t("close_ticket")}
+            </span>
+          </Button>
+        )}
       </div>
-      {ticket && (
-        <Button
-          variant="default"
-          className="bg-black hover:bg-black/90 px-3 py-2 h-auto flex items-center"
-          disabled={isResolved || closeTicketMutation.isPending}
-          onClick={() => handleCloseTicket(ticket.id)}
-        >
-          <CircleStopIcon className="h-4 w-4 text-white" />
-          <span className="text-white text-sm font-medium leading-[20px]">
-            {t("close_ticket")}
-          </span>
-        </Button>
-      )}
-    </div>
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="w-96 p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-1.5">
+              <TriangleAlertIcon className="!h-4 !w-4 text-yellow-600" />
+              {t("prompt")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("are_you_sure_close_ticket")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDialogCancel}>
+              {t("cancel")}
+            </Button>
+            <Button
+              onClick={handleDialogConfirm}
+              disabled={closeTicketMutation.isPending}
+            >
+              {closeTicketMutation.isPending ? "..." : t("confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

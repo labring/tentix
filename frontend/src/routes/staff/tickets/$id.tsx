@@ -1,8 +1,4 @@
-import {
-  ticketsQueryOptions,
-  userTicketsQueryOptions,
-  wsTokenQueryOptions,
-} from "@lib/query";
+import { ticketsQueryOptions, wsTokenQueryOptions } from "@lib/query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -13,9 +9,9 @@ import {
 } from "../../../store";
 import { StaffSiteHeader } from "@comp/staff/site-header";
 import { StaffTicketSidebar } from "@comp/staff/staff-ticket-sidebar";
-import { StaffChat } from "@comp/chat/staff/index";
 import { StaffRightSidebar } from "@comp/staff/staff-right-sidebar";
-import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar";
+import { StaffChat } from "@comp/chat/staff/index";
+import { StaffSidebar } from "@comp/staff/sidebar";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
   loader: async ({ context: { queryClient, authContext } }) => {
@@ -43,20 +39,15 @@ export const Route = createFileRoute("/staff/tickets/$id")({
 
 function RouteComponent() {
   const { token: wsToken } = Route.useLoaderData();
-  const { id } = Route.useParams();
+  const { id: ticketId } = Route.useParams();
   const { setTicket } = useTicketStore();
   const { setSessionMembers } = useSessionMembersStore();
   const { setCurrentTicketId, clearMessages } = useChatStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // 在组件中获取用户 tickets 数据，这样可以响应 invalidateQueries
-  const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
-    userTicketsQueryOptions(40, 1, id.toString()),
-  );
-
   // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
   const { data: ticket, isLoading: isTicketLoading } = useQuery(
-    ticketsQueryOptions(id),
+    ticketsQueryOptions(ticketId),
   );
 
   // Set up initial ticket data - 所有 hooks 必须在条件渲染之前调用
@@ -81,7 +72,7 @@ function RouteComponent() {
       setCurrentTicketId(null);
       clearMessages();
     };
-  }, [id]); // 依赖 id，确保路由切换时触发
+  }, [ticketId]); // 依赖 id，确保路由切换时触发
 
   // 如果数据为空（未认证），显示加载状态
   if (!wsToken) {
@@ -95,7 +86,7 @@ function RouteComponent() {
     );
   }
 
-  if (isTicketLoading || isUserTicketsLoading || !ticket) {
+  if (isTicketLoading || !ticket) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="text-sm text-muted-foreground">Loading...</div>
@@ -104,15 +95,16 @@ function RouteComponent() {
   }
 
   return (
-    <div className="flex h-screen w-full">
-      <StaffDashboardSidebar />
+    <div className="flex h-screen w-full transition-all duration-300 ease-in-out">
+      <StaffSidebar />
       <StaffTicketSidebar
         currentTicketId={ticket.id}
-        tickets={userTicketsData?.tickets || []}
+        isTicketLoading={isTicketLoading}
         isCollapsed={isSidebarCollapsed}
       />
       <div className="@container/main flex flex-1 flex-row">
-        <div className="flex flex-col h-full w-[66%] xl:w-[74%]">
+        {/* <div className="flex flex-col h-full w-[66%] xl:w-[74%]"> */}
+        <div className="flex flex-col h-full w-full md:w-[66%] xl:w-[74%]">
           <div className="flex-shrink-0">
             <StaffSiteHeader
               ticket={ticket}
@@ -120,17 +112,18 @@ function RouteComponent() {
               toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             />
           </div>
-          {/* 使用 key={id} 确保组件在路由切换时完全重新创建 */}
+          {/* 使用 key={ticketId} 确保组件在路由切换时完全重新创建 */}
           <StaffChat
             ticket={ticket}
             token={wsToken.token}
-            key={id}
+            key={ticketId}
             isTicketLoading={isTicketLoading}
           />
         </div>
-        <div className="flex flex-col h-full w-[34%] xl:w-[26%]">
+        {/* <div className="flex flex-col h-full w-[34%] xl:w-[26%]"> */}
+        <div className="hidden md:flex flex-col h-full w-[34%] xl:w-[26%]">
           {/* 同样使用 key 确保侧边栏也重新创建 */}
-          <StaffRightSidebar id={id} key={id} />
+          <StaffRightSidebar ticket={ticket} />
         </div>
       </div>
     </div>

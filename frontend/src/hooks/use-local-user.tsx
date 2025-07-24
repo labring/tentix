@@ -4,10 +4,11 @@ import { areaEnumArray } from "tentix-server/constants";
 export interface AuthContext {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: (UserType & { area: (typeof areaEnumArray)[number] }) | null;
+  user: (UserType & { sealosArea: (typeof areaEnumArray)[number]; sealosNs: string }) | null;
   updateUser: (
     userData: UserType,
-    area: (typeof areaEnumArray)[number],
+    sealosArea: (typeof areaEnumArray)[number],
+    sealosNs: string,
   ) => void;
   setIsAuthenticated: (isAuthenticated: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
@@ -24,7 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(
     Boolean(window.localStorage.getItem("token")),
   );
-  
+
   // 如果有token但没有user，说明认证状态正在加载中
   const [isLoading, setIsLoading] = React.useState<boolean>(() => {
     const hasToken = Boolean(window.localStorage.getItem("token"));
@@ -34,7 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = React.useCallback(() => {
     window.localStorage.removeItem("sealosToken");
-    window.localStorage.removeItem("area");
+    window.localStorage.removeItem("sealosArea");
+    window.localStorage.removeItem("sealosNs");
     window.localStorage.removeItem("token");
     window.localStorage.removeItem("role");
     window.localStorage.removeItem("id");
@@ -45,8 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateUser = React.useCallback(
-    (userData: UserType, area: (typeof areaEnumArray)[number]) => {
-      const userWithArea = { ...userData, area };
+    (
+      userData: UserType,
+      sealosArea: (typeof areaEnumArray)[number],
+      sealosNs: string,
+    ) => {
+      const userWithArea = { ...userData, sealosArea, sealosNs };
       setUser(userWithArea);
       setIsLoading(false); // 用户信息加载完成
       window.localStorage.setItem("user", JSON.stringify(userWithArea));

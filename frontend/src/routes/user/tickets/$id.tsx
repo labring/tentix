@@ -2,11 +2,7 @@ import { UserChat } from "@comp/chat/user/index.tsx";
 import { SiteHeader } from "@comp/user/header.tsx";
 import { TicketDetailsSidebar } from "@comp/tickets/ticket-details-sidebar.tsx";
 import { UserTicketSidebar } from "@comp/user/user-ticket-sidebar.tsx";
-import {
-  ticketsQueryOptions,
-  userTicketsQueryOptions,
-  wsTokenQueryOptions,
-} from "@lib/query";
+import { ticketsQueryOptions, wsTokenQueryOptions } from "@lib/query";
 import {
   useSessionMembersStore,
   useTicketStore,
@@ -16,6 +12,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@comp/user/sidebar";
+import { useTranslation } from "i18n";
 
 export const Route = createFileRoute("/user/tickets/$id")({
   loader: async ({ context: { queryClient, authContext } }) => {
@@ -35,13 +32,7 @@ function RouteComponent() {
   const { setSessionMembers } = useSessionMembersStore();
   const { setCurrentTicketId, clearMessages } = useChatStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  // 在组件中获取用户 tickets 数据，这样可以响应 invalidateQueries
-  // 数据立即过期，每次组件挂载时重新获取 ,窗口聚焦时重新获取
-  const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
-    userTicketsQueryOptions(40, 1, ticketId.toString()),
-  );
-
+  const { t } = useTranslation();
   // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
   // 数据立即过期，每次组件挂载时重新获取 ,窗口聚焦时重新获取
   const { data: ticket, isLoading: isTicketLoading } = useQuery(
@@ -72,24 +63,23 @@ function RouteComponent() {
     };
   }, [ticketId]); // 依赖 ticketId，确保路由切换时触发
 
-  if (isTicketLoading || isUserTicketsLoading || !ticket) {
+  if (isTicketLoading || !ticket) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <div className="text-sm text-muted-foreground">Loading...</div>
+        <div className="text-sm text-muted-foreground">{t("loading")}</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-screen w-full transition-all duration-300 ease-in-out">
       <Sidebar />
       <UserTicketSidebar
-        data={userTicketsData!.tickets}
         currentTicketId={ticket.id}
         isCollapsed={isSidebarCollapsed}
-        isLoading={isUserTicketsLoading}
+        isTicketLoading={isTicketLoading}
       />
-      <div className="@container/main flex flex-1 flex-row">
+      <div className="@container/main flex flex-1">
         <div className="flex flex-col h-full w-[66%] xl:w-[74%]">
           <div className="flex-shrink-0">
             <SiteHeader
@@ -108,8 +98,7 @@ function RouteComponent() {
           />
         </div>
         <div className="flex flex-col h-full w-[34%] xl:w-[26%]">
-          {/* 同样使用 key 确保侧边栏也重新创建 */}
-          <TicketDetailsSidebar ticket={ticket} key={ticketId} />
+          <TicketDetailsSidebar ticket={ticket} />
         </div>
       </div>
     </div>

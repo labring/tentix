@@ -1,13 +1,7 @@
-import { apiClient } from "@lib/api-client";
-import { updateTicketStatus } from "@lib/query";
-import { useRaiseReqModal } from "@modal/use-raise-req-modal.tsx";
+import { updateTicketStatus, userTicketsQueryOptions } from "@lib/query";
 import { useTransferModal } from "@modal/use-transfer-modal.tsx";
-import { useUpdateStatusModal } from "@modal/use-update-status-modal.tsx";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useUpdatePriorityModal } from "@modal/use-update-priority-modal.tsx";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import {
   type ColumnDef,
@@ -18,19 +12,24 @@ import {
 import { joinTrans, useTranslation } from "i18n";
 import {
   AlertTriangleIcon,
-  CheckCircle2Icon,
-  ClipboardListIcon,
   Loader2Icon,
   PlusIcon,
-  Settings2,
-  UserRoundPlusIcon,
+  ClipboardPasteIcon,
+  SquareAsteriskIcon,
   EllipsisIcon,
   CircleStopIcon,
   SearchIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
 } from "lucide-react";
 import * as React from "react";
 import { useMemo, useState, useCallback } from "react";
-import { type TicketsAllListItemType } from "tentix-server/rpc";
+import {
+  type GetUserTicketsResponseType,
+  type TicketsListItemType,
+} from "tentix-server/rpc";
 import {
   LayersIcon,
   PendingIcon,
@@ -41,22 +40,25 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   PriorityBadge,
   StatusBadge,
   toast,
   Input,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  ScrollArea,
 } from "tentix-ui";
+import useDebounce from "@hook/use-debounce";
+import { userTablePagination } from "@store/table-pagination";
 
 interface PaginatedTableProps {
   character: "user" | "staff";
-  initialData?: {
-    tickets: TicketsAllListItemType[];
-    hasMore: boolean;
-    nextPageToken: string | null;
-    stats: Array<{ status: string; count: number }>;
-  };
+  initialData?: GetUserTicketsResponseType;
 }
 
 export function PaginatedDataTable({
@@ -67,19 +69,47 @@ export function PaginatedDataTable({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [pageSize] = useState(40);
-  const [tabValue, setTabValue] = useState<
-    TicketsAllListItemType["status"] | "all"
-  >("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  // 使用 zustand store 管理分页状态
+  const {
+    currentPage,
+    pageSize,
+    searchQuery,
+    statuses,
+    setCurrentPage,
+    setSearchQuery,
+    setStatuses,
+  } = userTablePagination();
+
+  const handleStatusToggle = (
+    status: "pending" | "in_progress" | "resolved",
+  ) => {
+    const newStatuses = statuses.includes(status)
+      ? statuses.filter((s) => s !== status)
+      : [...statuses, status];
+
+    const mainStatuses: string[] = ["pending", "in_progress", "resolved"];
+    const allMainStatusesSelected = mainStatuses.every((s) =>
+      newStatuses.includes(s),
+    );
+
+    if (allMainStatusesSelected && newStatuses.length === mainStatuses.length) {
+      setStatuses([]);
+    } else {
+      setStatuses(newStatuses);
+    }
+  };
+
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [isSmallScreen, setIsSmallScreen] = useState(
     typeof window !== "undefined" ? window.innerWidth < 1316 : false,
   );
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
+  const [ticketToClose, setTicketToClose] =
+    useState<TicketsListItemType | null>(null);
 
   const { openTransferModal, transferModal } = useTransferModal();
-  const { updateStatusModal, openUpdateStatusModal } = useUpdateStatusModal();
-  const { raiseReqModal, openRaiseReqModal } = useRaiseReqModal();
-
+  const { updatePriorityModal, openUpdatePriorityModal } =
+    useUpdatePriorityModal();
   // Listen for window resize to update screen size
   React.useEffect(() => {
     const handleResize = () => {
@@ -117,8 +147,7 @@ export function PaginatedDataTable({
 
   // Handle close ticket
   const handleCloseTicket = useCallback(
-    (ticketId: string, event?: React.MouseEvent) => {
-      event?.stopPropagation(); // avoid click on button or anchor element
+    (ticketId: string) => {
       closeTicketMutation.mutate({
         ticketId,
         status: "resolved",
@@ -128,45 +157,38 @@ export function PaginatedDataTable({
     [closeTicketMutation, t],
   );
 
-  // Use infinite query for pagination
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    error,
-  } = useInfiniteQuery({
-    queryKey: ["getUserTickets", pageSize, tabValue, searchQuery],
-    queryFn: async ({ pageParam }) => {
-      const params: Record<string, string> = {
-        pageSize: pageSize.toString(),
-      };
-      if (pageParam) {
-        params.pageToken = pageParam;
-      }
+  // Dialog confirmation handler
+  const handleConfirmClose = () => {
+    if (ticketToClose) {
+      handleCloseTicket(ticketToClose.id);
+    }
+    setIsCloseConfirmOpen(false);
+  };
 
-      const response = await apiClient.user.getTickets.$get({ query: params });
-      return response.json();
-    },
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextPageToken || undefined,
-    initialData: initialData
-      ? {
-          pages: [initialData],
-          pageParams: [undefined],
-        }
-      : undefined,
+  // Use regular query for page-based pagination
+  const { data, isLoading, error } = useQuery({
+    ...userTicketsQueryOptions(
+      pageSize,
+      currentPage,
+      debouncedSearchQuery,
+      statuses,
+    ),
+    initialData:
+      initialData &&
+      currentPage === 1 &&
+      statuses.length === 0 &&
+      !debouncedSearchQuery
+        ? initialData
+        : undefined,
   });
 
-  // Flatten all tickets from all pages
-  const allTickets = useMemo(() => {
-    return data?.pages.flatMap((page) => page.tickets) || [];
-  }, [data]);
+  // Get tickets and stats directly from API response
+  const tickets = data?.tickets || [];
+  const totalCount = data?.totalCount || 0;
+  const totalPages = data?.totalPages || 0;
 
-  // Get stats from the first page (stats should be consistent across pages)
   const stats = useMemo(() => {
-    const statsData = data?.pages[0]?.stats || [];
+    const statsData = data?.stats || [];
     const statsMap = new Map(
       statsData.map((stat) => [stat.status, stat.count]),
     );
@@ -177,26 +199,7 @@ export function PaginatedDataTable({
       resolved: statsMap.get("resolved") || 0,
       scheduled: statsMap.get("scheduled") || 0,
     };
-  }, [data]);
-
-  // Filter tickets based on tab selection and search query
-  const filteredTickets = useMemo(() => {
-    let tickets = allTickets;
-
-    // Filter by status tab
-    if (tabValue !== "all") {
-      tickets = tickets.filter((ticket) => ticket.status === tabValue);
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      tickets = tickets.filter((ticket) =>
-        ticket.title.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-    }
-
-    return tickets;
-  }, [allTickets, tabValue, searchQuery]);
+  }, [data?.stats]);
 
   // Define column widths with responsive behavior - 1fr on small screens for adaptive sizing
   const columnWidths = React.useMemo(() => {
@@ -253,8 +256,8 @@ export function PaginatedDataTable({
     return baseWidths;
   }, [character, isSmallScreen]);
 
-  const columns = React.useMemo<ColumnDef<TicketsAllListItemType>[]>(() => {
-    const baseColumns: ColumnDef<TicketsAllListItemType>[] = [
+  const columns = React.useMemo<ColumnDef<TicketsListItemType>[]>(() => {
+    const baseColumns: ColumnDef<TicketsListItemType>[] = [
       {
         accessorKey: "title",
         header: t("title"),
@@ -263,8 +266,8 @@ export function PaginatedDataTable({
             <p
               className={`text-black text-sm font-medium leading-none truncate ${
                 isSmallScreen
-                  ? "max-w-[120px]" // 小屏幕：更严格的截断
-                  : "max-w-[200px]" // 大屏幕：较宽松的截断
+                  ? "max-w-[80px]" // 小屏幕：更严格的截断
+                  : "max-w-[240px]" // 大屏幕：较宽松的截断
               }`}
               title={row.original.title} // 悬停时显示完整标题
             >
@@ -284,8 +287,14 @@ export function PaginatedDataTable({
         cell: ({ row }) => {
           const date = new Date(row.original.createdAt);
           return (
-            <p className="text-zinc-600 text-sm font-normal leading-normal">
-              {date.toLocaleDateString()}
+            <p className="text-sm font-normal leading-normal text-zinc-600">
+              {date.toLocaleString("sv-SE", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
           );
         },
@@ -296,8 +305,14 @@ export function PaginatedDataTable({
         cell: ({ row }) => {
           const date = new Date(row.original.updatedAt);
           return (
-            <p className="text-zinc-600 text-sm font-normal leading-normal">
-              {date.toLocaleDateString()}
+            <p className="text-sm font-normal leading-normal text-zinc-600">
+              {date.toLocaleString("sv-SE", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
           );
         },
@@ -326,13 +341,6 @@ export function PaginatedDataTable({
           const ticket = row.original;
           const ticketId = ticket.id;
           const isResolved = ticket.status === "resolved";
-          const staffData =
-            character === "staff"
-              ? {
-                  assignedTo: "",
-                  status: row.original.status,
-                }
-              : null;
 
           return (
             <>
@@ -343,81 +351,55 @@ export function PaginatedDataTable({
                     className="flex size-8 text-muted-foreground data-[state=open]:bg-muted"
                     size="icon"
                   >
-                    <EllipsisIcon className="!h-5 !w-5 text-zinc-500" />
+                    <EllipsisIcon className="!h-4 !w-4 text-zinc-500" />
                     <span className="sr-only">{t("open_menu")}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-auto p-2 ">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-auto p-2 rounded-xl"
+                >
                   {character === "staff" && (
                     <>
-                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => openTransferModal(ticketId)}
                       >
-                        <UserRoundPlusIcon className="mr-2 h-4 w-4" />
-                        {t("transfer")}
+                        <ClipboardPasteIcon className="mr-2 !h-4 !w-4 text-zinc-500" />
+                        {t("transfer_ticket")}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() =>
-                          openUpdateStatusModal(
+                          openUpdatePriorityModal(
                             ticketId,
-                            staffData?.status || "",
+                            ticket.title.length > 6
+                              ? `${ticket.title.slice(0, 6)}...`
+                              : ticket.title,
+                            ticket.priority,
                           )
                         }
                       >
-                        <AlertTriangleIcon className="mr-2 h-4 w-4" />
-                        {t("adjust_prty")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          openUpdateStatusModal(
-                            ticketId,
-                            staffData?.status || "",
-                          )
-                        }
-                      >
-                        <Settings2 className="mr-2 h-4 w-4" />
-                        {t("update_status")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => openRaiseReqModal(ticketId)}
-                      >
-                        <ClipboardListIcon className="mr-2 h-4 w-4" />
-                        {t("raise_req")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => handleCloseTicket(ticketId, e)}
-                      >
-                        <CheckCircle2Icon className="mr-2 h-4 w-4" />
-                        {t("mark_as_solved")}
+                        <SquareAsteriskIcon className="mr-2 h-4 w-4 text-zinc-500" />
+                        {t("set_prty")}
                       </DropdownMenuItem>
                     </>
                   )}
                   <DropdownMenuItem
                     disabled={isResolved}
-                    onClick={
-                      isResolved
-                        ? undefined
-                        : (e) => handleCloseTicket(ticketId, e)
-                    }
-                    onMouseDown={(e) => {
+                    onSelect={(e) => {
                       if (isResolved) {
-                        e.stopPropagation();
                         e.preventDefault();
+                        return;
                       }
-                    }}
-                    onPointerDown={(e) => {
-                      if (isResolved) {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }
+                      e.preventDefault();
+                      setTicketToClose(ticket);
+                      setIsCloseConfirmOpen(true);
                     }}
                     className={
                       isResolved ? "opacity-50 cursor-not-allowed" : ""
                     }
                   >
                     <CircleStopIcon
-                      className={`h-4 w-4 ${isResolved ? "text-zinc-300" : "text-zinc-500"}`}
+                      className={`mr-2 h-4 w-4 ${isResolved ? "text-zinc-300" : "text-zinc-500"}`}
                     />
                     {joinTrans([t("close"), t("tkt_one")])}
                   </DropdownMenuItem>
@@ -451,18 +433,10 @@ export function PaginatedDataTable({
     }
 
     return baseColumns;
-  }, [
-    character,
-    t,
-    isSmallScreen,
-    openTransferModal,
-    openUpdateStatusModal,
-    openRaiseReqModal,
-    handleCloseTicket,
-  ]);
+  }, [character, t, isSmallScreen, openTransferModal, openUpdatePriorityModal]);
 
   const table = useReactTable({
-    data: filteredTickets,
+    data: tickets,
     columns,
     getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
@@ -482,9 +456,7 @@ export function PaginatedDataTable({
     );
   };
 
-  const renderTableContent = (
-    onClick?: (row: TicketsAllListItemType) => void,
-  ) => {
+  const renderTableContent = (onClick?: (row: TicketsListItemType) => void) => {
     const rows = table.getRowModel().rows;
 
     // Get visible columns and their keys
@@ -500,8 +472,8 @@ export function PaginatedDataTable({
       .join(" ");
 
     return (
-      <div className="flex-1 min-h-0 flex flex-col px-4 lg:px-6 pb-4 gap-3">
-        {/* 只有在有数据或正在加载时才显示表头 */}
+      <div className="flex-1 min-h-0 flex flex-col px-4 lg:px-6  gap-3">
+        {/* Table Header - Fixed */}
         {(rows.length > 0 || isLoading) && (
           <div className="flex-shrink-0 bg-white rounded-lg border border-zinc-200">
             <div
@@ -526,10 +498,10 @@ export function PaginatedDataTable({
           </div>
         )}
 
-        {/* Table Body - Single Scrollable Container */}
-        {rows.length > 0 ? (
-          <div className="flex-1 min-h-0 bg-white border border-zinc-200 rounded-xl mt-3">
-            <div className="h-full overflow-y-auto">
+        {/* Table Body - Scrollable Container */}
+        <ScrollArea className="flex-1 overflow-auto">
+          {rows.length > 0 ? (
+            <div className="bg-white border border-zinc-200 rounded-xl">
               {rows.map((row, index) => (
                 <div
                   key={row.id}
@@ -578,67 +550,144 @@ export function PaginatedDataTable({
                   ))}
                 </div>
               ))}
-
-              {/* Load More Button - Inside scroll container */}
-              {hasNextPage && (
-                <div className="flex justify-center p-4 border-t border-zinc-200 bg-white">
-                  <Button
-                    variant="default"
-                    onClick={() => fetchNextPage()}
-                    disabled={isFetchingNextPage}
-                  >
-                    {isFetchingNextPage ? (
-                      <>
-                        <Loader2Icon className="h-4 w-4 animate-spin mr-2" />
-                        {t("loading_more")}
-                      </>
-                    ) : (
-                      t("load_more")
-                    )}
-                  </Button>
-                </div>
-              )}
             </div>
-          </div>
-        ) : isLoading ? (
-          <div className="flex-1 flex items-center justify-center ">
-            <div className="flex items-center justify-center text-zinc-500 text-sm font-medium">
-              <Loader2Icon className="h-4 w-4 animate-spin mr-2 text-zinc-500" />
-              {t("loading")}
+          ) : isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="flex items-center justify-center text-zinc-500 text-sm font-medium">
+                <Loader2Icon className="h-4 w-4 animate-spin mr-2 text-zinc-500" />
+                {t("loading")}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div
-            className="flex-1 flex items-center justify-center border border-dashed border-zinc-300 rounded-2xl bg-no-repeat bg-center relative"
-            style={{
-              backgroundImage: "url(/tentix-bg.svg)",
-              backgroundSize: "80%",
-            }}
-          >
+          ) : (
             <div
-              className={`flex flex-col items-center justify-center z-10 relative ${
-                character === "user" ? "cursor-pointer" : ""
-              }`}
-              onClick={() => {
-                if (character === "user") {
-                  router.navigate({
-                    to: "/user/newticket",
-                  });
-                }
+              className="flex items-center justify-center border border-dashed border-zinc-300 rounded-2xl bg-no-repeat bg-center relative h-full"
+              style={{
+                backgroundImage: "url(/tentix-bg.svg)",
+                backgroundSize: "80%",
               }}
             >
-              <div className="flex flex-col items-center justify-center text-center mt-23">
-                <p className="text-black text-2xl font-medium leading-8 mb-1">
-                  {t("no_tickets_created_yet")}
-                </p>
+              <div
+                className={`flex flex-col items-center justify-center mt-23 z-10 relative ${
+                  character === "user" ? "cursor-pointer" : ""
+                }`}
+                onClick={() => {
+                  if (character === "user") {
+                    router.navigate({
+                      to: "/user/newticket",
+                    });
+                  }
+                }}
+              >
                 <div className="flex flex-col items-center justify-center text-center">
-                  <p className="text-gray-600 text-base font-normal leading-6">
-                    {t("click_to_create_ticket")}
+                  <p className="text-black text-2xl font-medium leading-8 mb-1">
+                    {character === "user"
+                      ? t("no_tickets_created_yet")
+                      : t("no_tickets_found")}
                   </p>
-                  <p className="text-gray-600 text-base font-normal leading-6">
-                    {t("team_resolve_questions")}
-                  </p>
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <p className="text-gray-600 text-base font-normal leading-6">
+                      {character === "user"
+                        ? t("click_to_create_ticket")
+                        : t("no_tickets_received")}
+                    </p>
+                    {character === "user" && (
+                      <p className="text-gray-600 text-base font-normal leading-6">
+                        {t("team_resolve_questions")}
+                      </p>
+                    )}
+                  </div>
                 </div>
+              </div>
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Pagination Controls */}
+        {rows.length > 0 && !isLoading && (
+          <div className="flex-shrink-0 flex items-center justify-between py-3">
+            {/* Left side - Total count */}
+            <div className="text-sm font-normal leading-normal text-zinc-500">
+              {t("total")}: {totalCount}
+            </div>
+
+            {/* Right side - Pagination controls */}
+            <div className="flex items-center gap-2">
+              {/* First page */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage <= 1 || isLoading}
+              >
+                <ChevronsLeftIcon
+                  className={`h-4 w-4 ${currentPage <= 1 || isLoading ? "text-zinc-300" : "text-zinc-900"}`}
+                />
+              </Button>
+
+              {/* Previous page */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage <= 1 || isLoading}
+              >
+                <ChevronLeftIcon
+                  className={`h-4 w-4 ${currentPage <= 1 || isLoading ? "text-zinc-300" : "text-zinc-900"}`}
+                />
+              </Button>
+
+              {/* Current page / Total pages */}
+              <div className="flex items-center text-sm mx-2">
+                <span className="text-zinc-900  font-medium leading-normal">
+                  {currentPage}
+                </span>
+                <span className="text-zinc-500 font-medium leading-normal mx-1">
+                  /
+                </span>
+                <span className="text-zinc-500 font-medium leading-normal">
+                  {totalPages}
+                </span>
+              </div>
+
+              {/* Next page */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= totalPages || isLoading}
+              >
+                <ChevronRightIcon
+                  className={`h-4 w-4 ${currentPage >= totalPages || isLoading ? "text-zinc-300" : "text-zinc-900"}`}
+                />
+              </Button>
+
+              {/* Last page */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage >= totalPages || isLoading}
+              >
+                <ChevronsRightIcon
+                  className={`h-4 w-4 ${currentPage >= totalPages || isLoading ? "text-zinc-300" : "text-zinc-900"}`}
+                />
+              </Button>
+
+              {/* Page size indicator */}
+              <div className="flex items-center text-sm ml-4">
+                <span className="text-zinc-900 font-normal leading-normal">
+                  {pageSize}
+                </span>
+                <span className="text-zinc-500 font-normal leading-normal mx-1">
+                  /
+                </span>
+                <span className="text-zinc-500 font-normal leading-normal">
+                  {t("page")}
+                </span>
               </div>
             </div>
           </div>
@@ -666,19 +715,19 @@ export function PaginatedDataTable({
       <div className="flex-shrink-0 flex items-center justify-between px-4 lg:px-6 h-24 bg-zinc-50">
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setTabValue("all")}
+            onClick={() => setStatuses([])}
             className={`h-10 flex justify-center items-center gap-2 self-stretch px-3 rounded-lg border border-zinc-200 transition-colors ${
-              tabValue === "all" ? "bg-black/[0.03]" : "hover:bg-zinc-50"
+              statuses.length === 0 ? "bg-black/[0.03]" : "hover:bg-zinc-50"
             }`}
           >
             <LayersIcon
               className={`h-4 w-4 ${
-                tabValue === "all" ? "text-foreground" : "text-zinc-500"
+                statuses.length === 0 ? "text-foreground" : "text-zinc-500"
               }`}
             />
             <span
               className={`text-center text-sm leading-5 ${
-                tabValue === "all"
+                statuses.length === 0
                   ? "text-foreground font-semibold"
                   : "text-zinc-900 font-normal"
               }`}
@@ -695,72 +744,80 @@ export function PaginatedDataTable({
             />
           </button>
           <button
-            onClick={() => setTabValue("pending")}
+            onClick={() => handleStatusToggle("pending")}
             className={`flex justify-center items-center gap-2 self-stretch px-3 py-1 rounded-lg border border-zinc-200 transition-colors ${
-              tabValue === "pending" ? "bg-black/[0.03]" : "hover:bg-zinc-50"
+              statuses.includes("pending")
+                ? "bg-black/[0.03]"
+                : "hover:bg-zinc-50"
             }`}
           >
             <PendingIcon
               className={`h-4 w-4 ${
-                tabValue === "pending" ? "text-foreground" : "text-zinc-500"
+                statuses.includes("pending") ? "text-blue-600" : "text-zinc-500"
               }`}
             />
             <span
               className={`text-center text-sm leading-5 ${
-                tabValue === "pending"
+                statuses.includes("pending")
                   ? "text-foreground font-semibold"
                   : "text-zinc-900 font-normal"
               }`}
             >
               {t("pending")}
             </span>
-            <StatusTabBadge count={stats.pending} />
+            <StatusTabBadge count={Number(stats.pending)} />
           </button>
           <button
-            onClick={() => setTabValue("in_progress")}
+            onClick={() => handleStatusToggle("in_progress")}
             className={`flex justify-center items-center gap-2 self-stretch px-3 py-1 rounded-lg border border-zinc-200 transition-colors ${
-              tabValue === "in_progress"
+              statuses.includes("in_progress")
                 ? "bg-black/[0.03]"
                 : "hover:bg-zinc-50"
             }`}
           >
             <ProgressIcon
               className={`h-4 w-4 ${
-                tabValue === "in_progress" ? "text-foreground" : "text-zinc-500"
+                statuses.includes("in_progress")
+                  ? "text-yellow-500"
+                  : "text-zinc-500"
               }`}
             />
             <span
               className={`text-center text-sm leading-5 ${
-                tabValue === "in_progress"
+                statuses.includes("in_progress")
                   ? "text-foreground font-semibold"
                   : "text-zinc-900 font-normal"
               }`}
             >
               {t("in_progress")}
             </span>
-            <StatusTabBadge count={stats.inProgress} />
+            <StatusTabBadge count={Number(stats.inProgress)} />
           </button>
           <button
-            onClick={() => setTabValue("resolved")}
+            onClick={() => handleStatusToggle("resolved")}
             className={`flex justify-center items-center gap-2 self-stretch px-3 py-1 rounded-lg border border-zinc-200 transition-colors ${
-              tabValue === "resolved" ? "bg-black/[0.03]" : "hover:bg-zinc-50"
+              statuses.includes("resolved")
+                ? "bg-black/[0.03]"
+                : "hover:bg-zinc-50"
             }`}
           >
             <DoneIcon
               className={`h-4 w-4 ${
-                tabValue === "resolved" ? "text-foreground" : "text-zinc-500"
+                statuses.includes("resolved")
+                  ? "text-blue-600"
+                  : "text-zinc-500"
               }`}
             />
             <span
               className={`text-center text-sm leading-5 ${
-                tabValue === "resolved"
+                statuses.includes("resolved")
                   ? "text-foreground font-semibold"
                   : "text-zinc-900 font-normal"
               }`}
             >
               {t("completed")}
             </span>
-            <StatusTabBadge count={stats.resolved} />
+            <StatusTabBadge count={Number(stats.resolved)} />
           </button>
         </div>
 
@@ -802,9 +859,35 @@ export function PaginatedDataTable({
         });
       })}
 
+      <Dialog open={isCloseConfirmOpen} onOpenChange={setIsCloseConfirmOpen}>
+        <DialogContent className="w-96 p-6 !rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-1.5">
+              <AlertTriangleIcon className="!h-4 !w-4 text-yellow-600" />
+              {t("prompt")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("are_you_sure_close_ticket")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCloseConfirmOpen(false)}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              onClick={handleConfirmClose}
+              disabled={closeTicketMutation.isPending}
+            >
+              {closeTicketMutation.isPending ? "..." : t("confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {transferModal}
-      {updateStatusModal}
-      {raiseReqModal}
+      {updatePriorityModal}
     </div>
   );
 }

@@ -19,7 +19,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         tkt_other: "Tickets",
         team: "team",
         reports: "reports",
-        klg_base: "knowledge base",
+        klg_base: "Add To Knowledge Base",
         ntfcs: "notifications",
         settings: "settings",
         docs_management: "docs management",
@@ -27,9 +27,9 @@ export const i18next = i18nBase.use(initReactI18next).init({
         area: "Region",
         title: "Title",
         category: "category",
-        priority: "priority",
-        status: "status",
-        rqst_by: "requested by",
+        priority: "Priority",
+        status: "Status",
+        rqst_by: "Submitter",
         created_at: "Created at",
         updated_at: "Last Updated",
         sbmt_date: "submitted at",
@@ -58,11 +58,11 @@ export const i18next = i18nBase.use(initReactI18next).init({
         rows_selected_other: "{{all}} of {{selected}} rows selected",
         page_number: "Page {{page}} of {{all}}",
 
-        urgent: "urgent",
-        high: "high",
-        medium: "medium",
-        low: "low",
-        normal: "normal",
+        urgent: "Critical",
+        high: "High Priority",
+        medium: "Medium Priority",
+        low: "Low Priority",
+        normal: "Normal Priority",
 
         urgent_desc: "emergency situation",
         high_desc: "business completely unavailable",
@@ -80,10 +80,12 @@ export const i18next = i18nBase.use(initReactI18next).init({
         open_menu: "open menu",
         view_details: "view details",
         update_status: "update status",
-        transfer: "transfer ticket",
-        raise_request: "raise request",
+        transfer: "Transfer",
+        transfer_ticket: "Transfer Ticket",
+        raise_request: "Raise Request",
         adjust_prty: "adjust priority",
-        raise_req: "raise priority",
+        set_prty: "Set Priority",
+        set_prty_desc: "Set the priority of ticket {{title}} to",
         mark_as_solved: "mark as solved",
         close: "Close",
         close_ticket: "Close Ticket",
@@ -101,14 +103,17 @@ export const i18next = i18nBase.use(initReactI18next).init({
         tkt_view: "view $t(tkt_one)",
         tkt_status: "$t(tkt_other) status",
         tkt_status_pending: "pending",
-        dashboard: "dashboard",
+        dashboard: "Dashboard",
         are_you_sure_submit_ticket:
           "Are you sure you want to submit this ticket?",
+        are_you_sure_close_ticket:
+          "Are you sure you want to close this ticket?",
 
         // Modal common texts
         success: "Success",
         error: "Error",
         cancel: "Cancel",
+        confirm: "Confirm",
 
         // Update Status Modal
         update_status_title: "Update Ticket Status",
@@ -124,7 +129,6 @@ export const i18next = i18nBase.use(initReactI18next).init({
         updating: "Updating...",
 
         // Transfer Modal
-        transfer_ticket: "Transfer Ticket #{{id}}",
         transfer_desc:
           "Transfer this ticket to another staff member. The current assignee will be notified.",
         ticket_transferred: "Ticket transferred successfully",
@@ -152,6 +156,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         req_desc_help:
           "Include all relevant details, expected behavior, and business value",
         submitting: "Submitting...",
+        closing: "Closing...",
         raise_req_btn: "Raise Requirement",
 
         // Error and Not Found Pages
@@ -217,7 +222,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
           update: "$t(tkt) information update",
           assign: "$t(tkt) assigned to {{assignee}} by system",
           close: "$t(tkt) closed",
-          upgrade: "$t(tkt) priority changed to - {{priority}}",
+          upgrade: "$t(tkt) priority changed to {{priority}}",
           resolve: "$t(tkt) marked as resolved",
           transfer: "$t(tkt) transferred to {{assignee}}",
           makeRequest: "Made a request",
@@ -232,6 +237,9 @@ export const i18next = i18nBase.use(initReactI18next).init({
 
         // Additional translations for ticket details sidebar
         basic_info: "Basic Info",
+        user_info: "User Info",
+        sealos_id: "User ID",
+        name: "Name",
         ticket_id: "Ticket ID",
         assignees: "Assignees",
         activity: "Activity",
@@ -263,6 +271,21 @@ export const i18next = i18nBase.use(initReactI18next).init({
         auth_failed: "Authentication failed",
         setup_session: "Please wait while we set up your session",
         redirecting_dashboard: "Redirecting to your dashboard...",
+
+        // Table pagination and empty states
+        total: "Total",
+        page: "Page",
+        no_tickets_found: "No tickets found",
+        no_tickets_received: "We haven't received any tickets from users yet.",
+
+        // Header defaults
+        work_orders: "Work Orders",
+
+        // Accessibility labels
+        hide_sidebar: "Hide sidebar",
+        show_sidebar: "Show sidebar",
+        expand_panel: "Expand panel",
+        collapse_panel: "Collapse panel",
       },
     },
     zh: {
@@ -276,7 +299,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         tkt_other: "工单",
         team: "团队",
         reports: "报告",
-        klg_base: "知识库",
+        klg_base: "添加知识库",
         settings: "设置",
         ntfcs: "通知",
         docs_management: "文档管理",
@@ -286,7 +309,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         category: "分类",
         priority: "优先级",
         status: "状态",
-        rqst_by: "提交者",
+        rqst_by: "提交人",
         created_at: "创建时间",
         updated_at: "更新时间",
         sbmt_date: "提交时间",
@@ -336,11 +359,13 @@ export const i18next = i18nBase.use(initReactI18next).init({
         open_menu: "打开菜单",
         view_details: "查看详情",
         update_status: "更新状态",
-        transfer: "转移工单",
+        transfer: "转移",
+        transfer_ticket: "转移工单",
         raise_request: "提需求",
 
         adjust_prty: "调整优先级",
-        raise_req: "提高优先级",
+        set_prty: "设置优先级",
+        set_prty_desc: "设置工单 {{title}} 的优先级为",
         mark_as_solved: "标记为已解决",
         close: "关闭",
         close_ticket: "关闭工单",
@@ -359,11 +384,13 @@ export const i18next = i18nBase.use(initReactI18next).init({
         tkt_status: "$t(tkt)状态",
         tkt_status_pending: "待处理",
         are_you_sure_submit_ticket: "确定要提交此工单吗？",
+        are_you_sure_close_ticket: "您确定要关闭此工单吗？",
 
         // Modal common texts
         success: "成功",
         error: "错误",
         cancel: "取消",
+        confirm: "确定",
 
         // Update Status Modal
         update_status_title: "更新工单状态",
@@ -377,7 +404,6 @@ export const i18next = i18nBase.use(initReactI18next).init({
         updating: "更新中...",
 
         // Transfer Modal
-        transfer_ticket: "转移工单 #{{id}}",
         transfer_desc: "将此工单转移给另一位员工。当前负责人将收到通知。",
         ticket_transferred: "工单已成功转移",
         failed_transfer: "转移工单失败",
@@ -401,6 +427,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
         req_desc_ph: "提供需求的详细描述",
         req_desc_help: "包括所有相关细节、预期行为和业务价值",
         submitting: "提交中...",
+        closing: "关闭中...",
         raise_req_btn: "提出需求",
 
         // Error and Not Found Pages
@@ -464,7 +491,7 @@ export const i18next = i18nBase.use(initReactI18next).init({
           update: "$t(tkt)信息更新",
           assign: "$t(tkt)被系统分配给了{{assignee}}",
           close: "$t(tkt)关闭",
-          upgrade: "$t(tkt)优先级变化为 - {{priority}}",
+          upgrade: "$t(tkt)优先级修改为 {{priority}}",
           resolve: "$t(tkt)被标记为已解决",
           transfer: "$t(tkt)被转交给{{assignee}}",
           makeRequest: "提出了需求",
@@ -480,6 +507,9 @@ export const i18next = i18nBase.use(initReactI18next).init({
 
         // Additional translations for ticket details sidebar
         basic_info: "基本信息",
+        user_info: "用户信息",
+        sealos_id: "用户ID",
+        name: "用户名",
         ticket_id: "工单ID",
         assignees: "负责人",
         activity: "活动记录",
@@ -510,6 +540,21 @@ export const i18next = i18nBase.use(initReactI18next).init({
         auth_failed: "认证失败",
         setup_session: "请稍候，正在设置您的会话",
         redirecting_dashboard: "正在跳转到您的面板...",
+
+        // Table pagination and empty states
+        total: "总计",
+        page: "页",
+        no_tickets_found: "未找到工单",
+        no_tickets_received: "暂未收到任何用户工单。",
+
+        // Header defaults
+        work_orders: "工单系统",
+
+        // Accessibility labels
+        hide_sidebar: "隐藏侧边栏",
+        show_sidebar: "显示侧边栏",
+        expand_panel: "展开面板",
+        collapse_panel: "收起面板",
       },
     },
   },

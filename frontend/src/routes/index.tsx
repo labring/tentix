@@ -28,10 +28,9 @@ function AuthGuard() {
       try {
         await waitForSealosInit();
         const sealosToken = window.localStorage.getItem("sealosToken");
-        const area = window.localStorage.getItem("area");
+        const sealosArea = window.localStorage.getItem("sealosArea");
 
-        // console.log("sealosUser", sealosUser);
-        if (!sealosToken || !area) {
+        if (!sealosToken || !sealosArea) {
           router.navigate({ to: "/notLogin", replace: true });
           return;
         }
@@ -43,7 +42,6 @@ function AuthGuard() {
             await apiClient.auth.login.$post({
               json: {
                 token: sealosToken,
-                area: area as (typeof areaEnumArray)[number],
                 userInfo: {
                   sealosId: sealosUser?.id ?? "",
                   name: sealosUser?.name ?? "",
@@ -65,7 +63,8 @@ function AuthGuard() {
 
           authContext.updateUser(
             userData,
-            area as (typeof areaEnumArray)[number],
+            sealosArea as (typeof areaEnumArray)[number],
+            sealosUser?.nsid ?? "",
           );
           authContext.setIsAuthenticated(true);
         }
@@ -75,7 +74,7 @@ function AuthGuard() {
         switch (role) {
           case "technician":
           case "agent":
-            router.navigate({ to: "/staff/dashboard", replace: true });
+            router.navigate({ to: "/staff/tickets/list", replace: true });
             break;
           default:
             router.navigate({ to: "/user/tickets/list", replace: true });

@@ -1,7 +1,7 @@
 import * as schema from "@db/schema.ts";
 import { zValidator } from "@hono/zod-validator";
 import type { JSONContent } from "@tiptap/react";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { userRoleEnumArray } from "./const";
 
@@ -73,17 +73,59 @@ export function getAbbreviatedText(
 
 export type userRoleType = (typeof userRoleEnumArray)[number];
 
-export const ticketInsertSchema = createInsertSchema(schema.tickets).omit({
-  id: true,
-  category: true,
-  createdAt: true,
-  updatedAt: true,
-  customerId: true,
-  agentId: true,
+export type AppConfig = {
+  feishu_bot_webhook_id: string;
+  feishu_app_id: `cli_${string}`;
+  feishu_app_secret: string;
+  feishu_chat_id: `oc_${string}`;
+  department_ids: `od-${string}`[];
+  agents_ids: string[];
+  admin_ids: string[];
+  aiProfile: {
+    sealosId: string;
+    name: string;
+    nickname: string;
+    realName: string;
+    status: string;
+    phoneNum: string;
+    role: "ai";
+    avatar: string;
+    registerTime: string;
+  };
+  departments: {
+    openId: `ou_${string}`;
+    id: string;
+    name: string;
+    members: `on_${string}`[];
+  }[];
+  staffs: {
+    name: string;
+    nickname?: string;
+    description: string;
+    feishuOpenId?: `ou_${string}`;
+    feishuUnionId?: `on_${string}`;
+    sealosId: string;
+    avatar: string;
+    phoneNum: string;
+  }[];
+};
+
+export const sealosJWT = z.object({
+  workspaceUid: z.string(),
+  workspaceId: z.string(),
+  regionUid: z.string(),
+  userCrUid: z.string(),
+  userCrName: z.string(),
+  userId: z.string(),
+  userUid: z.string(),
+  iat: z.number(),
+  exp: z.number(),
 });
 
-export type ticketInsertType = z.infer<typeof ticketInsertSchema>;
+export type SealosJWT = z.infer<typeof sealosJWT>;
 
+// openapi
+// ws
 export const wsMsgServerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.enum(["heartbeat", "heartbeat_ack"]),
@@ -185,43 +227,7 @@ export type wsMsgClientType = z.infer<typeof wsMsgClientSchema>;
 
 export type WSMessage = wsMsgServerType | wsMsgClientType;
 
-export type AppConfig = {
-  feishu_bot_webhook_id: string;
-  feishu_app_id: `cli_${string}`;
-  feishu_app_secret: string;
-  feishu_chat_id: `oc_${string}`;
-  department_ids: `od-${string}`[];
-  agents_ids: string[];
-  admin_ids: string[];
-  aiProfile: {
-    sealosId: string;
-    name: string;
-    nickname: string;
-    realName: string;
-    status: string;
-    phoneNum: string;
-    role: "ai";
-    avatar: string;
-    registerTime: string;
-  };
-  departments: {
-    openId: `ou_${string}`;
-    id: string;
-    name: string;
-    members: `on_${string}`[];
-  }[];
-  staffs: {
-    name: string;
-    nickname?: string;
-    description: string;
-    feishuOpenId?: `ou_${string}`;
-    feishuUnionId?: `on_${string}`;
-    sealosId: string;
-    avatar: string;
-    phoneNum: string;
-  }[];
-};
-
+// sse
 export const unreadSSESchema = z.object({
   newMsg: z.object({
     messageId: z.number(),
@@ -241,16 +247,42 @@ export const unreadSSESchema = z.object({
 
 export type UnreadSSEType = z.infer<typeof unreadSSESchema>;
 
-export const sealosJWT = z.object({
-  workspaceUid: z.string(),
-  workspaceId: z.string(),
-  regionUid: z.string(),
-  userCrUid: z.string(),
-  userCrName: z.string(),
-  userId: z.string(),
-  userUid: z.string(),
-  iat: z.number(),
-  exp: z.number(),
+// ticket
+export const ticketInsertSchema = createInsertSchema(schema.tickets).omit({
+  id: true,
+  category: true,
+  createdAt: true,
+  updatedAt: true,
+  customerId: true,
+  agentId: true,
 });
 
-export type SealosJWT = z.infer<typeof sealosJWT>;
+export type ticketInsertType = z.infer<typeof ticketInsertSchema>;
+
+// user ticket
+export const userTicketSchema = createSelectSchema(schema.tickets).extend({
+  agent: z.object({
+    id: z.number(),
+    name: z.string(),
+    nickname: z.string(),
+    avatar: z.string(),
+  }),
+  customer: z.object({
+    id: z.number(),
+    name: z.string(),
+    nickname: z.string(),
+    avatar: z.string(),
+  }),
+  messages: z.array(
+    z.object({
+      id: z.number(),
+      ticketId: z.string(),
+      senderId: z.number(),
+      content: z.string(), // abbreviated content
+      createdAt: z.string(),
+      isInternal: z.boolean(),
+      withdrawn: z.boolean(),
+      readStatus: z.array(createSelectSchema(schema.messageReadStatus)),
+    }),
+  ),
+});

@@ -7,7 +7,7 @@ import { Sidebar } from "@comp/user/sidebar";
 
 export const Route = createFileRoute("/user/tickets/list")({
   loader: ({ context }) => {
-    return context.queryClient.fetchQuery(userTicketsQueryOptions());
+    return context.queryClient.fetchQuery(userTicketsQueryOptions(10, 1));
   },
   preloadStaleTime: 0,
   staleTime: 0,

@@ -44,7 +44,7 @@ export function Sidebar() {
             rel="noopener noreferrer"
             className="flex flex-col items-center justify-center gap-1 text-center"
           >
-            <MessagesSquare className="!w-6 !h-6" />
+            <MessagesSquare className="!w-6 !h-6" strokeWidth={1.33} />
             <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
               {t("community")}
             </span>

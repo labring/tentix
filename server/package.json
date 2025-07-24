@@ -27,6 +27,7 @@
     "hono-openapi": "^0.4.8",
     "hono-rate-limiter": "^0.4.2",
     "i18n": "workspace:*",
+    "jsonwebtoken": "^9.0.2",
     "markdown-it": "^14.1.0",
     "minio": "^7.1.4",
     "nanoid": "^5.1.5",
@@ -37,6 +38,7 @@
   "packageManager": "bun@1.2.15",
   "devDependencies": {
     "@types/bun": "catalog:",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/pg": "8.11.13",
     "drizzle-kit": "^0.31.1",
     "drizzle-seed": "^0.3.1",

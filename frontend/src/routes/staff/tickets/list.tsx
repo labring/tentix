@@ -1,11 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PaginatedDataTable } from "@comp/tickets-table/paginated-table.tsx";
-import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar";
+import { StaffSidebar } from "@comp/staff/sidebar";
 import { userTicketsQueryOptions } from "@lib/query";
 import { Suspense } from "react";
 import { SkeletonTable } from "@comp/tickets-table/skeleton";
+import { userTablePagination } from "@store/table-pagination";
 
 export const Route = createFileRoute("/staff/tickets/list")({
+  beforeLoad: () => {
+    userTablePagination.getState().setStatuses(["pending", "in_progress"]);
+    return {};
+  },
   loader: ({ context }) => {
     return context.queryClient.ensureQueryData(userTicketsQueryOptions());
   },
@@ -22,17 +27,11 @@ export const Route = createFileRoute("/staff/tickets/list")({
 function RouteComponent() {
   const data = Route.useLoaderData();
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-zinc-50">
-      <StaffDashboardSidebar />
-      <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-            <Suspense fallback={<SkeletonTable />}>
-              <PaginatedDataTable character="staff" initialData={data} />
-            </Suspense>
-          </div>
-        </div>
-      </div>
+    <div className="flex h-screen w-full overflow-hidden">
+      <StaffSidebar />
+      <Suspense fallback={<SkeletonTable />}>
+        <PaginatedDataTable character="staff" initialData={data} />
+      </Suspense>
     </div>
   );
 }

@@ -24,7 +24,8 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
-  Textarea, toast
+  Textarea,
+  toast,
 } from "tentix-ui";
 import { z } from "zod";
 
@@ -75,6 +76,9 @@ export function useUpdateStatusModal() {
       });
       queryClient.invalidateQueries({
         queryKey: ["getUserTickets"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getTicket", ticketId],
       });
       setFalse();
       form.reset();

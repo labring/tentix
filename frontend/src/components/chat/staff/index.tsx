@@ -8,8 +8,8 @@ import { type JSONContentZod } from "tentix-server/types";
 import { type TicketType } from "tentix-server/rpc";
 import { PhotoProvider } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";
-import { Button, useToast } from "tentix-ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button, useToast, ScrollArea } from "tentix-ui";
+import { useMutation } from "@tanstack/react-query";
 import { joinTicketAsTechnician } from "@lib/query";
 import useLocalUser from "@hook/use-local-user.tsx";
 
@@ -21,17 +21,15 @@ interface StaffChatProps {
 
 export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const { id: userId } = useLocalUser();
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
-  const hadFirstMsg = useRef<boolean>(
-    ticket.messages.some((msg) => msg.senderId === userId),
-  );
-  const queryClient = useQueryClient();
+  const { id: userId } = useLocalUser();
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   // Refs
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const sentReadStatusRef = useRef<Set<number>>(new Set());
+  const hadFirstMsg = useRef<boolean>(
+    ticket.messages.some((msg) => msg.senderId === userId),
+  );
 
   // Store hooks - 添加 setCurrentTicketId 和 clearMessages
   const { sessionMembers, setSessionMembers } = useSessionMembersStore();
@@ -43,6 +41,7 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
     clearMessages,
   } = useChatStore();
 
+  const { toast } = useToast();
   // Check if current user is a member of this ticket
   const isTicketMember = useMemo(() => {
     if (!sessionMembers) return false;
@@ -58,10 +57,6 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
   const joinTicketMutation = useMutation({
     mutationFn: joinTicketAsTechnician,
     onSuccess: () => {
-      // Invalidate and refetch the ticket query to update the member list
-      queryClient.invalidateQueries({
-        queryKey: ["getTicket", ticket.id.toString()],
-      });
       window.location.reload();
     },
   });
@@ -72,15 +67,18 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
   };
 
   // handle user typing
+  // TODO:   群聊中 多个其他人输入是否能正确处理 ？
   const handleUserTyping = (typingUserId: number, status: "start" | "stop") => {
     if (status === "start") {
       setOtherTyping(typingUserId);
     } else {
       setOtherTyping(false);
     }
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
+
     typingTimeoutRef.current = setTimeout(() => {
       setOtherTyping(false);
     }, 3000);
@@ -112,24 +110,32 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
     // 设置当前 ticketId
     setCurrentTicketId(ticket.id);
 
+    const timeoutRef = typingTimeoutRef.current;
+    const readStatusRef = sentReadStatusRef.current;
+
     return () => {
       // 组件卸载时清理
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
       }
 
       // 立即关闭 WebSocket 连接
       closeConnection();
-
       // 清理 store 状态
       setCurrentTicketId(null);
       setSessionMembers(null);
       clearMessages();
 
       // 清理已读状态追踪
-      sentReadStatusRef.current.clear();
+      readStatusRef.clear();
     };
-  }, [ticket.id]); // 只依赖 ticket.id
+  }, [
+    ticket.id,
+    closeConnection,
+    setCurrentTicketId,
+    setSessionMembers,
+    clearMessages,
+  ]);
 
   // 单独处理数据更新
   useEffect(() => {
@@ -213,7 +219,7 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
 
   return (
     <PhotoProvider>
-      <div className="overflow-y-auto h-full relative w-full py-5 px-4">
+      <ScrollArea className="overflow-y-auto h-full relative w-full py-5 px-4">
         <TicketInfoBox ticket={ticket} />
         <MessageList
           messages={messages}
@@ -223,9 +229,9 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
           }
           onMessageInView={handleMessageInView}
         />
-      </div>
+      </ScrollArea>
       {!isTicketMember ? (
-        <div className="bg-white p-4 border-t dark:border-gray-800 dark:bg-gray-950 flex items-center justify-center">
+        <div className="bg-white h-42 border-t  flex items-center justify-center">
           <div className="text-center">
             <p className="text-sm text-gray-500 mb-2">
               你尚未加入该工单，无法发送消息

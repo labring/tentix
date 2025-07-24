@@ -182,8 +182,12 @@ export class RoomEmitter extends MyEventEmitter<RoomEventMap> {
   // Connection management constants
   private static readonly HEARTBEAT_INTERVAL = 30000; // Send heartbeat every 30 seconds
   private static readonly HEARTBEAT_TIMEOUT = 10000; // Wait 10 seconds for heartbeat response
-  private _roomsMap: Map<string, Map<string, wsInstance>> = new Map(); // roomId -> set of clientId
+  private _roomsMap: Map<string, Map<string, wsInstance>> = new Map(); // roomId -> set of clientId   ticketId -> {clientId, ws}  一个房间会有多个 client ws
   private _connectionStates: Map<string, ConnectionState> = new Map();
+  private _roomUserRoles: Map<
+    string,
+    Map<string, { userId: number; role: userRoleType }>
+  > = new Map(); // roomId -> clientId -> user info
 
   get roomsMap() {
     return this._roomsMap;
@@ -193,6 +197,33 @@ export class RoomEmitter extends MyEventEmitter<RoomEventMap> {
     return this._connectionStates;
   }
 
+  get roomUserRoles() {
+    return this._roomUserRoles;
+  }
+
+  // 检查房间中是否有特定角色的用户连接
+  public hasRoleInRoom(roomId: string, role: userRoleType): boolean {
+    const roomUsers = this._roomUserRoles.get(roomId);
+    if (!roomUsers) return false;
+
+    for (const userInfo of roomUsers.values()) {
+      if (userInfo.role === role) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 获取房间中特定角色的用户列表
+  public getUsersByRoleInRoom(roomId: string, role: userRoleType): number[] {
+    const roomUsers = this._roomUserRoles.get(roomId);
+    if (!roomUsers) return [];
+
+    return Array.from(roomUsers.values())
+      .filter((userInfo) => userInfo.role === role)
+      .map((userInfo) => userInfo.userId);
+  }
+
   constructor() {
     super();
 
@@ -200,12 +231,20 @@ export class RoomEmitter extends MyEventEmitter<RoomEventMap> {
       this.handleHeartbeat(clientId);
     });
 
-    this.on("user_join", ({ clientId, roomId, userId, ws }) => {
+    this.on("user_join", ({ clientId, roomId, userId, role, ws }) => {
       if (!this.roomsMap.has(roomId)) {
         this.roomsMap.set(roomId, new Map());
       }
       const room = this.roomsMap.get(roomId)!;
       room.set(clientId, ws);
+
+      // 维护用户角色信息
+      if (!this._roomUserRoles.has(roomId)) {
+        this._roomUserRoles.set(roomId, new Map());
+      }
+      const roomUsers = this._roomUserRoles.get(roomId)!;
+      roomUsers.set(clientId, { userId, role });
+
       // Initialize connection state and start heartbeat
       this.initializeConnection(clientId, ws);
       this.broadcastToRoom(
@@ -227,6 +266,16 @@ export class RoomEmitter extends MyEventEmitter<RoomEventMap> {
     this.on("user_leave", ({ clientId, roomId, userId }) => {
       const room = this.roomsMap.get(roomId)!;
       room.delete(clientId);
+
+      // 清理用户角色信息
+      const roomUsers = this._roomUserRoles.get(roomId);
+      if (roomUsers) {
+        roomUsers.delete(clientId);
+        if (roomUsers.size === 0) {
+          this._roomUserRoles.delete(roomId);
+        }
+      }
+
       const state = this.connectionStates.get(clientId);
       if (state?.heartbeatTimeout) {
         clearTimeout(state.heartbeatTimeout);
@@ -296,6 +345,12 @@ export class RoomEmitter extends MyEventEmitter<RoomEventMap> {
       }, RoomEmitter.HEARTBEAT_TIMEOUT);
     }, RoomEmitter.HEARTBEAT_INTERVAL);
   }
+  // HEARTBEAT_INTERVAL 时间必须大于 HEARTBEAT_TIMEOUT 时间，不然会出现问题
+  // 如果 HEARTBEAT_INTERVAL 30s HEARTBEAT_TIMEOUT 40s，在 30s 上一个 heartbeatTimeout 被替换，但是实际还存在，没执行
+  // 即使 32 秒时 server 收到 heartbeat_ack 执行了 handleHeartbeat 将 heartbeatTimeout 清除，但是 替换前的 heartbeatTimeout 还存在
+  // 40s 到了后 heartbeatTimeout 执行，导致 ws 异常关闭，
+  // 如果 HEARTBEAT_INTERVAL 时间不大于 HEARTBEAT_TIMEOUT 时间，那么该心跳设计就无意义了，
+  // 该心跳设计是保证发送 heartbeat 在超时时间内要收到 heartbeat_ack，如果没收到 heartbeat_ack 就关闭 ws（超时关闭）
 
   private handleHeartbeat(clientId: string) {
     const state = this.connectionStates.get(clientId);

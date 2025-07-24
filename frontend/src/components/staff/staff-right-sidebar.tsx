@@ -1,133 +1,147 @@
-import { apiClient } from "@lib/api-client.ts";
-import { ticketsQueryOptions } from "@lib/query.ts";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useSessionMembersStore } from "@store/index";
 import { useTranslation } from "i18n";
 import {
-  BugIcon,
-  CalendarIcon,
-  ClockIcon,
-  FileTextIcon,
-  LightbulbIcon,
-  PlusIcon,
-} from "lucide-react";
-import { getQueryClient } from "src/_provider/tanstack.tsx";
-import { ticketCategoryEnumArray } from "tentix-server/constants";
+  getEnumKey,
+  ticketCategoryEnumArray,
+  ticketPriorityEnumArray,
+} from "tentix-server/constants";
+import { type TicketType } from "tentix-server/rpc";
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-  Button,
-  Label,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  PriorityBadge,
-  RadioGroup,
-  RadioGroupItem,
   ScrollArea,
-  StatusBadge,
-  toast,
+  timeAgo,
+  PendingIcon,
+  ProgressIcon,
+  DoneIcon,
+  PriorityBadge,
 } from "tentix-ui";
-import { TicketHistory } from "../tickets/ticket-details-sidebar.tsx";
+import type { TFunction } from "i18next";
 
-type NormalCategory = Exclude<
-  (typeof ticketCategoryEnumArray)[number],
-  "uncategorized"
->;
+// Custom status display function
+function getStatusDisplay(status: TicketType["status"], t: TFunction) {
+  switch (status) {
+    case "pending":
+    case "scheduled":
+      return {
+        label: t("pending"),
+        icon: PendingIcon,
+        color: "text-blue-600",
+      };
+    case "in_progress":
+      return {
+        label: t("in_progress"),
+        icon: ProgressIcon,
+        color: "text-yellow-500",
+      };
+    case "resolved":
+      return {
+        label: t("resolved"),
+        icon: DoneIcon,
+        color: "text-blue-600",
+      };
+    default:
+      return {
+        label: t("pending"),
+        icon: PendingIcon,
+        color: "text-blue-600",
+      };
+  }
+}
 
-const IconMap: Record<NormalCategory, React.ReactNode> = {
-  bug: <BugIcon className="mb-2 h-4 w-4" />,
-  feature: <LightbulbIcon className="mb-2 h-4 w-4" />,
-  question: <FileTextIcon className="mb-2 h-4 w-4" />,
-  other: <PlusIcon className="mb-2 h-4 w-4" />,
-};
-
-export function StaffRightSidebar({ id }: { id: string }) {
-  const { data: ticket, isSuccess } = useQuery(ticketsQueryOptions(id));
-
+export function TicketHistory({
+  history,
+}: {
+  history: TicketType["ticketHistory"][number];
+}) {
+  const { sessionMembers } = useSessionMembersStore();
   const { t } = useTranslation();
+  const memberName =
+    sessionMembers?.find((member) => member.id === history.meta)?.nickname ??
+    t("system");
+  const operatorName =
+    sessionMembers?.find((member) => member.id === history.operatorId)?.name ??
+    t("system");
 
-  const updateCategoryMutation = useMutation({
-    mutationFn: async ({
-      ticketId,
-      category,
-    }: {
-      ticketId: string;
-      category: NormalCategory;
-    }) => {
-      return apiClient.ticket.category.$post({
-        form: {
-          ticketId,
-          category,
-        },
-      });
-    },
-    onSuccess: async () => {
-      toast({ title: t("success"), description: t("category_updated") });
-      // Force refetch the ticket data
-      await getQueryClient().invalidateQueries({
-        queryKey: ["getTicket", id],
-        refetchType: "active",
-        exact: true,
-      });
-    },
-  });
+  const text = () => {
+    switch (history.type) {
+      case "create":
+        return t(`tktH.create`, { assignee: memberName });
+      case "upgrade":
+        return t(`tktH.upgrade`, {
+          priority: t(
+            getEnumKey(ticketPriorityEnumArray, history.meta!) ?? "unknown",
+          ),
+        });
+      case "transfer":
+        return t(`tktH.transfer`, { assignee: memberName });
+      case "join":
+        return t(`tktH.join`, { member: memberName });
+      case "category":
+        return t(`tktH.category`, {
+          category: t(
+            getEnumKey(ticketCategoryEnumArray, history.meta!) ?? "unknown",
+          ),
+        });
+      default:
+        return t(`tktH.${history.type}`);
+    }
+  };
 
-  if (isSuccess) {
-    const customer = ticket.customer;
-    const assignedTo = ticket.agent;
+  return (
+    <div className="flex flex-row items-start gap-4">
+      <div className="w-0.5 self-stretch rounded-sm bg-emerald-400"></div>
+      <div className="flex-1 flex-col gap-1">
+        <p className="text-zinc-900 text-sm font-medium leading-5 tracking-wide">
+          {text()}
+        </p>
+        <div className="flex items-center gap-1 text-zinc-500 text-sm font-normal leading-5">
+          <span>{operatorName}</span>
+          <span>•</span>
+          <span>{timeAgo(history.createdAt)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
+export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
+  const { t } = useTranslation();
+  const agent = ticket?.agent;
+  const customer = ticket.customer;
+  const statusDisplay = getStatusDisplay(ticket?.status, t);
+
+  if (ticket) {
     return (
       <div className="flex flex-col h-full border-l">
         <div className="flex-shrink-0 p-5 space-y-6">
           <div className="flex flex-col gap-4">
             <p className="text-black text-sm font-semibold leading-none">
-              {t("info")}
+              {t("user_info")}
             </p>
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={customer.avatar} alt={customer.name} />
-                  <AvatarFallback>
-                    {customer.name.charAt(0) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{customer.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {customer.role}
-                  </p>
-                </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {/* Name */}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                {t("name")}
+              </div>
+              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+                {customer.name}
               </div>
 
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                  {t("rqst_by")}
-                </div>
-                <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
-                  {customer.sealosId}
-                </div>
-
-                <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                  {t("nickname")}
-                </div>
-                <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
-                  {customer.nickname}
-                </div>
-
-                <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                  {t("module")}
-                </div>
-                <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
-                  {t(ticket.module)}
-                </div>
-
-                <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                  {t("area")}
-                </div>
-                <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
-                  {ticket.area}
-                </div>
+              {/* sealos ID */}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                {t("sealos_id")}
+              </div>
+              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+                {customer.sealosId}
+              </div>
+              {/* Region */}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                {t("area")}
+              </div>
+              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+                {ticket.area}
               </div>
             </div>
           </div>
@@ -136,130 +150,81 @@ export function StaffRightSidebar({ id }: { id: string }) {
 
           <div className="flex flex-col gap-4">
             <p className="text-black text-sm font-semibold leading-none">
-              {t("details")}
+              {t("basic_info")}
             </p>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                {t("title")}
-              </div>
-              <div className="text-zinc-900 font-medium leading-none flex items-center h-5">
-                {ticket.title}
-              </div>
-
-              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                {t("category")}
-              </div>
-              <div className="flex items-center h-5">
-                {ticket.category === "uncategorized" ? (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-6 px-2"
-                      >
-                        {t("uncategorized")}（{t("assign_category")}）
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent>
-                      <RadioGroup
-                        className="grid grid-cols-2 gap-1 pt-1 md:grid-cols-4 max-w-72"
-                        onValueChange={(val: NormalCategory) => {
-                          updateCategoryMutation.mutate({
-                            ticketId: ticket.id,
-                            category: val,
-                          });
-                        }}
-                      >
-                        {ticketCategoryEnumArray
-                          .filter((cat) => cat !== "uncategorized")
-                          .map((cat: NormalCategory) => (
-                            <div key={cat}>
-                              <RadioGroupItem
-                                value={cat}
-                                id={cat}
-                                className="peer sr-only"
-                              />
-                              <Label
-                                htmlFor={cat}
-                                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-1 text-[10px] hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                              >
-                                {IconMap[cat]}
-                                {t(cat)}
-                              </Label>
-                            </div>
-                          ))}
-                      </RadioGroup>
-                    </PopoverContent>
-                  </Popover>
-                ) : (
-                  <span className="text-zinc-900 font-normal leading-none">
-                    {t(ticket.category)}
-                  </span>
-                )}
-              </div>
-
-              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                {`${t("tkt_one")} ID`}
-              </div>
-              <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
-                {ticket.id}
-              </div>
-
-              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {/* Status */}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("status")}
               </div>
-              <div className="flex items-center h-5">
-                <StatusBadge status={ticket.status} />
-              </div>
-
-              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                {t("created_at")}
-              </div>
-              <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
-                <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground mr-1" />
-                {new Date(ticket.createdAt).toLocaleString()}
-              </div>
-
-              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                {t("occurrence_time")}
-              </div>
-              <div className="text-zinc-900 font-normal leading-none flex items-center h-5">
-                <ClockIcon className="h-3.5 w-3.5 text-muted-foreground mr-1" />
-                {new Date(ticket.occurrenceTime).toLocaleString()}
-              </div>
-
-              {ticket.errorMessage && (
-                <>
-                  <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                    {t("error_msg")}
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-sm text-red-500 p-2 bg-red-50 rounded-md">
-                      {ticket.errorMessage}
-                    </p>
-                  </div>
-                </>
-              )}
-
-              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
-                {t("assigned_to")}
-              </div>
-              <div className="flex items-center gap-2 h-5">
-                <Avatar className="h-5 w-5">
-                  <AvatarImage src={assignedTo.avatar} alt={assignedTo.name} />
-                  <AvatarFallback>{assignedTo.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <span className="text-zinc-900 font-medium leading-none">
-                  {assignedTo.name}
+              <div className="flex items-center gap-1.5 justify-start h-5">
+                <statusDisplay.icon
+                  className={`h-4 w-4 ${statusDisplay.color}`}
+                />
+                <span className="text-zinc-900 text-sm font-medium leading-5 ml-1.5">
+                  {statusDisplay.label}
                 </span>
               </div>
 
-              <div className="text-zinc-500 font-normal leading-none flex items-center h-5">
+              {/* Ticket ID */}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                {t("ticket_id")}
+              </div>
+              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+                {ticket.id}
+              </div>
+
+              {/* priority */}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("priority")}
               </div>
-              <div className="flex items-center h-5">
-                <PriorityBadge priority={ticket.priority} />
+              <div className=" flex items-center h-5">
+                <PriorityBadge
+                  priority={ticket.priority}
+                  textSize="text-[12px]"
+                  textSize2="text-[8px]"
+                  height="h-[20px]"
+                  width="w-[37px]"
+                  width2="w-[35px]"
+                />
+              </div>
+
+              {/* Created At */}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                {t("created_at")}
+              </div>
+              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+                {new Date(ticket.createdAt).toLocaleString("zh-CN", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+
+              {/* Last Updated */}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                {t("updated_at")}
+              </div>
+              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+                {timeAgo(ticket.updatedAt)}
+              </div>
+            </div>
+          </div>
+          <div className="h-px bg-zinc-200"></div>
+
+          <div className="flex flex-col gap-4">
+            <p className="text-black text-sm font-semibold leading-none">
+              {t("assignees")}
+            </p>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={agent.avatar} />
+                  <AvatarFallback>{agent.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <span className="font-medium">{agent.name}</span>
               </div>
             </div>
           </div>

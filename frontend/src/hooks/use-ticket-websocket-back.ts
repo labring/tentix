@@ -117,7 +117,7 @@ export function useTicketWebSocket({
   // Handle reconnection
   const handleReconnect = useCallback(() => {
     if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-      console.log("Maximum reconnection attempts reached");
+      console.info("Maximum reconnection attempts reached");
       return;
     }
 

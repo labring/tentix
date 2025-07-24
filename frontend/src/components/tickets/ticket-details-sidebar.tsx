@@ -16,12 +16,10 @@ import {
   ProgressIcon,
   DoneIcon,
 } from "tentix-ui";
+import type { TFunction } from "i18next";
 
 // Custom status display function
-function getStatusDisplay(
-  status: TicketType["status"],
-  t: (key: string) => string,
-) {
+function getStatusDisplay(status: TicketType["status"], t: TFunction) {
   switch (status) {
     case "pending":
     case "scheduled":
@@ -109,10 +107,10 @@ export function TicketHistory({
 
 export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
   const { t } = useTranslation();
-  const agent = ticket.agent;
-  const statusDisplay = getStatusDisplay(ticket.status, t);
+  const agent = ticket?.agent;
+  const statusDisplay = getStatusDisplay(ticket?.status, t);
 
-  if (agent) {
+  if (ticket) {
     return (
       <div className="flex flex-col h-full border-l">
         <div className="flex-shrink-0 p-5 space-y-6">

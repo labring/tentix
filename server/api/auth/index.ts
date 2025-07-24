@@ -69,7 +69,6 @@ const authRouter = factory.createApp().post(
     "json",
     z.object({
       token: z.string(),
-      area: z.enum(areaEnumArray),
       userInfo: z.object({
         sealosId: z.string(),
         name: z.string(),

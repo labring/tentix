@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { StaffChartAreaInteractive } from "@comp/staff/chart-area-interactive";
 import { StaffSectionCards } from "@comp/staff/section-cards";
-import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar";
+import { StaffSidebar } from "@comp/staff/sidebar";
 import { userTicketsQueryOptions } from "@lib/query";
 
 export const Route = createFileRoute("/staff/dashboard")({
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/staff/dashboard")({
 function RouteComponent() {
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <StaffDashboardSidebar />
+      <StaffSidebar />
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <StaffSectionCards />

@@ -194,9 +194,11 @@ function useTicketCreation() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { area } = useLocalUser();
+  const { sealosArea } = useLocalUser();
   const queryClient = useQueryClient();
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
+    null,
+  );
 
   // Create schema with translation
   const ticketFormSchema = createTicketFormSchema(t);
@@ -207,7 +209,7 @@ function useTicketCreation() {
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
-      area,
+      area: sealosArea,
       priority: ticketPriorityEnumArray[0],
       occurrenceTime: new Date().toISOString(),
     },
@@ -221,7 +223,7 @@ function useTicketCreation() {
         title: data.title,
         module: data.module,
         description: data.description,
-        area: data.area || area,
+        area: data.area || sealosArea,
         occurrenceTime: data.occurrenceTime || new Date().toISOString(),
         priority: data.priority || ticketPriorityEnumArray[0],
       };
@@ -305,16 +307,19 @@ function useTicketCreation() {
             formData.description,
             (progress) => setUploadProgress(progress),
           );
-          
+
           processedDescription = processedContent;
           setUploadProgress(null);
         } catch (uploadError) {
           setUploadProgress(null);
           console.error("文件上传失败:", uploadError);
-          
+
           toast({
             title: "文件上传失败",
-            description: uploadError instanceof Error ? uploadError.message : "文件上传时出现错误",
+            description:
+              uploadError instanceof Error
+                ? uploadError.message
+                : "文件上传时出现错误",
             variant: "destructive",
           });
           return false;
@@ -332,10 +337,11 @@ function useTicketCreation() {
     } catch (error) {
       setUploadProgress(null);
       console.error("提交工单失败:", error);
-      
+
       toast({
         title: t("ticket_create_failed"),
-        description: error instanceof Error ? error.message : "提交时出现未知错误",
+        description:
+          error instanceof Error ? error.message : "提交时出现未知错误",
         variant: "destructive",
       });
       return false;
@@ -425,7 +431,7 @@ function RouteComponent() {
       </div>
       {/* Confirmation Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="w-96 p-6">
+        <DialogContent className="w-96 p-6 !rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-1.5">
               <TriangleAlertIcon className="!h-4 !w-4 text-yellow-600" />
@@ -436,8 +442,10 @@ function RouteComponent() {
                 <div className="space-y-2">
                   <div>{t("are_you_sure_submit_ticket")}</div>
                   <div className="text-sm text-zinc-600">
-                    正在上传文件 {uploadProgress.uploaded}/{uploadProgress.total}
-                    {uploadProgress.currentFile && ` - ${uploadProgress.currentFile}`}
+                    正在上传文件 {uploadProgress.uploaded}/
+                    {uploadProgress.total}
+                    {uploadProgress.currentFile &&
+                      ` - ${uploadProgress.currentFile}`}
                   </div>
                 </div>
               ) : (
@@ -454,12 +462,11 @@ function RouteComponent() {
               className="w-20 h-10 px-4 py-2 bg-black"
               disabled={isLoading}
             >
-              {uploadProgress 
+              {uploadProgress
                 ? `${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
-                : isLoading 
-                  ? "..." 
-                  : t("submit")
-              }
+                : isLoading
+                  ? "..."
+                  : t("submit")}
             </Button>
           </DialogFooter>
         </DialogContent>

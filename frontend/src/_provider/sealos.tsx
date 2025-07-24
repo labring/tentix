@@ -85,7 +85,8 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
         const sealosArea = extractAreaFromSealosToken(sealosToken ?? "");
 
         window.localStorage.setItem("sealosToken", sealosToken);
-        window.localStorage.setItem("area", sealosArea ?? "");
+        window.localStorage.setItem("sealosArea", sealosArea ?? "");
+        window.localStorage.setItem("sealosNs", sealosSession.user.nsid ?? "");
 
         console.info("Sealos data saved to localStorage");
 
@@ -93,8 +94,8 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
           isInitialized: true,
           isLoading: false,
           error: null,
-          sealosToken: sealosToken,
-          sealosArea: sealosArea,
+          sealosToken,
+          sealosArea,
           sealosUser: sealosSession.user,
         });
 
@@ -135,7 +136,7 @@ export function useSealos() {
   return context;
 }
 
-export function waitForSealosInit(): Promise<void> {
+export async function waitForSealosInit(): Promise<void> {
   if (!sealosInitPromise) {
     // if not initialized, return a resolved promise (maybe server-side rendering or test environment)
     console.warn(

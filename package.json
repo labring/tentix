@@ -31,13 +31,10 @@
     }
   },
   "devDependencies": {
-    "@tanstack/react-query": "^5.74.4",
     "@types/bun": "catalog:",
-    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "catalog:",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "drizzle-orm": "0.43.1",
     "eslint": "^9.27.0",
     "i18n": "workspace:*",
     "prettier": "^3.5.1",
@@ -52,10 +49,6 @@
     "node": ">=22"
   },
   "dependencies": {
-    "ahooks": "^3.8.4",
-    "jsonwebtoken": "^9.0.2",
-    "lucide-react": "^0.510.0",
-    "zod": "^3.25.56",
-    "zustand": "^5.0.3"
+    "zod": "^3.25.56"
   }
 }

@@ -9,7 +9,7 @@ import { useSessionMembersStore, useChatStore } from "@store/index";
 import { type TicketType } from "tentix-server/rpc";
 import "react-photo-view/dist/react-photo-view.css";
 import { PhotoProvider } from "react-photo-view";
-import { useToast } from "tentix-ui";
+import { useToast, ScrollArea } from "tentix-ui";
 
 export function UserChat({
   ticket,
@@ -77,24 +77,30 @@ export function UserChat({
     // 设置当前 ticketId
     setCurrentTicketId(ticket.id);
 
+    // 将 ref 的 current 值保存在局部变量中
+    const timeoutRef = typingTimeoutRef.current;
+    const readStatusRef = sentReadStatusRef.current;
+
     return () => {
-      // 组件卸载时清理
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
       }
 
-      // 立即关闭 WebSocket 连接
       closeConnection();
-
-      // 清理 store 状态
       setCurrentTicketId(null);
       setSessionMembers(null);
       clearMessages();
 
-      // 清理已读状态追踪
-      sentReadStatusRef.current.clear();
+      // 使用局部变量进行操作
+      readStatusRef.clear();
     };
-  }, [ticket.id]); // 只依赖 ticket.id
+  }, [
+    ticket.id,
+    closeConnection,
+    setCurrentTicketId,
+    setSessionMembers,
+    clearMessages,
+  ]); // 注意：为了完全符合规则，所有在effect中用到的外部函数也应加入依赖项
 
   // 单独处理数据更新
   useEffect(() => {
@@ -161,7 +167,7 @@ export function UserChat({
 
   return (
     <PhotoProvider>
-      <div className="overflow-y-auto h-full relative w-full py-5 px-4">
+      <ScrollArea className="overflow-y-auto h-full relative w-full py-5 px-4">
         <TicketInfoBox ticket={ticket} />
         <MessageList
           messages={messages}
@@ -171,7 +177,7 @@ export function UserChat({
           }
           onMessageInView={handleMessageInView}
         />
-      </div>
+      </ScrollArea>
       <MessageInput
         onSendMessage={handleSendMessage}
         onTyping={sendTypingIndicator}

@@ -254,10 +254,10 @@ export function MessageInput({
   // 渲染发送按钮内容
   const renderSendButtonContent = () => {
     if (isLoading || uploadProgress) {
-      return <Loader2Icon className="h-5 w-5 animate-spin" />;
+      return <Loader2Icon className="!h-5 !w-5 animate-spin" />;
     }
 
-    return <SendIcon className="h-5 w-5" />;
+    return <SendIcon className="!h-5 !w-5" />;
   };
 
   const isUploading = uploadProgress !== null;
@@ -295,8 +295,7 @@ export function MessageInput({
 
         <Button
           type="submit"
-          size="icon"
-          className="absolute right-3 bottom-4 flex p-2 justify-center items-center rounded-[10px] bg-zinc-900 z-20"
+          className="absolute right-3 bottom-4 flex justify-center items-center rounded-[10px] bg-zinc-900 z-20 h-9 w-9"
           disabled={!canSend}
         >
           {renderSendButtonContent()}

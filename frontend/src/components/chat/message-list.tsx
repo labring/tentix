@@ -4,6 +4,7 @@ import { TypingIndicator } from "./typing-indicator.tsx";
 import { type TicketType } from "tentix-server/rpc";
 import useLocalUser from "@hook/use-local-user.tsx";
 
+
 interface MessageListProps {
   messages: TicketType["messages"];
   isLoading: boolean;

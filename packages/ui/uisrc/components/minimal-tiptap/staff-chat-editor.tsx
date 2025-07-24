@@ -64,7 +64,7 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
           editor={editor}
           className={cn("minimal-tiptap-editor", editorContentClassName)}
         />
-        <div className="border-border flex h-9 shrink-0 overflow-x-auto border-t p-1 items-center">
+        <div className="border-border flex h-17 shrink-0 overflow-x-auto border-t px-3 items-center">
           <div className="flex w-max items-center gap-px">
             <SectionTwo
               editor={editor}
@@ -77,14 +77,16 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
               ]}
               mainActionCount={5}
               size="sm"
+              className="!w-9 !h-9"
             />
           </div>
           <div className="w-full" />
           {/* <TemplateReplies onSelectTemplate={handleTemplateSelect} />
           <KnowledgeBase /> */}
-          <div className="flex items-center justify-between px-2">
+          <div className="flex items-center justify-between gap-1  mr-13">
             <ToggleGroup
               type="single"
+              className="gap-2"
               value={messageType}
               onValueChange={(value: "public" | "internal") =>
                 setMessageType(value)
@@ -93,20 +95,29 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
               <ToggleGroupItem
                 value="public"
                 aria-label="Public message"
-                className="gap-1.5 h-6"
+                className={`gap-2 h-7 ${
+                  messageType === "public" ? "rounded-lg !bg-zinc-100" : ""
+                }`}
               >
-                <EyeIcon className="h-4 w-4" />
-                <span>Public</span>
+                <EyeIcon className="h-4 w-4 text-zinc-500" />
+                <span className="text-zinc-900 font-sans text-sm font-medium leading-5">
+                  Public
+                </span>
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="internal"
                 aria-label="Internal note"
-                className="gap-1.5 h-6"
+                className={`gap-2 h-7 ${
+                  messageType === "internal" ? "rounded-lg !bg-violet-50" : ""
+                }`}
               >
-                <EyeOffIcon className="h-4 w-4" />
-                <span>Internal</span>
+                <EyeOffIcon className="h-4 w-4 text-zinc-500" />
+                <span className="text-zinc-900 font-sans text-sm font-medium leading-5">
+                  Internal
+                </span>
               </ToggleGroupItem>
             </ToggleGroup>
+            <div className="w-px h-[18px] bg-zinc-200"></div>
           </div>
         </div>
         <LinkBubbleMenu editor={editor} />
