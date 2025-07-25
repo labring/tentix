@@ -25,28 +25,30 @@ import {
   Textarea,
   toast,
   Badge,
+  cn,
 } from "tentix-ui";
 import { z } from "zod";
 import useLocalUser from "@hook/use-local-user";
 import { apiClient } from "@lib/api-client";
 
-// Define the form schema with zod
-const transferFormSchema = z.object({
-  staffIds: z.array(z.string()).min(1, {
-    message: "Please select at least one staff member",
-  }),
-  reason: z
-    .string({
-      required_error: "Please provide a reason for transfer",
-    })
-    .min(3, {
-      message: "Reason must be at least 3 characters",
+// Define the form schema with zod - we'll use t() function in the component
+const createTransferFormSchema = (t: (key: string) => string) =>
+  z.object({
+    staffIds: z.array(z.string()).min(1, {
+      message: t("please_select_staff"),
     }),
-  remarks: z.string().optional(),
-});
+    reason: z
+      .string({
+        required_error: t("please_provide_reason"),
+      })
+      .min(3, {
+        message: t("reason_min_length"),
+      }),
+    remarks: z.string().optional(),
+  });
 
 // Define the form values type
-type TransferFormValues = z.infer<typeof transferFormSchema>;
+type TransferFormValues = z.infer<ReturnType<typeof createTransferFormSchema>>;
 
 async function transferTicket({
   ticketId,
@@ -84,6 +86,7 @@ export function useTransferModal() {
   const { data: staffList } = useSuspenseQuery(staffListQueryOptions());
 
   // Initialize form with React Hook Form
+  const transferFormSchema = createTransferFormSchema(t);
   const form = useForm<TransferFormValues>({
     resolver: zodResolver(transferFormSchema),
     defaultValues: {
@@ -122,7 +125,6 @@ export function useTransferModal() {
 
   // Handle form submission
   const onSubmit = (values: TransferFormValues) => {
-    // console.log(values);
     transferMutation.mutate({
       ticketId,
       targetStaffId: values.staffIds.map((id) => parseInt(id)),
@@ -142,11 +144,10 @@ export function useTransferModal() {
       <DialogContent className="flex flex-col gap-4 w-[31.25rem] max-w-[31.25rem] !rounded-2xl p-6 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.10),0px_4px_6px_-2px_rgba(0,0,0,0.05)] border-0">
         <div className="flex flex-col items-start gap-[6px]">
           <p className="text-lg font-semibold leading-none text-foreground font-sans">
-            Transfer Ticket
+            {t("transfer_ticket_title")}
           </p>
           <p className="text-sm font-normal leading-5 text-zinc-500 font-sans">
-            Transfer this ticket to another employee, and they will be notified
-            about the transfer.
+            {t("transfer_desc")}
           </p>
         </div>
         <Form {...form}>
@@ -160,12 +161,12 @@ export function useTransferModal() {
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="text-sm font-medium text-zinc-900 font-sans leading-5 normal-case">
-                    Select Employee
+                    {t("select_employee")}
                   </FormLabel>
                   <FormControl>
                     <div className="flex flex-col gap-2">
                       <Input
-                        placeholder="Search employee"
+                        placeholder={t("search_employee")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="h-10"
@@ -206,9 +207,10 @@ export function useTransferModal() {
                             .map((staff, index, array) => (
                               <div
                                 key={staff.id}
-                                className={`flex items-center px-5 gap-2 h-12 cursor-pointer hover:bg-blue-50 transition-all duration-200 ${
-                                  index !== array.length - 1 ? "border-b" : ""
-                                }`}
+                                className={cn(
+                                  "h-12 flex items-center px-5 gap-2 cursor-pointer hover:bg-blue-50 transition-all duration-200",
+                                  index !== array.length - 1 ? "border-b" : "",
+                                )}
                               >
                                 <Checkbox
                                   checked={
@@ -241,7 +243,7 @@ export function useTransferModal() {
                                 />
                                 <Label
                                   htmlFor={`staff-${staff.id}`}
-                                  className="flex flex-1 cursor-pointer items-center gap-2"
+                                  className="flex flex-1 cursor-pointer items-center gap-2 h-12"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     const currentValues = Array.isArray(
@@ -267,7 +269,7 @@ export function useTransferModal() {
                                     }
                                   }}
                                 >
-                                  <Avatar className="h-10 w-10">
+                                  <Avatar className="h-6 w-6">
                                     <AvatarImage
                                       src={staff.avatar || "/placeholder.svg"}
                                       alt={staff.name}
@@ -282,23 +284,17 @@ export function useTransferModal() {
                                     </div>
                                   </div>
                                   <Badge
-                                    className={`
-                                      flex h-5 px-1.5 py-0.5 justify-center items-center gap-2.5 rounded-full shrink-0
-                                      text-zinc-900 font-sans font-medium leading-[140%] border-[0.5px] normal-case
-                                      ${
-                                        staff.ticketNum < 10
-                                          ? "border-emerald-200 bg-emerald-50"
-                                          : staff.ticketNum >= 10 &&
-                                              staff.ticketNum < 20
-                                            ? "border-orange-200 bg-orange-50"
-                                            : "border-red-200 bg-red-50"
-                                      }
-                                    `}
-                                    style={{
-                                      fontSize: "12.8px",
-                                    }}
+                                    className={cn(
+                                      "flex h-5 px-1.5 py-0.5 justify-center items-center gap-2.5 rounded-full shrink-0 text-zinc-900 font-sans font-medium leading-[140%] border-[0.5px] normal-case",
+                                      staff.ticketNum < 10
+                                        ? "border-emerald-200 bg-emerald-50"
+                                        : staff.ticketNum >= 10 &&
+                                            staff.ticketNum < 20
+                                          ? "border-orange-200 bg-orange-50"
+                                          : "border-red-200 bg-red-50",
+                                    )}
                                   >
-                                    {staff.ticketNum} tickets
+                                    {staff.ticketNum} {t("tickets_count")}
                                   </Badge>
                                 </Label>
                               </div>
@@ -318,11 +314,11 @@ export function useTransferModal() {
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel className="text-sm font-medium text-zinc-900 font-sans leading-5 normal-case">
-                    Reason for transfer
+                    {t("transfer_reason")}
                   </FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Provide details for this transfer..."
+                      placeholder={t("transfer_reason_ph")}
                       {...field}
                       className="min-h-[6rem] resize-none border-gray-200 focus:border-primary"
                     />
@@ -341,7 +337,7 @@ export function useTransferModal() {
                   disabled={transferMutation.isPending}
                   className="flex-1"
                 >
-                  Cancel
+                  {t("cancel")}
                 </Button>
                 <Button
                   type="submit"
@@ -351,8 +347,8 @@ export function useTransferModal() {
                   className="flex-1"
                 >
                   {transferMutation.isPending
-                    ? "Transferring..."
-                    : "Transfer Ticket"}
+                    ? t("transferring")
+                    : t("transfer_ticket")}
                 </Button>
               </div>
             </DialogFooter>

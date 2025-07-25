@@ -87,17 +87,21 @@ export function SiteHeader({
     <>
       <div className="flex h-14 w-full border-b items-center justify-between px-4 ">
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 justify-center items-center rounded-md cursor-pointer hidden xl:flex"
-            onClick={toggleSidebar}
-            aria-label={sidebarVisible ? t("hide_sidebar") : t("show_sidebar")}
-          >
-            <PanelLeft className="h-5 w-5" />
-          </Button>
+          {toggleSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 justify-center items-center rounded-md cursor-pointer hidden xl:flex"
+              onClick={toggleSidebar}
+              aria-label={
+                sidebarVisible ? t("hide_sidebar") : t("show_sidebar")
+              }
+            >
+              <PanelLeft className="h-5 w-5" />
+            </Button>
+          )}
           <h1
-            className="max-w-100 truncate block 
+            className="max-w-100 2xl:max-w-100 xl:max-w-100 lg:max-w-60 md:max-w-40 sm:max-w-20 truncate block 
                        text-[#000] 
                        text-[16px] 
                        font-[600] 

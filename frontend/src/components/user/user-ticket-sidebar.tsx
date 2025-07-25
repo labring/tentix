@@ -20,6 +20,7 @@ import {
   PendingIcon,
   ProgressIcon,
   DoneIcon,
+  cn,
 } from "tentix-ui";
 import { userTablePagination } from "@store/table-pagination";
 import { useQuery } from "@tanstack/react-query";
@@ -375,12 +376,15 @@ export function UserTicketSidebar({
                       }
                     >
                       <div
-                        className={`w-4 h-4 border rounded border-zinc-300 flex items-center justify-center ${
-                          isChecked ? "bg-blue-600 border-blue-600" : "bg-white"
-                        }`}
+                        className={cn(
+                          "flex w-4 h-4 items-center justify-center rounded-sm border",
+                          isChecked
+                            ? "border-[#18181B] bg-[#18181B]"
+                            : "border-[#18181B] bg-white",
+                        )}
                       >
                         {isChecked && (
-                          <CheckIcon className="w-3 h-3 text-white" />
+                          <CheckIcon className="w-4 h-4 text-white" />
                         )}
                       </div>
                       <span className="text-sm font-normal text-foreground">

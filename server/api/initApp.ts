@@ -5,6 +5,7 @@ import { readConfig } from "@/utils/env";
 import { connectDB } from "@/utils/tools";
 import { and, count, eq, gte, lt } from "drizzle-orm";
 import i18next from "i18next";
+import { translations } from "i18n";
 
 export async function initGlobalVariables() {
   if (!global.config) {
@@ -26,7 +27,18 @@ export async function initGlobalVariables() {
     await initTodayTicketCount();
   }
   if (!global.i18n) {
-    global.i18n = i18next;
+    // 初始化服务端纯净的i18next实例
+    const serverI18n = i18next.createInstance();
+    await serverI18n.init({
+      debug: process.env.NODE_ENV !== "production",
+      fallbackLng: "zh",
+      lng: "zh",
+      interpolation: {
+        escapeValue: false,
+      },
+      resources: translations,
+    });
+    global.i18n = serverI18n;
   }
 }
 

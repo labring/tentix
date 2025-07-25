@@ -28,7 +28,6 @@ import { useTranslation, joinTrans } from "i18n";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@lib/api-client";
-import useLocalUser from "@hook/use-local-user";
 import type { ticketInsertType, JSONContentZod } from "tentix-server/types";
 import {
   ticketPriorityEnumArray,
@@ -37,6 +36,7 @@ import {
 } from "tentix-server/constants";
 import { ArrowLeftIcon, TriangleAlertIcon } from "lucide-react";
 import { processFilesAndUpload } from "@comp/chat/upload-utils";
+import { useSealos } from "src/_provider/sealos";
 
 // Client-side validation schema - 只验证用户需要填写的字段
 const createTicketFormSchema = (t: (key: string) => string) =>
@@ -194,7 +194,7 @@ function useTicketCreation() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { sealosArea } = useLocalUser();
+  const { sealosArea } = useSealos();
   const queryClient = useQueryClient();
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
     null,
@@ -209,7 +209,7 @@ function useTicketCreation() {
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
-      area: sealosArea,
+      area: sealosArea as (typeof areaEnumArray)[number],
       priority: ticketPriorityEnumArray[0],
       occurrenceTime: new Date().toISOString(),
     },
@@ -223,7 +223,7 @@ function useTicketCreation() {
         title: data.title,
         module: data.module,
         description: data.description,
-        area: data.area || sealosArea,
+        area: data.area || (sealosArea as (typeof areaEnumArray)[number]) || "hzh",
         occurrenceTime: data.occurrenceTime || new Date().toISOString(),
         priority: data.priority || ticketPriorityEnumArray[0],
       };

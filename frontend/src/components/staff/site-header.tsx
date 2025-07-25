@@ -98,7 +98,7 @@ export function StaffSiteHeader({
   };
 
   return (
-    <header className="flex h-14 w-full border-b items-center justify-between px-4 ">
+    <header className="hidden md:flex h-14 w-full border-b items-center justify-between px-4 ">
       <div className="flex items-center gap-1">
         {toggleSidebar && (
           <Button
@@ -111,7 +111,13 @@ export function StaffSiteHeader({
             <PanelLeft className="h-5 w-5" />
           </Button>
         )}
-        <h1 className="text-base font-medium max-w-200 truncate block">
+        <h1
+          className="max-w-100 2xl:max-w-100 xl:max-w-100 lg:max-w-60 md:max-w-40 sm:max-w-20 truncate block 
+                       text-[#000] 
+                       text-[16px] 
+                       font-[600] 
+                       leading-[100%]"
+        >
           {ticket.title}
         </h1>
       </div>
