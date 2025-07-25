@@ -1,8 +1,8 @@
-import * as React from "react"
-import type { Editor } from "@tiptap/react"
-import type { FormatAction } from "../../types.ts"
-import type { toggleVariants } from "uisrc/components/ui/toggle.tsx"
-import type { VariantProps } from "class-variance-authority"
+import * as React from "react";
+import type { Editor } from "@tiptap/react";
+import type { FormatAction } from "../../types.ts";
+import type { toggleVariants } from "uisrc/components/ui/toggle.tsx";
+import type { VariantProps } from "class-variance-authority";
 import {
   CodeIcon,
   BoldIcon,
@@ -11,8 +11,8 @@ import {
   TextIcon,
   UnderlineIcon,
   Ellipsis,
-} from "lucide-react"
-import { ToolbarSection } from "../toolbar-section.tsx"
+} from "lucide-react";
+import { ToolbarSection } from "../toolbar-section.tsx";
 
 type TextStyleAction =
   | "bold"
@@ -20,17 +20,17 @@ type TextStyleAction =
   | "underline"
   | "strikethrough"
   | "code"
-  | "clearFormatting"
+  | "clearFormatting";
 
 interface TextStyle extends FormatAction {
-  value: TextStyleAction
+  value: TextStyleAction;
 }
 
 const formatActions: TextStyle[] = [
   {
     value: "bold",
     label: "Bold",
-    icon: <BoldIcon className="size-5" />,
+    icon: <BoldIcon className="size-5 text-zinc-500" />,
     action: (editor) => editor.chain().focus().toggleBold().run(),
     isActive: (editor) => editor.isActive("bold"),
     canExecute: (editor) =>
@@ -41,7 +41,7 @@ const formatActions: TextStyle[] = [
   {
     value: "italic",
     label: "Italic",
-    icon: <ItalicIcon className="size-5" />,
+    icon: <ItalicIcon className="size-5 text-zinc-500" />,
     action: (editor) => editor.chain().focus().toggleItalic().run(),
     isActive: (editor) => editor.isActive("italic"),
     canExecute: (editor) =>
@@ -52,7 +52,7 @@ const formatActions: TextStyle[] = [
   {
     value: "underline",
     label: "Underline",
-    icon: <UnderlineIcon className="size-5" />,
+    icon: <UnderlineIcon className="size-5 text-zinc-500" />,
     action: (editor) => editor.chain().focus().toggleUnderline().run(),
     isActive: (editor) => editor.isActive("underline"),
     canExecute: (editor) =>
@@ -63,7 +63,7 @@ const formatActions: TextStyle[] = [
   {
     value: "strikethrough",
     label: "Strikethrough",
-    icon: <StrikethroughIcon className="size-5" />,
+    icon: <StrikethroughIcon className="size-5 text-zinc-500" />,
     action: (editor) => editor.chain().focus().toggleStrike().run(),
     isActive: (editor) => editor.isActive("strike"),
     canExecute: (editor) =>
@@ -74,7 +74,7 @@ const formatActions: TextStyle[] = [
   {
     value: "code",
     label: "Code",
-    icon: <CodeIcon className="size-5" />,
+    icon: <CodeIcon className="size-5 text-zinc-500" />,
     action: (editor) => editor.chain().focus().toggleCode().run(),
     isActive: (editor) => editor.isActive("code"),
     canExecute: (editor) =>
@@ -85,7 +85,7 @@ const formatActions: TextStyle[] = [
   {
     value: "clearFormatting",
     label: "Clear formatting",
-    icon: <TextIcon className="size-5" />,
+    icon: <TextIcon className="size-5 text-zinc-500" />,
     action: (editor) => editor.chain().focus().unsetAllMarks().run(),
     isActive: () => false,
     canExecute: (editor) =>
@@ -93,12 +93,13 @@ const formatActions: TextStyle[] = [
       !editor.isActive("codeBlock"),
     shortcuts: ["mod", "\\"],
   },
-]
+];
 
 interface SectionTwoProps extends VariantProps<typeof toggleVariants> {
-  editor: Editor
-  activeActions?: TextStyleAction[]
-  mainActionCount?: number
+  editor: Editor;
+  activeActions?: TextStyleAction[];
+  mainActionCount?: number;
+  className?: string;
 }
 
 export const SectionTwo: React.FC<SectionTwoProps> = ({
@@ -107,6 +108,7 @@ export const SectionTwo: React.FC<SectionTwoProps> = ({
   mainActionCount = 2,
   size,
   variant,
+  className,
 }) => {
   return (
     <ToolbarSection
@@ -114,15 +116,16 @@ export const SectionTwo: React.FC<SectionTwoProps> = ({
       actions={formatActions}
       activeActions={activeActions}
       mainActionCount={mainActionCount}
-      dropdownIcon={<Ellipsis  className="size-5" />}
+      dropdownIcon={<Ellipsis className="size-5" />}
       dropdownTooltip="More formatting"
       dropdownClassName="w-8"
       size={size}
       variant={variant}
+      className={className}
     />
-  )
-}
+  );
+};
 
-SectionTwo.displayName = "SectionTwo"
+SectionTwo.displayName = "SectionTwo";
 
-export default SectionTwo
+export default SectionTwo;

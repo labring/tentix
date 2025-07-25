@@ -1,6 +1,19 @@
 {
-    "typescript.tsdk": "node_modules/typescript/lib",
-    "files.associations": {
-      "*.css": "tailwindcss"
-    }
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "cSpell.words": [
+    "feishu",
+    "prty",
+    "sealos",
+    "Tentix",
+    "uisrc"
+  ]
 }

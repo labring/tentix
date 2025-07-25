@@ -1,10 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { TicketInfoBox } from "../ticket-info-box.tsx";
-import {
-  useTicketStore,
-  useSessionMembersStore,
-  useChatStore,
-} from "@store/index";
+import { useSessionMembersStore, useChatStore } from "@store/index";
 import { useTicketWebSocket } from "@hook/use-ticket-websocket";
 import { StaffMessageInput } from "./message-input.tsx";
 import { MessageList } from "../message-list.tsx";
@@ -12,36 +8,40 @@ import { type JSONContentZod } from "tentix-server/types";
 import { type TicketType } from "tentix-server/rpc";
 import { PhotoProvider } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";
-import { Button } from "tentix-ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button, useToast, ScrollArea } from "tentix-ui";
+import { useMutation } from "@tanstack/react-query";
 import { joinTicketAsTechnician } from "@lib/query";
+import useLocalUser from "@hook/use-local-user.tsx";
 
 interface StaffChatProps {
   ticket: TicketType;
   token: string;
-  userId: number;
+  isTicketLoading: boolean;
 }
 
-export function StaffChat({ ticket, token, userId }: StaffChatProps) {
+export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
+  const [isLoading, setIsLoading] = useState(false);
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
-  const hadFirstMsg = useRef<boolean>(
-    ticket.messages.some((msg) => msg.senderId === userId),
-  );
-  const queryClient = useQueryClient();
+  const { id: userId } = useLocalUser();
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   // Refs
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const sentReadStatusRef = useRef<Set<number>>(new Set());
+  const hadFirstMsg = useRef<boolean>(
+    ticket.messages.some((msg) => msg.senderId === userId),
+  );
 
-  // Store hooks
+  // Store hooks - 添加 setCurrentTicketId 和 clearMessages
   const { sessionMembers, setSessionMembers } = useSessionMembersStore();
-  const { setTicket } = useTicketStore();
-  const { 
-    messages, 
+  const {
+    messages,
     setMessages,
+    setWithdrawMessageFunc,
+    setCurrentTicketId,
+    clearMessages,
   } = useChatStore();
 
-  const sentReadStatusRef = useRef<Set<number>>(new Set());
-
+  const { toast } = useToast();
   // Check if current user is a member of this ticket
   const isTicketMember = useMemo(() => {
     if (!sessionMembers) return false;
@@ -57,10 +57,6 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
   const joinTicketMutation = useMutation({
     mutationFn: joinTicketAsTechnician,
     onSuccess: () => {
-      // Invalidate and refetch the ticket query to update the member list
-      queryClient.invalidateQueries({
-        queryKey: ["getTicket", ticket.id.toString()],
-      });
       window.location.reload();
     },
   });
@@ -71,26 +67,31 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
   };
 
   // handle user typing
+  // TODO:   群聊中 多个其他人输入是否能正确处理 ？
   const handleUserTyping = (typingUserId: number, status: "start" | "stop") => {
     if (status === "start") {
       setOtherTyping(typingUserId);
     } else {
       setOtherTyping(false);
     }
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
+
     typingTimeoutRef.current = setTimeout(() => {
       setOtherTyping(false);
     }, 3000);
   };
 
   const {
-    isLoading,
+    isLoading: wsLoading,
     sendMessage,
     sendTypingIndicator,
     sendReadStatus,
-    sendCustomMsg, 
+    sendCustomMsg,
+    closeConnection,
+    withdrawMessage,
   } = useTicketWebSocket({
     ticket,
     token,
@@ -99,20 +100,54 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
     onError: (error) => console.error("WebSocket error:", error),
   });
 
-  // Set up initial ticket data
   useEffect(() => {
-    setTicket(ticket);
+    setIsLoading(wsLoading || isTicketLoading);
+    setWithdrawMessageFunc(withdrawMessage);
+  }, [wsLoading, isTicketLoading, withdrawMessage, setWithdrawMessageFunc]);
+
+  // 设置当前 ticketId 并在卸载时清理
+  useEffect(() => {
+    // 设置当前 ticketId
+    setCurrentTicketId(ticket.id);
+
+    const timeoutRef = typingTimeoutRef.current;
+    const readStatusRef = sentReadStatusRef.current;
+
+    return () => {
+      // 组件卸载时清理
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
+      }
+
+      // 立即关闭 WebSocket 连接
+      closeConnection();
+      // 清理 store 状态
+      setCurrentTicketId(null);
+      setSessionMembers(null);
+      clearMessages();
+
+      // 清理已读状态追踪
+      readStatusRef.clear();
+    };
+  }, [
+    ticket.id,
+    closeConnection,
+    setCurrentTicketId,
+    setSessionMembers,
+    clearMessages,
+  ]);
+
+  // 单独处理数据更新
+  useEffect(() => {
     setSessionMembers(ticket);
     setMessages(ticket.messages);
-  }, [ticket, setTicket, setSessionMembers]);
-
-  // cleanup function
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, []);
-
+    // 清理已读状态追踪，因为是新的 ticket
+    sentReadStatusRef.current.clear();
+    // 更新 hadFirstMsg ref
+    hadFirstMsg.current = ticket.messages.some(
+      (msg) => msg.senderId === userId,
+    );
+  }, [ticket, setSessionMembers, setMessages, userId]);
 
   // Track unread messages
   useEffect(() => {
@@ -127,7 +162,7 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
       }
     });
     setUnreadMessages(newUnreadMessages);
-  }, [messages.length, userId, messages]);
+  }, [messages, userId]);
 
   // Send read status when messages come into view
   const handleMessageInView = (messageId: number) => {
@@ -147,60 +182,75 @@ export function StaffChat({ ticket, token, userId }: StaffChatProps) {
   };
 
   // Handle send message
-  const handleSendMessage = (content: JSONContentZod, isInternal = false) => {
+  const handleSendMessage = async (
+    content: JSONContentZod,
+    isInternal = false,
+  ) => {
     if (isLoading) return;
-    const tempId =Number(window.crypto.getRandomValues(new Uint32Array(1)));
-    // Add to sending message store to show loading state
-    // Send message via WebSocket
-    sendMessage(content, tempId, isInternal);
-    if (!hadFirstMsg.current) {
-      sendCustomMsg({
-        type: "agent_first_message",
-        timestamp: Date.now(),
-        roomId: ticket.id,
+    const tempId = Number(window.crypto.getRandomValues(new Uint32Array(1)));
+
+    try {
+      // Send message via WebSocket
+      await sendMessage(content, tempId, isInternal);
+
+      if (!hadFirstMsg.current) {
+        sendCustomMsg({
+          type: "agent_first_message",
+          timestamp: Date.now(),
+          roomId: ticket.id,
+        });
+        hadFirstMsg.current = true;
+      }
+    } catch (error) {
+      console.error("消息发送失败:", error);
+
+      // 显示错误提示
+      toast({
+        title: "发送失败",
+        description:
+          error instanceof Error ? error.message : "发送消息时出现错误",
+        variant: "destructive",
       });
-      hadFirstMsg.current = true;
+
+      // 重新抛出错误，让 StaffMessageInput 知道发送失败
+      throw error;
     }
   };
 
   return (
     <PhotoProvider>
-      <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="overflow-y-auto h-full relative">
-            <TicketInfoBox ticket={ticket} />
-            <MessageList
-              messages={messages}
-              isLoading={isLoading}
-              typingUser={
-                sessionMembers?.find((member) => member.id === otherTyping)?.id
-              }
-              onMessageInView={handleMessageInView}
-            />
+      <ScrollArea className="overflow-y-auto h-full relative w-full py-5 px-4">
+        <TicketInfoBox ticket={ticket} />
+        <MessageList
+          messages={messages}
+          isLoading={isLoading}
+          typingUser={
+            sessionMembers?.find((member) => member.id === otherTyping)?.id
+          }
+          onMessageInView={handleMessageInView}
+        />
+      </ScrollArea>
+      {!isTicketMember ? (
+        <div className="bg-white h-42 border-t  flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm text-gray-500 mb-2">
+              你尚未加入该工单，无法发送消息
+            </p>
+            <Button
+              onClick={handleJoinTicket}
+              disabled={joinTicketMutation.isPending}
+            >
+              {joinTicketMutation.isPending ? "加入中..." : "加入此工单"}
+            </Button>
           </div>
-          {!isTicketMember ? (
-            <div className="bg-white p-4 border-t dark:border-gray-800 dark:bg-gray-950 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-sm text-gray-500 mb-2">
-                  你尚未加入该工单，无法发送消息
-                </p>
-                <Button
-                  onClick={handleJoinTicket}
-                  disabled={joinTicketMutation.isPending}
-                >
-                  {joinTicketMutation.isPending ? "加入中..." : "加入此工单"}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <StaffMessageInput
-              onSendMessage={handleSendMessage}
-              onTyping={sendTypingIndicator}
-              isLoading={isLoading}
-            />
-          )}
         </div>
-      </div>
+      ) : (
+        <StaffMessageInput
+          onSendMessage={handleSendMessage}
+          onTyping={sendTypingIndicator}
+          isLoading={isLoading}
+        />
+      )}
     </PhotoProvider>
   );
 }

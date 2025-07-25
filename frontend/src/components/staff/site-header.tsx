@@ -1,11 +1,30 @@
-import { useRaiseReqModal } from "@modal/use-raise-req-modal";
 import { useTransferModal } from "@modal/use-transfer-modal";
-import { useUpdateStatusModal } from "@modal/use-update-status-modal";
+import { useUpdatePriorityModal } from "@modal/use-update-priority-modal";
 import { useTranslation } from "i18n";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+  PanelLeft,
+  TriangleAlertIcon,
+  LibraryBigIcon,
+  NavigationIcon,
+} from "lucide-react";
 import { type TicketType } from "tentix-server/rpc";
-import { Button, Separator, SidebarTrigger } from "tentix-ui";
-
+import { updateTicketStatus } from "@lib/query";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  toast,
+  PriorityBadge,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "tentix-ui";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
 
 interface SiteHeaderProps {
   ticket: TicketType;
@@ -18,64 +37,202 @@ export function StaffSiteHeader({
   sidebarVisible,
   toggleSidebar,
 }: SiteHeaderProps) {
-  const { openRaiseReqModal, raiseReqModal, isRaisingReq } = useRaiseReqModal();
   const { openTransferModal, transferModal, isTransferring } =
     useTransferModal();
-  const { openUpdateStatusModal, updateStatusModal, isUpdatingStatus } =
-    useUpdateStatusModal();
+  const { openUpdatePriorityModal, updatePriorityModal, isUpdatingPriority } =
+    useUpdatePriorityModal();
+
+  const queryClient = useQueryClient();
+  const [showDialog, setShowDialog] = useState(false);
   const { t } = useTranslation();
 
+  // Close ticket mutation
+  const closeTicketMutation = useMutation({
+    mutationFn: updateTicketStatus,
+    onSuccess: (data) => {
+      toast({
+        title: t("success"),
+        description: data.message || t("ticket_closed"),
+        variant: "default",
+      });
+      // refresh user's ticket data
+      queryClient.invalidateQueries({
+        queryKey: ["getUserTickets"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getTicket", ticket?.id],
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("error"),
+        description: error.message || t("failed_close_ticket"),
+        variant: "destructive",
+      });
+    },
+  });
 
-  
+  // Handle close ticket
+  const handleCloseTicket = useCallback(
+    (ticketId: string) => {
+      closeTicketMutation.mutate({
+        ticketId,
+        status: "resolved",
+        description: t("close_ticket"),
+      });
+    },
+    [closeTicketMutation, t],
+  );
+
+  const isResolved = ticket?.status === "resolved";
+
+  const handleDialogConfirm = () => {
+    if (ticket) {
+      handleCloseTicket(ticket.id);
+    }
+    setShowDialog(false);
+  };
+
+  const handleDialogCancel = () => {
+    setShowDialog(false);
+  };
+
   return (
-    <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
-      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
-        <SidebarTrigger className="-ml-1" />
-        <Separator
-          orientation="vertical"
-          className="mx-2 data-[orientation=vertical]:h-4"
-        />
-        <h1 className="text-base font-medium max-w-200 truncate block">{`${t("tkt_one")} ORD-${ticket.id}: ${ticket.title}`}</h1>
-        <Button
-          onClick={() => openRaiseReqModal(ticket.id)}
-          disabled={isRaisingReq}
-        >
-          {t("raise_request")}
-        </Button>
-        <Button
-          onClick={() => openTransferModal(ticket.id)}
-          disabled={isTransferring}
-        >
-          {t("transfer")}
-        </Button>
-        <Button
-          onClick={() => openUpdateStatusModal(ticket.id, ticket.status)}
-          disabled={isUpdatingStatus}
-        >
-          {t("update_status")}
-        </Button>
-
+    <header className="hidden md:flex h-14 w-full border-b items-center justify-between px-4 ">
+      <div className="flex items-center gap-1">
         {toggleSidebar && (
-          <div className="ml-auto hidden md:block">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full bg-background shadow-xs hover:bg-muted"
-              onClick={toggleSidebar}
-              aria-label={sidebarVisible ? "Expand panel" : "Collapse panel"}
-            >
-              {sidebarVisible ? (
-                <ChevronRightIcon className="h-4 w-4" />
-              ) : (
-                <ChevronLeftIcon className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 justify-center items-center rounded-md cursor-pointer hidden xl:flex"
+            onClick={toggleSidebar}
+            aria-label={sidebarVisible ? t("hide_sidebar") : t("show_sidebar")}
+          >
+            <PanelLeft className="h-5 w-5" />
+          </Button>
         )}
+        <h1
+          className="max-w-100 2xl:max-w-100 xl:max-w-100 lg:max-w-60 md:max-w-40 sm:max-w-20 truncate block 
+                       text-[#000] 
+                       text-[16px] 
+                       font-[600] 
+                       leading-[100%]"
+        >
+          {ticket.title}
+        </h1>
       </div>
-      {raiseReqModal}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center h-10 rounded-lg border border-zinc-200">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex items-center justify-center h-10 rounded-r-none border-l-0 rounded-l-lg border-r border-zinc-200 hover:bg-zinc-50"
+                onClick={() => {}}
+                disabled={false}
+              >
+                <LibraryBigIcon
+                  className="h-3 w-3 text-zinc-500"
+                  strokeWidth={1.33}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={2}>
+              <p>{t("klg_base")}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex items-center justify-center h-10 rounded-none border-l-0  border-r-0 hover:bg-zinc-50"
+                onClick={() => {}}
+                disabled={false}
+              >
+                <NavigationIcon
+                  className="h-3 w-3 text-zinc-500"
+                  strokeWidth={1.33}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={2}>
+              <p>{t("raise_request")}</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex items-center justify-center h-10 rounded-l-none border-l border-r-0 rounded-r-lg border-zinc-200 hover:bg-zinc-50"
+                onClick={() =>
+                  openUpdatePriorityModal(
+                    ticket.id,
+                    ticket.title,
+                    ticket.priority,
+                  )
+                }
+                disabled={isUpdatingPriority}
+              >
+                <PriorityBadge
+                  priority={ticket.priority}
+                  textSize="text-[12px]"
+                  textSize2="text-[8px]"
+                  height="h-[20px]"
+                  width="w-[37px]"
+                  width2="w-[35px]"
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={2}>
+              <p>{t("set_prty")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="flex items-center h-10 rounded-lg border border-zinc-200">
+          <Button
+            variant="outline"
+            className="flex items-center justify-center h-10 rounded-r-none border-l-0 rounded-l-lg border-r border-zinc-200 hover:bg-zinc-50"
+            disabled={isResolved || closeTicketMutation.isPending}
+            onClick={() => setShowDialog(true)}
+          >
+            {t("close")}
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center justify-center h-10 rounded-l-none border-l-0 border-r-0 rounded-r-lg border-zinc-200 hover:bg-zinc-50"
+            disabled={isTransferring}
+            onClick={() => openTransferModal(ticket.id)}
+          >
+            {t("transfer")}
+          </Button>
+        </div>
+      </div>
       {transferModal}
-      {updateStatusModal}
+      {updatePriorityModal}
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="w-96 p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-1.5">
+              <TriangleAlertIcon className="!h-4 !w-4 text-yellow-600" />
+              {t("prompt")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("are_you_sure_close_ticket")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDialogCancel}>
+              {t("cancel")}
+            </Button>
+            <Button
+              onClick={handleDialogConfirm}
+              disabled={closeTicketMutation.isPending}
+            >
+              {closeTicketMutation.isPending ? "..." : t("confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

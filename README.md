@@ -101,7 +101,7 @@ tentix-v2/
 ### Environment Requirements
 
 - Node.js >= 20
-- Bun >= 1.2.15
+- Bun >= 1.2.16
 - PostgreSQL
 - Docker (optional)
 

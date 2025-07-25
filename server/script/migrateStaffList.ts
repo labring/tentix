@@ -54,13 +54,13 @@ async function main() {
     );
 
     type Staff = {
-      avatar: string;
-      description: string;
       name: string;
+      description: string;
       nickname?: string;
-      open_id: string;
-      union_id: string;
-      user_id: string;
+      feishuOpenId: string;
+      feishuUnionId: string;
+      avatar: string;
+      phoneNum?: string;
     };
 
     // Step 4: Get staff information for each department
@@ -83,9 +83,8 @@ async function main() {
               description: staff.description,
               name: staff.name,
               nickname: staff.nickname,
-              open_id: staff.open_id,
-              union_id: staff.union_id,
-              user_id: staff.user_id,
+              feishuOpenId: staff.open_id,
+              feishuUnionId: staff.union_id,
             };
           }),
         );
@@ -99,10 +98,7 @@ async function main() {
         departments: departmentsList,
         staffs: staffsList,
       });
-      await Bun.write(
-        "config.dev.json",
-        JSON.stringify(newAppConfig, null, 2),
-      );
+      await Bun.write("config.dev.json", JSON.stringify(newAppConfig, null, 2));
       console.log(
         Bun.inspect.table(
           [
@@ -126,7 +122,9 @@ async function main() {
             `Staff number had been changed! Previous: ${appConfig.staffs.length}, Current: ${newAppConfig.staffs.length}.\n Changed staffs: ${newAppConfig.staffs
               .filter((item) => !appConfig.staffs.includes(item))
               .map((item) => item.name)
-              .join(", ")} \n If this is first time to run this script, don't worry about this.`,
+              .join(
+                ", ",
+              )} \n If this is first time to run this script, don't worry about this.`,
           ),
         );
       }

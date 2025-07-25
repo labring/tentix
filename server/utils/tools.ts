@@ -4,26 +4,33 @@ import * as schema from "@db/schema.ts";
 import * as relations from "@db/relations.ts";
 import { userRoleType } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
-import { getCntFromEnv } from "./env.ts";
 import { Context } from "hono";
+
 export type StaffMap = Map<
   number,
   {
     id: number;
+    sealosId: string;
     realName: string;
     nickname: string;
     avatar: string;
     remainingTickets: number;
     role: userRoleType;
-    feishuId: `on_${string}`;
-    openId: `ou_${string}`;
+    feishuUnionId: `on_${string}`;
+    feishuOpenId: `ou_${string}`;
     department: string;
   }
 >;
 
 export function connectDB() {
+  // Use global.customEnv if available, otherwise fallback to process.env
+  const databaseUrl =
+    global.customEnv?.DATABASE_URL || process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is not set in environment variables");
+  }
   const pool = new Pool({
-    connectionString: global.customEnv.DATABASE_URL,
+    connectionString: databaseUrl,
   });
   const db = drizzle({ client: pool, schema: { ...schema, ...relations } });
   if (!global.db) global.db = db;

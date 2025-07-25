@@ -29,7 +29,6 @@ const playgroundRouter = factory
     "/signToken",
     describeRoute({
       tags: ["Playground"],
-      
     }),
     zValidator(
       "form",
@@ -59,7 +58,7 @@ const playgroundRouter = factory
     "/agentmap",
     describeRoute({
       tags: ["Playground"],
-      
+
       description: "Test endpoint. Not for production use.",
     }),
     async (c) => {
@@ -73,14 +72,14 @@ const playgroundRouter = factory
     "/sendFeishuCard",
     describeRoute({
       tags: ["Playground"],
-      
+
       description: "Test endpoint. Not for production use.",
     }),
     async (c) => {
       await refreshStaffMap(true);
       const staffMap = c.var.staffMap();
       const staffMapEntries = Array.from(staffMap.entries());
-      const id = staffMapEntries[0]![1].feishuId;
+      const id = staffMapEntries[0]![1].feishuUnionId;
 
       const config = await readConfig();
 
@@ -100,7 +99,6 @@ const playgroundRouter = factory
     "/snapshot",
     describeRoute({
       tags: ["Playground"],
-      
     }),
     async (c) => {
       const snapshotPath = v8.writeHeapSnapshot();
@@ -112,7 +110,6 @@ const playgroundRouter = factory
     "/md2json",
     describeRoute({
       tags: ["Playground"],
-      
     }),
     zValidator(
       "form",
@@ -130,7 +127,6 @@ const playgroundRouter = factory
     "/fastgpt",
     describeRoute({
       tags: ["Playground"],
-      
     }),
     async (c) => {
       async function longRunningFunction(): Promise<string> {

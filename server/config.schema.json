@@ -39,18 +39,17 @@
     "aiProfile": {
       "type": "object",
       "required": [
-        "uid",
+        "sealosId",
         "name",
         "nickname",
         "realName",
         "phoneNum",
-        "identity",
         "role",
         "avatar",
         "registerTime"
       ],
       "properties": {
-        "uid": {
+        "sealosId": {
           "type": "string"
         },
         "name": {
@@ -63,9 +62,6 @@
           "type": "string"
         },
         "phoneNum": {
-          "type": "string"
-        },
-        "identity": {
           "type": "string"
         },
         "role": {
@@ -110,7 +106,15 @@
       "description": "Staffs list. Don't manually add staffs here, because the system will automatically add staffs from Feishu. And any manual edit will be overwritten.",
       "items": {
         "type": "object",
-        "required": ["avatar", "description", "name", "open_id", "union_id", "user_id"],
+        "required": [
+          "avatar",
+          "description",
+          "name",
+          "feishuOpenId",
+          "feishuUnionId",
+          "phoneNum",
+          "sealosId"
+        ],
         "properties": {
           "avatar": {
             "type": "string",
@@ -127,13 +131,16 @@
           "nickname": {
             "type": "string"
           },
-          "open_id": {
+          "feishuOpenId": {
             "type": "string"
           },
-          "union_id": {
+          "feishuUnionId": {
             "type": "string"
           },
-          "user_id": {
+          "sealosId": {
+            "type": "string"
+          },
+          "phoneNum": {
             "type": "string"
           }
         }
@@ -144,7 +151,12 @@
       "description": "Departments list. Don't manually add departments here, because the system will automatically add departments from Feishu. And any manual edit will be overwritten.",
       "items": {
         "type": "object",
-        "required": ["openId", "id", "name", "members"],
+        "required": [
+          "openId",
+          "id",
+          "name",
+          "members"
+        ],
         "properties": {
           "openId": {
             "type": "string",

@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { staffListQueryOptions, useSuspenseQuery } from "@lib/query";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBoolean } from "ahooks";
 import { useTranslation } from "i18n";
 import { useState } from "react";
@@ -8,39 +8,47 @@ import { useForm } from "react-hook-form";
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage, Button, Dialog,
+  AvatarImage,
+  Button,
+  Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle, Form,
+  Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage, Input, Label, RadioGroup, RadioGroupItem, Textarea, toast
+  FormMessage,
+  Input,
+  Label,
+  Checkbox,
+  Textarea,
+  toast,
+  Badge,
+  cn,
 } from "tentix-ui";
 import { z } from "zod";
 import useLocalUser from "@hook/use-local-user";
 import { apiClient } from "@lib/api-client";
 
-// Define the form schema with zod
-const transferFormSchema = z.object({
-  staffId: z.string({
-    required_error: "Please select a staff member",
-  }),
-  reason: z
-    .string({
-      required_error: "Please provide a reason for transfer",
-    })
-    .min(3, {
-      message: "Reason must be at least 3 characters",
+// Define the form schema with zod - we'll use t() function in the component
+const createTransferFormSchema = (t: (key: string) => string) =>
+  z.object({
+    staffIds: z.array(z.string()).min(1, {
+      message: t("please_select_staff"),
     }),
-  remarks: z.string().optional(),
-});
+    reason: z
+      .string({
+        required_error: t("please_provide_reason"),
+      })
+      .min(3, {
+        message: t("reason_min_length"),
+      }),
+    remarks: z.string().optional(),
+  });
 
 // Define the form values type
-type TransferFormValues = z.infer<typeof transferFormSchema>;
+type TransferFormValues = z.infer<ReturnType<typeof createTransferFormSchema>>;
 
 async function transferTicket({
   ticketId,
@@ -48,7 +56,7 @@ async function transferTicket({
   description,
 }: {
   ticketId: string;
-  targetStaffId: number;
+  targetStaffId: number[];
   description: string;
 }) {
   const res = await (
@@ -72,15 +80,17 @@ export function useTransferModal() {
   const [searchQuery, setSearchQuery] = useState("");
   const user = useLocalUser();
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
 
   // Get staff list from API
   const { data: staffList } = useSuspenseQuery(staffListQueryOptions());
 
   // Initialize form with React Hook Form
+  const transferFormSchema = createTransferFormSchema(t);
   const form = useForm<TransferFormValues>({
     resolver: zodResolver(transferFormSchema),
     defaultValues: {
-      staffId: "",
+      staffIds: [],
       reason: "",
     },
   });
@@ -93,6 +103,13 @@ export function useTransferModal() {
         title: t("success"),
         description: t("ticket_transferred"),
         variant: "default",
+      });
+      // Invalidate all ticket-related queries to refresh data
+      queryClient.invalidateQueries({
+        queryKey: ["getUserTickets"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getTicket", ticketId],
       });
       setFalse();
       form.reset();
@@ -108,10 +125,9 @@ export function useTransferModal() {
 
   // Handle form submission
   const onSubmit = (values: TransferFormValues) => {
-    console.log(values);
     transferMutation.mutate({
       ticketId,
-      targetStaffId: parseInt(values.staffId),
+      targetStaffId: values.staffIds.map((id) => parseInt(id)),
       description: values.reason,
     });
   };
@@ -125,95 +141,166 @@ export function useTransferModal() {
 
   const modal = (
     <Dialog open={state} onOpenChange={set}>
-      <DialogContent className="sm:max-w-[525px]">
-        <DialogHeader>
-          <DialogTitle>{t("transfer_ticket", { id: ticketId })}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="flex flex-col gap-4 w-[31.25rem] max-w-[31.25rem] !rounded-2xl p-6 shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.10),0px_4px_6px_-2px_rgba(0,0,0,0.05)] border-0">
+        <div className="flex flex-col items-start gap-[6px]">
+          <p className="text-lg font-semibold leading-none text-foreground font-sans">
+            {t("transfer_ticket_title")}
+          </p>
+          <p className="text-sm font-normal leading-5 text-zinc-500 font-sans">
             {t("transfer_desc")}
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex flex-col gap-4"
+          >
             <FormField
               control={form.control}
-              name="staffId"
+              name="staffIds"
               render={({ field }) => (
-                <FormItem className="grid gap-2">
-                  <FormLabel>{t("select_staff")}</FormLabel>
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-sm font-medium text-zinc-900 font-sans leading-5 normal-case">
+                    {t("select_employee")}
+                  </FormLabel>
                   <FormControl>
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <Input
-                        placeholder={t("search_staff")}
+                        placeholder={t("search_employee")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="mb-2"
+                        className="h-10"
                       />
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        className="grid gap-2 h-72 overflow-y-auto"
-                      >
-                        {staffList
-                          .filter((staff) => staff.id !== user.id)
-                          .filter(
-                            (staff) =>
-                              staff.name
-                                .toLowerCase()
-                                .includes(searchQuery.toLowerCase()) ||
-                              staff.role
-                                .toLowerCase()
-                                .includes(searchQuery.toLowerCase()),
-                          )
-                          .map((staff) => (
-                            <div
-                              key={staff.id}
-                              className={`flex items-center space-x-2 rounded-md border p-3 h-16 ${
-                                field.value === staff.id.toString()
-                                  ? "border-primary"
-                                  : ""
-                              }`}
-                            >
-                              <RadioGroupItem
-                                value={staff.id.toString()}
-                                id={`staff-${staff.id}`}
-                                className="sr-only"
-                              />
-                              <Label
-                                htmlFor={`staff-${staff.id}`}
-                                className="flex flex-1 cursor-pointer items-center gap-3"
+                      <>
+                        <style
+                          dangerouslySetInnerHTML={{
+                            __html: `
+                            .staff-list-scrollbar::-webkit-scrollbar {
+                              width: 12px;
+                            }
+                            .staff-list-scrollbar::-webkit-scrollbar-track {
+                              background: #FAFAFA;
+                              border-radius: 8px;
+                              margin: 0;
+                            }
+                            .staff-list-scrollbar::-webkit-scrollbar-thumb {
+                              background: #E4E4E7;
+                              border-radius: 999px;
+                              border: 2px solid #FAFAFA;
+                              background-clip: content-box;
+                            }
+                        `,
+                          }}
+                        />
+                        <div className="flex flex-col min-h-0 max-h-72 overflow-y-auto border rounded-lg staff-list-scrollbar">
+                          {staffList
+                            .filter((staff) => staff.id !== user.id)
+                            .filter(
+                              (staff) =>
+                                staff.name
+                                  .toLowerCase()
+                                  .includes(searchQuery.toLowerCase()) ||
+                                staff.role
+                                  .toLowerCase()
+                                  .includes(searchQuery.toLowerCase()),
+                            )
+                            .map((staff, index, array) => (
+                              <div
+                                key={staff.id}
+                                className={cn(
+                                  "h-12 flex items-center px-5 gap-2 cursor-pointer hover:bg-blue-50 transition-all duration-200",
+                                  index !== array.length - 1 ? "border-b" : "",
+                                )}
                               >
-                                <Avatar>
-                                  <AvatarImage
-                                    src={staff.avatar || "/placeholder.svg"}
-                                    alt={staff.name}
-                                  />
-                                  <AvatarFallback>
-                                    {staff.name.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                  <div className="font-medium">
-                                    {staff.name}
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {staff.role}
-                                  </div>
-                                </div>
-                                <div
-                                  className={`rounded-full px-2 py-1 text-xs ${
-                                    staff.workload === "Low"
-                                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                                      : staff.workload === "Medium"
-                                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300"
-                                        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                                  }`}
+                                <Checkbox
+                                  checked={
+                                    Array.isArray(field.value) &&
+                                    field.value.includes(staff.id.toString())
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    const currentValues = Array.isArray(
+                                      field.value,
+                                    )
+                                      ? field.value
+                                      : [];
+                                    const staffIdStr = staff.id.toString();
+
+                                    if (checked) {
+                                      if (!currentValues.includes(staffIdStr)) {
+                                        field.onChange([
+                                          ...currentValues,
+                                          staffIdStr,
+                                        ]);
+                                      }
+                                    } else {
+                                      field.onChange(
+                                        currentValues.filter(
+                                          (id) => id !== staffIdStr,
+                                        ),
+                                      );
+                                    }
+                                  }}
+                                />
+                                <Label
+                                  htmlFor={`staff-${staff.id}`}
+                                  className="flex flex-1 cursor-pointer items-center gap-2 h-12"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    const currentValues = Array.isArray(
+                                      field.value,
+                                    )
+                                      ? field.value
+                                      : [];
+                                    const staffIdStr = staff.id.toString();
+                                    const isSelected =
+                                      currentValues.includes(staffIdStr);
+
+                                    if (isSelected) {
+                                      field.onChange(
+                                        currentValues.filter(
+                                          (id) => id !== staffIdStr,
+                                        ),
+                                      );
+                                    } else {
+                                      field.onChange([
+                                        ...currentValues,
+                                        staffIdStr,
+                                      ]);
+                                    }
+                                  }}
                                 >
-                                  {staff.ticketNum} {t("tkt_other")}
-                                </div>
-                              </Label>
-                            </div>
-                          ))}
-                      </RadioGroup>
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarImage
+                                      src={staff.avatar || "/placeholder.svg"}
+                                      alt={staff.name}
+                                    />
+                                    <AvatarFallback className="text-xs">
+                                      {staff.name.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="truncate text-sm font-medium leading-5 text-foreground font-sans">
+                                      {staff.name}
+                                    </div>
+                                  </div>
+                                  <Badge
+                                    className={cn(
+                                      "flex h-5 px-1.5 py-0.5 justify-center items-center gap-2.5 rounded-full shrink-0 text-zinc-900 font-sans font-medium leading-[140%] border-[0.5px] normal-case",
+                                      staff.ticketNum < 10
+                                        ? "border-emerald-200 bg-emerald-50"
+                                        : staff.ticketNum >= 10 &&
+                                            staff.ticketNum < 20
+                                          ? "border-orange-200 bg-orange-50"
+                                          : "border-red-200 bg-red-50",
+                                    )}
+                                  >
+                                    {staff.ticketNum} {t("tickets_count")}
+                                  </Badge>
+                                </Label>
+                              </div>
+                            ))}
+                        </div>
+                      </>
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -225,12 +312,15 @@ export function useTransferModal() {
               control={form.control}
               name="reason"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("transfer_reason")}</FormLabel>
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-sm font-medium text-zinc-900 font-sans leading-5 normal-case">
+                    {t("transfer_reason")}
+                  </FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder={t("transfer_reason_ph")}
                       {...field}
+                      className="min-h-[6rem] resize-none border-gray-200 focus:border-primary"
                     />
                   </FormControl>
                   <FormMessage />
@@ -238,23 +328,29 @@ export function useTransferModal() {
               )}
             />
 
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={setFalse}
-                disabled={transferMutation.isPending}
-              >
-                {t("cancel")}
-              </Button>
-              <Button
-                type="submit"
-                disabled={!form.formState.isValid || transferMutation.isPending}
-              >
-                {transferMutation.isPending
-                  ? t("transferring")
-                  : t("transfer_ticket_btn")}
-              </Button>
+            <DialogFooter>
+              <div className="flex flex-row gap-3 flex-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={setFalse}
+                  disabled={transferMutation.isPending}
+                  className="flex-1"
+                >
+                  {t("cancel")}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    !form.formState.isValid || transferMutation.isPending
+                  }
+                  className="flex-1"
+                >
+                  {transferMutation.isPending
+                    ? t("transferring")
+                    : t("transfer_ticket")}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </Form>

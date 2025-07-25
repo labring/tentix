@@ -1,5 +1,5 @@
 {
-  "id": "65bed939-d03c-48ca-ace5-05a1b6f8e409",
+  "id": "ffea10db-12b8-4085-b3f5-19551b353838",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -34,7 +34,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp(3)",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -129,7 +129,7 @@
         },
         "read_at": {
           "name": "read_at",
-          "type": "timestamp(3)",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -225,14 +225,14 @@
         },
         "create_at": {
           "name": "create_at",
-          "type": "timestamp(3)",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "update_at": {
           "name": "update_at",
-          "type": "timestamp(3)",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -411,7 +411,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp(3)",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -513,7 +513,7 @@
         },
         "occurrence_time": {
           "name": "occurrence_time",
-          "type": "timestamp(6)",
+          "type": "timestamp(6) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -553,14 +553,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp(3)",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp(3)",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -681,7 +681,7 @@
         },
         "login_time": {
           "name": "login_time",
-          "type": "timestamp(3)",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -752,29 +752,33 @@
           "primaryKey": true,
           "notNull": true
         },
-        "uid": {
-          "name": "uid",
+        "sealos_id": {
+          "name": "sealos_id",
           "type": "varchar(64)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "''"
         },
         "name": {
           "name": "name",
           "type": "varchar(64)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "''"
         },
         "nickname": {
           "name": "nickname",
           "type": "varchar(64)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "''"
         },
         "real_name": {
           "name": "real_name",
           "type": "varchar(64)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "''"
         },
         "phone_num": {
           "name": "phone_num",
@@ -782,12 +786,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "''"
-        },
-        "identity": {
-          "name": "identity",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true
         },
         "role": {
           "name": "role",
@@ -806,7 +804,7 @@
         },
         "register_time": {
           "name": "register_time",
-          "type": "timestamp(6)",
+          "type": "timestamp(6) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -823,17 +821,31 @@
           "primaryKey": false,
           "notNull": true,
           "default": "''"
+        },
+        "feishu_union_id": {
+          "name": "feishu_union_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "feishu_open_id": {
+          "name": "feishu_open_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "users_identity_key": {
-          "name": "users_identity_key",
+        "users_sealos_id_key": {
+          "name": "users_sealos_id_key",
           "nullsNotDistinct": false,
           "columns": [
-            "identity"
+            "sealos_id"
           ]
         }
       },

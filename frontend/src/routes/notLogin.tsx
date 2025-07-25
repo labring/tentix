@@ -1,7 +1,7 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { PriorityBadge } from 'tentix-ui'
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { PriorityBadge } from "tentix-ui";
 
-export const Route = createFileRoute('/notLogin')({
+export const Route = createFileRoute("/notLogin")({
   beforeLoad: async ({ context: { authContext } }) => {
     if (authContext.user?.id !== undefined && authContext.user !== null) {
       redirect({
@@ -11,7 +11,12 @@ export const Route = createFileRoute('/notLogin')({
     }
   },
   component: RouteComponent,
-})
+});
 function RouteComponent() {
-  return <div>当前您未正常登录，请关闭应用。刷新页面后，重新进入此应用！<PriorityBadge priority="urgent" /></div>
+  return (
+    <div>
+      当前您未正常登录，请关闭应用。刷新页面后，重新进入此应用！
+      <PriorityBadge priority="urgent" />
+    </div>
+  );
 }

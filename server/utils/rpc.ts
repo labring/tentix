@@ -20,8 +20,16 @@ export type TicketsListItemType = InferResponseType<
   ApiClient["user"]["getTickets"]["$get"]
 >["tickets"][number];
 
+export type GetUserTicketsResponseType = InferResponseType<
+  ApiClient["user"]["getTickets"]["$get"]
+>;
+
+export type GetAllTicketsResponseType = InferResponseType<
+  ApiClient["ticket"]["all"]["$get"]
+>;
+
 export type TicketsAllListItemType = InferResponseType<
   ApiClient["ticket"]["all"]["$get"]
->[number];
+>["tickets"][number];
 
 export type TicketType = InferResponseType<ApiClient["ticket"]["info"]["$get"]>;

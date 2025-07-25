@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useLayoutEffect } from "react";
-import { MessageItem } from "./message-item.tsx";
+import { useEffect, useRef, useState, useLayoutEffect, useMemo } from "react";
+import MessageItem from "./message-item.tsx";
 import { TypingIndicator } from "./typing-indicator.tsx";
 import { type TicketType } from "tentix-server/rpc";
 import useLocalUser from "@hook/use-local-user.tsx";
+
 
 interface MessageListProps {
   messages: TicketType["messages"];
@@ -107,9 +108,10 @@ export function MessageList({
     return groups;
   };
 
-  const messageGroups = groupMessagesByDate(messages);
-
-  const sentReadStatusRef = useRef(new Set<number>());
+  const messageGroups = useMemo(
+    () => groupMessagesByDate(messages),
+    [messages],
+  );
 
   // Create intersection observer for message visibility
   useEffect(() => {
@@ -122,9 +124,8 @@ export function MessageList({
             const messageId = Number(
               entry.target.getAttribute("data-message-id"),
             );
-            if (messageId && !sentReadStatusRef.current.has(messageId)) {
+            if (messageId) {
               onMessageInView(messageId);
-              sentReadStatusRef.current.add(messageId);
             }
           }
         });
@@ -150,7 +151,7 @@ export function MessageList({
 
   return (
     <>
-      <div ref={messagesListRef} className="flex-1 p-4 lg:p-6">
+      <div ref={messagesListRef} className="flex-1">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-2">
@@ -201,7 +202,7 @@ export function MessageList({
                     }}
                   >
                     <MessageItem
-                      key={`${message.senderId}-msg-${message.id}`}
+                      // key={`${message.senderId}-msg-${message.id}`}
                       message={message}
                     />
                   </div>

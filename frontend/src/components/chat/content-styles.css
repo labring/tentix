@@ -3,17 +3,21 @@
   line-height: 1.6;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  word-break: break-all;
+  hyphens: auto;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .my-msg {
-  color: #ffffff;
+  color: #18181B;
 }
 
 .other-msg {
-  color: #000000;
+  color: #18181B;
 }
 
 
@@ -177,6 +181,15 @@
   font-size: 0.7rem;
   color: #a0aec0;
   margin-top: 0.2rem;
+}
+
+.content-paragraph {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-all;
+  hyphens: auto;
+  overflow-wrap: anywhere;
+  margin: 0.1rem 0;
 }
 
 /* @media (prefers-color-scheme: dark) {

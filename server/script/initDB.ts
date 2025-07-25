@@ -25,11 +25,10 @@ export async function createAIUser() {
 
   const systemUser = {
     id: 0,
-    uid: "System",
+    sealosId: "System",
     name: "System",
     nickname: "System",
     realName: "System",
-    identity: "System",
     role: "system" as const,
     avatar: parsed.avatar,
     registerTime: parsed.registerTime,
@@ -52,40 +51,45 @@ export async function createAIUser() {
   // Register Staffs
   await withTaskLog("Registering staffs", async () => {
     const config = await readConfig();
+
+    // Check if staffs array is empty
+    if (!config.staffs || config.staffs.length === 0) {
+      console.log(
+        styleText(
+          "yellow",
+          "No staffs configured - skipping staff registration",
+        ),
+      );
+      return;
+    }
+
     type NewUser = typeof schema.users.$inferInsert;
     const insertValues: NewUser[] = config.staffs.map((staff) => {
       // Staff will register in config file
       const role = (() => {
-        if (config.agents_ids.includes(staff.union_id)) {
+        if (config.agents_ids.includes(staff.sealosId)) {
           return "agent";
         }
-        if (config.admin_ids.includes(staff.union_id)) {
+        if (config.admin_ids.includes(staff.sealosId)) {
           return "admin";
         }
         return "technician";
       })();
       return {
-        uid: staff.union_id,
+        sealosId: staff.sealosId,
         name: staff.name,
         nickname: staff.nickname ?? staff.name,
         realName: staff.name,
-        phoneNum: staff.user_id,
-        identity: staff.open_id,
+        phoneNum: staff.phoneNum,
         role,
         avatar: staff.avatar,
+        feishuOpenId: staff.feishuOpenId,
+        feishuUnionId: staff.feishuUnionId,
         registerTime: new Date().toISOString(),
       };
     });
 
     const list = await db.insert(schema.users).values(insertValues).returning();
-
-    // Log success with user details
-    logSuccess(
-      `AI user created successfully - ID: ${result.id}, name: ${result.name}`,
-    );
-    logSuccess(
-      `System user created successfully - ID: ${systemUser.id}, name: ${systemUser.name}`,
-    );
 
     console.log(styleText("cyan", `Inserted ${list.length} staffs.`));
     console.log(
@@ -93,14 +97,14 @@ export async function createAIUser() {
         [
           ...list.slice(0, 3).map((item) => ({
             id: item.id,
-            uid: item.uid,
+            sealosId: item.sealosId,
             name: item.name,
             nickname: item.nickname,
             realName: item.realName,
           })),
           {
             id: "...",
-            uid: "...",
+            sealosId: "...",
             name: "...",
             nickname: "...",
             realName: "...",
@@ -109,7 +113,7 @@ export async function createAIUser() {
             ? [
                 {
                   id: list.at(-1)!.id,
-                  uid: list.at(-1)!.uid,
+                  sealosId: list.at(-1)!.sealosId,
                   name: list.at(-1)!.name,
                   nickname: list.at(-1)!.nickname,
                   realName: list.at(-1)!.realName,
@@ -121,6 +125,14 @@ export async function createAIUser() {
       ),
     );
   });
+
+  // Log success with user details
+  logSuccess(
+    `AI user created successfully - ID: ${result.id}, name: ${result.name}`,
+  );
+  logSuccess(
+    `System user created successfully - ID: ${systemUser.id}, name: ${systemUser.name}`,
+  );
 }
 
 async function main() {

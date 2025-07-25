@@ -3,12 +3,15 @@ import AppTanstackProvider from "./tanstack";
 import { AuthProvider } from "./auth";
 import UIProvider from "./ui";
 import { ThemeProvider } from "./theme-provider";
+import { SealosProvider } from "./sealos";
+
 export default function AppProviders({ children }: PropsWithChildren) {
   const providers = [
+    SealosProvider,
     AppTanstackProvider,
     AuthProvider,
     UIProvider,
-    ThemeProvider
+    ThemeProvider,
   ];
   return providers.reduce(nestProviders)({ children });
 }

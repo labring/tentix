@@ -11,7 +11,7 @@ import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 import type { EditorRef } from "./staff-chat-editor.tsx";
 
 export const Toolbar = ({ editor }: { editor: Editor }) => (
-  <div className="border-border flex h-8 shrink-0 overflow-x-auto border-t p-1">
+  <div className="border-none flex h-17 shrink-0 overflow-x-auto py-4 px-3">
     <div className="flex w-max items-center gap-px">
       <SectionTwo
         editor={editor}
@@ -51,7 +51,7 @@ export const UserChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
         as="div"
         name="editor"
         className={cn(
-          "border-input focus-within:border-primary flex flex-col rounded-md border shadow-xs max-h-96 h-auto w-full",
+          "border-input flex flex-col rounded-md border shadow-xs min-h-42 max-h-96 h-auto w-full",
           className,
         )}
       >

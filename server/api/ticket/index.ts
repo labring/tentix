@@ -9,16 +9,24 @@ import {
   zs,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, count, or, like, inArray, gte, lte } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
+import "zod-openapi/extend";
 import { HTTPException } from "hono/http-exception";
 import { authMiddleware, factory, staffOnlyMiddleware } from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
 import { readConfig } from "@/utils/env.ts";
-import { getIndex, ticketCategoryEnumArray, ticketPriorityEnumArray } from "@/utils/const.ts";
+import {
+  getIndex,
+  moduleEnumArray,
+  ticketCategoryEnumArray,
+  ticketPriorityEnumArray,
+  TicketStatus,
+} from "@/utils/const.ts";
+import { userTicketSchema } from "@/utils/types.ts";
 
 const createResponseSchema = z.array(
   z.object({
@@ -30,23 +38,27 @@ const createResponseSchema = z.array(
 
 const transferTicketSchema = z.object({
   ticketId: z.string(),
-  targetStaffId: z.number(),
-  description: z.string(),
+  targetStaffId: z.array(z.number()),
+  description: z.string().max(200, {
+    message: "Description must be less than 200 characters",
+  }),
 });
 
 const upgradeTicketSchema = z.object({
   ticketId: z.string(),
   priority: z.enum(schema.ticketPriority.enumValues),
-  description: z.string(),
+  description: z.string().max(200, {
+    message: "Description must be less than 200 characters",
+  }),
 });
 
 const updateTicketStatusSchema = z.object({
   ticketId: z.string(),
   status: z.enum(schema.ticketStatus.enumValues),
-  description: z.string(),
+  description: z.string().max(200, {
+    message: "Description must be less than 200 characters",
+  }),
 });
-
-
 
 const ticketRouter = factory
   .createApp()
@@ -72,6 +84,13 @@ const ticketRouter = factory
       const db = connectDB();
       const payload = c.req.valid("json");
       const userId = c.var.userId;
+      const role = c.var.role;
+
+      if (role !== "customer") {
+        throw new HTTPException(403, {
+          message: "Only customers can create tickets",
+        });
+      }
 
       if (!validateJSONContent(payload.description)) {
         throw new HTTPException(422, {
@@ -81,7 +100,7 @@ const ticketRouter = factory
 
       const staffMap = c.var.staffMap();
       const staffMapEntries = Array.from(staffMap.entries());
-      const [assigneeId, { feishuId: assigneeFeishuId }] = staffMapEntries
+      const [assigneeId, { feishuUnionId: assigneeFeishuId }] = staffMapEntries
         .filter(([_, info]) => info.role === "agent")
         .sort((a, b) => a[1].remainingTickets - b[1].remainingTickets)[0]!;
 
@@ -193,22 +212,134 @@ const ticketRouter = factory
     "/all",
     describeRoute({
       description:
-        "Get all tickets for a user with customer info and last message",
+        "Get all tickets with customer info and last message. Supports page-based pagination and search by keyword (ID/title) and status filtering.",
       tags: ["Ticket"],
       responses: {
         200: {
-          description: "All tickets with related information",
+          description: "All tickets with related information and pagination.",
           content: {
             "application/json": {
-              // schema will be defined here
+              schema: resolver(
+                z.object({
+                  tickets: z.array(userTicketSchema),
+                  totalCount: z.number().openapi({
+                    description: "Total number of tickets",
+                  }),
+                  totalPages: z.number().openapi({
+                    description: "Total number of pages",
+                  }),
+                  currentPage: z.number().openapi({
+                    description: "Current page number",
+                  }),
+                  stats: z.array(
+                    z
+                      .object({
+                        status: z.string(),
+                        count: z.number(),
+                      })
+                      .openapi({
+                        description: "Statistics of ticket counts by status",
+                      }),
+                  ),
+                }),
+              ),
             },
           },
         },
       },
     }),
+    zValidator(
+      "query",
+      z.object({
+        page: z
+          .string()
+          .optional()
+          .default("1")
+          .transform((val) => {
+            const num = parseInt(val, 10);
+            return isNaN(num) || num <= 0 ? 1 : num;
+          })
+          .openapi({
+            description: "Page number, starting from 1",
+          }),
+        pageSize: z
+          .string()
+          .optional()
+          .default("20")
+          .transform((val) => {
+            const num = parseInt(val, 10);
+            return isNaN(num) || num <= 0 || num > 100 ? 20 : num;
+          })
+          .openapi({
+            description: "Number of records returned per page (1-100)",
+          }),
+        keyword: z.string().optional().openapi({
+          description: "Search keyword to match ticket ID or title",
+        }),
+        pending: z
+          .string()
+          .optional()
+          .transform((val) => val === "true")
+          .openapi({
+            description: "Include pending tickets",
+          }),
+        in_progress: z
+          .string()
+          .optional()
+          .transform((val) => val === "true")
+          .openapi({
+            description: "Include in_progress tickets",
+          }),
+        resolved: z
+          .string()
+          .optional()
+          .transform((val) => val === "true")
+          .openapi({
+            description: "Include resolved tickets",
+          }),
+        scheduled: z
+          .string()
+          .optional()
+          .transform((val) => val === "true")
+          .openapi({
+            description: "Include scheduled tickets",
+          }),
+        createdAt_start: z
+          .string()
+          .datetime({ message: "Invalid datetime format" })
+          .optional()
+          .openapi({
+            description:
+              "Filter tickets created after this timestamp (inclusive)",
+          }),
+        createdAt_end: z
+          .string()
+          .datetime({ message: "Invalid datetime format" })
+          .optional()
+          .openapi({
+            description:
+              "Filter tickets created before this timestamp (inclusive)",
+          }),
+        module: z.enum(moduleEnumArray).optional().openapi({
+          description: "Filter tickets by module",
+        }),
+      }),
+    ),
     async (c) => {
       const role = c.var.role;
       const db = c.var.db;
+      const {
+        page,
+        pageSize,
+        keyword,
+        pending,
+        in_progress,
+        resolved,
+        scheduled,
+        createdAt_start,
+        createdAt_end,
+        module,
+      } = c.req.valid("query");
 
       const basicUserCols = {
         columns: {
@@ -225,27 +356,97 @@ const ticketRouter = factory
         });
       }
 
-      const data = await db.query.tickets.findMany({
-        orderBy: [desc(schema.tickets.updatedAt)],
-        with: {
-          agent: basicUserCols,
-          customer: basicUserCols,
-          messages: {
-            orderBy: [desc(schema.chatMessages.createdAt)],
-            limit: 1,
+      // Build status filter array
+      const selectedStatuses: TicketStatus[] = [];
+      if (pending) selectedStatuses.push("pending");
+      if (in_progress) selectedStatuses.push("in_progress");
+      if (resolved) selectedStatuses.push("resolved");
+      if (scheduled) selectedStatuses.push("scheduled");
+
+      // Build search conditions using the same helper function from user/index.ts
+      const conditions = [];
+
+      if (keyword && keyword.trim()) {
+        const trimmedKeyword = `%${keyword.trim()}%`;
+        const keywordCondition = or(
+          like(schema.tickets.id, trimmedKeyword),
+          like(schema.tickets.title, trimmedKeyword),
+        );
+        conditions.push(keywordCondition);
+      }
+
+      if (selectedStatuses.length > 0) {
+        conditions.push(inArray(schema.tickets.status, selectedStatuses));
+      }
+
+      if (createdAt_start) {
+        conditions.push(gte(schema.tickets.createdAt, createdAt_start));
+      }
+      if (createdAt_end) {
+        conditions.push(lte(schema.tickets.createdAt, createdAt_end));
+      }
+
+      if (module) {
+        conditions.push(eq(schema.tickets.module, module));
+      }
+
+      const whereConditions =
+        conditions.length > 0 ? and(...conditions) : undefined;
+      const offset = (page - 1) * pageSize;
+
+      // Get total count and tickets data in parallel
+      const [totalCountResult, tickets, stats] = await Promise.all([
+        db
+          .select({ count: count() })
+          .from(schema.tickets)
+          .where(whereConditions),
+
+        db.query.tickets.findMany({
+          where: whereConditions,
+          orderBy: [desc(schema.tickets.updatedAt), desc(schema.tickets.id)],
+          limit: pageSize,
+          offset,
+          with: {
+            agent: basicUserCols,
+            customer: basicUserCols,
+            messages: {
+              orderBy: [desc(schema.chatMessages.createdAt)],
+              limit: 1,
+              with: {
+                readStatus: true,
+              },
+            },
           },
-        },
+        }),
+
+        // Get global stats (not filtered by search conditions)
+        db
+          .select({
+            status: schema.tickets.status,
+            count: count().as("count"),
+          })
+          .from(schema.tickets)
+          .groupBy(schema.tickets.status),
+      ]);
+
+      const totalCount = totalCountResult[0]?.count || 0;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      const processedTickets = tickets.map((ticket) => ({
+        ...ticket,
+        messages: ticket.messages.map((message) => ({
+          ...message,
+          content: getAbbreviatedText(message.content, 100),
+        })),
+      }));
+
+      return c.json({
+        tickets: processedTickets,
+        totalCount,
+        totalPages,
+        currentPage: page,
+        stats: stats || [],
       });
-      const res = data.map((ticket) => {
-        return {
-          ...ticket,
-          messages: ticket.messages.map((message) => ({
-            ...message,
-            content: getAbbreviatedText(message.content, 100),
-          })),
-        };
-      });
-      return c.json(res);
     },
   )
   .get(
@@ -410,87 +611,95 @@ const ticketRouter = factory
         });
       }
 
-      const info = staffMap.get(targetStaffId);
-
-      if (!info) {
-        throw new HTTPException(400, {
-          message: "Staff not found",
-        });
-      }
-
-      await db.transaction(async (tx) => {
-        // 1. Record the ticket history
-        await tx.insert(schema.ticketHistory).values({
-          type: "transfer",
-          meta: targetStaffId,
-          description,
-          ticketId,
-          operatorId: userId,
-        });
-
-        // 2. Add the target staff to the ticket members
-        // Check if the target staff already exists
-        const existingMember = staffMap.get(targetStaffId);
-
-        if (!existingMember) {
-          // If the target staff does not exist, add a new member
-          await tx.insert(schema.techniciansToTickets).values({
-            ticketId,
-            userId: targetStaffId,
+      // 验证所有目标人员是否存在
+      const assignees = [];
+      for (const staffId of targetStaffId) {
+        const assignee = staffMap.get(staffId);
+        if (!assignee) {
+          throw new HTTPException(400, {
+            message: `Staff with ID ${staffId} not found`,
           });
         }
-        c.var.incrementAgentTicket(targetStaffId);
-        // refresh cache
-        return targetStaffId;
-      });
-
-      const config = await readConfig();
-      const ticketUrl = `${c.var.origin}/staff/tickets/${ticketId}`;
-      const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;
+        assignees.push(assignee);
+      }
 
       const ticketInfo = (await db.query.tickets.findFirst({
         where: (tickets, { eq }) => eq(tickets.id, ticketId),
       }))!;
 
       const agent = staffMap.get(ticketInfo.agentId)!;
-      const assignee = staffMap.get(targetStaffId)!;
 
-      const card = getFeishuCard("transfer", {
-        title: ticketInfo.title,
-        comment: description,
-        assignee: agent.openId,
-        module: c.var.i18n.t(ticketInfo.module),
-        transfer_to: assignee.openId,
-        internal_url: {
-          url: appLink,
-        },
-        ticket_url: {
-          url: ticketUrl,
-        },
+      if (!agent) {
+        throw new HTTPException(400, {
+          message: "Original agent not found",
+        });
+      }
+
+      // 插入工单转移历史记录，发送飞书机器人私聊和群聊信息，暂时没有插入 technicians_to_tickets 表
+      // 因为会发送通知给目标人员，目标人员打开通知链接后，会出现主动选择加入工单
+      await db.transaction(async (tx) => {
+        // 为每个目标人员记录工单历史
+        for (const staffId of targetStaffId) {
+          await tx.insert(schema.ticketHistory).values({
+            type: "transfer",
+            meta: staffId,
+            description,
+            ticketId,
+            operatorId: userId,
+          });
+
+          c.var.incrementAgentTicket(staffId);
+        }
       });
+
+      const config = await readConfig();
+      const ticketUrl = `${c.var.origin}/staff/tickets/${ticketId}`;
+      const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;
 
       const { tenant_access_token } = await getFeishuAppAccessToken();
 
-      sendFeishuMsg(
-        "chat_id",
-        config.feishu_chat_id,
-        "interactive",
-        JSON.stringify(card.card),
-        tenant_access_token,
-      );
-      sendFeishuMsg(
-        "open_id",
-        assignee.openId,
-        "text",
-        JSON.stringify({
-          text: `<at user_id="${operator.openId}">${operator.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${description}`,
-        }),
-        tenant_access_token,
-      );
+      // 为每个目标人员发送通知
+      for (const assignee of assignees) {
+        const card = getFeishuCard("transfer", {
+          title: ticketInfo.title,
+          comment: description,
+          assignee: agent.feishuOpenId,
+          module: c.var.i18n.t(ticketInfo.module),
+          transfer_to: assignee.feishuOpenId,
+          internal_url: {
+            url: appLink,
+          },
+          ticket_url: {
+            url: ticketUrl,
+          },
+        });
+
+        // 飞书群聊天
+        sendFeishuMsg(
+          "chat_id",
+          config.feishu_chat_id,
+          "interactive",
+          JSON.stringify(card.card),
+          tenant_access_token,
+        );
+
+        // 飞书机器人私聊
+        sendFeishuMsg(
+          "open_id",
+          assignee.feishuOpenId,
+          "text",
+          JSON.stringify({
+            text: `<at user_id="${operator.feishuOpenId}">${operator.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${description}`,
+          }),
+          tenant_access_token,
+        );
+      }
+
+      const assigneeNames = assignees.map((a) => a.realName).join(", ");
 
       return c.json({
         success: true,
-        message: `Ticket transferred successfully to ${targetStaffId}`,
+        message: `Ticket transferred successfully to ${assigneeNames}`,
       });
     },
   )
@@ -533,7 +742,7 @@ const ticketRouter = factory
           type: "upgrade",
           operatorId: userId,
           meta: getIndex(ticketPriorityEnumArray, priority),
-          description,
+          description: description || "change ticket priority",
           ticketId,
         });
 
@@ -555,7 +764,6 @@ const ticketRouter = factory
   )
   .post(
     "/updateStatus",
-    staffOnlyMiddleware(),
     describeRoute({
       description: "Update a ticket status",
       tags: ["Admin", "Ticket"],
@@ -584,7 +792,15 @@ const ticketRouter = factory
     async (c) => {
       const db = c.var.db;
       const userId = c.var.userId;
+      const role = c.var.role;
       const { ticketId, status, description } = c.req.valid("form");
+
+      // Customer role restriction: can only update status to 'resolved'
+      if (role === "customer" && status !== "resolved") {
+        throw new HTTPException(403, {
+          message: "Customers can only update ticket status to 'resolved'",
+        });
+      }
 
       await db.transaction(async (tx) => {
         // 1. Record the ticket history
@@ -639,13 +855,28 @@ const ticketRouter = factory
         },
       },
     }),
-    zValidator("form", z.object({
-      ticketId: z.string(),
-    })),
+    zValidator(
+      "form",
+      z.object({
+        ticketId: z.string(),
+      }),
+    ),
     async (c) => {
       const db = c.var.db;
       const userId = c.var.userId;
       const { ticketId } = c.req.valid("form");
+
+      const ticket = await db.query.tickets.findFirst({
+        where: (tickets, { eq, and }) =>
+          and(eq(tickets.id, ticketId), eq(tickets.agentId, userId)),
+      });
+
+      if (ticket) {
+        return c.json({
+          success: true,
+          message: "You are already a agent of this ticket",
+        });
+      }
 
       // Check if user is already a member of this ticket
       const existingMember = await db.query.techniciansToTickets.findFirst({
@@ -668,6 +899,13 @@ const ticketRouter = factory
           ticketId,
           userId,
         });
+
+        await tx
+          .update(schema.tickets)
+          .set({
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(schema.tickets.id, ticketId));
 
         // Record the ticket history
         await tx.insert(schema.ticketHistory).values({

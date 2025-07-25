@@ -1,15 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DataTable } from "@comp/tickets-table/table";
-import { SiteHeader } from "@comp/site-header";
-import { SidebarInset, SidebarProvider } from "tentix-ui";
-import { StaffDashboardSidebar } from "@comp/staff/dashboard-sidebar"
+import { StaffSidebar } from "@comp/staff/sidebar";
+import { allTicketsTablePagination } from "@store/table-pagination";
 import { allTicketsQueryOptions } from "@lib/query";
 import { Suspense } from "react";
 import { SkeletonTable } from "@comp/tickets-table/skeleton";
 
-
-
 export const Route = createFileRoute("/staff/tickets/all")({
+  beforeLoad: () => {
+    allTicketsTablePagination
+      .getState()
+      .initializeDefaultStatuses(["pending", "in_progress"]);
+    return {};
+  },
   loader: ({ context }) => {
     return context.queryClient.ensureQueryData(allTicketsQueryOptions());
   },
@@ -17,7 +20,7 @@ export const Route = createFileRoute("/staff/tickets/all")({
     meta: [
       {
         title: "全部工单列表 | Tentix",
-      }
+      },
     ],
   }),
   component: RouteComponent,
@@ -26,20 +29,11 @@ export const Route = createFileRoute("/staff/tickets/all")({
 function RouteComponent() {
   const data = Route.useLoaderData();
   return (
-    <SidebarProvider>
-      <StaffDashboardSidebar />
-      <SidebarInset>
-        <SiteHeader title="All Tickets" />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <Suspense fallback={<SkeletonTable />}>
-                <DataTable data={data} character="staff" />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="flex h-screen w-full overflow-hidden">
+      <StaffSidebar />
+      <Suspense fallback={<SkeletonTable />}>
+        <DataTable initialData={data} />
+      </Suspense>
+    </div>
   );
 }

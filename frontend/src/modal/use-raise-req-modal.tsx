@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "i18n"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
@@ -54,6 +54,7 @@ export function useRaiseReqModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false)
   const [relatedTicketId, setRelatedTicketId] = useState<string | undefined>(undefined)
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
 
   // Initialize form with React Hook Form
   const form = useForm<RaiseReqFormValues>({
@@ -74,6 +75,13 @@ export function useRaiseReqModal() {
         title: t("success"),
         description: data.message || t("req_raised"),
         variant: "default",
+      });
+      // Invalidate all ticket-related queries to refresh data
+      queryClient.invalidateQueries({
+        queryKey: ["getAllTickets"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getUserTickets"],
       });
       setFalse();
       form.reset();
