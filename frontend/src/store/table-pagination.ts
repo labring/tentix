@@ -13,6 +13,9 @@ interface TablePaginationState {
   // 已读状态
   readStatus: "read" | "unread" | "all";
 
+  // 是否已初始化默认状态
+  isInitialized: boolean;
+
   // Actions
   setCurrentPage: (page: number) => void;
   setPageSize: (size: number) => void;
@@ -22,6 +25,8 @@ interface TablePaginationState {
   setStatusFilter: (
     status: "all" | "pending" | "in_progress" | "resolved" | "scheduled",
   ) => void;
+  // 新增：初始化默认状态的方法
+  initializeDefaultStatuses: (defaultStatuses: string[]) => void;
   resetPagination: () => void;
   resetToFirstPage: () => void;
 
@@ -43,6 +48,7 @@ export const userTablePagination = create<TablePaginationState>((set, get) => ({
   pageSize: 10,
   searchQuery: "",
   statuses: [], // 空数组表示显示所有状态
+  isInitialized: false,
 
   setCurrentPage: (page: number) => set({ currentPage: page }),
 
@@ -75,12 +81,25 @@ export const userTablePagination = create<TablePaginationState>((set, get) => ({
       currentPage: 1,
     }),
 
+  // 新增：只在未初始化时设置默认状态
+  initializeDefaultStatuses: (defaultStatuses: string[]) => {
+    const { isInitialized } = get();
+    if (!isInitialized) {
+      set({
+        statuses: defaultStatuses,
+        isInitialized: true,
+        currentPage: 1,
+      });
+    }
+  },
+
   resetPagination: () =>
     set({
       currentPage: 1,
       pageSize: 10,
       searchQuery: "",
       statuses: [],
+      // 注意：重置时不重置 isInitialized，保持初始化状态
     }),
 
   resetToFirstPage: () => set({ currentPage: 1 }),
@@ -111,6 +130,7 @@ export const allTicketsTablePagination = create<TablePaginationState>(
     pageSize: 10,
     searchQuery: "",
     statuses: [], // 空数组表示显示所有状态
+    isInitialized: false,
 
     setCurrentPage: (page: number) => set({ currentPage: page }),
 
@@ -143,12 +163,25 @@ export const allTicketsTablePagination = create<TablePaginationState>(
         currentPage: 1,
       }),
 
+    // 新增：只在未初始化时设置默认状态
+    initializeDefaultStatuses: (defaultStatuses: string[]) => {
+      const { isInitialized } = get();
+      if (!isInitialized) {
+        set({
+          statuses: defaultStatuses,
+          isInitialized: true,
+          currentPage: 1,
+        });
+      }
+    },
+
     resetPagination: () =>
       set({
         currentPage: 1,
         pageSize: 10,
         searchQuery: "",
         statuses: [],
+        // 注意：重置时不重置 isInitialized，保持初始化状态
       }),
 
     resetToFirstPage: () => set({ currentPage: 1 }),

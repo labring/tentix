@@ -10,7 +10,7 @@ export const Route = createFileRoute("/staff/tickets/all")({
   beforeLoad: () => {
     allTicketsTablePagination
       .getState()
-      .setStatuses(["pending", "in_progress"]);
+      .initializeDefaultStatuses(["pending", "in_progress"]);
     return {};
   },
   loader: ({ context }) => {

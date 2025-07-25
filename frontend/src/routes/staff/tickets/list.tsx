@@ -8,7 +8,7 @@ import { userTablePagination } from "@store/table-pagination";
 
 export const Route = createFileRoute("/staff/tickets/list")({
   beforeLoad: () => {
-    userTablePagination.getState().setStatuses(["pending", "in_progress"]);
+    userTablePagination.getState().initializeDefaultStatuses(["pending", "in_progress"]);
     return {};
   },
   loader: ({ context }) => {
