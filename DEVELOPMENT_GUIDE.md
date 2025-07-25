@@ -73,7 +73,7 @@ Before contributing to this project, developers should be familiar with:
 ```bash
 # Required versions
 Node.js >= 20
-Bun >= 1.2.15
+Bun >= 1.2.16
 PostgreSQL >= 14
 Docker (optional but recommended)
 
