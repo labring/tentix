@@ -1,0 +1,1 @@
+ALTER TABLE "tentix"."tickets" ADD COLUMN "sealos_namespace" varchar(64) DEFAULT '' NOT NULL;

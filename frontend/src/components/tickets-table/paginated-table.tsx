@@ -52,6 +52,11 @@ import {
   DialogDescription,
   DialogFooter,
   ScrollArea,
+  Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "tentix-ui";
 import useDebounce from "@hook/use-debounce";
 import { userTablePagination } from "@store/table-pagination";
@@ -75,9 +80,12 @@ export function PaginatedDataTable({
     pageSize,
     searchQuery,
     statuses,
+    allTicket,
+    readStatus,
     setCurrentPage,
     setSearchQuery,
     setStatuses,
+    setAllTicket,
   } = userTablePagination();
 
   const handleStatusToggle = (
@@ -172,6 +180,8 @@ export function PaginatedDataTable({
       currentPage,
       debouncedSearchQuery,
       statuses,
+      readStatus,
+      allTicket,
     ),
     initialData:
       initialData &&
@@ -823,6 +833,28 @@ export function PaginatedDataTable({
 
         {/* search */}
         <div className="flex items-center gap-3">
+          {character !== "user" && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center">
+                    <Switch
+                      checked={allTicket}
+                      onCheckedChange={(checked) => setAllTicket(checked)}
+                      className="data-[state=checked]:bg-primary mr-4"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {allTicket ? (
+                    <p>{t("only_mine")}</p>
+                  ) : (
+                    <p>{t("all_tickets")}</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input

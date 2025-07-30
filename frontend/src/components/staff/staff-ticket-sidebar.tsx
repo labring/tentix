@@ -21,6 +21,11 @@ import {
   ProgressIcon,
   DoneIcon,
   PriorityBadge,
+  Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "tentix-ui";
 import { userTablePagination } from "@store/table-pagination";
 import { useQuery } from "@tanstack/react-query";
@@ -101,10 +106,12 @@ export function StaffTicketSidebar({
     searchQuery,
     statuses,
     readStatus,
+    allTicket,
     setSearchQuery,
     setStatuses,
     setReadStatus,
     setCurrentPage,
+    setAllTicket,
   } = userTablePagination();
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -117,6 +124,7 @@ export function StaffTicketSidebar({
       debouncedSearchQuery,
       statuses,
       readStatus,
+      allTicket,
       currentTicketId,
     ),
   );
@@ -381,7 +389,7 @@ export function StaffTicketSidebar({
                           "flex w-4 h-4 items-center justify-center rounded-sm border",
                           isChecked
                             ? "border-[#18181B] bg-[#18181B]"
-                            : "border-[#18181B] bg-white"
+                            : "border-[#18181B] bg-white",
                         )}
                       >
                         {isChecked && (
@@ -411,6 +419,26 @@ export function StaffTicketSidebar({
           >
             {t("unread")}
           </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center">
+                  <Switch
+                    checked={allTicket}
+                    onCheckedChange={(checked) => setAllTicket(checked)}
+                    className="data-[state=checked]:bg-primary"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                {allTicket ? (
+                  <p>{t("only_mine")}</p>
+                ) : (
+                  <p>{t("all_tickets")}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 

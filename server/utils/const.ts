@@ -114,6 +114,19 @@ export const userRoleEnumArray = [
   "ai",
 ] as const;
 
+// Feedback type enum array
+// "like"
+// "dislike"
+export const feedbackTypeEnumArray = ["like", "dislike"] as const;
+
+// Satisfaction rating enum array
+// "1": very dissatisfied
+// "2": dissatisfied
+// "3": neutral
+// "4": satisfied
+// "5": very satisfied
+export const satisfactionRatingEnumArray = ["1", "2", "3", "4", "5"] as const;
+
 /**
  * WebSocket token expiry time
  *

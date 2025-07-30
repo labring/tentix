@@ -30,6 +30,8 @@ export const translations = {
 
       all: "All",
       all_status: "All status",
+      only_mine: "Only mine",
+      all_tickets: "All tickets",
       pending: "Pending",
       in_progress: "In Progress",
       completed: "Completed",
@@ -315,6 +317,8 @@ export const translations = {
 
       all: "全部",
       all_status: "全部状态",
+      only_mine: "仅看我的",
+      all_tickets: "全部工单",
       pending: "待处理",
       in_progress: "处理中",
       completed: "已完成",

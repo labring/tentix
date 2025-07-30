@@ -25,13 +25,13 @@ export function StaffSidebar() {
             to="/staff/tickets/list"
             className="flex flex-col items-center justify-center gap-1 text-center"
           >
-            <Ticket className="!w-6 !h-6" strokeWidth={1.33} />
+            <LayersIcon className="!w-6 !h-6" strokeWidth={1.33} />
             <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
-              {t("tkt_list")}
+              {joinTrans([t("all"), t("tkt_other")])}
             </span>
           </Link>
         </Button>
-        <Button
+        {/* <Button
           asChild
           variant="ghost"
           className={`flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500 ${
@@ -49,7 +49,7 @@ export function StaffSidebar() {
               {joinTrans([t("all"), t("tkt_other")])}
             </span>
           </Link>
-        </Button>
+        </Button> */}
       </div>
     </div>
   );

@@ -100,10 +100,12 @@ export function UserTicketSidebar({
     searchQuery,
     statuses,
     readStatus,
+    allTicket,
     setSearchQuery,
     setStatuses,
     setReadStatus,
     setCurrentPage,
+    setAllTicket,
   } = userTablePagination();
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -116,6 +118,7 @@ export function UserTicketSidebar({
       debouncedSearchQuery,
       statuses,
       readStatus,
+      allTicket,
       currentTicketId,
     ),
   );

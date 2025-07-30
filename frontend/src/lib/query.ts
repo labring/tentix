@@ -44,6 +44,7 @@ export const userTicketsQueryOptions = (
   keyword?: string,
   statuses?: string[],
   readStatus?: "read" | "unread" | "all",
+  allTicket?: boolean,
   id?: string,
 ) =>
   queryOptions({
@@ -54,10 +55,11 @@ export const userTicketsQueryOptions = (
       statuses,
       keyword,
       readStatus,
+      allTicket,
       id,
     ],
     queryFn: async () => {
-      const params: Record<string, string> = {
+      const params: Record<string, string | boolean> = {
         pageSize: pageSize.toString(),
         page: page.toString(),
       };
@@ -81,6 +83,10 @@ export const userTicketsQueryOptions = (
 
       if (keyword && keyword.trim()) {
         params.keyword = keyword.trim();
+      }
+
+      if (allTicket) {
+        params.allTicket = allTicket;
       }
 
       if (readStatus && readStatus !== "all") {

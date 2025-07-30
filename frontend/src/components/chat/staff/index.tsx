@@ -105,6 +105,9 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
     setWithdrawMessageFunc(withdrawMessage);
   }, [wsLoading, isTicketLoading, withdrawMessage, setWithdrawMessageFunc]);
 
+  console.log("wsLoading", wsLoading);
+  console.log("isTicketLoading", isTicketLoading);
+
   // 设置当前 ticketId 并在卸载时清理
   useEffect(() => {
     // 设置当前 ticketId

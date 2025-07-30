@@ -34,7 +34,89 @@ const basicUserCols = {
   },
 } as const;
 
-// 🎯 根据已读/未读状态筛选工单ID的辅助函数
+// 根据已读/未读状态筛选工单ID的辅助函数（用于员工工单）
+// 未读：没有任何一个员工已读，且最后一条消息不是员工发送的
+// 已读：有至少一个员工已读，或者最后一条消息是员工发送的
+// chat_messages (主表) → 筛选最新消息 → 检查已读状态 → 返回 ticket_id
+async function getFilteredTicketIdsByStaffReadStatus(
+  readStatus: "read" | "unread",
+) {
+  const db = connectDB();
+
+  if (readStatus !== "read" && readStatus !== "unread") {
+    throw new Error("Invalid readStatus parameter");
+  }
+
+  if (readStatus === "unread") {
+    const result = await db.execute(sql`
+      WITH latest_messages AS (
+        SELECT 
+          cm.id,
+          cm.ticket_id,
+          cm.sender_id,
+          ROW_NUMBER() OVER (
+            PARTITION BY cm.ticket_id 
+            ORDER BY cm.created_at DESC
+          ) as rn
+        FROM tentix.chat_messages cm
+      )
+      SELECT DISTINCT lm.ticket_id
+      FROM latest_messages lm
+      LEFT JOIN tentix.message_read_status mrs ON mrs.message_id = lm.id
+      LEFT JOIN tentix.users staff_readers ON (
+        staff_readers.id = mrs.user_id 
+        AND staff_readers.role IN ('agent', 'technician')
+      )
+      LEFT JOIN tentix.users message_senders ON message_senders.id = lm.sender_id
+      WHERE 
+        lm.rn = 1
+        AND staff_readers.id IS NULL
+        AND (
+          message_senders.role IS NULL 
+          OR message_senders.role NOT IN ('agent', 'technician')
+        )
+    `);
+
+    return (result.rows as { ticket_id: string }[]).map((row) => row.ticket_id);
+  } else {
+    const result = await db.execute(sql`
+      WITH latest_messages AS (
+        SELECT 
+          cm.id,
+          cm.ticket_id,
+          cm.sender_id,
+          ROW_NUMBER() OVER (
+            PARTITION BY cm.ticket_id 
+            ORDER BY cm.created_at DESC
+          ) as rn
+        FROM tentix.chat_messages cm
+      )
+      SELECT DISTINCT lm.ticket_id
+      FROM latest_messages lm
+      LEFT JOIN tentix.message_read_status mrs ON mrs.message_id = lm.id
+      LEFT JOIN tentix.users staff_readers ON (
+        staff_readers.id = mrs.user_id 
+        AND staff_readers.role IN ('agent', 'technician')
+      )
+      WHERE 
+        lm.rn = 1
+        AND (
+          staff_readers.id IS NOT NULL  -- 有员工已读
+          OR 
+          lm.sender_id IN (  -- 或者发送者是员工
+            SELECT id FROM tentix.users 
+            WHERE role IN ('agent', 'technician')
+          )
+        )
+    `);
+    return (result.rows as { ticket_id: string }[]).map((row) => row.ticket_id);
+  }
+}
+
+// 根据已读/未读状态筛选工单ID的辅助函数（用于个人工单）
+// 未读： 最新消息不是我发的 + 我未读
+// 已读： 最新消息是我发的 OR 我已读
+// chat_messages (主表) → 筛选最新消息 → 检查已读状态 → 返回 ticket_id
 async function getFilteredTicketIdsByReadStatus(
   readStatus: "read" | "unread",
   currentUserId: number,
@@ -521,7 +603,8 @@ async function getTicketsForAgent(
   // 对拼接后的tickets进行最终排序，确保全局排序正确
   const sortedTickets = tickets.sort((a, b) => {
     // 先按updatedAt降序排序
-    const timeCompare = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    const timeCompare =
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     if (timeCompare !== 0) return timeCompare;
     // 如果updatedAt相同，按id降序排序（确保稳定排序）
     return b.id.localeCompare(a.id);
@@ -535,6 +618,109 @@ async function getTicketsForAgent(
         content: getAbbreviatedText(message.content, 100),
       })),
     })),
+    totalCount,
+    totalPages,
+    currentPage: page,
+  };
+}
+
+// 🎯 获取所有工单（参考 /all 路由逻辑）
+async function getAllTickets(
+  page: number,
+  pageSize: number,
+  keyword?: string,
+  status?: TicketStatus[],
+  readStatus?: "read" | "unread",
+  createdAt_start?: string,
+  createdAt_end?: string,
+  module?: Module,
+) {
+  const db = connectDB();
+  const offset = (page - 1) * pageSize;
+
+  const basicUserCols = {
+    columns: {
+      id: true,
+      name: true,
+      nickname: true,
+      avatar: true,
+    },
+  } as const;
+
+  // 构建搜索条件
+  const searchConditions = buildSearchConditions(
+    keyword,
+    status,
+    createdAt_start,
+    createdAt_end,
+    module,
+  );
+
+  // 【新增】如果提供了 readStatus，则按照新逻辑过滤：检查是否有任意 agent 或 technician 读过最新消息
+  if (readStatus) {
+    const readStatusTicketIds =
+      await getFilteredTicketIdsByStaffReadStatus(readStatus);
+    // 如果没有匹配的工单，可以直接返回空，避免后续查询
+    if (readStatusTicketIds.length === 0) {
+      return {
+        tickets: [],
+        totalCount: 0,
+        totalPages: 0,
+        currentPage: page,
+      };
+    }
+    // 将ID条件添加到搜索条件中
+    searchConditions.push(inArray(schema.tickets.id, readStatusTicketIds));
+  }
+
+  const whereConditions =
+    searchConditions.length > 0 ? and(...searchConditions) : undefined;
+
+  // Get total count and tickets data in parallel
+  const [totalCountResult, tickets, _stats] = await Promise.all([
+    db.select({ count: count() }).from(schema.tickets).where(whereConditions),
+
+    db.query.tickets.findMany({
+      where: whereConditions,
+      orderBy: [desc(schema.tickets.updatedAt), desc(schema.tickets.id)],
+      limit: pageSize,
+      offset,
+      with: {
+        agent: basicUserCols,
+        customer: basicUserCols,
+        messages: {
+          orderBy: [desc(schema.chatMessages.createdAt)],
+          limit: 1,
+          with: {
+            readStatus: true,
+          },
+        },
+      },
+    }),
+
+    // Get global stats (not filtered by search conditions)
+    db
+      .select({
+        status: schema.tickets.status,
+        count: count().as("count"),
+      })
+      .from(schema.tickets)
+      .groupBy(schema.tickets.status),
+  ]);
+
+  const totalCount = totalCountResult[0]?.count || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  const processedTickets = tickets.map((ticket) => ({
+    ...ticket,
+    messages: ticket.messages.map((message) => ({
+      ...message,
+      content: getAbbreviatedText(message.content, 100),
+    })),
+  }));
+
+  return {
+    tickets: processedTickets,
     totalCount,
     totalPages,
     currentPage: page,
@@ -776,6 +962,14 @@ const userRouter = factory
         module: z.enum(moduleEnumArray).optional().openapi({
           description: "Filter tickets by module",
         }),
+        allTicket: z
+          .string()
+          .optional()
+          .transform((val) => val === "true")
+          .openapi({
+            description:
+              "Get all tickets (only for technician and agent roles)",
+          }),
       }),
     ),
     async (c) => {
@@ -793,6 +987,7 @@ const userRouter = factory
         createdAt_start,
         createdAt_end,
         module,
+        allTicket,
       } = c.req.valid("query");
 
       const selectedStatuses: TicketStatus[] = [];
@@ -801,51 +996,87 @@ const userRouter = factory
       if (resolved) selectedStatuses.push("resolved");
       if (scheduled) selectedStatuses.push("scheduled");
 
-      const [ticketsResult, stats] = await Promise.all([
-        (async () => {
-          switch (role) {
-            case "agent":
-              return getTicketsForAgent(
-                userId,
-                page,
-                pageSize,
-                keyword,
-                selectedStatuses.length > 0 ? selectedStatuses : undefined,
-                readStatus,
-                createdAt_start,
-                createdAt_end,
-                module,
-              );
-            case "technician":
-              return getTicketsWithPagination(
-                userId,
-                "technician",
-                page,
-                pageSize,
-                keyword,
-                selectedStatuses.length > 0 ? selectedStatuses : undefined,
-                readStatus,
-                createdAt_start,
-                createdAt_end,
-                module,
-              );
-            default: // customer
-              return getTicketsWithPagination(
-                userId,
-                "customer",
-                page,
-                pageSize,
-                keyword,
-                selectedStatuses.length > 0 ? selectedStatuses : undefined,
-                readStatus,
-                createdAt_start,
-                createdAt_end,
-                module,
-              );
-          }
-        })(),
-        getTicketStats(userId, role),
-      ]);
+      let ticketsResult;
+      let stats;
+
+      // 如果是 allTicket 模式，且用户是 technician 或 agent
+      if (allTicket && (role === "technician" || role === "agent")) {
+        // readStatus 参数优先级更高，如果提供了 readStatus，则使用它进行过滤
+        const [ticketsData, statsData] = await Promise.all([
+          getAllTickets(
+            page,
+            pageSize,
+            keyword,
+            selectedStatuses.length > 0 ? selectedStatuses : undefined,
+            readStatus, // 使用 readStatus 过滤
+            createdAt_start,
+            createdAt_end,
+            module,
+          ),
+          // 获取全局统计
+          (async () => {
+            const db = connectDB();
+            return await db
+              .select({
+                status: schema.tickets.status,
+                count: count().as("count"),
+              })
+              .from(schema.tickets)
+              .groupBy(schema.tickets.status);
+          })(),
+        ]);
+        ticketsResult = ticketsData;
+        stats = statsData;
+      } else {
+        // 正常的角色基础查询
+        const [ticketsData, statsData] = await Promise.all([
+          (async () => {
+            switch (role) {
+              case "agent":
+                return getTicketsForAgent(
+                  userId,
+                  page,
+                  pageSize,
+                  keyword,
+                  selectedStatuses.length > 0 ? selectedStatuses : undefined,
+                  readStatus,
+                  createdAt_start,
+                  createdAt_end,
+                  module,
+                );
+              case "technician":
+                return getTicketsWithPagination(
+                  userId,
+                  "technician",
+                  page,
+                  pageSize,
+                  keyword,
+                  selectedStatuses.length > 0 ? selectedStatuses : undefined,
+                  readStatus,
+                  createdAt_start,
+                  createdAt_end,
+                  module,
+                );
+              default: // customer
+                return getTicketsWithPagination(
+                  userId,
+                  "customer",
+                  page,
+                  pageSize,
+                  keyword,
+                  selectedStatuses.length > 0 ? selectedStatuses : undefined,
+                  readStatus,
+                  createdAt_start,
+                  createdAt_end,
+                  module,
+                );
+            }
+          })(),
+          getTicketStats(userId, role),
+        ]);
+        ticketsResult = ticketsData;
+        stats = statsData;
+      }
 
       return c.json({
         ...ticketsResult,
