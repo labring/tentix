@@ -15,7 +15,7 @@ import { StaffSidebar } from "@comp/staff/sidebar";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
   loader: async ({ context: { queryClient, authContext } }) => {
-    // 如果没有认证，返回null数据，让beforeLoad处理重定向
+    // 如果没有认证，返回null数据，让 staff.tsx 处理重定向
     if (!authContext.isAuthenticated || !authContext.user) {
       return {
         token: null,
@@ -46,9 +46,11 @@ function RouteComponent() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
-  const { data: ticket, isLoading: isTicketLoading } = useQuery(
-    ticketsQueryOptions(ticketId),
-  );
+  // enabled 确保只有在 wsToken 存在时才发起请求 （wsToken 存在时，说明已经认证）, 防止飞书认证时 api-client.ts 401 错误触发全局重定向
+  const { data: ticket, isLoading: isTicketLoading } = useQuery({
+    ...ticketsQueryOptions(ticketId),
+    enabled: !!wsToken,
+  });
 
   // Set up initial ticket data - 所有 hooks 必须在条件渲染之前调用
   useEffect(() => {
@@ -89,7 +91,7 @@ function RouteComponent() {
   if (isTicketLoading || !ticket) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <div className="text-sm text-muted-foreground">Loading...</div>
+        <div className="text-sm text-muted-foreground">Loading Ticket...</div>
       </div>
     );
   }

@@ -8,6 +8,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { RouterContext } from "../router";
 import { useTranslation } from "i18n";
 import { lazy } from "react";
+import { useAuth } from "@hook/use-local-user.tsx"
 
 const IdentitySwitcher = lazy(() => import("../components/identity-switcher.tsx"));
 
@@ -49,10 +50,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   errorComponent: function ErrorComponent({ error, reset }) {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const authContext = useAuth();
     const resetLogin = () => {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      localStorage.removeItem("role");
+      authContext.logout();
       navigate({ to: "." });
     };
 

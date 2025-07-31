@@ -1,21 +1,18 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { areaEnumArray } from "tentix-server/constants";
 import { useAuth } from "../hooks/use-local-user";
+import { z } from "zod";
 
 export const Route = createFileRoute("/staff")({
-  validateSearch: (search: Record<string, unknown>) => {
-    if (search.token) {
-      return {
-        ...search,
-        token: search.token as string,
-      };
-    }
-    return search;
-  },
+  validateSearch: z
+    .object({
+      token: z.string().optional(),
+    })
+    .passthrough(),
   beforeLoad: async ({ search, context, location }) => {
     // 如果有token参数，处理飞书登录回调
     if (search.token) {
-      window.localStorage.setItem("token", search.token as string);
+      window.localStorage.setItem("token", search.token);
       context.authContext.setIsAuthenticated(true);
       context.authContext.setIsLoading(true);
 
@@ -57,6 +54,7 @@ export const Route = createFileRoute("/staff")({
 
     if (!hasToken) {
       // 没有token，跳转飞书登录
+      // 用 location.href 而不是 location.pathname 是因为 location.pathname 不包含查询参数
       window.location.href = `/api/feishu/login?redirect=${location.href}`;
       return;
     }

@@ -122,7 +122,7 @@ const feishuRouter = factory
         .where(eq(schema.users.feishuUnionId, userInfo.union_id));
 
       const redirectUrl = new URL(
-        cache.get(state) ?? "/staff/dashboard",
+        cache.get(state) ?? "/staff/tickets/list",
         c.var.origin,
       );
 

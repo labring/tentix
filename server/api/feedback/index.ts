@@ -1,6 +1,3 @@
-import {
-  connectDB,
-} from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq, and } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
@@ -9,6 +6,20 @@ import { z } from "zod";
 import "zod-openapi/extend";
 import { HTTPException } from "hono/http-exception";
 import { authMiddleware, factory } from "../middleware.ts";
+import { rateLimiter } from "hono-rate-limiter";
+import { getConnInfo } from "hono/bun";
+
+const feedbackRateLimiter = rateLimiter({
+  windowMs: 5 * 60 * 1000, // 15分钟
+  limit: 3, // 3次限制
+  standardHeaders: "draft-6",
+  keyGenerator: (c) => {
+    const connInfo = getConnInfo(c);
+    const userId = (c as any).var.userId;
+    const ip = connInfo.remote.address || "unknown";
+    return `feedback-${userId}-${ip}`;
+  },
+});
 
 // 消息反馈 Schema
 const messageFeedbackSchema = z.object({
@@ -35,6 +46,7 @@ const ticketFeedbackSchema = z.object({
 const feedbackRouter = factory
   .createApp()
   .use(authMiddleware)
+  .use(feedbackRateLimiter)
   .post(
     "/message",
     describeRoute({
@@ -83,7 +95,7 @@ const feedbackRouter = factory
       const message = await db.query.chatMessages.findFirst({
         where: and(
           eq(schema.chatMessages.id, messageId),
-          eq(schema.chatMessages.ticketId, ticketId)
+          eq(schema.chatMessages.ticketId, ticketId),
         ),
       });
 
@@ -104,44 +116,25 @@ const feedbackRouter = factory
         });
       }
 
-      let feedbackRecord;
-
-      await db.transaction(async (tx) => {
-        // 检查是否已存在反馈记录
-        const existingFeedback = await tx.query.messageFeedback.findFirst({
-          where: and(
-            eq(schema.messageFeedback.messageId, messageId),
-            eq(schema.messageFeedback.userId, userId)
-          ),
-        });
-
-        if (existingFeedback) {
-          // 更新现有记录
-          const [updated] = await tx
-            .update(schema.messageFeedback)
-            .set({
-              feedbackType,
-              updatedAt: new Date().toISOString(),
-            })
-            .where(eq(schema.messageFeedback.id, existingFeedback.id))
-            .returning();
-          
-          feedbackRecord = updated;
-        } else {
-          // 创建新记录
-          const [created] = await tx
-            .insert(schema.messageFeedback)
-            .values({
-              messageId,
-              userId,
-              ticketId,
-              feedbackType,
-            })
-            .returning();
-          
-          feedbackRecord = created;
-        }
-      });
+      const [feedbackRecord] = await db
+        .insert(schema.messageFeedback)
+        .values({
+          messageId,
+          userId,
+          ticketId,
+          feedbackType,
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.messageFeedback.messageId,
+            schema.messageFeedback.userId,
+          ],
+          set: {
+            feedbackType,
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .returning();
 
       return c.json({
         success: true,
@@ -188,7 +181,8 @@ const feedbackRouter = factory
       const db = c.var.db;
       const userId = c.var.userId;
       const role = c.var.role;
-      const { evaluatedId, feedbackType, ticketId, comment } = c.req.valid("json");
+      const { evaluatedId, feedbackType, ticketId, comment } =
+        c.req.valid("json");
 
       // 只允许客户使用此接口
       if (role !== "customer") {
@@ -222,66 +216,51 @@ const feedbackRouter = factory
       // 只能对 agent、technician、ai 角色进行评价
       if (!["agent", "technician", "ai"].includes(evaluatedUser.role)) {
         throw new HTTPException(400, {
-          message: "You can only provide feedback for agent, technician, or ai users",
+          message:
+            "You can only provide feedback for agent, technician, or ai users",
         });
       }
 
       // 验证被评价用户是否参与了该工单
-      const isAgentOrTechnician = 
-        ticket.agentId === evaluatedId || 
-        await db.query.techniciansToTickets.findFirst({
+      let isParticipant = ticket.agentId === evaluatedId;
+      if (!isParticipant) {
+        const technicianRecord = await db.query.techniciansToTickets.findFirst({
           where: and(
             eq(schema.techniciansToTickets.ticketId, ticketId),
-            eq(schema.techniciansToTickets.userId, evaluatedId)
+            eq(schema.techniciansToTickets.userId, evaluatedId),
           ),
         });
+        isParticipant = !!technicianRecord;
+      }
 
-      if (!isAgentOrTechnician) {
+      if (!isParticipant) {
         throw new HTTPException(400, {
           message: "The evaluated user is not involved in this ticket",
         });
       }
 
-      let feedbackRecord;
-
-      await db.transaction(async (tx) => {
-        // 检查是否已存在反馈记录
-        const existingFeedback = await tx.query.staffFeedback.findFirst({
-          where: and(
-            eq(schema.staffFeedback.ticketId, ticketId),
-            eq(schema.staffFeedback.evaluatorId, userId),
-            eq(schema.staffFeedback.evaluatedId, evaluatedId)
-          ),
-        });
-
-        if (existingFeedback) {
-          // 更新现有记录
-          const [updated] = await tx
-            .update(schema.staffFeedback)
-            .set({
-              feedbackType,
-              comment: comment || "",
-            })
-            .where(eq(schema.staffFeedback.id, existingFeedback.id))
-            .returning();
-          
-          feedbackRecord = updated;
-        } else {
-          // 创建新记录
-          const [created] = await tx
-            .insert(schema.staffFeedback)
-            .values({
-              ticketId,
-              evaluatorId: userId,
-              evaluatedId,
-              feedbackType,
-              comment: comment || "",
-            })
-            .returning();
-          
-          feedbackRecord = created;
-        }
-      });
+      const [feedbackRecord] = await db
+        .insert(schema.staffFeedback)
+        .values({
+          ticketId,
+          evaluatorId: userId,
+          evaluatedId,
+          feedbackType,
+          comment: comment || "",
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.staffFeedback.ticketId,
+            schema.staffFeedback.evaluatorId,
+            schema.staffFeedback.evaluatedId,
+          ],
+          set: {
+            feedbackType,
+            comment: comment || "",
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .returning();
 
       return c.json({
         success: true,
@@ -314,7 +293,9 @@ const feedbackRouter = factory
                   message: z.string(),
                   data: z.object({
                     id: z.number(),
-                    satisfactionRating: z.enum(schema.satisfactionRating.enumValues),
+                    satisfactionRating: z.enum(
+                      schema.satisfactionRating.enumValues,
+                    ),
                   }),
                 }),
               ),
@@ -348,41 +329,31 @@ const feedbackRouter = factory
         });
       }
 
-      let feedbackRecord;
-
-      await db.transaction(async (tx) => {
-        // 检查是否已存在反馈记录
-        const existingFeedback = await tx.query.ticketFeedback.findFirst({
-          where: eq(schema.ticketFeedback.ticketId, ticketId),
+      // 只能对已关闭或已解决的工单提供反馈
+      if (ticket.status !== "resolved") {
+        throw new HTTPException(400, {
+          message:
+            "Feedback can only be provided for closed or resolved tickets",
         });
+      }
 
-        if (existingFeedback) {
-          // 更新现有记录
-          const [updated] = await tx
-            .update(schema.ticketFeedback)
-            .set({
-              satisfactionRating,
-              feedback: feedback || "",
-            })
-            .where(eq(schema.ticketFeedback.id, existingFeedback.id))
-            .returning();
-          
-          feedbackRecord = updated;
-        } else {
-          // 创建新记录
-          const [created] = await tx
-            .insert(schema.ticketFeedback)
-            .values({
-              ticketId,
-              userId,
-              satisfactionRating,
-              feedback: feedback || "",
-            })
-            .returning();
-          
-          feedbackRecord = created;
-        }
-      });
+      const [feedbackRecord] = await db
+        .insert(schema.ticketFeedback)
+        .values({
+          ticketId,
+          userId,
+          satisfactionRating,
+          feedback: feedback || "",
+        })
+        .onConflictDoUpdate({
+          target: [schema.ticketFeedback.ticketId],
+          set: {
+            satisfactionRating,
+            feedback: feedback || "",
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .returning();
 
       return c.json({
         success: true,

@@ -358,6 +358,14 @@ export const staffFeedback = tentix.table(
     })
       .defaultNow()
       .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
   },
   (table) => [
     // 每个评价者对每个被评价者在同一工单中只能评价一次
@@ -396,6 +404,14 @@ export const ticketFeedback = tentix.table(
       withTimezone: true,
     })
       .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
       .notNull(),
   },
   (table) => [
