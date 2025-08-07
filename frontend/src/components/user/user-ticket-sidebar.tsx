@@ -105,7 +105,6 @@ export function UserTicketSidebar({
     setStatuses,
     setReadStatus,
     setCurrentPage,
-    setAllTicket,
   } = userTablePagination();
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);

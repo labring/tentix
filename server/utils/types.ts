@@ -286,3 +286,90 @@ export const userTicketSchema = createSelectSchema(schema.tickets).extend({
     }),
   ),
 });
+
+// feedback
+// 消息反馈 Schema
+export const messageFeedbackSchema = z
+  .object({
+    messageId: z.number().int().positive(),
+    ticketId: z.string(),
+    feedbackType: z.enum(schema.feedbackType.enumValues),
+    dislikeReasons: z.array(z.enum(schema.dislikeReason.enumValues)).optional(),
+    feedbackComment: z.string().optional(),
+    hasComplaint: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      // 当feedbackType为dislike时，dislikeReasons、feedbackComment、hasComplaint是可选的
+      if (data.feedbackType === "dislike") {
+        return true; // 允许传递这些字段
+      }
+      // 当feedbackType为like时，不允许传递这些字段
+      return (
+        !data.dislikeReasons &&
+        !data.feedbackComment &&
+        data.hasComplaint === undefined
+      );
+    },
+    {
+      message:
+        "dislikeReasons, feedbackComment, and hasComplaint can only be provided when feedbackType is 'dislike'",
+    },
+  );
+
+// 员工反馈 Schema
+export const staffFeedbackSchema = z
+  .object({
+    evaluatedId: z.number().int().positive(),
+    feedbackType: z.enum(schema.feedbackType.enumValues),
+    ticketId: z.string(),
+    dislikeReasons: z.array(z.enum(schema.dislikeReason.enumValues)).optional(),
+    feedbackComment: z.string().optional(),
+    hasComplaint: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      // 当feedbackType为dislike时，dislikeReasons、feedbackComment、hasComplaint是可选的
+      if (data.feedbackType === "dislike") {
+        return true; // 允许传递这些字段
+      }
+      // 当feedbackType为like时，不允许传递这些字段
+      return (
+        !data.dislikeReasons &&
+        !data.feedbackComment &&
+        data.hasComplaint === undefined
+      );
+    },
+    {
+      message:
+        "dislikeReasons, feedbackComment, and hasComplaint can only be provided when feedbackType is 'dislike'",
+    },
+  );
+
+// 工单反馈 Schema
+export const ticketFeedbackSchema = z
+  .object({
+    ticketId: z.string(),
+    satisfactionRating: z.number().int().min(1).max(5),
+    dislikeReasons: z.array(z.enum(schema.dislikeReason.enumValues)).optional(),
+    feedbackComment: z.string().optional(),
+    hasComplaint: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      // 当satisfactionRating小于3时，dislikeReasons、feedbackComment、hasComplaint是可选的
+      if (data.satisfactionRating <= 3) {
+        return true; // 允许传递这些字段
+      }
+      // 当satisfactionRating大于等于3时，不允许传递这些字段
+      return (
+        !data.dislikeReasons &&
+        !data.feedbackComment &&
+        data.hasComplaint === undefined
+      );
+    },
+    {
+      message:
+        "dislikeReasons, feedbackComment, and hasComplaint can only be provided when satisfactionRating is less than 3",
+    },
+  );

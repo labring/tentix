@@ -25,7 +25,7 @@ import {
   ticketStatusEnumArray,
   userRoleEnumArray,
   feedbackTypeEnumArray,
-  satisfactionRatingEnumArray,
+  dislikeReasonEnumArray,
 } from "../utils/const.ts";
 import { myNanoId } from "../utils/runtime.ts";
 export const tentix = pgSchema("tentix");
@@ -49,9 +49,9 @@ export const ticketStatus = tentix.enum("ticket_status", ticketStatusEnumArray);
 export const userRole = tentix.enum("user_role", userRoleEnumArray);
 
 export const feedbackType = tentix.enum("feedback_type", feedbackTypeEnumArray);
-export const satisfactionRating = tentix.enum(
-  "satisfaction_rating",
-  satisfactionRatingEnumArray,
+export const dislikeReason = tentix.enum(
+  "dislike_reason",
+  dislikeReasonEnumArray,
 );
 
 // Core tables with no dependencies
@@ -87,52 +87,67 @@ export const users = tentix.table(
   ],
 );
 
-export const tickets = tentix.table("tickets", {
-  id: char("id", { length: 13 })
-    .primaryKey()
-    .$defaultFn(myNanoId(13))
-    .notNull(),
-  title: varchar("title", { length: 254 }).notNull(),
-  description: jsonb().$type<JSONContentZod>().notNull(),
-  status: ticketStatus("status")
-    .notNull()
-    .$default(() => "pending"),
-  module: module("module").notNull(),
-  area: area("area").notNull(),
-  sealosNamespace: varchar("sealos_namespace", { length: 64 })
-    .default("")
-    .notNull(),
-  occurrenceTime: timestamp("occurrence_time", {
-    precision: 6,
-    mode: "string",
-    withTimezone: true,
-  }).notNull(),
-  category: ticketCategory("category").default("uncategorized").notNull(),
-  priority: ticketPriority("priority").notNull(),
-  errorMessage: text("error_message"),
-  customerId: integer("customer_id")
-    .notNull()
-    .references(() => users.id),
-  agentId: integer("agent_id")
-    .default(0)
-    .notNull()
-    .references(() => users.id),
-  createdAt: timestamp("created_at", {
-    precision: 3,
-    mode: "string",
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", {
-    precision: 3,
-    mode: "string",
-    withTimezone: true,
-  })
-    .defaultNow()
-    .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
-    .notNull(),
-});
+export const tickets = tentix.table(
+  "tickets",
+  {
+    id: char("id", { length: 13 })
+      .primaryKey()
+      .$defaultFn(myNanoId(13))
+      .notNull(),
+    title: varchar("title", { length: 254 }).notNull(),
+    description: jsonb().$type<JSONContentZod>().notNull(),
+    status: ticketStatus("status")
+      .notNull()
+      .$default(() => "pending"),
+    module: module("module").notNull(),
+    area: area("area").notNull(),
+    sealosNamespace: varchar("sealos_namespace", { length: 64 })
+      .default("")
+      .notNull(),
+    occurrenceTime: timestamp("occurrence_time", {
+      precision: 6,
+      mode: "string",
+      withTimezone: true,
+    }).notNull(),
+    category: ticketCategory("category").default("uncategorized").notNull(),
+    priority: ticketPriority("priority").notNull(),
+    errorMessage: text("error_message"),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => users.id),
+    agentId: integer("agent_id")
+      .default(0)
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    // 客户访问权限优化索引
+    index("idx_tickets_customer_id").on(table.customerId),
+    // 代理人访问权限优化索引
+    index("idx_tickets_agent_id").on(table.agentId),
+    // 复合索引用于权限检查优化
+    index("idx_tickets_id_customer").on(table.id, table.customerId),
+    // 状态查询优化索引
+    index("idx_tickets_status").on(table.status),
+    // 更新时间排序索引（用于列表查询）
+    index("idx_tickets_updated_at").on(table.updatedAt.desc()),
+  ],
+);
 
 export const tags = tentix.table("tags", {
   id: serial("id").primaryKey().notNull(),
@@ -309,6 +324,9 @@ export const messageFeedback = tentix.table(
       .notNull()
       .references(() => tickets.id, { onDelete: "cascade" }), // 工单删除时级联删除反馈
     feedbackType: feedbackType("feedback_type").notNull(), // like | dislike
+    dislikeReasons: dislikeReason("dislike_reasons").array().default([]),
+    feedbackComment: text("feedback_comment").default(""),
+    hasComplaint: boolean("has_complaint").default(false).notNull(),
     createdAt: timestamp("created_at", {
       precision: 3,
       mode: "string",
@@ -350,7 +368,9 @@ export const staffFeedback = tentix.table(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }), // 用户删除时级联删除反馈
     feedbackType: feedbackType("feedback_type").notNull(), // like | dislike
-    comment: text("comment").default(""), // 可选的文字评价 - 可以为空
+    dislikeReasons: dislikeReason("dislike_reasons").array().default([]),
+    feedbackComment: text("feedback_comment").default(""),
+    hasComplaint: boolean("has_complaint").default(false).notNull(),
     createdAt: timestamp("created_at", {
       precision: 3,
       mode: "string",
@@ -392,12 +412,10 @@ export const ticketFeedback = tentix.table(
     userId: integer("user_id") // 评价用户ID（通常是客户）
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }), // 用户删除时级联删除反馈
-    satisfactionRating: satisfactionRating("satisfaction_rating").notNull(), // 1-5分满意度
-    feedback: text("feedback").default(""), // 文字反馈 - 可以为空
-    isResolved: boolean("is_resolved").default(true).notNull(), // 问题是否解决
-    supportQuality: smallint("support_quality").default(0), // 支持质量评分 1-5 - 可以为空
-    responseTime: smallint("response_time").default(0), // 响应时间评分 1-5 - 可以为空
-    technicalCompetence: smallint("technical_competence").default(0), // 技术能力评分 1-5 - 可以为空
+    satisfactionRating: smallint("satisfaction_rating").default(0).notNull(), // 1-5分满意度
+    dislikeReasons: dislikeReason("dislike_reasons").array().default([]),
+    feedbackComment: text("feedback_comment").default(""),
+    hasComplaint: boolean("has_complaint").default(false).notNull(),
     createdAt: timestamp("created_at", {
       precision: 3,
       mode: "string",

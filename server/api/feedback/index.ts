@@ -8,6 +8,12 @@ import { HTTPException } from "hono/http-exception";
 import { authMiddleware, factory } from "../middleware.ts";
 import { rateLimiter } from "hono-rate-limiter";
 import { getConnInfo } from "hono/bun";
+import { createSelectSchema } from "drizzle-zod";
+import {
+  messageFeedbackSchema,
+  staffFeedbackSchema,
+  ticketFeedbackSchema,
+} from "@/utils/types.ts";
 
 const feedbackRateLimiter = rateLimiter({
   windowMs: 5 * 60 * 1000, // 15分钟
@@ -21,34 +27,44 @@ const feedbackRateLimiter = rateLimiter({
   },
 });
 
-// 消息反馈 Schema
-const messageFeedbackSchema = z.object({
-  messageId: z.number().int().positive(),
-  ticketId: z.string(),
-  feedbackType: z.enum(schema.feedbackType.enumValues),
+const messageFeedbackResponseSchema = createSelectSchema(
+  schema.messageFeedback,
+).pick({
+  id: true,
+  feedbackType: true,
 });
 
-// 员工反馈 Schema
-const staffFeedbackSchema = z.object({
-  evaluatedId: z.number().int().positive(),
-  feedbackType: z.enum(schema.feedbackType.enumValues),
-  ticketId: z.string(),
-  comment: z.string().optional(),
+const staffFeedbackResponseSchema = createSelectSchema(
+  schema.staffFeedback,
+).pick({
+  id: true,
+  feedbackType: true,
 });
 
-// 工单反馈 Schema
-const ticketFeedbackSchema = z.object({
-  ticketId: z.string(),
-  satisfactionRating: z.enum(schema.satisfactionRating.enumValues),
-  feedback: z.string().optional().default(""),
+const ticketFeedbackResponseSchema = createSelectSchema(
+  schema.ticketFeedback,
+).pick({
+  id: true,
+  satisfactionRating: true,
 });
+
+const technicianWithFeedbackResponseSchema = createSelectSchema(schema.users)
+  .pick({
+    id: true,
+    name: true,
+    nickname: true,
+    avatar: true,
+  })
+  .extend({
+    feedbacks: z.array(createSelectSchema(schema.staffFeedback)),
+  });
 
 const feedbackRouter = factory
   .createApp()
   .use(authMiddleware)
-  .use(feedbackRateLimiter)
   .post(
     "/message",
+    feedbackRateLimiter,
     describeRoute({
       tags: ["Feedback"],
       description: "Create or update message feedback",
@@ -66,10 +82,7 @@ const feedbackRouter = factory
                 z.object({
                   success: z.boolean(),
                   message: z.string(),
-                  data: z.object({
-                    id: z.number(),
-                    feedbackType: z.enum(schema.feedbackType.enumValues),
-                  }),
+                  data: messageFeedbackResponseSchema,
                 }),
               ),
             },
@@ -82,7 +95,14 @@ const feedbackRouter = factory
       const db = c.var.db;
       const userId = c.var.userId;
       const role = c.var.role;
-      const { messageId, ticketId, feedbackType } = c.req.valid("json");
+      const {
+        messageId,
+        ticketId,
+        feedbackType,
+        dislikeReasons,
+        feedbackComment,
+        hasComplaint,
+      } = c.req.valid("json");
 
       // 只允许客户使用此接口
       if (role !== "customer") {
@@ -116,14 +136,24 @@ const feedbackRouter = factory
         });
       }
 
+      // 准备插入数据
+      const insertData: typeof schema.messageFeedback.$inferInsert = {
+        messageId,
+        userId,
+        ticketId,
+        feedbackType,
+      };
+
+      // 当feedbackType为dislike时，添加可选字段
+      if (feedbackType === "dislike") {
+        if (dislikeReasons) insertData.dislikeReasons = dislikeReasons;
+        if (feedbackComment) insertData.feedbackComment = feedbackComment;
+        if (hasComplaint !== undefined) insertData.hasComplaint = hasComplaint;
+      }
+
       const [feedbackRecord] = await db
         .insert(schema.messageFeedback)
-        .values({
-          messageId,
-          userId,
-          ticketId,
-          feedbackType,
-        })
+        .values(insertData)
         .onConflictDoUpdate({
           target: [
             schema.messageFeedback.messageId,
@@ -131,6 +161,9 @@ const feedbackRouter = factory
           ],
           set: {
             feedbackType,
+            dislikeReasons: dislikeReasons || [],
+            feedbackComment: feedbackComment || "",
+            hasComplaint: hasComplaint || false,
             updatedAt: new Date().toISOString(),
           },
         })
@@ -148,6 +181,7 @@ const feedbackRouter = factory
   )
   .post(
     "/staff",
+    feedbackRateLimiter,
     describeRoute({
       tags: ["Feedback"],
       description: "Create or update staff feedback",
@@ -165,10 +199,7 @@ const feedbackRouter = factory
                 z.object({
                   success: z.boolean(),
                   message: z.string(),
-                  data: z.object({
-                    id: z.number(),
-                    feedbackType: z.enum(schema.feedbackType.enumValues),
-                  }),
+                  data: staffFeedbackResponseSchema,
                 }),
               ),
             },
@@ -181,8 +212,14 @@ const feedbackRouter = factory
       const db = c.var.db;
       const userId = c.var.userId;
       const role = c.var.role;
-      const { evaluatedId, feedbackType, ticketId, comment } =
-        c.req.valid("json");
+      const {
+        evaluatedId,
+        feedbackType,
+        ticketId,
+        dislikeReasons,
+        feedbackComment,
+        hasComplaint,
+      } = c.req.valid("json");
 
       // 只允许客户使用此接口
       if (role !== "customer") {
@@ -239,15 +276,24 @@ const feedbackRouter = factory
         });
       }
 
+      // 准备插入数据
+      const insertData: typeof schema.staffFeedback.$inferInsert = {
+        ticketId,
+        evaluatorId: userId,
+        evaluatedId,
+        feedbackType,
+      };
+
+      // 当feedbackType为dislike时，添加可选字段
+      if (feedbackType === "dislike") {
+        if (dislikeReasons) insertData.dislikeReasons = dislikeReasons;
+        if (feedbackComment) insertData.feedbackComment = feedbackComment;
+        if (hasComplaint !== undefined) insertData.hasComplaint = hasComplaint;
+      }
+
       const [feedbackRecord] = await db
         .insert(schema.staffFeedback)
-        .values({
-          ticketId,
-          evaluatorId: userId,
-          evaluatedId,
-          feedbackType,
-          comment: comment || "",
-        })
+        .values(insertData)
         .onConflictDoUpdate({
           target: [
             schema.staffFeedback.ticketId,
@@ -256,7 +302,9 @@ const feedbackRouter = factory
           ],
           set: {
             feedbackType,
-            comment: comment || "",
+            dislikeReasons: dislikeReasons || [],
+            feedbackComment: feedbackComment || "",
+            hasComplaint: hasComplaint || false,
             updatedAt: new Date().toISOString(),
           },
         })
@@ -268,12 +316,16 @@ const feedbackRouter = factory
         data: {
           id: feedbackRecord!.id,
           feedbackType: feedbackRecord!.feedbackType,
-        },
+        } satisfies Pick<
+          typeof schema.staffFeedback.$inferSelect,
+          "id" | "feedbackType"
+        >,
       });
     },
   )
   .post(
     "/ticket",
+    feedbackRateLimiter,
     describeRoute({
       tags: ["Feedback"],
       description: "Create or update ticket feedback",
@@ -291,12 +343,7 @@ const feedbackRouter = factory
                 z.object({
                   success: z.boolean(),
                   message: z.string(),
-                  data: z.object({
-                    id: z.number(),
-                    satisfactionRating: z.enum(
-                      schema.satisfactionRating.enumValues,
-                    ),
-                  }),
+                  data: ticketFeedbackResponseSchema,
                 }),
               ),
             },
@@ -309,7 +356,13 @@ const feedbackRouter = factory
       const db = c.var.db;
       const userId = c.var.userId;
       const role = c.var.role;
-      const { ticketId, satisfactionRating, feedback } = c.req.valid("json");
+      const {
+        ticketId,
+        satisfactionRating,
+        dislikeReasons,
+        feedbackComment,
+        hasComplaint,
+      } = c.req.valid("json");
 
       // 只允许客户使用此接口
       if (role !== "customer") {
@@ -337,19 +390,30 @@ const feedbackRouter = factory
         });
       }
 
+      // 准备插入数据
+      const insertData: typeof schema.ticketFeedback.$inferInsert = {
+        ticketId,
+        userId,
+        satisfactionRating,
+      };
+
+      // 当satisfactionRating小于3时，添加可选字段
+      if (satisfactionRating < 3) {
+        if (dislikeReasons) insertData.dislikeReasons = dislikeReasons;
+        if (feedbackComment) insertData.feedbackComment = feedbackComment;
+        if (hasComplaint !== undefined) insertData.hasComplaint = hasComplaint;
+      }
+
       const [feedbackRecord] = await db
         .insert(schema.ticketFeedback)
-        .values({
-          ticketId,
-          userId,
-          satisfactionRating,
-          feedback: feedback || "",
-        })
+        .values(insertData)
         .onConflictDoUpdate({
           target: [schema.ticketFeedback.ticketId],
           set: {
             satisfactionRating,
-            feedback: feedback || "",
+            dislikeReasons: dislikeReasons || [],
+            feedbackComment: feedbackComment || "",
+            hasComplaint: hasComplaint || false,
             updatedAt: new Date().toISOString(),
           },
         })
@@ -362,6 +426,130 @@ const feedbackRouter = factory
           id: feedbackRecord!.id,
           satisfactionRating: feedbackRecord!.satisfactionRating,
         },
+      });
+    },
+  )
+  .get(
+    "/technicians/:ticketId",
+    describeRoute({
+      tags: ["Feedback"],
+      description:
+        "Get technicians and agent for a ticket with their feedback info",
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+      responses: {
+        200: {
+          description: "Technicians retrieved successfully",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  success: z.boolean(),
+                  message: z.string(),
+                  data: z.array(technicianWithFeedbackResponseSchema),
+                }),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const db = c.var.db;
+      const userId = c.var.userId;
+      const role = c.var.role;
+      const ticketId = c.req.param("ticketId");
+
+      // 只允许客户使用此接口
+      if (role !== "customer") {
+        throw new HTTPException(403, {
+          message: "Only customers can view technicians with feedback",
+        });
+      }
+
+      // 验证工单是否存在且用户有权限
+      const ticket = await db.query.tickets.findFirst({
+        where: eq(schema.tickets.id, ticketId),
+        with: {
+          agent: {
+            columns: {
+              id: true,
+              name: true,
+              nickname: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      if (!ticket || ticket.customerId !== userId) {
+        throw new HTTPException(403, {
+          message: "You are not authorized to view this ticket",
+        });
+      }
+
+      // 获取技术人员
+      const technicians = await db.query.techniciansToTickets.findMany({
+        where: eq(schema.techniciansToTickets.ticketId, ticketId),
+        with: {
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              nickname: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      // 获取所有人员的反馈
+      const feedbacks = await db.query.staffFeedback.findMany({
+        where: and(
+          eq(schema.staffFeedback.ticketId, ticketId),
+          eq(schema.staffFeedback.evaluatorId, userId),
+        ),
+      });
+
+      // 构建反馈映射
+      const feedbackMap = new Map(
+        feedbacks.map((feedback) => [feedback.evaluatedId, feedback]),
+      );
+
+      // 构建结果数组
+      const result = [];
+
+      // 添加agent（如果agentId不为0）
+      if (ticket.agentId !== 0 && ticket.agent) {
+        const agentFeedbacks = feedbackMap.get(ticket.agentId);
+        result.push({
+          id: ticket.agent.id,
+          name: ticket.agent.name,
+          nickname: ticket.agent.nickname,
+          avatar: ticket.agent.avatar,
+          feedbacks: agentFeedbacks ? [agentFeedbacks] : [],
+        });
+      }
+
+      // 添加technicians
+      for (const technician of technicians) {
+        const techFeedbacks = feedbackMap.get(technician.userId);
+        result.push({
+          id: technician.user.id,
+          name: technician.user.name,
+          nickname: technician.user.nickname,
+          avatar: technician.user.avatar,
+          feedbacks: techFeedbacks ? [techFeedbacks] : [],
+        });
+      }
+
+      return c.json({
+        success: true,
+        message: "Technicians retrieved successfully",
+        data: result,
       });
     },
   );

@@ -119,13 +119,14 @@ export const userRoleEnumArray = [
 // "dislike"
 export const feedbackTypeEnumArray = ["like", "dislike"] as const;
 
-// Satisfaction rating enum array
-// "1": very dissatisfied
-// "2": dissatisfied
-// "3": neutral
-// "4": satisfied
-// "5": very satisfied
-export const satisfactionRatingEnumArray = ["1", "2", "3", "4", "5"] as const;
+export const dislikeReasonEnumArray = [
+  "irrelevant", // 不相关
+  "unresolved", // 未解决
+  "unfriendly", // 不友好
+  "slow_response", // 响应慢
+  "other", // 其他
+] as const;
+
 
 /**
  * WebSocket token expiry time

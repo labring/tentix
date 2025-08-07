@@ -29,9 +29,9 @@ const handler = {
     _this: unknown,
     argumentsList: Parameters<typeof useSuspenseQueryTanStack>,
   ) {
-    if (import.meta.env.DEV) {
-      console.log(`suspenseQuery`, new Date().toTimeString(), argumentsList[0]);
-    }
+    // if (import.meta.env.DEV) {
+    //   console.log(`suspenseQuery`, new Date().toTimeString(), argumentsList[0]);
+    // }
     return target(...argumentsList);
   },
 };
@@ -181,7 +181,7 @@ export const userInfoQueryOptions = () =>
       try {
         const data = await apiClient.user.info.$get().then((r) => r.json());
         return data;
-      } catch (error) {
+      } catch (_error) {
         return {
           id: 0,
           name: "",
@@ -307,3 +307,142 @@ export async function joinTicketAsTechnician({
   }
   throw new Error(res.message);
 }
+
+export async function submitMessageFeedback({
+  messageId,
+  ticketId,
+  feedbackType,
+  dislikeReasons,
+  feedbackComment,
+  hasComplaint,
+}: {
+  messageId: number;
+  ticketId: string;
+  feedbackType: "like" | "dislike";
+  dislikeReasons?: (
+    | "irrelevant"
+    | "unresolved"
+    | "unfriendly"
+    | "slow_response"
+    | "other"
+  )[];
+  feedbackComment?: string;
+  hasComplaint?: boolean;
+}) {
+  const res = await apiClient.feedback.message
+    .$post({
+      json: {
+        messageId,
+        ticketId,
+        feedbackType,
+        dislikeReasons,
+        feedbackComment,
+        hasComplaint,
+      },
+    })
+    .then((r) => r.json());
+  if (res.success) {
+    return res;
+  }
+  throw new Error(res.message);
+}
+
+export async function submitStaffFeedback({
+  evaluatedId,
+  ticketId,
+  feedbackType,
+  dislikeReasons,
+  feedbackComment,
+  hasComplaint,
+}: {
+  evaluatedId: number;
+  ticketId: string;
+  feedbackType: "like" | "dislike";
+  dislikeReasons?: (
+    | "irrelevant"
+    | "unresolved"
+    | "unfriendly"
+    | "slow_response"
+    | "other"
+  )[];
+  feedbackComment?: string;
+  hasComplaint?: boolean;
+}) {
+  const res = await apiClient.feedback.staff
+    .$post({
+      json: {
+        evaluatedId,
+        ticketId,
+        feedbackType,
+        dislikeReasons,
+        feedbackComment,
+        hasComplaint,
+      },
+    })
+    .then((r) => r.json());
+  if (res.success) {
+    return res;
+  }
+  throw new Error(res.message);
+}
+
+export async function submitTicketFeedback({
+  ticketId,
+  satisfactionRating,
+  dislikeReasons,
+  feedbackComment,
+  hasComplaint,
+}: {
+  ticketId: string;
+  satisfactionRating: number;
+  dislikeReasons?: (
+    | "irrelevant"
+    | "unresolved"
+    | "unfriendly"
+    | "slow_response"
+    | "other"
+  )[];
+  feedbackComment?: string;
+  hasComplaint?: boolean;
+}) {
+  const res = await apiClient.feedback.ticket
+    .$post({
+      json: {
+        ticketId,
+        satisfactionRating,
+        dislikeReasons,
+        feedbackComment,
+        hasComplaint,
+      },
+    })
+    .then((r) => r.json());
+  if (res.success) {
+    return res;
+  }
+  throw new Error(res.message);
+}
+
+export const technicianFeedbackQueryOptions = (ticketId: string) =>
+  queryOptions({
+    queryKey: ["getTechnicianFeedback", ticketId],
+    queryFn: async () => {
+      try {
+        const data = await apiClient.feedback.technicians[":ticketId"]
+          .$get({ param: { ticketId } })
+          .then((r) => r.json());
+        return data;
+      } catch (error) {
+        console.error("Failed to fetch technician feedback:", error);
+        return {
+          success: false,
+          message: "Failed to fetch technician feedback",
+          data: [],
+        };
+      }
+    },
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });

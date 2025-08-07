@@ -1,6 +1,6 @@
 import { UserChat } from "@comp/chat/user/index.tsx";
 import { SiteHeader } from "@comp/user/header.tsx";
-import { TicketDetailsSidebar } from "@comp/tickets/ticket-details-sidebar.tsx";
+import { TicketDetailsSidebar } from "@comp/user/ticket-details-sidebar";
 import { UserTicketSidebar } from "@comp/user/user-ticket-sidebar.tsx";
 import { ticketsQueryOptions, wsTokenQueryOptions } from "@lib/query";
 import {

@@ -39,6 +39,7 @@
     "i18n": "workspace:*",
     "ky": "^1.8.1",
     "lucide-react": "^0.510.0",
+    "motion": "^12.23.12",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-syntax-highlighter": "^15.6.1",

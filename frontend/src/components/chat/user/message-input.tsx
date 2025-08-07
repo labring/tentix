@@ -160,6 +160,7 @@ export function MessageInput({
 
       try {
         let contentToSend = newMessage;
+        // TODO: 添加消息发送中状态，用于控制 button 的 disabled 状态 和 enter 键的触发
 
         // 如果有文件需要上传，先处理上传
         if (fileStats.hasFiles) {

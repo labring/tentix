@@ -27,6 +27,7 @@ import {
   TicketStatus,
 } from "@/utils/const.ts";
 import { userTicketSchema } from "@/utils/types.ts";
+import { createSelectSchema } from "drizzle-zod";
 
 const createResponseSchema = z.array(
   z.object({
@@ -58,6 +59,42 @@ const updateTicketStatusSchema = z.object({
   description: z.string().max(200, {
     message: "Description must be less than 200 characters",
   }),
+});
+
+const ticketInfoResponseSchema = zs.ticket.extend({
+  // 扩展客户信息
+  customer: zs.users,
+  // 扩展技术人员信息
+  technicians: z.array(zs.users),
+  // 扩展标签信息
+  tags: z.array(createSelectSchema(schema.tags)),
+  // 扩展消息信息（包含反馈）
+  messages: z.array(
+    zs.messages.extend({
+      readStatus: z.array(
+        z.object({
+          id: z.number(),
+          messageId: z.number(),
+          userId: z.number(),
+          readAt: z.string().datetime(),
+        }),
+      ),
+      // 添加消息反馈信息
+      feedbacks: z.array(createSelectSchema(schema.messageFeedback)),
+    }),
+  ),
+  // 工单历史
+  ticketHistory: z.array(
+    zs.ticketHistory.extend({
+      operator: zs.users,
+    }),
+  ),
+  // 工单标签关联（原始数据，用于内部处理）
+  ticketsTags: z.array(
+    zs.ticketsTags.extend({
+      tag: createSelectSchema(schema.tags),
+    }),
+  ),
 });
 
 const ticketRouter = factory
@@ -464,13 +501,7 @@ const ticketRouter = factory
           description: "Return ticket info by id",
           content: {
             "application/json": {
-              schema: resolver(
-                zs.ticket.extend({
-                  messages: zs.messages,
-                  ticketHistory: zs.ticketHistory,
-                  ticketsTags: zs.ticketsTags,
-                }),
-              ),
+              schema: resolver(ticketInfoResponseSchema),
             },
           },
         },
@@ -488,50 +519,86 @@ const ticketRouter = factory
       const role = c.var.role;
       const db = c.var.db;
       const staffMap = c.var.staffMap();
-      const data = await db.query.tickets.findFirst({
-        where: (tickets, { eq }) => eq(tickets.id, id),
-        with: {
-          ...membersCols,
-          customer: true,
-          ticketHistory: true,
-          ticketsTags: {
-            with: {
-              tag: true,
-            },
-          },
-          messages: {
-            with: {
-              readStatus: true,
-            },
-          },
-        },
-      });
 
-      if (!data) {
-        throw new HTTPException(404, {
-          message: "Ticket not found",
-        });
-      }
-
+      // 根据用户角色构建不同的查询条件
       if (role === "customer") {
-        data.messages = data.messages.filter((message) => !message.isInternal);
-      }
+        // 客户只能查看自己的工单
+        const data = await db.query.tickets.findFirst({
+          where: (tickets, { eq, and }) =>
+            and(eq(tickets.id, id), eq(tickets.customerId, userId)),
+          with: {
+            ...membersCols,
+            customer: true,
+            ticketHistory: true,
+            ticketsTags: {
+              with: {
+                tag: true,
+              },
+            },
+            messages: {
+              where: (messages, { eq }) => eq(messages.isInternal, false),
+              with: {
+                readStatus: true,
+                feedbacks: true,
+              },
+            },
+          },
+        });
 
-      if (
-        global.customEnv.NODE_ENV === "production" &&
-        data.customerId !== userId &&
-        staffMap.get(userId) === undefined
-      ) {
+        if (!data) {
+          throw new HTTPException(404, {
+            message: "Ticket not found",
+          });
+        }
+
+        const response = {
+          ...data,
+          technicians: data.technicians.map((t) => t.user),
+          tags: data.ticketsTags.map((t) => t.tag),
+        };
+
+        return c.json(response);
+      } else if (staffMap.get(userId) !== undefined) {
+        // 员工可以查看所有工单
+        const data = await db.query.tickets.findFirst({
+          where: (tickets, { eq }) => eq(tickets.id, id),
+          with: {
+            ...membersCols,
+            customer: true,
+            ticketHistory: true,
+            ticketsTags: {
+              with: {
+                tag: true,
+              },
+            },
+            messages: {
+              with: {
+                readStatus: true,
+                feedbacks: true,
+              },
+            },
+          },
+        });
+
+        if (!data) {
+          throw new HTTPException(404, {
+            message: "Ticket not found",
+          });
+        }
+
+        const response = {
+          ...data,
+          technicians: data.technicians.map((t) => t.user),
+          tags: data.ticketsTags.map((t) => t.tag),
+        };
+
+        return c.json(response);
+      } else {
+        // 非员工且非客户，直接拒绝
         throw new HTTPException(403, {
           message: "You are not allowed to access this ticket",
         });
       }
-      const response = {
-        ...data,
-        technicians: data.technicians.map((t) => t.user),
-        tags: data.ticketsTags.map((t) => t.tag),
-      };
-      return c.json({ ...response });
     },
   )
   .get(
@@ -900,17 +967,10 @@ const ticketRouter = factory
           userId,
         });
 
-        await tx
-          .update(schema.tickets)
-          .set({
-            updatedAt: new Date().toISOString(),
-          })
-          .where(eq(schema.tickets.id, ticketId));
-
         // Record the ticket history
         await tx.insert(schema.ticketHistory).values({
           type: "join",
-          operatorId: 0,
+          operatorId: userId,
           meta: userId,
           ticketId,
         });

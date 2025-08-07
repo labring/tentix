@@ -76,9 +76,13 @@ function TicketForm({
 }) {
   const { t } = useTranslation();
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+  };
+
   return (
     <div className="w-230 p-8  bg-white rounded-2xl border border-zinc-200">
-      <form id="ticket-form" name="ticket-form">
+      <form id="ticket-form" name="ticket-form" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-5 items-center justify-center">
           <div className="flex flex-col gap-1 w-full">
             <p className="text-black text-xl font-medium leading-7 normal-case">

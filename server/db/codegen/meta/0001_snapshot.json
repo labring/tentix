@@ -1,5 +1,5 @@
 {
-  "id": "cb61aa99-d76b-48af-a6f7-4225d5d17c61",
+  "id": "c441af78-df99-4ebc-9b81-f6aaeef9c4b4",
   "prevId": "ffea10db-12b8-4085-b3f5-19551b353838",
   "version": "7",
   "dialect": "postgresql",
@@ -147,6 +147,28 @@
           "typeSchema": "tentix",
           "primaryKey": false,
           "notNull": true
+        },
+        "dislike_reasons": {
+          "name": "dislike_reasons",
+          "type": "dislike_reason[]",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'"
+        },
+        "feedback_comment": {
+          "name": "feedback_comment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "''"
+        },
+        "has_complaint": {
+          "name": "has_complaint",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -491,15 +513,37 @@
           "primaryKey": false,
           "notNull": true
         },
-        "comment": {
-          "name": "comment",
+        "dislike_reasons": {
+          "name": "dislike_reasons",
+          "type": "dislike_reason[]",
+          "typeSchema": "tentix",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'"
+        },
+        "feedback_comment": {
+          "name": "feedback_comment",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
+        "has_complaint": {
+          "name": "has_complaint",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -730,48 +774,42 @@
         },
         "satisfaction_rating": {
           "name": "satisfaction_rating",
-          "type": "satisfaction_rating",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "dislike_reasons": {
+          "name": "dislike_reasons",
+          "type": "dislike_reason[]",
           "typeSchema": "tentix",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false,
+          "default": "'{}'"
         },
-        "feedback": {
-          "name": "feedback",
+        "feedback_comment": {
+          "name": "feedback_comment",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "default": "''"
         },
-        "is_resolved": {
-          "name": "is_resolved",
+        "has_complaint": {
+          "name": "has_complaint",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": true
-        },
-        "support_quality": {
-          "name": "support_quality",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "response_time": {
-          "name": "response_time",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "technical_competence": {
-          "name": "technical_competence",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
+          "default": false
         },
         "created_at": {
           "name": "created_at",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -998,6 +1036,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "sealos_namespace": {
+          "name": "sealos_namespace",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
         "occurrence_time": {
           "name": "occurrence_time",
           "type": "timestamp(6) with time zone",
@@ -1053,7 +1098,89 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_tickets_customer_id": {
+          "name": "idx_tickets_customer_id",
+          "columns": [
+            {
+              "expression": "customer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_tickets_agent_id": {
+          "name": "idx_tickets_agent_id",
+          "columns": [
+            {
+              "expression": "agent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_tickets_id_customer": {
+          "name": "idx_tickets_id_customer",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "customer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_tickets_status": {
+          "name": "idx_tickets_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_tickets_updated_at": {
+          "name": "idx_tickets_updated_at",
+          "columns": [
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "tickets_customer_id_users_id_fk": {
           "name": "tickets_customer_id_users_id_fk",
@@ -1356,6 +1483,17 @@
         "test"
       ]
     },
+    "tentix.dislike_reason": {
+      "name": "dislike_reason",
+      "schema": "tentix",
+      "values": [
+        "irrelevant",
+        "unresolved",
+        "unfriendly",
+        "slow_response",
+        "other"
+      ]
+    },
     "tentix.feedback_type": {
       "name": "feedback_type",
       "schema": "tentix",
@@ -1384,17 +1522,6 @@
         "terminal",
         "workorder",
         "other"
-      ]
-    },
-    "tentix.satisfaction_rating": {
-      "name": "satisfaction_rating",
-      "schema": "tentix",
-      "values": [
-        "1",
-        "2",
-        "3",
-        "4",
-        "5"
       ]
     },
     "tentix.ticket_category": {

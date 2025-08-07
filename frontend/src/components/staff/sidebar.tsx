@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { joinTrans, useTranslation } from "i18n";
-import { Ticket, LayersIcon } from "lucide-react";
+import { LayersIcon } from "lucide-react";
 import { Button } from "tentix-ui";
 
 export function StaffSidebar() {

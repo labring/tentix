@@ -59,21 +59,17 @@ type ChatMessage = TicketType["messages"][number];
 
 interface ChatStore {
   messages: ChatMessage[];
-  messageIdMap: Map<number, number>;
   sendingMessageIds: Set<number>;
   currentTicketId: string | null; // 新增：当前 ticketId
   withdrawMessageFunc: (id: number) => void;
   setWithdrawMessageFunc: (func: (id: number) => void) => void;
   setCurrentTicketId: (ticketId: string | null) => void; // 新增方法
-  addMessage: (message: ChatMessage) => void;
+  addMessage: (message: ChatMessage) => void; // when receive new message add to store
   updateMessage: (id: number, updates: Partial<ChatMessage>) => void;
-  withdrawMessage: (messageId: number) => void;
-  addMessageIdMapping: (tempId: number, realId: number) => void;
-  getRealMessageId: (tempId: number) => number;
-  getTempMessageId: (realId: number) => number;
+  updateWithdrawMessage: (messageId: number) => void;
+  handleSentMessage: (tempId: number, realId: number) => void;
   setMessages: (messages: ChatMessage[]) => void;
-  sendNewMessage: (message: ChatMessage) => void;
-  removeSendingMessage: (id: number) => void;
+  sendNewMessage: (message: ChatMessage) => void; // use for send new message
   isMessageSending: (id: number) => boolean;
   readMessage: (messageId: number, userId: number, readAt: string) => void;
   clearMessages: () => void; // 新增：清理消息
@@ -81,7 +77,6 @@ interface ChatStore {
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
-  messageIdMap: new Map(),
   sendingMessageIds: new Set<number>(),
   currentTicketId: null,
   withdrawMessageFunc: () => {},
@@ -111,16 +106,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return state;
       }
 
-      // 检查是否是发送者自己的消息（通过tempId映射检查）
-      const tempId = state.getTempMessageId(message.id);
-      if (tempId !== message.id) {
-        // 这是发送者自己发送的消息，但以realId形式收到，应该被过滤
-        console.warn(
-          `Received own message with real ID ${message.id}, filtering out`,
-        );
-        return state;
-      }
-
       // 额外检查：确保消息数组去重
       const newMessages = [...state.messages, message];
       const uniqueMessages = newMessages.filter(
@@ -145,9 +130,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       ),
     })),
 
-  withdrawMessage(messageId) {
+  updateWithdrawMessage(messageId) {
     set((state) => {
-      state.withdrawMessageFunc(messageId);
+      // 仅更新本地状态，不触发广播（避免循环）
+      // 广播由 WebSocket hook 直接处理
       return {
         messages: state.messages.map((msg) =>
           msg.id === messageId
@@ -175,43 +161,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     });
   },
 
-  addMessageIdMapping: (tempId, realId) =>
+  handleSentMessage: (tempId, realId) =>
     set((state) => {
       // 添加映射关系
-      const newMessageIdMap = new Map(state.messageIdMap).set(tempId, realId);
 
       // 更新消息数组中的ID：将tempId替换为realId
       const updatedMessages = state.messages.map((msg) =>
         msg.id === tempId ? { ...msg, id: realId } : msg,
       );
 
-      // 更新发送状态：从tempId转移到realId
+      // remove tempId from sendingMessageIds
       const newSendingMessageIds = new Set(state.sendingMessageIds);
       if (newSendingMessageIds.has(tempId)) {
         newSendingMessageIds.delete(tempId);
-        newSendingMessageIds.add(realId);
       }
 
       return {
-        messageIdMap: newMessageIdMap,
         messages: updatedMessages,
         sendingMessageIds: newSendingMessageIds,
       };
     }),
-
-  getRealMessageId: (tempId) => {
-    const { messageIdMap } = get();
-    return messageIdMap.get(tempId) || tempId;
-  },
-
-  getTempMessageId: (realId) => {
-    const { messageIdMap } = get();
-    return (
-      Array.from(messageIdMap.entries()).find(
-        ([_, id]) => id === realId,
-      )?.[0] || realId
-    );
-  },
 
   setMessages: (messages) =>
     set(() => {
@@ -235,24 +204,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       messages: [...state.messages, message],
     })),
 
-  removeSendingMessage: (id) =>
-    set((state) => {
-      // 现在统一使用realId，所以直接移除realId
-      const newSendingMessageIds = new Set(state.sendingMessageIds);
-      newSendingMessageIds.delete(id);
-
-      return {
-        sendingMessageIds: newSendingMessageIds,
-      };
-    }),
-
   isMessageSending: (id) => {
     return get().sendingMessageIds.has(id);
   },
 
   readMessage(messageId, userId, readAt) {
     set((state) => {
-      // 简化ID处理：直接使用realId，因为现在store统一使用realId
       return {
         messages: state.messages.map((msg) =>
           msg.id === messageId
@@ -280,7 +237,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   clearMessages: () =>
     set({
       messages: [],
-      messageIdMap: new Map(),
       sendingMessageIds: new Set(),
     }),
 }));

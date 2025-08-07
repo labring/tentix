@@ -9,6 +9,7 @@ import type { RouterContext } from "../router";
 import { useTranslation } from "i18n";
 import { lazy } from "react";
 import { useAuth } from "@hook/use-local-user.tsx"
+import { AnimatePresence } from "motion/react";
 
 const IdentitySwitcher = lazy(() => import("../components/identity-switcher.tsx"));
 

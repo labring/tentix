@@ -134,6 +134,7 @@ async function handleUserLeaveStatusUpdate(
     }
 
     // 3. 获取工单的最后一条消息
+    // TODO: 看下索引优化是否有优化空间
     const lastMessage = await getLastMessageFromTicket(ticketId);
 
     // 如果没有消息，或最后一条消息不是该用户发的，则不进行任何操作
@@ -625,12 +626,16 @@ const chatRouter = factory
 
                 if (readStatus) {
                   // Broadcast read status to room
-                  broadcastToRoom(ticketId, {
-                    type: "message_read_update",
-                    messageId: parsedMessage.messageId,
-                    userId,
-                    readAt: readStatus.readAt,
-                  });
+                  broadcastToRoom(
+                    ticketId,
+                    {
+                      type: "message_read_update",
+                      messageId: parsedMessage.messageId,
+                      userId,
+                      readAt: readStatus.readAt,
+                    },
+                    [clientId],
+                  );
                 }
                 break;
               }
@@ -663,6 +668,7 @@ const chatRouter = factory
 
                 if (withdrawnMessage) {
                   let broadcastExclude = [clientId];
+                  //  这个逻辑也可以不加，因为 isInternal 消息 customer 不会收到，前端更新状态时更新不了这个消息的状态
                   if (withdrawnMessage.isInternal) {
                     broadcastExclude = [
                       clientId,
