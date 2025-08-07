@@ -5,6 +5,7 @@ import { allTicketsTablePagination } from "@store/table-pagination";
 import { allTicketsQueryOptions } from "@lib/query";
 import { Suspense } from "react";
 import { SkeletonTable } from "@comp/tickets-table/skeleton";
+import { RouteTransition } from "@comp/page-transition";
 
 export const Route = createFileRoute("/staff/tickets/all")({
   beforeLoad: () => {
@@ -29,11 +30,13 @@ export const Route = createFileRoute("/staff/tickets/all")({
 function RouteComponent() {
   const data = Route.useLoaderData();
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      <StaffSidebar />
-      <Suspense fallback={<SkeletonTable />}>
-        <DataTable initialData={data} />
-      </Suspense>
-    </div>
+    <RouteTransition>
+      <div className="flex h-screen w-full overflow-hidden">
+        <StaffSidebar />
+        <Suspense fallback={<SkeletonTable />}>
+          <DataTable initialData={data} />
+        </Suspense>
+      </div>
+    </RouteTransition>
   );
 }

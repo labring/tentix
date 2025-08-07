@@ -12,6 +12,7 @@ import { StaffTicketSidebar } from "@comp/staff/staff-ticket-sidebar";
 import { StaffRightSidebar } from "@comp/staff/staff-right-sidebar";
 import { StaffChat } from "@comp/chat/staff/index";
 import { StaffSidebar } from "@comp/staff/sidebar";
+import { RouteTransition } from "@comp/page-transition";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
   loader: async ({ context: { queryClient, authContext } }) => {
@@ -97,37 +98,39 @@ function RouteComponent() {
   }
 
   return (
-    <div className="flex h-screen w-full transition-all duration-300 ease-in-out">
-      <StaffSidebar />
-      <StaffTicketSidebar
-        currentTicketId={ticket.id}
-        isTicketLoading={isTicketLoading}
-        isCollapsed={isSidebarCollapsed}
-      />
-      <div className="@container/main flex flex-1 flex-row">
-        {/* <div className="flex flex-col h-full w-[66%] xl:w-[74%]"> */}
-        <div className="flex flex-col h-full w-full md:w-[66%] xl:w-[74%]">
-          <div className="flex-shrink-0">
-            <StaffSiteHeader
+    <RouteTransition>
+      <div className="flex h-screen w-full transition-all duration-300 ease-in-out">
+        <StaffSidebar />
+        <StaffTicketSidebar
+          currentTicketId={ticket.id}
+          isTicketLoading={isTicketLoading}
+          isCollapsed={isSidebarCollapsed}
+        />
+        <div className="@container/main flex flex-1 flex-row">
+          {/* <div className="flex flex-col h-full w-[66%] xl:w-[74%]"> */}
+          <div className="flex flex-col h-full w-full md:w-[66%] xl:w-[74%]">
+            <div className="flex-shrink-0">
+              <StaffSiteHeader
+                ticket={ticket}
+                sidebarVisible={!isSidebarCollapsed}
+                toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              />
+            </div>
+            {/* 使用 key={ticketId} 确保组件在路由切换时完全重新创建 */}
+            <StaffChat
               ticket={ticket}
-              sidebarVisible={!isSidebarCollapsed}
-              toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              token={wsToken.token}
+              key={ticketId}
+              isTicketLoading={isTicketLoading}
             />
           </div>
-          {/* 使用 key={ticketId} 确保组件在路由切换时完全重新创建 */}
-          <StaffChat
-            ticket={ticket}
-            token={wsToken.token}
-            key={ticketId}
-            isTicketLoading={isTicketLoading}
-          />
-        </div>
-        {/* <div className="flex flex-col h-full w-[34%] xl:w-[26%]"> */}
-        <div className="hidden md:flex flex-col h-full w-[34%] xl:w-[26%]">
-          {/* 同样使用 key 确保侧边栏也重新创建 */}
-          <StaffRightSidebar ticket={ticket} />
+          {/* <div className="flex flex-col h-full w-[34%] xl:w-[26%]"> */}
+          <div className="hidden md:flex flex-col h-full w-[34%] xl:w-[26%]">
+            {/* 同样使用 key 确保侧边栏也重新创建 */}
+            <StaffRightSidebar ticket={ticket} />
+          </div>
         </div>
       </div>
-    </div>
+    </RouteTransition>
   );
 }

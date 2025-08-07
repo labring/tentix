@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { RouteTransition } from "@comp/page-transition";
 
 export const Route = createFileRoute("/user")({
   beforeLoad: async ({ context: { authContext } }) => {
@@ -9,5 +10,9 @@ export const Route = createFileRoute("/user")({
       });
     }
   },
-  component: () => <Outlet />,
+  component: () => (
+    <RouteTransition>
+      <Outlet />
+    </RouteTransition>
+  ),
 });
