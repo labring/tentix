@@ -37,6 +37,7 @@ import {
 import { ArrowLeftIcon, TriangleAlertIcon } from "lucide-react";
 import { processFilesAndUpload } from "@comp/chat/upload-utils";
 import { useSealos } from "src/_provider/sealos";
+import { RouteTransition } from "@comp/page-transition";
 
 // Client-side validation schema - 只验证用户需要填写的字段
 const createTicketFormSchema = (t: (key: string) => string) =>
@@ -76,9 +77,13 @@ function TicketForm({
 }) {
   const { t } = useTranslation();
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+  };
+
   return (
     <div className="w-230 p-8  bg-white rounded-2xl border border-zinc-200">
-      <form id="ticket-form" name="ticket-form">
+      <form id="ticket-form" name="ticket-form" onSubmit={handleSubmit}>
         <div className="flex flex-col gap-5 items-center justify-center">
           <div className="flex flex-col gap-1 w-full">
             <p className="text-black text-xl font-medium leading-7 normal-case">
@@ -223,7 +228,8 @@ function useTicketCreation() {
         title: data.title,
         module: data.module,
         description: data.description,
-        area: data.area || (sealosArea as (typeof areaEnumArray)[number]) || "hzh",
+        area:
+          data.area || (sealosArea as (typeof areaEnumArray)[number]) || "hzh",
         occurrenceTime: data.occurrenceTime || new Date().toISOString(),
         priority: data.priority || ticketPriorityEnumArray[0],
       };
@@ -404,73 +410,75 @@ function RouteComponent() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-50">
-      {/* Header */}
-      <header className="sticky top-0 z-10 flex h-24 items-center border-b px-10 justify-between bg-white">
-        <div className="flex items-center gap-3">
-          <ArrowLeftIcon
-            className="h-6 w-6 cursor-pointer"
-            onClick={handleBackClick}
-          />
-          <p className="text-black text-2xl font-semibold leading-8">
-            {t("create_new_ticket")}
-          </p>
+    <RouteTransition>
+      <div className="flex flex-col h-screen bg-zinc-50">
+        {/* Header */}
+        <header className="sticky top-0 z-10 flex h-24 items-center border-b px-10 justify-between bg-white">
+          <div className="flex items-center gap-3">
+            <ArrowLeftIcon
+              className="h-6 w-6 cursor-pointer"
+              onClick={handleBackClick}
+            />
+            <p className="text-black text-2xl font-semibold leading-8">
+              {t("create_new_ticket")}
+            </p>
+          </div>
+          <Button
+            className="w-30 items-center justify-center rounded-lg cursor-pointer"
+            onClick={handleSubmitClick}
+            type="button"
+            disabled={isLoading}
+          >
+            {isLoading ? t("submitting") : t("submit")}
+          </Button>
+        </header>
+        <div className="@container/main flex flex-1 flex-col justify-center items-center">
+          {/* Ticket Form */}
+          <TicketForm register={register} control={control} errors={errors} />
         </div>
-        <Button
-          className="w-30 items-center justify-center rounded-lg cursor-pointer"
-          onClick={handleSubmitClick}
-          type="button"
-          disabled={isLoading}
-        >
-          {isLoading ? t("submitting") : t("submit")}
-        </Button>
-      </header>
-      <div className="@container/main flex flex-1 flex-col justify-center items-center">
-        {/* Ticket Form */}
-        <TicketForm register={register} control={control} errors={errors} />
-      </div>
-      {/* Confirmation Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="w-96 p-6 !rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-1.5">
-              <TriangleAlertIcon className="!h-4 !w-4 text-yellow-600" />
-              {t("prompt")}
-            </DialogTitle>
-            <DialogDescription>
-              {uploadProgress ? (
-                <div className="space-y-2">
-                  <div>{t("are_you_sure_submit_ticket")}</div>
-                  <div className="text-sm text-zinc-600">
-                    正在上传文件 {uploadProgress.uploaded}/
-                    {uploadProgress.total}
-                    {uploadProgress.currentFile &&
-                      ` - ${uploadProgress.currentFile}`}
+        {/* Confirmation Dialog */}
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="w-96 p-6 !rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-1.5">
+                <TriangleAlertIcon className="!h-4 !w-4 text-yellow-600" />
+                {t("prompt")}
+              </DialogTitle>
+              <DialogDescription>
+                {uploadProgress ? (
+                  <div className="space-y-2">
+                    <div>{t("are_you_sure_submit_ticket")}</div>
+                    <div className="text-sm text-zinc-600">
+                      正在上传文件 {uploadProgress.uploaded}/
+                      {uploadProgress.total}
+                      {uploadProgress.currentFile &&
+                        ` - ${uploadProgress.currentFile}`}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                t("are_you_sure_submit_ticket")
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleDialogCancel}>
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={handleDialogConfirm}
-              className="w-20 h-10 px-4 py-2 bg-black"
-              disabled={isLoading}
-            >
-              {uploadProgress
-                ? `${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
-                : isLoading
-                  ? "..."
-                  : t("submit")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+                ) : (
+                  t("are_you_sure_submit_ticket")
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleDialogCancel}>
+                {t("cancel")}
+              </Button>
+              <Button
+                onClick={handleDialogConfirm}
+                className="w-20 h-10 px-4 py-2 bg-black"
+                disabled={isLoading}
+              >
+                {uploadProgress
+                  ? `${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
+                  : isLoading
+                    ? "..."
+                    : t("submit")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </RouteTransition>
   );
 }

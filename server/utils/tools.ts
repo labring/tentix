@@ -23,17 +23,25 @@ export type StaffMap = Map<
 >;
 
 export function connectDB() {
+  // 如果全局数据库连接已存在，直接返回
+  if (global.db) {
+    return global.db;
+  }
+
   // Use global.customEnv if available, otherwise fallback to process.env
   const databaseUrl =
     global.customEnv?.DATABASE_URL || process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is not set in environment variables");
   }
+  
   const pool = new Pool({
     connectionString: databaseUrl,
   });
   const db = drizzle({ client: pool, schema: { ...schema, ...relations } });
-  if (!global.db) global.db = db;
+  
+  // 设置全局数据库连接
+  global.db = db;
   return global.db;
 }
 

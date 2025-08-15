@@ -1,6 +1,12 @@
-// 修复后的 ChatKeyboardExtension
+// 修复后的 ChatKeyboardExtension - 完整模拟Enter行为包括列表处理
 import { Extension } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
+import {
+  chainCommands,
+  newlineInCode,
+  createParagraphNear,
+  liftEmptyBlock,
+  splitBlock,
+} from "@tiptap/pm/commands";
 
 export const ChatKeyboardExtension = Extension.create({
   name: "chatKeyboard",
@@ -15,6 +21,7 @@ export const ChatKeyboardExtension = Extension.create({
 
   addKeyboardShortcuts() {
     return {
+      // Enter 键 -> 发送消息 目前用 handleKeyDown 处理
       // Enter: () => {
       //   const currentContent = this.editor.getJSON();
       //   const hasContent = currentContent?.content?.some((node: any) => {
@@ -35,77 +42,40 @@ export const ChatKeyboardExtension = Extension.create({
       //   this.options.onSubmit(currentContent);
       //   return true;
       // },
+
+      // Mod-Enter - 完整模拟Enter行为，包括列表处理
       "Mod-Enter": () => {
-        const { state } = this.editor;
-        const { selection } = state;
+        // 先尝试列表特定命令，再使用基础Enter命令链
+        return this.editor.commands.first([
+          // 列表项分割
+          () => this.editor.commands.splitListItem("listItem"),
 
-        // 如果是节点选择（如图片），在节点后插入段落
-        if (selection instanceof NodeSelection) {
-          const pos = selection.to; // 节点结束位置
-          return this.editor.commands.insertContentAt(pos, {
-            type: "paragraph",
-          });
-        }
+          // 基础Enter命令链
+          () => {
+            const enterHandler = chainCommands(
+              newlineInCode,
+              createParagraphNear,
+              liftEmptyBlock,
+              splitBlock,
+            );
 
-        // 检查是否有活跃的标记
-        const activeMarks = [
-          "bold",
-          "italic",
-          "strike",
-          "underline",
-          "code",
-          "textStyle", // 自定义文字样式
-          "highlight", // 高亮
-          "link", // 链接（可选）
-        ];
-
-        const hasActiveMarks = activeMarks.some((mark) =>
-          this.editor.isActive(mark),
-        );
-
-        // 如果有活跃标记，清除标记并换行
-        if (hasActiveMarks) {
-          return this.editor.commands.splitBlock({ keepMarks: false });
-        }
-
-        // 如果是文本选择且没有活跃标记，使用标准分割
-        return this.editor.commands.splitBlock();
+            const { state, dispatch } = this.editor.view;
+            return enterHandler(state, dispatch);
+          },
+        ]);
       },
 
+      // Shift-Enter - 完整模拟Enter行为，包括列表处理
       "Shift-Enter": () => {
-        const { state } = this.editor;
-        const { selection } = state;
-
-        if (selection instanceof NodeSelection) {
-          const pos = selection.to;
-          return this.editor.commands.insertContentAt(pos, {
-            type: "paragraph",
-          });
-        }
-
-        // 检查是否有活跃的标记
-        const activeMarks = [
-          "bold",
-          "italic",
-          "strike",
-          "underline",
-          "code",
-          "textStyle", // 自定义文字样式
-          "highlight", // 高亮
-          "link", // 链接（可选）
-        ];
-
-        const hasActiveMarks = activeMarks.some((mark) =>
-          this.editor.isActive(mark),
+        const enterHandler = chainCommands(
+          newlineInCode,
+          createParagraphNear,
+          liftEmptyBlock,
+          splitBlock,
         );
 
-        // 如果有活跃标记，清除标记并换行
-        if (hasActiveMarks) {
-          return this.editor.commands.splitBlock({ keepMarks: false });
-        }
-
-        // 如果是文本选择且没有活跃标记，使用标准分割
-        return this.editor.commands.splitBlock();
+        const { state, dispatch } = this.editor.view;
+        return enterHandler(state, dispatch);
       },
     };
   },

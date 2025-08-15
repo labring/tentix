@@ -25,6 +25,8 @@ import {
 } from "tentix-ui";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
+import useLocalUser from "@hook/use-local-user.tsx";
+import { useChatStore } from "@store/index";
 
 interface SiteHeaderProps {
   ticket: TicketType;
@@ -45,6 +47,9 @@ export function StaffSiteHeader({
   const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const { t } = useTranslation();
+  const { role } = useLocalUser();
+  const notCustomer = role !== "customer";
+  const { kbSelectionMode, setKbSelectionMode, clearKbSelection } = useChatStore();
 
   // Close ticket mutation
   const closeTicketMutation = useMutation({
@@ -128,8 +133,18 @@ export function StaffSiteHeader({
               <Button
                 variant="outline"
                 className="flex items-center justify-center h-10 rounded-r-none border-l-0 rounded-l-lg border-r border-zinc-200 hover:bg-zinc-50"
-                onClick={() => {}}
-                disabled={false}
+                onClick={() => {
+                  if (kbSelectionMode) {
+                    // 再次点击时关闭
+                    clearKbSelection();
+                    setKbSelectionMode(false);
+                  } else {
+                    // 打开选择模式并清空已选
+                    clearKbSelection();
+                    setKbSelectionMode(true);
+                  }
+                }}
+                disabled={!notCustomer}
               >
                 <LibraryBigIcon
                   className="h-3 w-3 text-zinc-500"

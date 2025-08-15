@@ -45,19 +45,95 @@ export const userIdValidator = zValidator(
 );
 
 export function extractText(json: JSONContentZod) {
-  let result = "";
+  // 结构化纯文本提取：保留段落/标题/列表/换行等边界，提升可读性与向量质量
+  let out = "";
+  let listCounter = 0; // 用于有序列表计数
+  let inOrderedList = false;
 
-  function traverse(node: JSONContentZod) {
-    if (node.type === "text") {
-      result += node.text;
-    } else if (node.content) {
-      for (const child of node.content) {
-        traverse(child);
+  function walk(node: JSONContentZod, isInList = false) {
+    switch (node.type) {
+      case "text": {
+        out += node.text || "";
+        break;
+      }
+      case "paragraph": {
+        node.content?.forEach(child => walk(child, isInList));
+        if (!isInList) {
+          out += "\n";
+        }
+        break;
+      }
+      case "heading": {
+        const level = node.attrs?.level || 1;
+        out += "#".repeat(level);
+        out += " ";
+        node.content?.forEach(child => walk(child));
+        out += "\n";
+        break;
+      }
+      case "hardBreak": {
+        out += "\n";
+        break;
+      }
+      case "bulletList": {
+        inOrderedList = false;
+        node.content?.forEach(child => walk(child));
+        out += "\n";
+        break;
+      }
+      case "orderedList": {
+        inOrderedList = true;
+        listCounter = node.attrs?.start || 1;
+        node.content?.forEach(child => walk(child));
+        out += "\n";
+        break;
+      }
+      case "listItem": {
+        if (inOrderedList) {
+          out += `${listCounter}. `;
+          listCounter++;
+        } else {
+          out += "- ";
+        }
+        node.content?.forEach(child => walk(child, true));
+        out += "\n";
+        break;
+      }
+      case "blockquote": {
+        out += "> ";
+        node.content?.forEach(child => walk(child));
+        out += "\n";
+        break;
+      }
+      case "codeBlock": {
+        const language = node.attrs?.language || "";
+        out += "\n```";
+        out += language;
+        out += "\n";
+        node.content?.forEach(child => walk(child));
+        out += "\n```\n";
+        break;
+      }
+      case "horizontalRule": {
+        out += "\n---\n";
+        break;
+      }
+      case "image": {
+        const alt = node.attrs?.alt || "";
+        const title = node.attrs?.title || "";
+        const src = node.attrs?.src || "";
+        const description = alt || title || "无描述";
+        out += `[图片: ${description}${src ? ` (${src})` : ""}]`;
+        break;
+      }
+      default: {
+        node.content?.forEach(child => walk(child, isInList));
       }
     }
   }
-  traverse(json);
-  return result;
+
+  walk(json);
+  return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export function getAbbreviatedText(
@@ -70,6 +146,9 @@ export function getAbbreviatedText(
   }
   return `${text.slice(0, maxLength)}...`;
 }
+
+// 兼容命名：更显式的别名，便于在其他模块明确语义
+export const extractPlainText = extractText;
 
 export type userRoleType = (typeof userRoleEnumArray)[number];
 
@@ -286,3 +365,90 @@ export const userTicketSchema = createSelectSchema(schema.tickets).extend({
     }),
   ),
 });
+
+// feedback
+// 消息反馈 Schema
+export const messageFeedbackSchema = z
+  .object({
+    messageId: z.number().int().positive(),
+    ticketId: z.string(),
+    feedbackType: z.enum(schema.feedbackType.enumValues),
+    dislikeReasons: z.array(z.enum(schema.dislikeReason.enumValues)).optional(),
+    feedbackComment: z.string().optional(),
+    hasComplaint: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      // 当feedbackType为dislike时，dislikeReasons、feedbackComment、hasComplaint是可选的
+      if (data.feedbackType === "dislike") {
+        return true; // 允许传递这些字段
+      }
+      // 当feedbackType为like时，不允许传递这些字段
+      return (
+        !data.dislikeReasons &&
+        !data.feedbackComment &&
+        data.hasComplaint === undefined
+      );
+    },
+    {
+      message:
+        "dislikeReasons, feedbackComment, and hasComplaint can only be provided when feedbackType is 'dislike'",
+    },
+  );
+
+// 员工反馈 Schema
+export const staffFeedbackSchema = z
+  .object({
+    evaluatedId: z.number().int().positive(),
+    feedbackType: z.enum(schema.feedbackType.enumValues),
+    ticketId: z.string(),
+    dislikeReasons: z.array(z.enum(schema.dislikeReason.enumValues)).optional(),
+    feedbackComment: z.string().optional(),
+    hasComplaint: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      // 当feedbackType为dislike时，dislikeReasons、feedbackComment、hasComplaint是可选的
+      if (data.feedbackType === "dislike") {
+        return true; // 允许传递这些字段
+      }
+      // 当feedbackType为like时，不允许传递这些字段
+      return (
+        !data.dislikeReasons &&
+        !data.feedbackComment &&
+        data.hasComplaint === undefined
+      );
+    },
+    {
+      message:
+        "dislikeReasons, feedbackComment, and hasComplaint can only be provided when feedbackType is 'dislike'",
+    },
+  );
+
+// 工单反馈 Schema
+export const ticketFeedbackSchema = z
+  .object({
+    ticketId: z.string(),
+    satisfactionRating: z.number().int().min(1).max(5),
+    dislikeReasons: z.array(z.enum(schema.dislikeReason.enumValues)).optional(),
+    feedbackComment: z.string().optional(),
+    hasComplaint: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      // 当satisfactionRating小于3时，dislikeReasons、feedbackComment、hasComplaint是可选的
+      if (data.satisfactionRating <= 3) {
+        return true; // 允许传递这些字段
+      }
+      // 当satisfactionRating大于等于3时，不允许传递这些字段
+      return (
+        !data.dislikeReasons &&
+        !data.feedbackComment &&
+        data.hasComplaint === undefined
+      );
+    },
+    {
+      message:
+        "dislikeReasons, feedbackComment, and hasComplaint can only be provided when satisfactionRating is less than 3",
+    },
+  );

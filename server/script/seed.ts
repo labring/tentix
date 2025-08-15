@@ -207,9 +207,21 @@ export async function serialSequenceReset(
 
   for (const table of tables) {
     const tableName = schemaName ? `${schemaName}.${table}` : table;
-    const cmd = `SELECT setval(pg_get_serial_sequence('${tableName}', 'id'), coalesce(max(id), 0) + 1, false) FROM ${tableName}`;
     try {
-      await db.execute(sql.raw(cmd));
+      // 1) Check if this table has a serial sequence on column 'id'
+      const seqResult = await db.execute<{ seq: string | null }>(
+        sql.raw(`SELECT pg_get_serial_sequence('${tableName}', 'id') as seq`),
+      );
+      const sequenceName = seqResult.rows[0]?.seq;
+
+      // If no sequence exists (e.g., UUID primary key), skip this table
+      if (!sequenceName) {
+        continue;
+      }
+
+      // 2) Reset sequence to max(id)+1 (safe because serial implies integer id)
+      const setvalCmd = `SELECT setval('${sequenceName}', (SELECT COALESCE(MAX(id), 0) + 1 FROM ${tableName}), false)`;
+      await db.execute(sql.raw(setvalCmd));
     } catch (error) {
       console.warn(
         `⚠️ Error Reset Serial Sequence for '${table}': ${error instanceof Error ? error.message : String(error)}`,

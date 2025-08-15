@@ -10,10 +10,17 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "cSpell.words": [
+    "cand",
+    "checkperiod",
+    "favorited",
     "feishu",
+    "Hnsw",
+    "langchain",
+    "langgraph",
     "prty",
     "sealos",
     "Tentix",
-    "uisrc"
+    "uisrc",
+    "uncategorized"
   ]
 }

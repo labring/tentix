@@ -14,6 +14,9 @@ import { websocket, chatRouter } from "./chat/index.ts";
 import { adminRouter } from "./admin/index.ts";
 import { playgroundRouter } from "./playground/index.ts";
 import { feishuRouter } from "./feishu/index.ts";
+import { feedbackRouter } from "./feedback/index.ts";
+import { startAllJobs } from "@/utils/jobs/kb-jobs/index.ts";
+import { kbRouter } from "./kb/index.ts";
 
 const app = factory.createApp();
 
@@ -47,6 +50,10 @@ app.use(
         {
           name: "Feishu",
           description: "Feishu related endpoints",
+        },
+        {
+          name: "Feedback",
+          description: "Feedback related endpoints",
         },
       ],
       servers: [
@@ -90,7 +97,9 @@ const routes = app // RPC routes
   .route("/chat", chatRouter)
   .route("/file", fileRouter)
   .route("/admin", adminRouter)
-  .route("/feishu", feishuRouter);
+  .route("/feishu", feishuRouter)
+  .route("/feedback", feedbackRouter)
+  .route("/kb", kbRouter);
 if (global.customEnv.NODE_ENV !== "production") {
   routes.route("/playground", playgroundRouter);
 }
@@ -105,6 +114,9 @@ app.use(
     path: "./index.html",
   }),
 );
+
+// 启动所有jobs
+startAllJobs();
 
 export default {
   fetch: app.fetch,

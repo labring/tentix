@@ -61,8 +61,6 @@ function resetDailyCounterAtMidnight() {
   }, msToMidnight);
 }
 
-resetDailyCounterAtMidnight();
-
 export function changeAgentTicket(id: number, type: "increment" | "decrement") {
   const staffMap = global.staffMap!;
   const agent = staffMap.get(id);
@@ -178,3 +176,5 @@ export async function refreshStaffMap(stale: boolean = false) {
   }
   return global.staffMap;
 }
+
+resetDailyCounterAtMidnight();

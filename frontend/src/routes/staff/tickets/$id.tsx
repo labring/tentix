@@ -12,10 +12,11 @@ import { StaffTicketSidebar } from "@comp/staff/staff-ticket-sidebar";
 import { StaffRightSidebar } from "@comp/staff/staff-right-sidebar";
 import { StaffChat } from "@comp/chat/staff/index";
 import { StaffSidebar } from "@comp/staff/sidebar";
+import { RouteTransition } from "@comp/page-transition";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
   loader: async ({ context: { queryClient, authContext } }) => {
-    // 如果没有认证，返回null数据，让beforeLoad处理重定向
+    // 如果没有认证，返回null数据，让 staff.tsx 处理重定向
     if (!authContext.isAuthenticated || !authContext.user) {
       return {
         token: null,
@@ -46,9 +47,11 @@ function RouteComponent() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
-  const { data: ticket, isLoading: isTicketLoading } = useQuery(
-    ticketsQueryOptions(ticketId),
-  );
+  // enabled 确保只有在 wsToken 存在时才发起请求 （wsToken 存在时，说明已经认证）, 防止飞书认证时 api-client.ts 401 错误触发全局重定向
+  const { data: ticket, isLoading: isTicketLoading } = useQuery({
+    ...ticketsQueryOptions(ticketId),
+    enabled: !!wsToken,
+  });
 
   // Set up initial ticket data - 所有 hooks 必须在条件渲染之前调用
   useEffect(() => {
@@ -89,43 +92,45 @@ function RouteComponent() {
   if (isTicketLoading || !ticket) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <div className="text-sm text-muted-foreground">Loading...</div>
+        <div className="text-sm text-muted-foreground">Loading Ticket...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-full transition-all duration-300 ease-in-out">
-      <StaffSidebar />
-      <StaffTicketSidebar
-        currentTicketId={ticket.id}
-        isTicketLoading={isTicketLoading}
-        isCollapsed={isSidebarCollapsed}
-      />
-      <div className="@container/main flex flex-1 flex-row">
-        {/* <div className="flex flex-col h-full w-[66%] xl:w-[74%]"> */}
-        <div className="flex flex-col h-full w-full md:w-[66%] xl:w-[74%]">
-          <div className="flex-shrink-0">
-            <StaffSiteHeader
+    <RouteTransition>
+      <div className="flex h-screen w-full transition-all duration-300 ease-in-out">
+        <StaffSidebar />
+        <StaffTicketSidebar
+          currentTicketId={ticket.id}
+          isTicketLoading={isTicketLoading}
+          isCollapsed={isSidebarCollapsed}
+        />
+        <div className="@container/main flex flex-1 flex-row">
+          {/* <div className="flex flex-col h-full w-[66%] xl:w-[74%]"> */}
+          <div className="flex flex-col h-full w-full md:w-[66%] xl:w-[74%]">
+            <div className="flex-shrink-0">
+              <StaffSiteHeader
+                ticket={ticket}
+                sidebarVisible={!isSidebarCollapsed}
+                toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              />
+            </div>
+            {/* 使用 key={ticketId} 确保组件在路由切换时完全重新创建 */}
+            <StaffChat
               ticket={ticket}
-              sidebarVisible={!isSidebarCollapsed}
-              toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              token={wsToken.token}
+              key={ticketId}
+              isTicketLoading={isTicketLoading}
             />
           </div>
-          {/* 使用 key={ticketId} 确保组件在路由切换时完全重新创建 */}
-          <StaffChat
-            ticket={ticket}
-            token={wsToken.token}
-            key={ticketId}
-            isTicketLoading={isTicketLoading}
-          />
-        </div>
-        {/* <div className="flex flex-col h-full w-[34%] xl:w-[26%]"> */}
-        <div className="hidden md:flex flex-col h-full w-[34%] xl:w-[26%]">
-          {/* 同样使用 key 确保侧边栏也重新创建 */}
-          <StaffRightSidebar ticket={ticket} />
+          {/* <div className="flex flex-col h-full w-[34%] xl:w-[26%]"> */}
+          <div className="hidden md:flex flex-col h-full w-[34%] xl:w-[26%]">
+            {/* 同样使用 key 确保侧边栏也重新创建 */}
+            <StaffRightSidebar ticket={ticket} />
+          </div>
         </div>
       </div>
-    </div>
+    </RouteTransition>
   );
 }

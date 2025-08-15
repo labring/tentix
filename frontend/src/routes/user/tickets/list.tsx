@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { userTicketsQueryOptions } from "@lib/query";
 import { SkeletonTable } from "@comp/tickets-table/skeleton";
 import { Sidebar } from "@comp/user/sidebar";
+import { RouteTransition } from "@comp/page-transition";
 
 export const Route = createFileRoute("/user/tickets/list")({
   loader: ({ context }) => {
@@ -18,11 +19,13 @@ function RouteComponent() {
   const data = Route.useLoaderData();
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      <Sidebar />
-      <Suspense fallback={<SkeletonTable />}>
-        <PaginatedDataTable character="user" initialData={data} />
-      </Suspense>
-    </div>
+    <RouteTransition>
+      <div className="flex h-screen w-full overflow-hidden">
+        <Sidebar />
+        <Suspense fallback={<SkeletonTable />}>
+          <PaginatedDataTable character="user" initialData={data} />
+        </Suspense>
+      </div>
+    </RouteTransition>
   );
 }

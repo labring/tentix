@@ -11,9 +11,10 @@ import {
   type EditorRef,
 } from "tentix-ui";
 import { processFilesAndUpload } from "../upload-utils";
+import { useTranslation } from "i18n";
 
 // 错误处理工具函数
-const getErrorMessage = (error: unknown): string => {
+const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error) {
     return error.message;
   }
@@ -23,7 +24,7 @@ const getErrorMessage = (error: unknown): string => {
   if (error && typeof error === "object" && "message" in error) {
     return String(error.message);
   }
-  return "发送消息时出现未知错误";
+  return fallback;
 };
 
 // 上传进度接口
@@ -51,14 +52,60 @@ const isLocalFileNode = (node: any): boolean => {
   return node.type === "image" && node.attrs?.isLocalFile;
 };
 
-// 检查内容节点是否有实际内容
+// 检查内容节点是否有实际内容 - 支持所有TipTap节点类型
 const hasNodeContent = (node: any): boolean => {
+  if (!node || !node.type) return false;
+  
+  // 段落：检查是否有内容
   if (node.type === "paragraph" && node.content) {
     return node.content.length > 0;
   }
+  
+  // 标题：有内容就算有效（支持h1-h6）
+  if (node.type === "heading" && node.content) {
+    return node.content.length > 0;
+  }
+  
+  // 列表：有列表项就算有效
+  if ((node.type === "orderedList" || node.type === "bulletList") && node.content) {
+    return node.content.length > 0;
+  }
+  
+  // 列表项：有内容就算有效
+  if (node.type === "listItem" && node.content) {
+    return node.content.length > 0;
+  }
+  
+  // 引用块：有内容就算有效
+  if (node.type === "blockquote" && node.content) {
+    return node.content.length > 0;
+  }
+  
+  // 代码块：直接算作有内容（即使空的也可以发送）
+  if (node.type === "codeBlock") {
+    return true;
+  }
+  
+  // 水平线：直接算作有内容
+  if (node.type === "horizontalRule") {
+    return true;
+  }
+  
+  // 图片和媒体文件：直接算作有内容
   if (node.type === "image") {
     return true;
   }
+  
+  // 硬换行：直接算作有内容
+  if (node.type === "hardBreak") {
+    return true;
+  }
+  
+  // 文本节点：检查是否有文本内容
+  if (node.type === "text" && node.text) {
+    return node.text.trim().length > 0;
+  }
+  
   return false;
 };
 
@@ -67,6 +114,7 @@ export function MessageInput({
   onTyping,
   isLoading,
 }: MessageInputProps) {
+  const { t } = useTranslation();
   const [newMessage, setNewMessage] = useState<JSONContentZod>({
     type: "doc",
     content: [],
@@ -115,14 +163,14 @@ export function MessageInput({
   // 显示错误提示
   const showErrorToast = useCallback(
     (error: unknown) => {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage(error, t("unknown_error_sending_message"));
       toast({
-        title: "发送失败",
+        title: t("send_failed"),
         description: message,
         variant: "destructive",
       });
     },
-    [toast],
+    [toast, t],
   );
 
   // 清空编辑器和消息状态
@@ -160,6 +208,7 @@ export function MessageInput({
 
       try {
         let contentToSend = newMessage;
+        // TODO: 添加消息发送中状态，用于控制 button 的 disabled 状态 和 enter 键的触发
 
         // 如果有文件需要上传，先处理上传
         if (fileStats.hasFiles) {
@@ -285,7 +334,7 @@ export function MessageInput({
             }}
             throttleDelay={500}
             editorContentClassName="overflow-auto h-full"
-            placeholder="输入消息..."
+            placeholder={t("enter_message")}
             editable={!isUploading}
             editorClassName="focus:outline-none p-4 h-full"
             className="border-none"
@@ -299,7 +348,7 @@ export function MessageInput({
           disabled={!canSend}
         >
           {renderSendButtonContent()}
-          <span className="sr-only">发送消息</span>
+          <span className="sr-only">{t("send_message")}</span>
         </Button>
       </form>
     </div>

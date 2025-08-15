@@ -57,9 +57,8 @@ export function useTicketWebSocket({
   const [isLoading, setIsLoading] = useState(false);
   const {
     addMessage,
-    addMessageIdMapping,
-    withdrawMessage: storeWithdrawMessage,
-    removeSendingMessage,
+    handleSentMessage,
+    updateWithdrawMessage,
     sendNewMessage,
     readMessage,
   } = useChatStore();
@@ -293,6 +292,7 @@ export function useTicketWebSocket({
                   content: data.content,
                   createdAt: new Date(data.timestamp).toUTCString(),
                   readStatus: [],
+                  feedbacks: [],
                   isInternal: data.isInternal,
                   withdrawn: false,
                 };
@@ -314,21 +314,19 @@ export function useTicketWebSocket({
                 pendingMessages.current.delete(data.tempId);
               }
               // Store the mapping between tempId and real messageId
-              addMessageIdMapping(data.tempId, data.messageId);
-              removeSendingMessage(data.messageId);
+              handleSentMessage(data.tempId, data.messageId);
               break;
             }
 
             case "message_withdrawn":
               // 验证消息是否属于当前 ticket
               if (data.roomId === currentTicketIdRef.current) {
-                storeWithdrawMessage(data.messageId);
+                updateWithdrawMessage(data.messageId);
               }
               break;
 
             case "message_read_update":
               readMessage(data.messageId, data.userId, data.readAt);
-              console.info("message_read_update", data);
               break;
 
             case "user_typing":
@@ -408,9 +406,8 @@ export function useTicketWebSocket({
       startHeartbeat,
       stopHeartbeat,
       addMessage,
-      addMessageIdMapping,
-      removeSendingMessage,
-      storeWithdrawMessage,
+      handleSentMessage,
+      updateWithdrawMessage,
       readMessage,
       onUserTyping,
       onError,
@@ -449,7 +446,7 @@ export function useTicketWebSocket({
         const timeoutId = setTimeout(() => {
           pendingMessages.current.delete(tempId);
           reject(new Error("发送超时，请重试"));
-        }, 30000); // 30秒超时
+        }, 5000); // 5秒超时
 
         // 存储 Promise 回调
         pendingMessages.current.set(tempId, { resolve, reject, timeoutId });
@@ -464,6 +461,7 @@ export function useTicketWebSocket({
           isInternal,
           withdrawn: false,
           readStatus: [],
+          feedbacks: [],
         });
 
         // 发送到服务器 - 使用 ref 中的 ticketId
@@ -492,6 +490,9 @@ export function useTicketWebSocket({
   // Send read status
   const sendReadStatus = useCallback(
     (messageId: number) => {
+      // 1. 立即更新本地状态 (乐观更新)
+      readMessage(messageId, userId, new Date().toISOString());
+      // 只有自己发送的消息会出现有tempId的情况，但是自己发送的消息不会触发 sendReadStatus 所以不用考虑 tempId 处理
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({
@@ -509,6 +510,9 @@ export function useTicketWebSocket({
   // Withdraw message
   const withdrawMessage = useCallback(
     (messageId: number) => {
+      // 1. 立即更新本地状态 (乐观更新)
+      updateWithdrawMessage(messageId);
+      // 2. 发送撤回请求到服务器 (服务器会广播给其他用户，但不会广播给发送者)
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({

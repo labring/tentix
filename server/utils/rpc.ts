@@ -33,3 +33,7 @@ export type TicketsAllListItemType = InferResponseType<
 >["tickets"][number];
 
 export type TicketType = InferResponseType<ApiClient["ticket"]["info"]["$get"]>;
+
+export type GetTechnicianFeedbackResponseType = InferResponseType<
+  ApiClient["feedback"]["technicians"][":ticketId"]["$get"]
+>["data"];

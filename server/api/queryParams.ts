@@ -1,3 +1,4 @@
+// 排除敏感信息
 export const basicUserCols = {
   columns: {
     id: true,

@@ -5,10 +5,13 @@ import { userTicketsQueryOptions } from "@lib/query";
 import { Suspense } from "react";
 import { SkeletonTable } from "@comp/tickets-table/skeleton";
 import { userTablePagination } from "@store/table-pagination";
+import { RouteTransition } from "@comp/page-transition";
 
 export const Route = createFileRoute("/staff/tickets/list")({
   beforeLoad: () => {
-    userTablePagination.getState().initializeDefaultStatuses(["pending", "in_progress"]);
+    userTablePagination
+      .getState()
+      .initializeDefaultStatuses(["pending", "in_progress"]);
     return {};
   },
   loader: ({ context }) => {
@@ -27,11 +30,13 @@ export const Route = createFileRoute("/staff/tickets/list")({
 function RouteComponent() {
   const data = Route.useLoaderData();
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      <StaffSidebar />
-      <Suspense fallback={<SkeletonTable />}>
-        <PaginatedDataTable character="staff" initialData={data} />
-      </Suspense>
-    </div>
+    <RouteTransition>
+      <div className="flex h-screen w-full overflow-hidden">
+        <StaffSidebar />
+        <Suspense fallback={<SkeletonTable />}>
+          <PaginatedDataTable character="staff" initialData={data} />
+        </Suspense>
+      </div>
+    </RouteTransition>
   );
 }

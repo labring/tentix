@@ -1,7 +1,9 @@
-import { updateTicketStatus, userTicketsQueryOptions } from "@lib/query";
+import { userTicketsQueryOptions } from "@lib/query";
 import { useTransferModal } from "@modal/use-transfer-modal.tsx";
 import { useUpdatePriorityModal } from "@modal/use-update-priority-modal.tsx";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useStaffCloseConfirmationModal } from "@modal/use-staff-close-confirmation-modal.tsx";
+import { useCustomerFeedbackModal } from "@modal/use-customer-feedback-modal.tsx";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import {
   type ColumnDef,
@@ -11,7 +13,6 @@ import {
 } from "@tanstack/react-table";
 import { joinTrans, useTranslation } from "i18n";
 import {
-  AlertTriangleIcon,
   Loader2Icon,
   PlusIcon,
   ClipboardPasteIcon,
@@ -25,7 +26,7 @@ import {
   ChevronsRightIcon,
 } from "lucide-react";
 import * as React from "react";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import {
   type GetUserTicketsResponseType,
   type TicketsListItemType,
@@ -43,18 +44,17 @@ import {
   DropdownMenuTrigger,
   PriorityBadge,
   StatusBadge,
-  toast,
   Input,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   ScrollArea,
+  Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "tentix-ui";
 import useDebounce from "@hook/use-debounce";
 import { userTablePagination } from "@store/table-pagination";
+import { cn } from "@lib/utils";
 
 interface PaginatedTableProps {
   character: "user" | "staff";
@@ -67,7 +67,6 @@ export function PaginatedDataTable({
 }: PaginatedTableProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   // 使用 zustand store 管理分页状态
   const {
@@ -75,9 +74,12 @@ export function PaginatedDataTable({
     pageSize,
     searchQuery,
     statuses,
+    allTicket,
+    readStatus,
     setCurrentPage,
     setSearchQuery,
     setStatuses,
+    setAllTicket,
   } = userTablePagination();
 
   const handleStatusToggle = (
@@ -103,13 +105,14 @@ export function PaginatedDataTable({
   const [isSmallScreen, setIsSmallScreen] = useState(
     typeof window !== "undefined" ? window.innerWidth < 1316 : false,
   );
-  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
-  const [ticketToClose, setTicketToClose] =
-    useState<TicketsListItemType | null>(null);
 
   const { openTransferModal, transferModal } = useTransferModal();
   const { updatePriorityModal, openUpdatePriorityModal } =
     useUpdatePriorityModal();
+  const { openStaffCloseConfirmationModal, staffCloseConfirmationModal } =
+    useStaffCloseConfirmationModal();
+  const { openCustomerFeedbackModal, customerFeedbackModal } =
+    useCustomerFeedbackModal();
   // Listen for window resize to update screen size
   React.useEffect(() => {
     const handleResize = () => {
@@ -122,49 +125,6 @@ export function PaginatedDataTable({
     }
   }, []);
 
-  // Close ticket mutation
-  const closeTicketMutation = useMutation({
-    mutationFn: updateTicketStatus,
-    onSuccess: (data) => {
-      toast({
-        title: t("success"),
-        description: data.message || t("ticket_closed"),
-        variant: "default",
-      });
-      // refresh user's ticket data
-      queryClient.invalidateQueries({
-        queryKey: ["getUserTickets"],
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t("error"),
-        description: error.message || t("failed_close_ticket"),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handle close ticket
-  const handleCloseTicket = useCallback(
-    (ticketId: string) => {
-      closeTicketMutation.mutate({
-        ticketId,
-        status: "resolved",
-        description: t("close_ticket"),
-      });
-    },
-    [closeTicketMutation, t],
-  );
-
-  // Dialog confirmation handler
-  const handleConfirmClose = () => {
-    if (ticketToClose) {
-      handleCloseTicket(ticketToClose.id);
-    }
-    setIsCloseConfirmOpen(false);
-  };
-
   // Use regular query for page-based pagination
   const { data, isLoading, error } = useQuery({
     ...userTicketsQueryOptions(
@@ -172,6 +132,8 @@ export function PaginatedDataTable({
       currentPage,
       debouncedSearchQuery,
       statuses,
+      readStatus,
+      allTicket,
     ),
     initialData:
       initialData &&
@@ -391,8 +353,12 @@ export function PaginatedDataTable({
                         return;
                       }
                       e.preventDefault();
-                      setTicketToClose(ticket);
-                      setIsCloseConfirmOpen(true);
+                      // Different dialogs for different user types
+                      if (character === "user") {
+                        openCustomerFeedbackModal(ticketId);
+                      } else {
+                        openStaffCloseConfirmationModal(ticketId);
+                      }
                     }}
                     className={
                       isResolved ? "opacity-50 cursor-not-allowed" : ""
@@ -433,7 +399,15 @@ export function PaginatedDataTable({
     }
 
     return baseColumns;
-  }, [character, t, isSmallScreen, openTransferModal, openUpdatePriorityModal]);
+  }, [
+    character,
+    t,
+    isSmallScreen,
+    openTransferModal,
+    openUpdatePriorityModal,
+    openStaffCloseConfirmationModal,
+    openCustomerFeedbackModal,
+  ]);
 
   const table = useReactTable({
     data: tickets,
@@ -471,36 +445,91 @@ export function PaginatedDataTable({
       })
       .join(" ");
 
+    if (rows.length === 0 && !isLoading) {
+      return (
+        <div className="flex-1 flex flex-col px-4 lg:px-6">
+          <div
+            className={cn(
+              "flex  items-center justify-center border border-dashed border-zinc-300 rounded-2xl bg-no-repeat bg-center relative h-full",
+              character === "user" ? "cursor-pointer" : "",
+            )}
+            onClick={() => {
+              if (character === "user") {
+                router.navigate({
+                  to: "/user/newticket",
+                });
+              }
+            }}
+            style={{
+              backgroundImage: "url(/tentix-bg.svg)",
+              backgroundSize: "80%",
+            }}
+          >
+            <div
+              className={`flex flex-col items-center justify-center mt-23 z-10 relative ${
+                character === "user" ? "cursor-pointer" : ""
+              }`}
+            >
+              <div className="flex flex-col items-center justify-center text-center">
+                <p className="text-black text-2xl font-medium leading-8 mb-1">
+                  {character === "user"
+                    ? t("no_tickets_created_yet")
+                    : t("no_tickets_found")}
+                </p>
+                <div className="flex flex-col items-center justify-center text-center">
+                  <p className="text-gray-600 text-base font-normal leading-6">
+                    {character === "user"
+                      ? t("click_to_create_ticket")
+                      : t("no_tickets_received")}
+                  </p>
+                  {character === "user" && (
+                    <p className="text-gray-600 text-base font-normal leading-6">
+                      {t("team_resolve_questions")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 min-h-0 flex flex-col px-4 lg:px-6  gap-3">
         {/* Table Header - Fixed */}
-        {(rows.length > 0 || isLoading) && (
-          <div className="flex-shrink-0 bg-white rounded-lg border border-zinc-200">
-            <div
-              className="grid items-center px-6 h-10 text-zinc-500 text-sm font-normal leading-normal"
-              style={{
-                gridTemplateColumns,
-              }}
-            >
-              {table.getHeaderGroups().map((headerGroup) =>
-                headerGroup.headers.map((header) => (
-                  <div key={header.id} className="flex items-center">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
-                  </div>
-                )),
-              )}
-            </div>
+        <div className="flex-shrink-0 bg-white rounded-lg border border-zinc-200">
+          <div
+            className="grid items-center px-6 h-10 text-zinc-500 text-sm font-normal leading-normal"
+            style={{
+              gridTemplateColumns,
+            }}
+          >
+            {table.getHeaderGroups().map((headerGroup) =>
+              headerGroup.headers.map((header) => (
+                <div key={header.id} className="flex items-center">
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                </div>
+              )),
+            )}
           </div>
-        )}
+        </div>
 
         {/* Table Body - Scrollable Container */}
         <ScrollArea className="flex-1 overflow-auto">
-          {rows.length > 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="flex items-center justify-center text-zinc-500 text-sm font-medium">
+                <Loader2Icon className="h-4 w-4 animate-spin mr-2 text-zinc-500" />
+                {t("loading")}
+              </div>
+            </div>
+          ) : (
             <div className="bg-white border border-zinc-200 rounded-xl">
               {rows.map((row, index) => (
                 <div
@@ -550,54 +579,6 @@ export function PaginatedDataTable({
                   ))}
                 </div>
               ))}
-            </div>
-          ) : isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="flex items-center justify-center text-zinc-500 text-sm font-medium">
-                <Loader2Icon className="h-4 w-4 animate-spin mr-2 text-zinc-500" />
-                {t("loading")}
-              </div>
-            </div>
-          ) : (
-            <div
-              className="flex items-center justify-center border border-dashed border-zinc-300 rounded-2xl bg-no-repeat bg-center relative h-full"
-              style={{
-                backgroundImage: "url(/tentix-bg.svg)",
-                backgroundSize: "80%",
-              }}
-            >
-              <div
-                className={`flex flex-col items-center justify-center mt-23 z-10 relative ${
-                  character === "user" ? "cursor-pointer" : ""
-                }`}
-                onClick={() => {
-                  if (character === "user") {
-                    router.navigate({
-                      to: "/user/newticket",
-                    });
-                  }
-                }}
-              >
-                <div className="flex flex-col items-center justify-center text-center">
-                  <p className="text-black text-2xl font-medium leading-8 mb-1">
-                    {character === "user"
-                      ? t("no_tickets_created_yet")
-                      : t("no_tickets_found")}
-                  </p>
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <p className="text-gray-600 text-base font-normal leading-6">
-                      {character === "user"
-                        ? t("click_to_create_ticket")
-                        : t("no_tickets_received")}
-                    </p>
-                    {character === "user" && (
-                      <p className="text-gray-600 text-base font-normal leading-6">
-                        {t("team_resolve_questions")}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </ScrollArea>
@@ -823,6 +804,28 @@ export function PaginatedDataTable({
 
         {/* search */}
         <div className="flex items-center gap-3">
+          {character !== "user" && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center">
+                    <Switch
+                      checked={allTicket}
+                      onCheckedChange={(checked) => setAllTicket(checked)}
+                      className="data-[state=checked]:bg-primary mr-4"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {allTicket ? (
+                    <p>{t("only_mine")}</p>
+                  ) : (
+                    <p>{t("all_tickets")}</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -859,35 +862,10 @@ export function PaginatedDataTable({
         });
       })}
 
-      <Dialog open={isCloseConfirmOpen} onOpenChange={setIsCloseConfirmOpen}>
-        <DialogContent className="w-96 p-6 !rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-1.5">
-              <AlertTriangleIcon className="!h-4 !w-4 text-yellow-600" />
-              {t("prompt")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("are_you_sure_close_ticket")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsCloseConfirmOpen(false)}
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={handleConfirmClose}
-              disabled={closeTicketMutation.isPending}
-            >
-              {closeTicketMutation.isPending ? "..." : t("confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       {transferModal}
       {updatePriorityModal}
+      {staffCloseConfirmationModal}
+      {customerFeedbackModal}
     </div>
   );
 }

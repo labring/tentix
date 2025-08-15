@@ -100,6 +100,7 @@ export function UserTicketSidebar({
     searchQuery,
     statuses,
     readStatus,
+    allTicket,
     setSearchQuery,
     setStatuses,
     setReadStatus,
@@ -116,6 +117,7 @@ export function UserTicketSidebar({
       debouncedSearchQuery,
       statuses,
       readStatus,
+      allTicket,
       currentTicketId,
     ),
   );

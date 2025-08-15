@@ -114,6 +114,27 @@ export const userRoleEnumArray = [
   "ai",
 ] as const;
 
+// Feedback type enum array
+// "like"
+// "dislike"
+export const feedbackTypeEnumArray = ["like", "dislike"] as const;
+
+export const dislikeReasonEnumArray = [
+  "irrelevant", // 不相关
+  "unresolved", // 未解决
+  "unfriendly", // 不友好
+  "slow_response", // 响应慢
+  "other", // 其他
+] as const;
+
+// Sync status enum array
+export const syncStatusEnumArray = [
+  "pending",
+  "synced",
+  "failed",
+  "processing",
+] as const;
+
 /**
  * WebSocket token expiry time
  *

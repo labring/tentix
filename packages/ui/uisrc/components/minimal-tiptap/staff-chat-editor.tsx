@@ -9,6 +9,7 @@ import { SectionTwo } from "./components/section/two.tsx";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 import "./styles/index.css";
+import { useTranslation } from "i18n";
 
 export interface EditorRef {
   isInternal: boolean;
@@ -20,6 +21,7 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
     { value, onChange, className, editorContentClassName, ...props },
     ref,
   ) {
+    const { t } = useTranslation();
     const [messageType, setMessageType] = useState<"public" | "internal">(
       "public",
     );
@@ -30,8 +32,8 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
       output: "json",
       placeholder:
         messageType === "public"
-          ? "Type your message..."
-          : "Add an internal note...",
+          ? t("type_your_message")
+          : t("add_internal_note"),
       ...props,
     });
 
@@ -94,26 +96,26 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
             >
               <ToggleGroupItem
                 value="public"
-                aria-label="Public message"
-                className={`gap-2 h-7 ${
+                aria-label={t("public_message")}
+                className={`gap-2 h-7 flex-row ${
                   messageType === "public" ? "rounded-lg !bg-zinc-100" : ""
                 }`}
               >
                 <EyeIcon className="h-4 w-4 text-zinc-500" />
-                <span className="text-zinc-900 font-sans text-sm font-medium leading-5">
-                  Public
+                <span className="text-zinc-900 font-sans text-sm font-medium leading-5 whitespace-nowrap">
+                  {t("public")}
                 </span>
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="internal"
-                aria-label="Internal note"
-                className={`gap-2 h-7 ${
+                aria-label={t("internal_note")}
+                className={`gap-2 h-7 flex-row ${
                   messageType === "internal" ? "rounded-lg !bg-violet-50" : ""
                 }`}
               >
                 <EyeOffIcon className="h-4 w-4 text-zinc-500" />
-                <span className="text-zinc-900 font-sans text-sm font-medium leading-5">
-                  Internal
+                <span className="text-zinc-900 font-sans text-sm font-medium leading-5 whitespace-nowrap">
+                  {t("internal")}
                 </span>
               </ToggleGroupItem>
             </ToggleGroup>
