@@ -13,6 +13,10 @@ import {
   messageFeedback,
   staffFeedback,
   ticketFeedback,
+  knowledgeBase,
+  knowledgeUsageStats,
+  favoritedConversationsKnowledge,
+  historyConversationKnowledge,
 } from "./schema.ts";
 
 // Define relations for detailed tickets
@@ -37,6 +41,11 @@ export const ticketsRelations = relations(tickets, ({ many, one }) => ({
   messageFeedbacks: many(messageFeedback),
   staffFeedbacks: many(staffFeedback), // staffFeedback 中一个 ticket id 可以有很多条 staffFeedback 记录，例如每个员工都有一条
   ticketFeedback: one(ticketFeedback), // 一对一关系，每个工单只有一个反馈
+
+  // 新增的关联关系
+  knowledgeUsageStats: many(knowledgeUsageStats), // 工单可以有多个知识库使用统计
+  favoritedConversationsKnowledge: one(favoritedConversationsKnowledge), // 工单最多只能被收藏一次
+  historyConversationKnowledge: one(historyConversationKnowledge), // 工单最多只能有一条历史对话知识记录
 }));
 
 export const ticketHistoryRelations = relations(ticketHistory, ({ one }) => ({
@@ -73,6 +82,10 @@ export const usersRelations = relations(users, ({ many }) => ({
     relationName: "evaluated",
   }),
   ticketFeedbacks: many(ticketFeedback),
+
+  // 新增的关联关系
+  knowledgeUsageStats: many(knowledgeUsageStats), // 用户可以有多个知识库使用统计
+  favoritedConversationsKnowledge: many(favoritedConversationsKnowledge), // 用户可以收藏多个对话
 }));
 
 export const techniciansToTicketsRelations = relations(
@@ -198,3 +211,54 @@ export const ticketFeedbackRelations = relations(ticketFeedback, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// 知识库相关关系
+// 知识库表的关联关系
+export const knowledgeBaseRelations = relations(knowledgeBase, ({ many }) => ({
+  usageStats: many(knowledgeUsageStats), // 一个知识条目可以有多个使用统计记录
+}));
+
+// 知识库使用统计表的关联关系
+export const knowledgeUsageStatsRelations = relations(
+  knowledgeUsageStats,
+  ({ one }) => ({
+    knowledge: one(knowledgeBase, {
+      fields: [knowledgeUsageStats.knowledgeId],
+      references: [knowledgeBase.id],
+    }),
+    ticket: one(tickets, {
+      fields: [knowledgeUsageStats.ticketId],
+      references: [tickets.id],
+    }),
+    user: one(users, {
+      fields: [knowledgeUsageStats.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+// 收藏对话表的关联关系
+export const favoritedConversationsRelations = relations(
+  favoritedConversationsKnowledge,
+  ({ one }) => ({
+    ticket: one(tickets, {
+      fields: [favoritedConversationsKnowledge.ticketId],
+      references: [tickets.id],
+    }),
+    favoritedByUser: one(users, {
+      fields: [favoritedConversationsKnowledge.favoritedBy],
+      references: [users.id],
+    }),
+  }),
+);
+
+// 历史对话知识库表的关联关系
+export const historyConversationKnowledgeRelations = relations(
+  historyConversationKnowledge,
+  ({ one }) => ({
+    ticket: one(tickets, {
+      fields: [historyConversationKnowledge.ticketId],
+      references: [tickets.id],
+    }),
+  }),
+);

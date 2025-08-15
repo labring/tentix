@@ -11,9 +11,10 @@ import {
   type EditorRef,
 } from "tentix-ui";
 import { processFilesAndUpload } from "../upload-utils";
+import { useTranslation } from "i18n";
 
 // 错误处理工具函数
-const getErrorMessage = (error: unknown): string => {
+const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error) {
     return error.message;
   }
@@ -23,7 +24,7 @@ const getErrorMessage = (error: unknown): string => {
   if (error && typeof error === "object" && "message" in error) {
     return String(error.message);
   }
-  return "发送消息时出现未知错误";
+  return fallback;
 };
 
 // 上传进度接口
@@ -67,6 +68,7 @@ export function MessageInput({
   onTyping,
   isLoading,
 }: MessageInputProps) {
+  const { t } = useTranslation();
   const [newMessage, setNewMessage] = useState<JSONContentZod>({
     type: "doc",
     content: [],
@@ -115,14 +117,14 @@ export function MessageInput({
   // 显示错误提示
   const showErrorToast = useCallback(
     (error: unknown) => {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage(error, t("unknown_error_sending_message"));
       toast({
-        title: "发送失败",
+        title: t("send_failed"),
         description: message,
         variant: "destructive",
       });
     },
-    [toast],
+    [toast, t],
   );
 
   // 清空编辑器和消息状态
@@ -286,7 +288,7 @@ export function MessageInput({
             }}
             throttleDelay={500}
             editorContentClassName="overflow-auto h-full"
-            placeholder="输入消息..."
+            placeholder={t("enter_message")}
             editable={!isUploading}
             editorClassName="focus:outline-none p-4 h-full"
             className="border-none"
@@ -300,7 +302,7 @@ export function MessageInput({
           disabled={!canSend}
         >
           {renderSendButtonContent()}
-          <span className="sr-only">发送消息</span>
+          <span className="sr-only">{t("send_message")}</span>
         </Button>
       </form>
     </div>

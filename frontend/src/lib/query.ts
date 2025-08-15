@@ -446,3 +446,21 @@ export const technicianFeedbackQueryOptions = (ticketId: string) =>
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+// 收藏对话到知识库
+export async function collectFavoritedKnowledge({
+  ticketId,
+  messageIds,
+  favoritedBy,
+}: {
+  ticketId: string;
+  messageIds?: number[];
+  favoritedBy: number;
+}) {
+  const res = await apiClient.kb.favorited
+    .$post({
+      json: { ticketId, messageIds, favoritedBy },
+    })
+    .then((r) => r.json());
+  return res;
+}

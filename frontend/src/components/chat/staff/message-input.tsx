@@ -1,5 +1,5 @@
 import { type JSONContentZod } from "tentix-server/types";
-import { Loader2Icon, UploadIcon } from "lucide-react";
+import { Loader2Icon, UploadIcon, LibraryBigIcon, XIcon } from "lucide-react";
 import React, { useRef, useState, useCallback, useMemo } from "react";
 import {
   SendIcon,
@@ -9,6 +9,10 @@ import {
   type EditorRef,
 } from "tentix-ui";
 import { processFilesAndUpload } from "../upload-utils";
+import { useChatStore } from "@store/index";
+import useLocalUser from "@hook/use-local-user.tsx";
+import { collectFavoritedKnowledge } from "@lib/query";
+import { useTranslation } from "i18n";
 
 // 错误处理工具函数
 const getErrorMessage = (error: unknown): string => {
@@ -48,16 +52,20 @@ interface FileStats {
 }
 
 // 检查内容节点是否为本地文件
-const isLocalFileNode = (node: any): boolean => {
-  return node.type === "image" && node.attrs?.isLocalFile;
+const isLocalFileNode = (node: { type?: string; attrs?: { isLocalFile?: boolean } } | unknown): boolean => {
+  if (!node || typeof node !== "object") return false;
+  const n = node as { type?: string; attrs?: { isLocalFile?: boolean } };
+  return n.type === "image" && n.attrs?.isLocalFile === true;
 };
 
 // 检查内容节点是否有实际内容
-const hasNodeContent = (node: any): boolean => {
-  if (node.type === "paragraph" && node.content) {
-    return node.content.length > 0;
+const hasNodeContent = (node: { type?: string; content?: unknown[] } | unknown): boolean => {
+  if (!node || typeof node !== "object") return false;
+  const n = node as { type?: string; content?: unknown[] };
+  if (n.type === "paragraph" && Array.isArray(n.content)) {
+    return n.content.length > 0;
   }
-  if (node.type === "image") {
+  if (n.type === "image") {
     return true;
   }
   return false;
@@ -68,6 +76,7 @@ export function StaffMessageInput({
   onTyping,
   isLoading,
 }: MessageInputProps) {
+  const { t } = useTranslation();
   const [newMessage, setNewMessage] = useState<JSONContentZod>({
     type: "doc",
     content: [],
@@ -78,6 +87,9 @@ export function StaffMessageInput({
 
   const editorRef = useRef<EditorRef>(null);
   const { toast } = useToast();
+  const { kbSelectionMode, clearKbSelection, selectedMessageIds } =
+    useChatStore();
+  const { id: userId } = useLocalUser();
 
   // 分析消息内容中的文件情况
   const analyzeFileContent = useCallback(
@@ -85,13 +97,13 @@ export function StaffMessageInput({
       let count = 0;
       let hasFiles = false;
 
-      const analyzeNode = (node: any): void => {
+      const analyzeNode = (node: unknown): void => {
         if (isLocalFileNode(node)) {
           count++;
           hasFiles = true;
         }
-        if (node.content) {
-          node.content.forEach(analyzeNode);
+        if (node && typeof node === "object" && Array.isArray((node as { content?: unknown[] }).content)) {
+          (node as { content?: unknown[] }).content!.forEach(analyzeNode);
         }
       };
 
@@ -118,12 +130,12 @@ export function StaffMessageInput({
     (error: unknown) => {
       const message = getErrorMessage(error);
       toast({
-        title: "发送失败",
+        title: t("send_failed"),
         description: message,
         variant: "destructive",
       });
     },
-    [toast],
+    [toast, t],
   );
 
   // 清空编辑器和消息状态
@@ -195,7 +207,7 @@ export function StaffMessageInput({
 
   const editorProps = useMemo(
     () => ({
-      handleKeyDown: (_: any, event: any) => {
+      handleKeyDown: (_: unknown, event: KeyboardEvent) => {
         // 🔥 Enter 键 -> 发送消息
         if (
           event.key === "Enter" &&
@@ -235,7 +247,7 @@ export function StaffMessageInput({
           <div className="flex items-center gap-2">
             <UploadIcon className="h-4 w-4 animate-pulse text-zinc-600" />
             <span className="text-zinc-600">
-              上传中 {uploadProgress.uploaded}/{uploadProgress.total}
+              {t("uploading_simple", { uploaded: uploadProgress.uploaded, total: uploadProgress.total })}
               {uploadProgress.currentFile && ` - ${uploadProgress.currentFile}`}
             </span>
           </div>
@@ -261,6 +273,74 @@ export function StaffMessageInput({
   };
 
   const isUploading = uploadProgress !== null;
+
+  if (kbSelectionMode) {
+    const count = selectedMessageIds.size;
+    const handleCollect = async () => {
+      try {
+        const { currentTicketId } = useChatStore.getState();
+        if (!currentTicketId) return;
+        const res = await collectFavoritedKnowledge({
+          ticketId: currentTicketId,
+          messageIds: Array.from(selectedMessageIds),
+          favoritedBy: userId,
+        });
+        if (res.success) {
+          toast({ title: "成功", description: "已收录到知识库" });
+          clearKbSelection();
+        } else {
+          toast({
+            title: "失败",
+            description: res.message,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        const message = getErrorMessage(error);
+        toast({ title: "失败", description: message, variant: "destructive" });
+      }
+    };
+    return (
+      <div className="border-t relative">
+        <div className="flex items-center py-3 px-6">
+          <div className="text-sm text-zinc-500 font-sans font-normal leading-normal">
+            {t("selected_count", { count })}
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <Button
+              variant="outline"
+              onClick={handleCollect}
+              className="flex px-3 py-2 gap-2"
+              disabled={count === 0}
+            >
+              <LibraryBigIcon
+                className="!h-4 !w-4 text-zinc-500"
+                strokeWidth={1.33}
+              />
+              <span className="text-sm text-zinc-900 font-sans font-medium leading-normal">
+                {t("klg_base")}
+              </span>
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              clearKbSelection();
+              useChatStore.getState().setKbSelectionMode(false);
+            }}
+            className="flex items-center justify-center h-8 w-8"
+          >
+            <XIcon
+              className="!h-5 !w-5 text-zinc-500"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="border-t relative">
@@ -299,7 +379,7 @@ export function StaffMessageInput({
           disabled={!canSend}
         >
           {renderSendButtonContent()}
-          <span className="sr-only">发送消息 (Cmd+Enter)</span>
+          <span className="sr-only">{t("send_message_shortcut")}</span>
         </Button>
       </form>
     </div>

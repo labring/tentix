@@ -25,6 +25,7 @@ import {
   ticketCategoryEnumArray,
   ticketPriorityEnumArray,
   TicketStatus,
+  userRoleEnumArray,
 } from "@/utils/const.ts";
 import { userTicketSchema } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
@@ -64,6 +65,8 @@ const updateTicketStatusSchema = z.object({
 const ticketInfoResponseSchema = zs.ticket.extend({
   // 扩展客户信息
   customer: zs.users,
+  // 扩展客服信息（处理人）
+  agent: zs.users,
   // 扩展技术人员信息
   technicians: z.array(zs.users),
   // 扩展标签信息
@@ -95,6 +98,14 @@ const ticketInfoResponseSchema = zs.ticket.extend({
       tag: createSelectSchema(schema.tags),
     }),
   ),
+  // AI 用户信息
+  ai: z.object({
+    id: z.number(),
+    name: z.string(),
+    nickname: z.string(),
+    avatar: z.string(),
+    role: z.enum(userRoleEnumArray),
+  }),
 });
 
 const ticketRouter = factory
@@ -551,10 +562,21 @@ const ticketRouter = factory
           });
         }
 
+        const aiRole: (typeof userRoleEnumArray)[number] = "ai";
         const response = {
           ...data,
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
+          ai: await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.role, aiRole),
+            columns: {
+              id: true,
+              name: true,
+              nickname: true,
+              avatar: true,
+              role: true,
+            },
+          }),
         };
 
         return c.json(response);
@@ -586,10 +608,21 @@ const ticketRouter = factory
           });
         }
 
+        const aiRole: (typeof userRoleEnumArray)[number] = "ai";
         const response = {
           ...data,
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
+          ai: await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.role, aiRole),
+            columns: {
+              id: true,
+              name: true,
+              nickname: true,
+              avatar: true,
+              role: true,
+            },
+          }),
         };
 
         return c.json(response);

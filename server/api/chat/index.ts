@@ -11,7 +11,7 @@ import {
   saveMessageToDb,
   withdrawMessage,
 } from "@/utils/index.ts";
-import { getAIResponse } from "@/utils/platform/ai.ts";
+import { getAIResponse } from "@/utils/kb/agent.ts";
 import { runWithInterval } from "@/utils/runtime.ts";
 import {
   MessageEmitter,
@@ -19,7 +19,6 @@ import {
   roomObserveEmitter,
 } from "@/utils/pubSub.ts";
 import {
-  extractText,
   JSONContentZod,
   userRoleType,
   wsMsgClientSchema,
@@ -108,7 +107,7 @@ async function getLastMessageFromTicket(ticketId: string) {
   }
 }
 
-// 🔥 新增处理用户离开时的票务状态更新
+// 处理用户离开时的工单状态更新
 async function handleUserLeaveStatusUpdate(
   ticketId: string,
   userId: number,
@@ -216,8 +215,32 @@ namespace aiHandler {
     checkperiod: 60 * 60 * 12,
   });
 
+  // Cache AI user id to avoid frequent DB lookups
+  const aiUserIdCache = new NodeCache({
+    stdTTL: 24 * 60 * 60,
+    checkperiod: 60 * 60 * 12,
+  });
+
   export const MAX_AI_RESPONSES_PER_TICKET =
     global.customEnv.MAX_AI_RESPONSES_PER_TICKET;
+
+  // In-flight lock set and timeout map to avoid concurrent AI runs per ticket
+  const aiProcessingSet = new Set<string>();
+  const AI_PROCESSING_TIMEOUT = 60000;
+  const aiProcessingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+  export function isAIInFlight(ticketId: string) {
+    return aiProcessingSet.has(ticketId);
+  }
+
+  export function clearAIInFlight(ticketId: string) {
+    aiProcessingSet.delete(ticketId);
+    const timeout = aiProcessingTimeouts.get(ticketId);
+    if (timeout) {
+      clearTimeout(timeout);
+      aiProcessingTimeouts.delete(ticketId);
+    }
+  }
 
   export async function getCurrentAIMsgCount(ticketId: string) {
     // Check if we've reached the AI response limit for this ticket
@@ -229,10 +252,14 @@ namespace aiHandler {
           count: count(),
         })
         .from(schema.chatMessages)
+        .innerJoin(
+          schema.users,
+          eq(schema.chatMessages.senderId, schema.users.id),
+        )
         .where(
           and(
             eq(schema.chatMessages.ticketId, ticketId),
-            eq(schema.chatMessages.senderId, 1),
+            eq(schema.users.role, "ai"),
           ),
         );
       currentCount = num?.count ?? 0;
@@ -241,58 +268,117 @@ namespace aiHandler {
     return currentCount;
   }
 
-  export function handleAIResponse(
+  async function getAIUserId(): Promise<number | null> {
+    const cached = aiUserIdCache.get<number>("aiUserId");
+    if (cached !== undefined) return cached;
+
+    try {
+      const db = connectDB();
+      const aiUser = await db.query.users.findFirst({
+        where: (u, { eq }) => eq(u.role, "ai"),
+        columns: { id: true },
+      });
+      if (!aiUser?.id) {
+        logError(
+          "AI user not found. Please ensure an AI user exists in the database.",
+        );
+        return null;
+      }
+      aiUserIdCache.set("aiUserId", aiUser.id);
+      return aiUser.id;
+    } catch (error) {
+      logError("Error fetching AI user id:", error);
+      return null;
+    }
+  }
+
+  export async function handleAIResponse(
     ws: wsInstance,
     ticketId: string,
-    content: JSONContentZod | string[],
+    _content?: JSONContentZod | string[],
   ) {
-    const currentCount = aiResponseCountCache.get<number>(ticketId) ?? 0;
+    // Skip if there's already an AI task running for this ticket
+    if (aiProcessingSet.has(ticketId)) {
+      logInfo(`AI already responding for ticket ${ticketId}, skip trigger.`);
+      return;
+    }
+    aiProcessingSet.add(ticketId);
 
-    const toSendContent = Array.isArray(content)
-      ? content.join("\n")
-      : extractText(content);
+    // Baseline count to ensure consistent increment
+    const beforeCount = aiResponseCountCache.get<number>(ticketId) ?? 0;
+    const aiUserId = await getAIUserId();
+    if (!aiUserId) {
+      aiProcessingSet.delete(ticketId);
+      sendWsMessage(ws, {
+        type: "error",
+        error: "Tentix Ai is not configured.",
+      });
+      return;
+    }
+
+    // Set timeout to auto-clear lock to avoid deadlocks
+    const timeoutId = setTimeout(() => {
+      aiProcessingSet.delete(ticketId);
+      aiProcessingTimeouts.delete(ticketId);
+      logError(`AI processing timeout for ticket ${ticketId}`);
+    }, AI_PROCESSING_TIMEOUT);
+    aiProcessingTimeouts.set(ticketId, timeoutId);
+
     runWithInterval(
-      () =>
-        getAIResponse(ticketId, [
-          {
-            role: "user",
-            content: toSendContent,
-          },
-        ]),
+      () => getAIResponse(ticketId),
       () =>
         broadcastToRoom(ticketId, {
           type: "user_typing",
-          userId: 1,
+          userId: aiUserId,
           roomId: ticketId,
           timestamp: Date.now(),
         }),
       2000,
       async (result) => {
-        const JSONContent = markdownToTipTapJSON(result);
-        const savedAIMessage = await saveMessageToDb(
-          ticketId,
-          1,
-          JSONContent,
-          false,
-        );
-        if (!savedAIMessage) {
-          return;
-        }
+        try {
+          const JSONContent = markdownToTipTapJSON(result);
+          const savedAIMessage = await saveMessageToDb(
+            ticketId,
+            aiUserId,
+            JSONContent,
+            false,
+          );
+          if (!savedAIMessage) {
+            return;
+          }
 
-        // Increment the AI response count for this ticket
-        aiResponseCountCache.set(ticketId, currentCount + 1);
-        broadcastToRoom(ticketId, {
-          type: "new_message",
-          messageId: savedAIMessage.id,
-          roomId: ticketId,
-          userId: 1,
-          content: savedAIMessage.content,
-          timestamp: Date.now(),
-          isInternal: false,
-        });
+          // Increment the AI response count for this ticket (use latest value)
+          const latest =
+            aiResponseCountCache.get<number>(ticketId) ?? beforeCount;
+          aiResponseCountCache.set(ticketId, latest + 1);
+          broadcastToRoom(ticketId, {
+            type: "new_message",
+            messageId: savedAIMessage.id,
+            roomId: ticketId,
+            userId: aiUserId,
+            content: savedAIMessage.content,
+            timestamp: Date.now(),
+            isInternal: false,
+          });
+        } finally {
+          // Always clear lock and timeout
+          aiProcessingSet.delete(ticketId);
+          const timeout = aiProcessingTimeouts.get(ticketId);
+          if (timeout) {
+            clearTimeout(timeout);
+            aiProcessingTimeouts.delete(ticketId);
+          }
+        }
       },
       (error: unknown) => {
         logError("Error handling AI response:", error);
+        // Clear lock and timeout on error
+        aiProcessingSet.delete(ticketId);
+        const timeout = aiProcessingTimeouts.get(ticketId);
+        if (timeout) {
+          clearTimeout(timeout);
+          aiProcessingTimeouts.delete(ticketId);
+        }
         sendWsMessage(ws, {
           type: "error",
           error: "Some error occurred in AI response.",
@@ -302,18 +388,21 @@ namespace aiHandler {
   }
 }
 
+// ai 处理
 msgEmitter.on("new_message", async function ({ ws, ctx, message }) {
   if (aiHandler.MAX_AI_RESPONSES_PER_TICKET <= 0) {
     return;
   }
   if (ctx.role === "customer") {
     const currentCount = await aiHandler.getCurrentAIMsgCount(ctx.roomId);
-    if (currentCount <= aiHandler.MAX_AI_RESPONSES_PER_TICKET) {
+    // Only trigger AI when strictly below the limit
+    if (currentCount < aiHandler.MAX_AI_RESPONSES_PER_TICKET) {
       aiHandler.handleAIResponse(ws, ctx.roomId, message.content);
     }
   }
 });
 
+// 广播消息
 msgEmitter.on("new_message", function ({ ws, ctx, message }) {
   const broadcastExclude = message.isInternal
     ? [ctx.clientId, roomCustomerMap.get(ctx.roomId)!]
@@ -341,6 +430,7 @@ msgEmitter.on("new_message", function ({ ws, ctx, message }) {
   });
 });
 
+// 广播消息到观察者 sse 通知
 msgEmitter.on("new_message", function (...[props]) {
   roomObserveEmitter.emit("new_message", {
     roomId: props.ctx.roomId,
@@ -362,7 +452,12 @@ roomEmitter.on("user_join", async function ({ clientId, roomId, role, ws }) {
     if (aiHandler.MAX_AI_RESPONSES_PER_TICKET <= 0) {
       return;
     }
+    // 第一条欢迎信息
     if (currentCount === 0) {
+      // Skip if AI is already in flight to avoid duplicate welcome
+      if (aiHandler.isAIInFlight(roomId)) {
+        return;
+      }
       const db = connectDB();
       db.query.tickets
         .findFirst({
@@ -375,11 +470,7 @@ roomEmitter.on("user_join", async function ({ clientId, roomId, role, ws }) {
         })
         .then((ticket) => {
           if (ticket) {
-            aiHandler.handleAIResponse(ws, roomId, [
-              ticket.title,
-              extractText(ticket.description),
-              ticket.errorMessage,
-            ]);
+            aiHandler.handleAIResponse(ws, roomId);
           }
         });
     }
@@ -712,6 +803,11 @@ const chatRouter = factory
           // 如果不是 customer 离开，则检查 ticket 最近一条消息是否是自己发的，如果是自己发的 则状态改为 in progress
           handleUserLeaveStatusUpdate(ticketId, userId, role);
 
+          // Clear AI in-flight lock when user leaves the room
+          if (aiHandler.isAIInFlight(ticketId)) {
+            aiHandler.clearAIInFlight(ticketId);
+          }
+
           roomEmitter.emit("user_leave", {
             clientId,
             roomId: ticketId,
@@ -723,6 +819,10 @@ const chatRouter = factory
         },
 
         onError(evt, ws) {
+          // Clear AI in-flight lock when error occurs
+          if (aiHandler.isAIInFlight(ticketId)) {
+            aiHandler.clearAIInFlight(ticketId);
+          }
           logError(
             `Client ${clientId} UserId: ${userId} Error handling WebSocket message:`,
             evt,

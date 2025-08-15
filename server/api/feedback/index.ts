@@ -21,6 +21,7 @@ const feedbackRateLimiter = rateLimiter({
   standardHeaders: "draft-6",
   keyGenerator: (c) => {
     const connInfo = getConnInfo(c);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userId = (c as any).var.userId;
     const ip = connInfo.remote.address || "unknown";
     return `feedback-${userId}-${ip}`;

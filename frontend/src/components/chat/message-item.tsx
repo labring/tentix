@@ -435,7 +435,7 @@ const MyMessage = ({
   message: TicketType["messages"][number];
 }) => {
   const { sessionMembers } = useSessionMembersStore();
-  const { isMessageSending, withdrawMessageFunc: withdrawMessage } =
+  const { isMessageSending, withdrawMessageFunc: withdrawMessage, kbSelectionMode } =
     useChatStore();
   const { t } = useTranslation();
 
@@ -509,7 +509,7 @@ const MyMessage = ({
         </div>
 
         {/* action buttons */}
-        {!message.withdrawn && !isMessageSending(message.id) && (
+        {!message.withdrawn && !isMessageSending(message.id) && !kbSelectionMode && (
           <Popover>
             <PopoverTrigger asChild>
               <Button

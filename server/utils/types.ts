@@ -45,19 +45,60 @@ export const userIdValidator = zValidator(
 );
 
 export function extractText(json: JSONContentZod) {
-  let result = "";
+  // 结构化纯文本提取：保留段落/标题/列表/换行等边界，提升可读性与向量质量
+  let out = "";
 
-  function traverse(node: JSONContentZod) {
-    if (node.type === "text") {
-      result += node.text;
-    } else if (node.content) {
-      for (const child of node.content) {
-        traverse(child);
+  function walk(node: JSONContentZod) {
+    switch (node.type) {
+      case "text": {
+        out += node.text || "";
+        break;
+      }
+      case "paragraph": {
+        node.content?.forEach(walk);
+        out += "\n";
+        break;
+      }
+      case "heading": {
+        node.content?.forEach(walk);
+        out += "\n";
+        break;
+      }
+      case "hardBreak": {
+        out += "\n";
+        break;
+      }
+      case "bulletList":
+      case "orderedList": {
+        node.content?.forEach(walk);
+        out += "\n";
+        break;
+      }
+      case "listItem": {
+        out += "- ";
+        node.content?.forEach(walk);
+        out += "\n";
+        break;
+      }
+      case "blockquote": {
+        node.content?.forEach(walk);
+        out += "\n";
+        break;
+      }
+      case "codeBlock": {
+        out += "\n";
+        node.content?.forEach(walk);
+        out += "\n";
+        break;
+      }
+      default: {
+        node.content?.forEach(walk);
       }
     }
   }
-  traverse(json);
-  return result;
+
+  walk(json);
+  return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export function getAbbreviatedText(
@@ -70,6 +111,9 @@ export function getAbbreviatedText(
   }
   return `${text.slice(0, maxLength)}...`;
 }
+
+// 兼容命名：更显式的别名，便于在其他模块明确语义
+export const extractPlainText = extractText;
 
 export type userRoleType = (typeof userRoleEnumArray)[number];
 

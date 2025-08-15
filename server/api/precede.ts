@@ -14,9 +14,24 @@ const envSchema = z.object({
   FASTGPT_API_URL: z.string().url().trim(),
   FASTGPT_API_KEY: z.string().startsWith("fastgpt-").trim(),
   FASTGPT_API_LIMIT: z.coerce.number().default(10),
-  DEV_FALLBACK_USER: z.string().trim().optional(),
+
   SEALOS_APP_TOKEN: z.string().trim(),
+
+  OPENAI_BASE_URL: z.string().url().trim().optional(),
+  OPENAI_API_KEY: z.string().trim(),
+  SUMMARY_MODEL: z.string().trim().optional(),
+  FAST_MODEL: z.string().trim().optional(),
+  EMBEDDING_MODEL: z.string().trim().optional(),
+  CHAT_MODEL: z.string().trim().optional(),
+  VECTOR_BACKEND: z.enum(["internal", "external"]).default("internal"),
+  EXTERNAL_VECTOR_BASE_URL: z.string().url().trim().optional(),
   MAX_AI_RESPONSES_PER_TICKET: z.coerce.number().default(3),
+
+  KB_SYNC_INTERVAL_SEC: z.coerce.number().default(5).optional(),
+  KB_SYNC_MAX_PROCESSING: z.coerce.number().default(10).optional(),
+  KB_SYNC_BATCH_SIZE: z.coerce.number().default(10).optional(),
+  KB_SYNC_TZ: z.string().trim().default("Asia/Shanghai").optional(),
+
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 

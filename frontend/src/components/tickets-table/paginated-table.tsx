@@ -54,6 +54,7 @@ import {
 } from "tentix-ui";
 import useDebounce from "@hook/use-debounce";
 import { userTablePagination } from "@store/table-pagination";
+import { cn } from "@lib/utils";
 
 interface PaginatedTableProps {
   character: "user" | "staff";
@@ -448,7 +449,17 @@ export function PaginatedDataTable({
       return (
         <div className="flex-1 flex flex-col px-4 lg:px-6">
           <div
-            className="flex  items-center justify-center border border-dashed border-zinc-300 rounded-2xl bg-no-repeat bg-center relative h-full"
+            className={cn(
+              "flex  items-center justify-center border border-dashed border-zinc-300 rounded-2xl bg-no-repeat bg-center relative h-full",
+              character === "user" ? "cursor-pointer" : "",
+            )}
+            onClick={() => {
+              if (character === "user") {
+                router.navigate({
+                  to: "/user/newticket",
+                });
+              }
+            }}
             style={{
               backgroundImage: "url(/tentix-bg.svg)",
               backgroundSize: "80%",
@@ -458,13 +469,6 @@ export function PaginatedDataTable({
               className={`flex flex-col items-center justify-center mt-23 z-10 relative ${
                 character === "user" ? "cursor-pointer" : ""
               }`}
-              onClick={() => {
-                if (character === "user") {
-                  router.navigate({
-                    to: "/user/newticket",
-                  });
-                }
-              }}
             >
               <div className="flex flex-col items-center justify-center text-center">
                 <p className="text-black text-2xl font-medium leading-8 mb-1">

@@ -127,6 +127,13 @@ export const dislikeReasonEnumArray = [
   "other", // 其他
 ] as const;
 
+// Sync status enum array
+export const syncStatusEnumArray = [
+  "pending",
+  "synced",
+  "failed",
+  "processing",
+] as const;
 
 /**
  * WebSocket token expiry time

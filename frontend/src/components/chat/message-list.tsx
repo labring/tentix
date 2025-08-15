@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useLayoutEffect, useMemo } from "react";
+import { Checkbox } from "tentix-ui";
 import MessageItem from "./message-item.tsx";
 import { TypingIndicator } from "./typing-indicator.tsx";
 import { type TicketType } from "tentix-server/rpc";
 import useLocalUser from "@hook/use-local-user.tsx";
-
+import { useChatStore } from "@store/index";
 
 interface MessageListProps {
   messages: TicketType["messages"];
@@ -23,6 +24,10 @@ export function MessageList({
   const [isAtBottom, setIsAtBottom] = useState(true);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const [initialRender, setInitialRender] = useState(true);
+  const { role, id: userId } = useLocalUser();
+  const notCustomer = role !== "customer";
+  const { kbSelectionMode, selectedMessageIds, toggleSelectMessage } =
+    useChatStore();
 
   // Use IntersectionObserver to detect if we're at the bottom
   useEffect(() => {
@@ -147,7 +152,7 @@ export function MessageList({
     };
   }, [onMessageInView, messages, isLoading]);
 
-  const { id: userId } = useLocalUser();
+  // keep userId for read checks
 
   return (
     <>
@@ -184,6 +189,7 @@ export function MessageList({
                   <div
                     key={`message-${message.id}`}
                     data-message-id={message.id}
+                    className="flex w-full"
                     ref={(el) => {
                       if (el) {
                         if (
@@ -201,10 +207,22 @@ export function MessageList({
                       }
                     }}
                   >
-                    <MessageItem
-                      // key={`${message.senderId}-msg-${message.id}`}
-                      message={message}
-                    />
+                    {notCustomer && kbSelectionMode && (
+                      <div className="w-8 mr-3 flex items-center justify-center">
+                        <Checkbox
+                          checked={selectedMessageIds.has(message.id)}
+                          onCheckedChange={() => toggleSelectMessage(message.id)}
+                          className="h-4 w-4"
+                          aria-label={`select-message-${message.id}`}
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <MessageItem
+                        // key={`${message.senderId}-msg-${message.id}`}
+                        message={message}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

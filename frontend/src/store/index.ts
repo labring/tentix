@@ -13,15 +13,6 @@ export const useTicketStore = create<TicketStore>((set) => ({
 
 type BasicUser = TicketType["agent"];
 
-const aiBasicUser: BasicUser = {
-  id: 1,
-  name: "Tentix AI",
-  nickname: "Tentix AI",
-  role: "ai",
-  avatar:
-    "https://s1-imfile.feishucdn.com/static-resource/v1/v3_00m2_48b6bd51-ead6-472a-91eb-4d953416667g",
-};
-
 interface SessionMembersStore {
   sessionMembers: BasicUser[] | null;
   customer: BasicUser | null;
@@ -44,7 +35,7 @@ export const useSessionMembersStore = create<SessionMembersStore>((set) => ({
     }
     set({
       sessionMembers: [
-        aiBasicUser,
+        newTicket.ai!,
         newTicket.customer,
         newTicket.agent,
         ...newTicket.technicians,
@@ -73,6 +64,13 @@ interface ChatStore {
   isMessageSending: (id: number) => boolean;
   readMessage: (messageId: number, userId: number, readAt: string) => void;
   clearMessages: () => void; // 新增：清理消息
+
+  // KB 选择模式
+  kbSelectionMode: boolean;
+  selectedMessageIds: Set<number>;
+  setKbSelectionMode: (on: boolean) => void;
+  toggleSelectMessage: (id: number) => void;
+  clearKbSelection: () => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -80,6 +78,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   sendingMessageIds: new Set<number>(),
   currentTicketId: null,
   withdrawMessageFunc: () => {},
+  kbSelectionMode: false,
+  selectedMessageIds: new Set<number>(),
 
   setWithdrawMessageFunc(func) {
     set({ withdrawMessageFunc: func });
@@ -239,4 +239,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       messages: [],
       sendingMessageIds: new Set(),
     }),
+
+  setKbSelectionMode: (on) => set({ kbSelectionMode: on }),
+  toggleSelectMessage: (id) =>
+    set((state) => {
+      const next = new Set(state.selectedMessageIds);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return { selectedMessageIds: next } as any;
+    }),
+  clearKbSelection: () => set({ selectedMessageIds: new Set(), kbSelectionMode: false }),
 }));

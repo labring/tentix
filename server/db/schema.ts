@@ -15,6 +15,10 @@ import {
   unique,
   index,
   varchar,
+  uniqueIndex,
+  uuid,
+  vector,
+  real,
 } from "drizzle-orm/pg-core";
 import {
   areaEnumArray,
@@ -26,6 +30,7 @@ import {
   userRoleEnumArray,
   feedbackTypeEnumArray,
   dislikeReasonEnumArray,
+  syncStatusEnumArray,
 } from "../utils/const.ts";
 import { myNanoId } from "../utils/runtime.ts";
 export const tentix = pgSchema("tentix");
@@ -53,6 +58,7 @@ export const dislikeReason = tentix.enum(
   "dislike_reason",
   dislikeReasonEnumArray,
 );
+export const syncStatus = tentix.enum("sync_status", syncStatusEnumArray);
 
 // Core tables with no dependencies
 export const users = tentix.table(
@@ -439,5 +445,176 @@ export const ticketFeedback = tentix.table(
     index("idx_ticket_feedback_user").on(table.userId),
     index("idx_ticket_feedback_rating").on(table.satisfactionRating),
     index("idx_ticket_feedback_created").on(table.createdAt),
+  ],
+);
+
+// knowledge base
+export const knowledgeBase = tentix.table(
+  "knowledge_base",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sourceType: varchar("source_type", { length: 50 }).notNull(),
+    sourceId: text("source_id").notNull(),
+    chunkId: integer("chunk_id").notNull(),
+    title: text("title").notNull().default(""),
+    content: text("content").notNull(),
+    embedding: vector("embedding", { dimensions: 3072 }).notNull(),
+    metadata: jsonb("metadata").notNull(),
+    score: integer("score").default(0),
+    accessCount: integer("access_count").default(0),
+    lang: varchar("lang", { length: 12 }).default("auto"),
+    tokenCount: integer("token_count").default(0),
+    isDeleted: boolean("is_deleted").default(false),
+    contentHash: text("content_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("idx_kb_unique_source_chunk").on(
+      t.sourceType,
+      t.sourceId,
+      t.chunkId,
+    ),
+    uniqueIndex("idx_kb_content_hash").on(t.contentHash),
+    index("idx_kb_metadata").using("gin", t.metadata),
+    // tsv 索引在 SQL 迁移里创建 drizzle-orm 不一定支持
+    // CREATE INDEX IF NOT EXISTS idx_kb_tsv ON tentix.knowledge_base USING GIN (tsv);
+  ],
+);
+
+// 知识库使用统计表
+export const knowledgeUsageStats = tentix.table(
+  "knowledge_usage_stats",
+  {
+    id: serial("id").primaryKey(),
+    knowledgeId: uuid("knowledge_id")
+      .notNull()
+      .references(() => knowledgeBase.id, { onDelete: "cascade" }),
+    ticketId: char("ticket_id", { length: 13 }).references(() => tickets.id, {
+      onDelete: "set null",
+    }),
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    wasHelpful: boolean("was_helpful").default(true),
+    feedbackComment: text("feedback_comment").default(""),
+    usedAt: timestamp("used_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    retrievalScore: real("retrieval_score").default(0),
+  },
+  (table) => [
+    index("idx_usage_knowledge").on(table.knowledgeId),
+    index("idx_usage_ticket").on(table.ticketId),
+    index("idx_usage_used_at").on(table.usedAt.desc()),
+  ],
+);
+
+// 1. 收藏对话表 - 用户主动收藏的对话
+export const favoritedConversationsKnowledge = tentix.table(
+  "favorited_conversations_knowledge",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: char("ticket_id", { length: 13 })
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    messageIds: integer("message_ids").array(), // 特定消息ID数组
+
+    // 收藏相关字段（必填）
+    favoritedBy: integer("favorited_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    syncStatus: syncStatus("sync_status").default("pending"), // pending, synced, failed,processing
+    syncedAt: timestamp("synced_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    // 同一工单只能有一条历史记录
+    unique("favorited_conversation_knowledge_unique").on(table.ticketId),
+    index("idx_favorited_conversation_knowledge_ticket").on(table.ticketId),
+    index("idx_favorited_conversation_knowledge_user").on(table.favoritedBy),
+    index("idx_favorited_conversation_knowledge_sync_status").on(
+      table.syncStatus,
+    ),
+    index("idx_favorited_conversation_knowledge_created_at").on(
+      table.createdAt.desc(),
+    ),
+  ],
+);
+
+// 2. 历史对话知识库表 - AI自动筛选的优质历史对话
+export const historyConversationKnowledge = tentix.table(
+  "history_conversation_knowledge",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: char("ticket_id", { length: 13 })
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    messageIds: integer("message_ids").array(), // 特定消息ID数组
+
+    // 处理状态
+    processingStatus: varchar("processing_status", { length: 20 })
+      .notNull()
+      .default("pending"), // pending, processed, approved, rejected
+
+    syncStatus: syncStatus("sync_status").default("pending"),
+    syncedAt: timestamp("synced_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    }),
+
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    // 同一工单只能有一条历史记录
+    unique("history_conversation_knowledge_unique").on(table.ticketId),
+    index("idx_history_conversation_knowledge_ticket").on(table.ticketId),
+    index("idx_history_conversation_knowledge_processing_status").on(
+      table.processingStatus,
+    ),
+    index("idx_history_conversation_knowledge_created_at").on(
+      table.createdAt.desc(),
+    ),
   ],
 );
