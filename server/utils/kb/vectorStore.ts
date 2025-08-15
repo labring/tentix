@@ -91,7 +91,6 @@ export class PgVectorStore implements VectorStore {
     k: number;
     filters?: KBFilter;
   }): Promise<SearchHit[]> {
-    // TODO: 向量命中时 access_count 加 1
     const qEmbArr = await embed(query);
     const qEmbText = toPgVectorLiteral(qEmbArr);
 
@@ -138,6 +137,18 @@ export class PgVectorStore implements VectorStore {
       })
       .sort((a, b) => b.final - a.final)
       .slice(0, k);
+
+    // Increment access_count for hits
+    if (reRank.length > 0) {
+      const hitIds = reRank.map((r) => r.id);
+      await this.db
+        .update(knowledgeBase)
+        .set({
+          accessCount: sql`COALESCE(${knowledgeBase.accessCount}, 0) + 1`,
+          updatedAt: sql`NOW()`,
+        })
+        .where(inArray(knowledgeBase.id, hitIds));
+    }
 
     return reRank.map((r) => ({
       id: String(r.id),

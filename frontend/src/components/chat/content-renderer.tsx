@@ -99,6 +99,15 @@ const RenderContent = ({content}: {content: JSONContent}): ReactNode => {
     );
   }
 
+  // 添加有序列表处理
+  if (content.type === 'orderedList') {
+    return (
+      <ol key={Math.random()} className="content-ordered-list" start={content.attrs?.start || 1}>
+        {content.content?.map((node, index) => <RenderContent key={index} content={node} />)}
+      </ol>
+    );
+  }
+
   if (content.type === 'listItem') {
     return (
       <li key={Math.random()} className="content-list-item">
@@ -113,6 +122,40 @@ const RenderContent = ({content}: {content: JSONContent}): ReactNode => {
         {content.content?.map((node, index) => <RenderContent key={index} content={node} />)}
       </blockquote>
     );
+  }
+
+  // 添加标题处理
+  if (content.type === 'heading') {
+    const level = content.attrs?.level || 1;
+    const className = `content-heading content-heading-${level}`;
+    const children = content.content?.map((node, index) => <RenderContent key={index} content={node} />);
+    
+    switch (level) {
+      case 1:
+        return <h1 key={Math.random()} className={className}>{children}</h1>;
+      case 2:
+        return <h2 key={Math.random()} className={className}>{children}</h2>;
+      case 3:
+        return <h3 key={Math.random()} className={className}>{children}</h3>;
+      case 4:
+        return <h4 key={Math.random()} className={className}>{children}</h4>;
+      case 5:
+        return <h5 key={Math.random()} className={className}>{children}</h5>;
+      case 6:
+        return <h6 key={Math.random()} className={className}>{children}</h6>;
+      default:
+        return <h1 key={Math.random()} className={className}>{children}</h1>;
+    }
+  }
+
+  // 添加水平线处理
+  if (content.type === 'horizontalRule') {
+    return <hr key={Math.random()} className="content-horizontal-rule" />;
+  }
+
+  // 添加硬换行处理
+  if (content.type === 'hardBreak') {
+    return <br key={Math.random()} />;
   }
 
   if (content.type === 'image') {

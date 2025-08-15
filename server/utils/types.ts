@@ -47,20 +47,27 @@ export const userIdValidator = zValidator(
 export function extractText(json: JSONContentZod) {
   // 结构化纯文本提取：保留段落/标题/列表/换行等边界，提升可读性与向量质量
   let out = "";
+  let listCounter = 0; // 用于有序列表计数
+  let inOrderedList = false;
 
-  function walk(node: JSONContentZod) {
+  function walk(node: JSONContentZod, isInList = false) {
     switch (node.type) {
       case "text": {
         out += node.text || "";
         break;
       }
       case "paragraph": {
-        node.content?.forEach(walk);
-        out += "\n";
+        node.content?.forEach(child => walk(child, isInList));
+        if (!isInList) {
+          out += "\n";
+        }
         break;
       }
       case "heading": {
-        node.content?.forEach(walk);
+        const level = node.attrs?.level || 1;
+        out += "#".repeat(level);
+        out += " ";
+        node.content?.forEach(child => walk(child));
         out += "\n";
         break;
       }
@@ -68,31 +75,59 @@ export function extractText(json: JSONContentZod) {
         out += "\n";
         break;
       }
-      case "bulletList":
+      case "bulletList": {
+        inOrderedList = false;
+        node.content?.forEach(child => walk(child));
+        out += "\n";
+        break;
+      }
       case "orderedList": {
-        node.content?.forEach(walk);
+        inOrderedList = true;
+        listCounter = node.attrs?.start || 1;
+        node.content?.forEach(child => walk(child));
         out += "\n";
         break;
       }
       case "listItem": {
-        out += "- ";
-        node.content?.forEach(walk);
+        if (inOrderedList) {
+          out += `${listCounter}. `;
+          listCounter++;
+        } else {
+          out += "- ";
+        }
+        node.content?.forEach(child => walk(child, true));
         out += "\n";
         break;
       }
       case "blockquote": {
-        node.content?.forEach(walk);
+        out += "> ";
+        node.content?.forEach(child => walk(child));
         out += "\n";
         break;
       }
       case "codeBlock": {
+        const language = node.attrs?.language || "";
+        out += "\n```";
+        out += language;
         out += "\n";
-        node.content?.forEach(walk);
-        out += "\n";
+        node.content?.forEach(child => walk(child));
+        out += "\n```\n";
+        break;
+      }
+      case "horizontalRule": {
+        out += "\n---\n";
+        break;
+      }
+      case "image": {
+        const alt = node.attrs?.alt || "";
+        const title = node.attrs?.title || "";
+        const src = node.attrs?.src || "";
+        const description = alt || title || "无描述";
+        out += `[图片: ${description}${src ? ` (${src})` : ""}]`;
         break;
       }
       default: {
-        node.content?.forEach(walk);
+        node.content?.forEach(child => walk(child, isInList));
       }
     }
   }

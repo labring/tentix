@@ -97,24 +97,24 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
               <ToggleGroupItem
                 value="public"
                 aria-label={t("public_message")}
-                className={`gap-2 h-7 ${
+                className={`gap-2 h-7 flex-row ${
                   messageType === "public" ? "rounded-lg !bg-zinc-100" : ""
                 }`}
               >
                 <EyeIcon className="h-4 w-4 text-zinc-500" />
-                <span className="text-zinc-900 font-sans text-sm font-medium leading-5">
+                <span className="text-zinc-900 font-sans text-sm font-medium leading-5 whitespace-nowrap">
                   {t("public")}
                 </span>
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="internal"
                 aria-label={t("internal_note")}
-                className={`gap-2 h-7 ${
+                className={`gap-2 h-7 flex-row ${
                   messageType === "internal" ? "rounded-lg !bg-violet-50" : ""
                 }`}
               >
                 <EyeOffIcon className="h-4 w-4 text-zinc-500" />
-                <span className="text-zinc-900 font-sans text-sm font-medium leading-5">
+                <span className="text-zinc-900 font-sans text-sm font-medium leading-5 whitespace-nowrap">
                   {t("internal")}
                 </span>
               </ToggleGroupItem>

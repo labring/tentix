@@ -44,7 +44,28 @@
 
 .content-bullet-list {
   margin: 0.2rem 0.2rem 0.2rem 1rem;
-  padding-left: 0;
+  padding-left: 1.2rem;
+  list-style-type: disc;
+  list-style-position: outside;
+}
+
+/* 添加有序列表样式 */
+.content-ordered-list {
+  margin: 0.2rem 0.2rem 0.2rem 1rem;
+  padding-left: 1.2rem;
+  list-style-type: decimal;
+  list-style-position: outside;
+}
+
+.content-ordered-list .content-list-item {
+  margin-bottom: 0.1rem;
+  position: relative;
+  list-style-type: inherit;
+}
+
+/* 移除自定义的计数器，使用浏览器默认的编号 */
+.content-ordered-list .content-list-item::before {
+  display: none;
 }
 
 
@@ -52,13 +73,12 @@
 .content-list-item {
   margin-bottom: 0.1rem;
   position: relative;
+  list-style-type: inherit;
 }
 
-.content-list-item::before {
-  content: '•';
-  position: absolute;
-  left: -1em;
-  color: black;
+/* 只在无序列表中使用自定义样式 */
+.content-bullet-list .content-list-item::before {
+  display: none;
 }
 
 .content-blockquote {
@@ -114,6 +134,51 @@
   font-size: 0.9em;
   color: #24292e;
   border: 1px solid #e1e4e8;
+}
+
+/* 添加标题样式 */
+.content-heading {
+  margin: 0.5rem 0 0.3rem 0;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.content-heading-1 {
+  font-size: 1.5rem;
+  color: #1a202c;
+}
+
+.content-heading-2 {
+  font-size: 1.3rem;
+  color: #2d3748;
+}
+
+.content-heading-3 {
+  font-size: 1.1rem;
+  color: #4a5568;
+}
+
+.content-heading-4 {
+  font-size: 1rem;
+  color: #4a5568;
+}
+
+.content-heading-5 {
+  font-size: 0.9rem;
+  color: #4a5568;
+}
+
+.content-heading-6 {
+  font-size: 0.8rem;
+  color: #4a5568;
+}
+
+/* 添加水平线样式 */
+.content-horizontal-rule {
+  border: none;
+  border-top: 2px solid #e1e4e8;
+  margin: 1rem 0;
+  background: none;
 }
 
 .example-chat-container {
@@ -190,6 +255,18 @@
   hyphens: auto;
   overflow-wrap: anywhere;
   margin: 0.1rem 0;
+}
+
+/* 修复在消息中的列表显示问题 */
+.content-renderer ol,
+.content-renderer ul {
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+
+.content-renderer .content-list-item {
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* @media (prefers-color-scheme: dark) {

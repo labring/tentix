@@ -561,6 +561,7 @@ export async function* streamAIResponse(ticketId: string) {
     },
   });
 
+  // TODO: message 中 图片地址现在用的 url，以后优化用 base64 传递给多模态模型，提高模型处理速度
   const history: AgentMessage[] = [];
   for (const m of msgs) {
     if (!m) continue;
