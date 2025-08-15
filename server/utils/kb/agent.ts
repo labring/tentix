@@ -9,11 +9,16 @@ import { ChatOpenAI } from "@langchain/openai";
 import { VectorStore, type SearchHit } from "./types";
 import { PgVectorStore, ExternalHttpStore } from "./vectorStore";
 import { connectDB } from "../tools";
-import { getAbbreviatedText, type JSONContentZod } from "../types";
+import { type JSONContentZod } from "../types";
 import { OPENAI_CONFIG } from "./config";
 import * as schema from "@/db/schema.ts";
 import { asc } from "drizzle-orm";
 import { basicUserCols } from "../../api/queryParams.ts";
+import {
+  convertToMultimodalMessage,
+  getTextWithImageInfo,
+  extractImageUrls,
+} from "./tools";
 
 const chat = new ChatOpenAI({
   apiKey: OPENAI_CONFIG.apiKey,
@@ -34,7 +39,12 @@ const fast = new ChatOpenAI({
 // 使用 LangGraph Annotation 定义强类型状态
 type AgentMessage = {
   role?: string;
-  content: string;
+  content:
+    | string
+    | Array<
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+      >;
   createdAt?: string;
 };
 
@@ -217,13 +227,21 @@ export function createWorkflow(): CompiledStateGraph<
   function lastMessageText(messages: AgentMessage[]): string {
     const last = messages.at(-1);
     if (!last) return "";
-    return last.content;
+    if (typeof last.content === "string") return last.content;
+    // 处理多模态消息，只提取文本部分用于分析
+    return last.content
+      .map((item) => (item.type === "text" ? item.text : "[图片]"))
+      .join(" ");
   }
 
   function lastCustomerMessageText(messages: AgentMessage[]): string {
     for (const m of [...messages].reverse()) {
       if ((m.role ?? "").toLowerCase() === "customer") {
-        return m.content;
+        if (typeof m.content === "string") return m.content;
+        // 处理多模态消息，只提取文本部分用于分析
+        return m.content
+          .map((item) => (item.type === "text" ? item.text : "[图片]"))
+          .join(" ");
       }
     }
     return "";
@@ -232,7 +250,10 @@ export function createWorkflow(): CompiledStateGraph<
   function ticketDescriptionText(ticket: AgentState["current_ticket"]): string {
     const desc = ticket?.description;
     if (!desc) return "";
-    return getAbbreviatedText(desc, 2000);
+
+    const text = getTextWithImageInfo(desc);
+    if (text.length <= 2000) return text;
+    return `${text.slice(0, 2000)}...`;
   }
 
   async function analyzeQueryNode(
@@ -346,6 +367,12 @@ export function createWorkflow(): CompiledStateGraph<
       lastCustomerMessageText(state.messages) ||
       lastMessageText(state.messages) ||
       "";
+
+    // 获取最新的客户消息，保持多模态格式
+    const lastCustomerMessage = [...state.messages]
+      .reverse()
+      .find((m) => (m.role ?? "").toLowerCase() === "customer");
+
     const hasCtx =
       state.retrieved_context && state.retrieved_context.length > 0;
     const ctxBlock = hasCtx
@@ -364,13 +391,24 @@ export function createWorkflow(): CompiledStateGraph<
 
     const descText = ticketDescriptionText(state.current_ticket);
 
+    // 提取工单描述中的图片
+    const ticketDescImages = state.current_ticket?.description
+      ? extractImageUrls(state.current_ticket.description)
+      : [];
+
     const HISTORY_MAX_MESSAGES = 8;
     const HISTORY_FALLBACK_MESSAGES = 4;
     const HISTORY_MAX_CHARS = 4000;
     const historyMsgs: AgentMessage[] = Array.isArray(state.messages)
       ? (state.messages as AgentMessage[])
       : [];
-    const toPlainText = (c: string): string => c;
+    const toPlainText = (c: AgentMessage["content"]): string => {
+      if (typeof c === "string") return c;
+      // 处理多模态消息，只提取文本部分
+      return c
+        .map((item) => (item.type === "text" ? item.text : "[图片]"))
+        .join(" ");
+    };
     const roleLabel = (role?: string) => {
       switch ((role || "user").toLowerCase()) {
         case "ai":
@@ -397,7 +435,6 @@ export function createWorkflow(): CompiledStateGraph<
     if (historyBlock.length > HISTORY_MAX_CHARS) {
       historyBlock = blockFrom(historyMsgs.slice(-HISTORY_FALLBACK_MESSAGES));
     }
-    // TODO: 标题进行长度截断，最长限制
 
     let prompt = `你是一个专业、友好的客服助手。请基于以下信息回答用户问题。
 
@@ -425,10 +462,37 @@ ${historyBlock || "（无）"}
 3. 语气友好，易于理解
 4. 不确定时要诚实并给出建议
 5. 适当时提供操作步骤
+6. 如果用户发送了图片或工单描述包含图片，请仔细分析图片内容并给出相应的帮助
 
 请直接回复用户，不要提及"知识库"或"参考资料"。`;
 
-    const resp = await chat.invoke(prompt);
+    // 构建多模态消息，包含工单描述中的图片和最新消息中的图片
+    const messageContent: Array<
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    > = [{ type: "text", text: prompt }];
+
+    // 添加工单描述中的图片
+    ticketDescImages.forEach((imageUrl) => {
+      messageContent.push({
+        type: "image_url",
+        image_url: { url: imageUrl },
+      });
+    });
+
+    // 添加最新客户消息中的图片
+    if (
+      lastCustomerMessage &&
+      typeof lastCustomerMessage.content !== "string"
+    ) {
+      const customerImages = lastCustomerMessage.content.filter(
+        (item) => item.type === "image_url",
+      );
+      messageContent.push(...customerImages);
+    }
+
+    const resp = await chat.invoke([{ role: "user", content: messageContent }]);
+
     const text =
       typeof resp.content === "string"
         ? resp.content
@@ -493,12 +557,37 @@ export async function getAIResponse(ticketId: string): Promise<string> {
   });
 
   // 3) 组装到状态
+  /*
+      [
+      {
+        role: "ai",
+        content: "some text",
+        createdAt: "2025-08-15 16:24:13.307+00",
+      }, {
+        role: "customer",
+        content: [
+          {
+            type: "text",
+            text: "some text",
+          }, {
+            type: "image_url",
+            image_url: {
+              url: "https://xxx.com/xxx.png",
+            },
+          }
+        ],
+        createdAt: "2025-08-15 16:24:43.275+00",
+      }
+    ]
+  */
   const history: AgentMessage[] = [];
   for (const m of msgs) {
     if (!m) continue;
     const role = m.sender?.role ?? "user";
-    const text = getAbbreviatedText(m.content as JSONContentZod, 500);
-    history.push({ role, content: text, createdAt: m.createdAt });
+    const multimodalContent = convertToMultimodalMessage(
+      m.content as JSONContentZod,
+    );
+    history.push({ role, content: multimodalContent, createdAt: m.createdAt });
   }
   history.sort((a: AgentMessage, b: AgentMessage) => {
     const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -561,13 +650,14 @@ export async function* streamAIResponse(ticketId: string) {
     },
   });
 
-  // TODO: message 中 图片地址现在用的 url，以后优化用 base64 传递给多模态模型，提高模型处理速度
   const history: AgentMessage[] = [];
   for (const m of msgs) {
     if (!m) continue;
     const role = m.sender?.role ?? "user";
-    const text = getAbbreviatedText(m.content as JSONContentZod, 500);
-    history.push({ role, content: text, createdAt: m.createdAt });
+    const multimodalContent = convertToMultimodalMessage(
+      m.content as JSONContentZod,
+    );
+    history.push({ role, content: multimodalContent, createdAt: m.createdAt });
   }
   history.sort((a: AgentMessage, b: AgentMessage) => {
     const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
