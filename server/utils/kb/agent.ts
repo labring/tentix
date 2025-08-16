@@ -13,11 +13,7 @@ import { OPENAI_CONFIG } from "./config";
 import * as schema from "@/db/schema.ts";
 import { asc } from "drizzle-orm";
 import { basicUserCols } from "../../api/queryParams.ts";
-import {
-  knowledgeBuilderConfig,
-  SYSTEM_PROMPT_SEALOS,
-  OUTPUT_FORMAT_SEALOS,
-} from "./const";
+import { knowledgeBuilderConfig, SYSTEM_PROMPT_SEALOS } from "./const";
 import {
   convertToMultimodalMessage,
   getTextWithImageInfo,
@@ -358,39 +354,41 @@ export function createWorkflow(): CompiledStateGraph<
       historyBlock = blockFrom(historyMsgs.slice(-HISTORY_FALLBACK_MESSAGES));
     }
 
-    // ---- 精简版 user prompt：聚焦当次上下文 + 输出格式 ----
-    let prompt = `【工单上下文】
-  - 标题：${safeText(state.current_ticket?.title ?? "无")}
-  - 描述：${descText || "无"}
-  - 模块：${state.current_ticket?.module ?? "无"}
-  - 分类：${state.current_ticket?.category ?? "无"}
-  
-  【历史对话（精简）】
-  ${historyBlock || "（无）"}
-  
-  【用户问题】
-  ${last}
-  `;
+    const userPrompt = `你将按照上面的规则直接回复客户（不要向客户展示本段说明）。
 
-    if (hasCtx) {
-      // 避免“知识库/参考资料”字样，统一称为“相关上下文片段”
-      prompt += `
-  
-  【相关上下文片段（按相关性排序，仅作辅助）】
-  ${ctxBlock}
-  `;
-    } else if (state.should_search) {
-      prompt += `
-  
-  【提示】
-  当前没有检索到足够的相关片段，请基于已有信息先给出可执行的通用处置方案。`;
+    ### 工单
+    - 标题：${safeText(state.current_ticket?.title ?? "无")}
+    - 模块：${state.current_ticket?.module ?? "无"}
+    - 分类：${state.current_ticket?.category ?? "无"}
+    
+    ### 描述（已截断）
+    ${descText || "无"}
+    
+    ### 最近对话（精简）
+    ${historyBlock || "（无）"}
+    
+    ### 用户问题
+    ${last}
+    
+    ${
+      hasCtx
+        ? `### 相关片段（按相关性排序，供你参考）
+    ${ctxBlock}`
+        : `### 说明
+    当前没有足够的相关片段；请先给出安全、通用且可执行的处置方案。`
     }
-
-    // 只定义输出结构，行为规范已在 system 中
-    prompt += OUTPUT_FORMAT_SEALOS;
+    
+    ### 写作风格（请理解后直接输出给客户，不要原样打印这些标题）
+    - 开场 1 句：简要确认我理解的问题点（必要时礼貌致歉/共情）
+    - 结论 1–2 句：目前最可能原因/方向
+    - 现在可先做（1–3 条）：低风险、可立即执行
+    - 进一步排查（2–4 条）：从低到高逐步深入
+    - 验证与回退（1–2 条）
+    - 还需要您补充（2–5 条）：只问最关键的信息（如需敏感信息请脱敏）
+    `;
 
     // 多模态组装（文本 + 工单描述图片 + 最近客户消息图片）
-    const messageContent = buildMultimodalUserContent(prompt, state);
+    const messageContent = buildMultimodalUserContent(userPrompt, state);
 
     // 以 system + user 的顺序调用模型（符合 LangChain 规范）
     const resp = await chat.invoke([
