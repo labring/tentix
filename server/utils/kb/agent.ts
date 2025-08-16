@@ -13,13 +13,18 @@ import { OPENAI_CONFIG } from "./config";
 import * as schema from "@/db/schema.ts";
 import { asc } from "drizzle-orm";
 import { basicUserCols } from "../../api/queryParams.ts";
-import { knowledgeBuilderConfig } from "./const";
+import {
+  knowledgeBuilderConfig,
+  SYSTEM_PROMPT_SEALOS,
+  OUTPUT_FORMAT_SEALOS,
+} from "./const";
 import {
   convertToMultimodalMessage,
   getTextWithImageInfo,
   extractImageUrls,
 } from "./tools";
 import { logError } from "@/utils/log.ts";
+import { z } from "zod";
 
 const chat = new ChatOpenAI({
   apiKey: OPENAI_CONFIG.apiKey,
@@ -108,6 +113,15 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 });
 
+const decisionSchema = z.object({
+  action: z.enum(["NEED_SEARCH", "NO_SEARCH"]),
+  reasons: z.array(z.string().min(1).max(100)).max(3).optional(),
+});
+
+const qsSchema = z.object({
+  queries: z.array(z.string().min(2).max(80)).min(2).max(3),
+});
+
 let compiledWorkflow: CompiledStateGraph<
   AgentState,
   Partial<AgentState>,
@@ -128,65 +142,102 @@ export function createWorkflow(): CompiledStateGraph<
   ): Promise<Partial<AgentState>> {
     const last =
       lastCustomerMessageText(state.messages) ||
-      lastMessageText(state.messages);
-    const analysisPrompt = `分析以下用户查询，判断是否需要搜索知识库：
+      lastMessageText(state.messages) ||
+      "";
 
-用户查询: ${last}
-工单模块: ${state.current_ticket?.module ?? "无"}
-工单描述: ${ticketDescriptionText(state.current_ticket)}
+    // 0) 规则兜底：打招呼/感谢/仅确认等直接 NO_SEARCH
+    if (quickNoSearchHeuristic(last)) {
+      return { user_query: last, should_search: false };
+    }
 
-如果是以下情况之一，返回 "NO_SEARCH":
-1. 简单问候/寒暄
-2. 仅需确认/澄清
-3. 纯感谢
-4. 其他不涉及知识库查询的问题
+    // 1) 系统提示词：明确判定职责与口径（不输出多余文本）
+    const systemMsg = `
+  你是 Sealos 公有云的工单助手，任务是“仅判断是否需要检索文档/历史案例来辅助解答”。严格输出结构化 JSON，字段含义如下：
+  - action: "NEED_SEARCH" | "NO_SEARCH"
+  - reasons: string[]  (可选，给出简短理由，最多 3 条)
+  
+  判定要点：
+  - 以下情形通常 "NO_SEARCH"：问候/寒暄、纯感谢、仅“收到/确认/好的”、与工单无关闲聊、账号类简单状态确认（不依赖文档）。
+  - 涉及配置/排障/版本或配额/资源、部署、镜像或 YAML、域名与证书、网络可达性、日志或错误码、数据库连接/权限、DevBox/终端操作、计费明细核对等，通常 "NEED_SEARCH"。
+  - 结合“工单模块”和“工单描述”综合判断。不要输出任何 JSON 以外的文字。
+  `.trim();
 
-否则返回 "NEED_SEARCH"
+    // 2) 用户提示（多模态文本 + 最近客户图片；工单图不传以减小噪音）
+    const userPrompt = `请根据以下信息判断：
+  用户查询：${last || "（空）"}
+  工单模块：${state.current_ticket?.module ?? "无"}
+  工单描述（已截断）：${ticketDescriptionText(state.current_ticket)}`;
 
-只返回 NO_SEARCH 或 NEED_SEARCH`;
+    // 3) 结构化输出（zod）
+    const fastStructured = fast.withStructuredOutput(decisionSchema);
 
-    // 多模态：把工单描述与最近一条客户消息中的图片也传给模型
-    const mm = buildMultimodalUserContent(analysisPrompt, state, false);
-    const resp = await fast.invoke([{ role: "user", content: mm }]);
-    const text =
-      typeof resp.content === "string"
-        ? resp.content
-        : JSON.stringify(resp.content);
-    const should = text.toUpperCase().includes("NEED_SEARCH");
-    return { user_query: last, should_search: should };
+    // 4) 多模态：仅带“最近客户消息”的图片，减少噪音（第三个参数 false）
+    const mm = buildMultimodalUserContent(userPrompt, state, false);
+
+    try {
+      const resp = await fastStructured.invoke([
+        { role: "system", content: systemMsg },
+        { role: "user", content: mm },
+      ]);
+      return { user_query: last, should_search: resp.action === "NEED_SEARCH" };
+    } catch {
+      // 回退策略：解析失败则用保守策略（默认需要检索）
+      return { user_query: last, should_search: true };
+    }
   }
 
   async function generateSearchQueriesNode(
     state: AgentState,
   ): Promise<Partial<AgentState>> {
     const descText = ticketDescriptionText(state.current_ticket);
-    const prompt = `根据用户查询和工单信息，生成2-3个精确的搜索查询语句。
+    const moduleName = state.current_ticket?.module ?? "";
 
-用户查询: ${state.user_query}
-工单标题: ${safeText(state.current_ticket?.title ?? "")}
-工单描述: ${descText}
-工单模块: ${state.current_ticket?.module ?? ""}
+    // 1) 系统提示词：职责与输出结构
+    const systemMsg = `
+  你是 Sealos 公有云工单助手，任务是为“内部检索系统”生成 2~3 条高质量检索查询。严格输出结构化 JSON：
+  - queries: string[]  // 2~3 条，每条 3~8 个词，避免标点和无意义词
+  
+  生成要点：
+  - 优先包含与 Sealos/Kubernetes 相关的关键术语（如：applaunchpad、devbox、ingress、service、pvc、namespace、image、yaml、tls/cert、ingress-controller、postgres/mysql/mongo/redis、connection refused、minio/s3/policy 等）。
+  - 若“工单模块”存在，请合理融入模块名（如 "devbox"、"db"、"applaunchpad"）或其同义表达。
+  - 遇到明确错误码/错误片段（如 ECONNREFUSED、x509、ImagePullBackOff、CrashLoopBackOff、Readiness probe failed），应保留关键 token。
+  - 语言可中英混合，但保持检索友好，避免多余停用词与引号。
+  - 覆盖问题不同侧面（症状/组件/动作），减少语义重复。
+  - 不输出除 JSON 外的任何文字。
+  `.trim();
 
-要求：
-1. 每个查询简洁明确（3-8个词）
-2. 覆盖问题的不同方面
-3. 使用相关技术术语
+    // 2) 用户提示：提供必要上下文
+    const userPrompt = `生成检索查询的上下文：
+  用户查询：${state.user_query}
+  工单标题：${safeText(state.current_ticket?.title ?? "")}
+  工单模块：${moduleName || "（无）"}
+  工单描述（已截断）：${descText}`;
 
-返回格式（每行一个查询）：`;
+    // 3) 结构化输出 schema
+    const fastStructured = fast.withStructuredOutput(qsSchema);
 
-    // 多模态：附带工单描述图与最近客户消息的图片
-    const mm = buildMultimodalUserContent(prompt, state);
-    const resp = await fast.invoke([{ role: "user", content: mm }]);
-    const text =
-      typeof resp.content === "string"
-        ? resp.content
-        : JSON.stringify(resp.content);
-    const queries = text
-      .split("\n")
-      .map((x) => x.trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    return { search_queries: queries.length ? queries : [state.user_query] };
+    // 4) 多模态：附带工单描述图与最近客户消息的图片
+    const mm = buildMultimodalUserContent(userPrompt, state);
+
+    let queries: string[] = [];
+    try {
+      const out = await fastStructured.invoke([
+        { role: "system", content: systemMsg },
+        { role: "user", content: mm },
+      ]);
+      queries = Array.from(new Set(out.queries.map((q) => sanitizeQuery(q))))
+        .filter(Boolean)
+        .slice(0, 3);
+    } catch {
+      // 回退：用原 user_query
+      queries = [state.user_query].filter(Boolean);
+    }
+
+    if (queries.length === 0) {
+      queries = [state.user_query || moduleName || "sealos issue"];
+    }
+
+    return { search_queries: queries };
   }
 
   async function retrieveKnowledgeNode(
@@ -277,6 +328,7 @@ export function createWorkflow(): CompiledStateGraph<
 
     const hasCtx =
       state.retrieved_context && state.retrieved_context.length > 0;
+
     const ctxBlock = hasCtx
       ? state.retrieved_context
           .map((x: SearchHit, i: number) => {
@@ -301,53 +353,50 @@ export function createWorkflow(): CompiledStateGraph<
       : [];
 
     const recent = historyMsgs.slice(-HISTORY_MAX_MESSAGES);
-    const blockFrom = (list: AgentMessage[]) =>
-      list
-        .map(
-          (m: AgentMessage, i: number) =>
-            `${i + 1}. ${roleLabel(m.role)}: ${toPlainText(m.content)}`,
-        )
-        .join("\n");
     let historyBlock = blockFrom(recent);
     if (historyBlock.length > HISTORY_MAX_CHARS) {
       historyBlock = blockFrom(historyMsgs.slice(-HISTORY_FALLBACK_MESSAGES));
     }
 
-    let prompt = `你是一个专业、友好的客服助手。请基于以下信息回答用户问题。
-
-工单信息:
-- 标题: ${safeText(state.current_ticket?.title ?? "无")}
-- 描述: ${descText || "无"}
-- 模块: ${state.current_ticket?.module ?? "无"}
-- 分类: ${state.current_ticket?.category ?? "无"}
-
-历史对话（按时间排序，保留最近几条）：
-${historyBlock || "（无）"}
-
-用户问题: ${last}
-`;
+    // ---- 精简版 user prompt：聚焦当次上下文 + 输出格式 ----
+    let prompt = `【工单上下文】
+  - 标题：${safeText(state.current_ticket?.title ?? "无")}
+  - 描述：${descText || "无"}
+  - 模块：${state.current_ticket?.module ?? "无"}
+  - 分类：${state.current_ticket?.category ?? "无"}
+  
+  【历史对话（精简）】
+  ${historyBlock || "（无）"}
+  
+  【用户问题】
+  ${last}
+  `;
 
     if (hasCtx) {
-      prompt += `\n参考知识内容（按相关性排序）：\n${ctxBlock}\n`;
+      // 避免“知识库/参考资料”字样，统一称为“相关上下文片段”
+      prompt += `
+  
+  【相关上下文片段（按相关性排序，仅作辅助）】
+  ${ctxBlock}
+  `;
     } else if (state.should_search) {
-      prompt += `\n注意：没有找到足够相关的信息，请基于通用知识提供帮助。\n`;
+      prompt += `
+  
+  【提示】
+  当前没有检索到足够的相关片段，请基于已有信息先给出可执行的通用处置方案。`;
     }
 
-    prompt += `\n回复要求：
-1. 准确、专业、有帮助
-2. 如有相关知识，优先使用
-3. 语气友好，易于理解
-4. 不确定时要诚实并给出建议
-5. 适当时提供操作步骤
-6. 如果用户发送了图片或工单描述包含图片，请仔细分析图片内容并给出相应的帮助
-7. 不要过度扩展，要聚焦，语言习惯模拟人类语言习惯
+    // 只定义输出结构，行为规范已在 system 中
+    prompt += OUTPUT_FORMAT_SEALOS;
 
-请直接回复用户，不要提及"知识库"或"参考资料"。`;
-
-    // 复用多模态拼装：文本 + 工单描述图片 + 最近客户消息图片
+    // 多模态组装（文本 + 工单描述图片 + 最近客户消息图片）
     const messageContent = buildMultimodalUserContent(prompt, state);
 
-    const resp = await chat.invoke([{ role: "user", content: messageContent }]);
+    // 以 system + user 的顺序调用模型（符合 LangChain 规范）
+    const resp = await chat.invoke([
+      { role: "system", content: SYSTEM_PROMPT_SEALOS },
+      { role: "user", content: messageContent },
+    ]);
 
     const text =
       typeof resp.content === "string"
@@ -356,7 +405,6 @@ ${historyBlock || "（无）"}
     return { response: text };
   }
 
-  // 修复：使用正确的 StateGraph 构造方式
   const graph = new StateGraph(AgentStateAnnotation)
     .addNode("analyzeQuery", analyzeQueryNode)
     .addNode("generateSearchQueries", generateSearchQueriesNode)
@@ -617,6 +665,14 @@ const roleLabel = (role?: string) => {
   }
 };
 
+const blockFrom = (list: AgentMessage[]) =>
+  list
+    .map(
+      (m: AgentMessage, i: number) =>
+        `${i + 1}. ${roleLabel(m.role)}: ${toPlainText(m.content)}`,
+    )
+    .join("\n");
+
 // ---- 工具：抽取最近一条客户消息与工单描述中的图片，并拼装多模态入参 ----
 function getLastCustomerMessage(state: AgentState): AgentMessage | undefined {
   for (const m of [...(state.messages || [])].reverse()) {
@@ -660,6 +716,30 @@ function buildMultimodalUserContent(
 }
 
 // ---
+
+// ---- 启发式兜底：问候/感谢/仅确认等直接 NO_SEARCH
+function quickNoSearchHeuristic(text: string): boolean {
+  const t = (text || "").trim().toLowerCase();
+  if (!t) return false;
+  // 简单问候/寒暄/感谢/确认
+  const patterns = [
+    /^hi$|^hello$|^hey$|你好|您好|在吗|早上好|下午好|晚上好/,
+    /^(ok|okay|roger|收到|好的|明白了|了解了|行|可以)$/i,
+    /谢谢|感谢|thx|thanks|thank you/i,
+    /再见|bye|拜拜|辛苦了/,
+    /^嗯+$/i,
+  ];
+  return patterns.some((re) => re.test(t));
+}
+
+// ---- 轻量清洗：去掉引号/结尾标点/多空格
+function sanitizeQuery(q: string): string {
+  return q
+    .replace(/[“”"']/g, "")
+    .replace(/[，。；、,.!?]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function hasSummaryFlag(meta: unknown): meta is { is_summary?: boolean } {
   if (!meta || typeof meta !== "object") return false;

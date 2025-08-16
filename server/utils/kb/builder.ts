@@ -138,6 +138,21 @@ function splitIntoChunks(text: string, max = 1200): string[] {
   pushBuf();
   return chunks;
 }
+
+const schema = z.object({
+  problem_summary: z.string().describe("用户问题的简要中文概括"),
+  solution_steps: z
+    .array(z.string())
+    .describe("为解决该问题采取的关键步骤，按顺序给出"),
+  generated_queries: z
+    .array(z.string())
+    .describe("适合用来检索知识库的查询词或关键词"),
+  tags: z
+    .array(z.string())
+    .default([])
+    .describe("该问题的主题标签，3-8 个中文或英文关键词"),
+});
+
 export class KnowledgeBuilderService {
   private externalProvider?: VectorStore;
   private internalProvider?: VectorStore;
@@ -215,20 +230,6 @@ export class KnowledgeBuilderService {
         configuration: {
           baseURL: OPENAI_CONFIG.baseURL,
         },
-      });
-
-      const schema = z.object({
-        problem_summary: z.string().describe("用户问题的简要中文概括"),
-        solution_steps: z
-          .array(z.string())
-          .describe("为解决该问题采取的关键步骤，按顺序给出"),
-        generated_queries: z
-          .array(z.string())
-          .describe("适合用来检索知识库的查询词或关键词"),
-        tags: z
-          .array(z.string())
-          .default([])
-          .describe("该问题的主题标签，3-8 个中文或英文关键词"),
       });
 
       const structured = model.withStructuredOutput(schema);
