@@ -7,18 +7,19 @@ import {
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { VectorStore, type SearchHit } from "./types";
-import { PgVectorStore, ExternalHttpStore } from "./vectorStore";
 import { connectDB } from "../tools";
 import { type JSONContentZod } from "../types";
 import { OPENAI_CONFIG } from "./config";
 import * as schema from "@/db/schema.ts";
 import { asc } from "drizzle-orm";
 import { basicUserCols } from "../../api/queryParams.ts";
+import { knowledgeBuilderConfig } from "./const";
 import {
   convertToMultimodalMessage,
   getTextWithImageInfo,
   extractImageUrls,
 } from "./tools";
+import { logError } from "@/utils/log.ts";
 
 const chat = new ChatOpenAI({
   apiKey: OPENAI_CONFIG.apiKey,
@@ -46,6 +47,25 @@ type AgentMessage = {
         | { type: "image_url"; image_url: { url: string } }
       >;
   createdAt?: string;
+};
+
+type MMItem =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export type AgentState = typeof AgentStateAnnotation.State;
+
+type StoreWithNeighbors = VectorStore & {
+  getNeighbors?: (args: {
+    source_type: string;
+    source_id: string;
+    chunk_id: number;
+    window?: number;
+  }) => Promise<SearchHit[]>;
+  getBySource?: (args: {
+    source_type: string;
+    source_id: string;
+  }) => Promise<SearchHit[]>;
 };
 
 export const AgentStateAnnotation = Annotation.Root({
@@ -88,127 +108,6 @@ export const AgentStateAnnotation = Annotation.Root({
   }),
 });
 
-export type AgentState = typeof AgentStateAnnotation.State;
-
-type StoreWithNeighbors = VectorStore & {
-  getNeighbors?: (args: {
-    source_type: string;
-    source_id: string;
-    chunk_id: number;
-    window?: number;
-  }) => Promise<SearchHit[]>;
-  getBySource?: (args: {
-    source_type: string;
-    source_id: string;
-  }) => Promise<SearchHit[]>;
-};
-
-async function expandDialogResults(
-  hits: SearchHit[],
-  store: StoreWithNeighbors,
-): Promise<SearchHit[]> {
-  const DIALOG_SOURCES = new Set([
-    "favorited_conversation",
-    "historical_ticket",
-  ]);
-  const bySource = new Map<string, SearchHit[]>();
-  for (const h of hits) {
-    const key = `${h.source_type}:${h.source_id ?? ""}`;
-    const list = bySource.get(key) ?? [];
-    list.push(h);
-    bySource.set(key, list);
-  }
-
-  const expanded: SearchHit[] = [];
-  for (const [key, list] of bySource.entries()) {
-    const [source_typeRaw, source_idRaw] = key.split(":");
-    const source_type: string = source_typeRaw ?? "";
-    const source_id: string = source_idRaw ?? "";
-    const isDialog = DIALOG_SOURCES.has(source_type);
-    if (!isDialog) {
-      const first = list[0];
-      if (first) expanded.push(first);
-      continue;
-    }
-
-    const hasSummary = list.find((x) => x.chunk_id === 0);
-    if (hasSummary) {
-      expanded.push(hasSummary);
-      try {
-        if (typeof store.getNeighbors === "function") {
-          const neighbors = await store.getNeighbors({
-            source_type: source_type || "",
-            source_id: source_id || "",
-            chunk_id: 0,
-            window: 1,
-          });
-          const next = neighbors.find((n: SearchHit) => n.chunk_id === 1);
-          if (next) expanded.push(next);
-        }
-      } catch {
-        void 0;
-      }
-      continue;
-    }
-
-    const center = list[0];
-    if (!center) {
-      continue;
-    }
-    if (center.chunk_id == null || center.source_id == null) {
-      expanded.push(center);
-      continue;
-    }
-
-    let group: SearchHit[] = [center];
-    try {
-      if (typeof store.getNeighbors === "function") {
-        const neighbors = await store.getNeighbors({
-          source_type: source_type || "",
-          source_id: center.source_id || source_id || "",
-          chunk_id: center.chunk_id!,
-          window: 1,
-        });
-        const uniq = new Map<string, SearchHit>();
-        for (const n of neighbors) uniq.set(n.id, n);
-        group = [
-          ...([center.chunk_id! - 1, center.chunk_id!, center.chunk_id! + 1]
-            .map((cid) =>
-              Array.from(uniq.values()).find((x) => x.chunk_id === cid),
-            )
-            .filter(Boolean) as SearchHit[]),
-        ];
-      } else {
-        const ids = new Map<number, SearchHit>();
-        for (const h of list) if (h.chunk_id != null) ids.set(h.chunk_id, h);
-        group = [
-          ids.get(center.chunk_id - 1) as SearchHit | undefined,
-          center,
-          ids.get(center.chunk_id + 1) as SearchHit | undefined,
-        ].filter(Boolean) as SearchHit[];
-      }
-    } catch {
-      group = [center];
-    }
-
-    for (const g of group) expanded.push(g);
-  }
-
-  const uniq = new Map<string, SearchHit>();
-  for (const h of expanded) uniq.set(h.id, h);
-  return Array.from(uniq.values()).slice(0, 7);
-}
-
-let sharedStore: VectorStore | null = null;
-function getStore(): VectorStore {
-  if (sharedStore) return sharedStore;
-  sharedStore =
-    OPENAI_CONFIG.vectorBackend === "external"
-      ? new ExternalHttpStore(OPENAI_CONFIG.externalVectorBaseURL!)
-      : new PgVectorStore(connectDB());
-  return sharedStore;
-}
-
 let compiledWorkflow: CompiledStateGraph<
   AgentState,
   Partial<AgentState>,
@@ -224,38 +123,6 @@ export function createWorkflow(): CompiledStateGraph<
   const store = getStore();
   const storeEx = store as StoreWithNeighbors;
 
-  function lastMessageText(messages: AgentMessage[]): string {
-    const last = messages.at(-1);
-    if (!last) return "";
-    if (typeof last.content === "string") return last.content;
-    // 处理多模态消息，只提取文本部分用于分析
-    return last.content
-      .map((item) => (item.type === "text" ? item.text : "[图片]"))
-      .join(" ");
-  }
-
-  function lastCustomerMessageText(messages: AgentMessage[]): string {
-    for (const m of [...messages].reverse()) {
-      if ((m.role ?? "").toLowerCase() === "customer") {
-        if (typeof m.content === "string") return m.content;
-        // 处理多模态消息，只提取文本部分用于分析
-        return m.content
-          .map((item) => (item.type === "text" ? item.text : "[图片]"))
-          .join(" ");
-      }
-    }
-    return "";
-  }
-
-  function ticketDescriptionText(ticket: AgentState["current_ticket"]): string {
-    const desc = ticket?.description;
-    if (!desc) return "";
-
-    const text = getTextWithImageInfo(desc);
-    if (text.length <= 2000) return text;
-    return `${text.slice(0, 2000)}...`;
-  }
-
   async function analyzeQueryNode(
     state: AgentState,
   ): Promise<Partial<AgentState>> {
@@ -266,17 +133,21 @@ export function createWorkflow(): CompiledStateGraph<
 
 用户查询: ${last}
 工单模块: ${state.current_ticket?.module ?? "无"}
+工单描述: ${ticketDescriptionText(state.current_ticket)}
 
 如果是以下情况之一，返回 "NO_SEARCH":
 1. 简单问候/寒暄
 2. 仅需确认/澄清
 3. 纯感谢
+4. 其他不涉及知识库查询的问题
 
 否则返回 "NEED_SEARCH"
 
 只返回 NO_SEARCH 或 NEED_SEARCH`;
 
-    const resp = await fast.invoke(analysisPrompt);
+    // 多模态：把工单描述与最近一条客户消息中的图片也传给模型
+    const mm = buildMultimodalUserContent(analysisPrompt, state, false);
+    const resp = await fast.invoke([{ role: "user", content: mm }]);
     const text =
       typeof resp.content === "string"
         ? resp.content
@@ -292,7 +163,7 @@ export function createWorkflow(): CompiledStateGraph<
     const prompt = `根据用户查询和工单信息，生成2-3个精确的搜索查询语句。
 
 用户查询: ${state.user_query}
-工单标题: ${state.current_ticket?.title ?? ""}
+工单标题: ${safeText(state.current_ticket?.title ?? "")}
 工单描述: ${descText}
 工单模块: ${state.current_ticket?.module ?? ""}
 
@@ -303,7 +174,9 @@ export function createWorkflow(): CompiledStateGraph<
 
 返回格式（每行一个查询）：`;
 
-    const resp = await fast.invoke(prompt);
+    // 多模态：附带工单描述图与最近客户消息的图片
+    const mm = buildMultimodalUserContent(prompt, state);
+    const resp = await fast.invoke([{ role: "user", content: mm }]);
     const text =
       typeof resp.content === "string"
         ? resp.content
@@ -324,10 +197,11 @@ export function createWorkflow(): CompiledStateGraph<
       ? state.search_queries
       : [state.user_query];
 
-    const perQueryK = Math.max(
-      3,
-      Math.ceil(5 / Math.max(1, queries.length)) + 1,
-    );
+    // 更稳的 K 分配
+    const numQ = Math.max(1, queries.length);
+    const BASE_K = 6;
+    const perQueryK = Math.max(BASE_K, Math.ceil((BASE_K * 2) / numQ));
+
     const results = await Promise.all(
       queries.map((q) =>
         store.search({
@@ -338,24 +212,57 @@ export function createWorkflow(): CompiledStateGraph<
       ),
     );
 
+    // 合并并对“摘要”轻微加分（优先召回 chunk_id=0 / metadata.is_summary）
     const merged = new Map<string, SearchHit & { finalScore: number }>();
     for (const list of results) {
       for (const hit of list) {
+        const base = Number(hit.score ?? 0);
+        const isSummary =
+          (hasSummaryFlag(hit.metadata) && hit.metadata.is_summary === true) ||
+          hit.chunk_id === 0;
+        const bonus = isSummary ? 0.02 : 0;
+        const curr = base + bonus;
+
         const prev = merged.get(hit.id);
-        const finalScore = Math.max(
-          prev?.finalScore ?? 0,
-          Number(hit.score ?? 0),
-        );
-        merged.set(hit.id, { ...hit, finalScore });
+        const prevScore = prev?.finalScore ?? -Infinity;
+        if (curr > prevScore) {
+          merged.set(hit.id, { ...hit, finalScore: curr });
+        }
       }
     }
 
-    const top = Array.from(merged.values())
-      .sort((a, b) => b.finalScore - a.finalScore)
-      .slice(0, 5)
-      .map(({ finalScore, ...rest }) => rest);
+    const sorted: Array<SearchHit & { finalScore: number }> = Array.from(
+      merged.values(),
+    ).sort((a, b) => b.finalScore - a.finalScore);
 
-    const expandedTop = await expandDialogResults(top, storeEx);
+    // 多样性约束
+    const MAX_PER_SOURCE = 2;
+    const TOPN_BEFORE_EXPAND = 6;
+    const perSourceCount = new Map<string, number>();
+    const top: Array<SearchHit & { finalScore: number }> = [];
+
+    for (const h of sorted) {
+      const key = `${h.source_type}:${h.source_id ?? ""}`;
+      const cnt = perSourceCount.get(key) ?? 0;
+      if (cnt >= MAX_PER_SOURCE) continue;
+      top.push(h);
+      perSourceCount.set(key, cnt + 1);
+      if (top.length >= TOPN_BEFORE_EXPAND) break;
+    }
+
+    if (top.length < TOPN_BEFORE_EXPAND) {
+      for (const h of sorted) {
+        if (top.find((x) => x.id === h.id)) continue;
+        top.push(h);
+        if (top.length >= TOPN_BEFORE_EXPAND) break;
+      }
+    }
+
+    const trimmedTop: SearchHit[] = top.map(
+      ({ finalScore: _fs, ...rest }) => rest,
+    );
+
+    const expandedTop = await expandDialogResults(trimmedTop, storeEx);
     return { retrieved_context: expandedTop };
   }
 
@@ -367,11 +274,6 @@ export function createWorkflow(): CompiledStateGraph<
       lastCustomerMessageText(state.messages) ||
       lastMessageText(state.messages) ||
       "";
-
-    // 获取最新的客户消息，保持多模态格式
-    const lastCustomerMessage = [...state.messages]
-      .reverse()
-      .find((m) => (m.role ?? "").toLowerCase() === "customer");
 
     const hasCtx =
       state.retrieved_context && state.retrieved_context.length > 0;
@@ -391,38 +293,13 @@ export function createWorkflow(): CompiledStateGraph<
 
     const descText = ticketDescriptionText(state.current_ticket);
 
-    // 提取工单描述中的图片
-    const ticketDescImages = state.current_ticket?.description
-      ? extractImageUrls(state.current_ticket.description)
-      : [];
-
     const HISTORY_MAX_MESSAGES = 8;
     const HISTORY_FALLBACK_MESSAGES = 4;
     const HISTORY_MAX_CHARS = 4000;
     const historyMsgs: AgentMessage[] = Array.isArray(state.messages)
       ? (state.messages as AgentMessage[])
       : [];
-    const toPlainText = (c: AgentMessage["content"]): string => {
-      if (typeof c === "string") return c;
-      // 处理多模态消息，只提取文本部分
-      return c
-        .map((item) => (item.type === "text" ? item.text : "[图片]"))
-        .join(" ");
-    };
-    const roleLabel = (role?: string) => {
-      switch ((role || "user").toLowerCase()) {
-        case "ai":
-          return "AI";
-        case "agent":
-          return "客服";
-        case "technician":
-          return "技术";
-        case "customer":
-        case "user":
-        default:
-          return "用户";
-      }
-    };
+
     const recent = historyMsgs.slice(-HISTORY_MAX_MESSAGES);
     const blockFrom = (list: AgentMessage[]) =>
       list
@@ -439,7 +316,7 @@ export function createWorkflow(): CompiledStateGraph<
     let prompt = `你是一个专业、友好的客服助手。请基于以下信息回答用户问题。
 
 工单信息:
-- 标题: ${state.current_ticket?.title ?? "无"}
+- 标题: ${safeText(state.current_ticket?.title ?? "无")}
 - 描述: ${descText || "无"}
 - 模块: ${state.current_ticket?.module ?? "无"}
 - 分类: ${state.current_ticket?.category ?? "无"}
@@ -463,33 +340,12 @@ ${historyBlock || "（无）"}
 4. 不确定时要诚实并给出建议
 5. 适当时提供操作步骤
 6. 如果用户发送了图片或工单描述包含图片，请仔细分析图片内容并给出相应的帮助
+7. 不要过度扩展，要聚焦，语言习惯模拟人类语言习惯
 
 请直接回复用户，不要提及"知识库"或"参考资料"。`;
 
-    // 构建多模态消息，包含工单描述中的图片和最新消息中的图片
-    const messageContent: Array<
-      | { type: "text"; text: string }
-      | { type: "image_url"; image_url: { url: string } }
-    > = [{ type: "text", text: prompt }];
-
-    // 添加工单描述中的图片
-    ticketDescImages.forEach((imageUrl) => {
-      messageContent.push({
-        type: "image_url",
-        image_url: { url: imageUrl },
-      });
-    });
-
-    // 添加最新客户消息中的图片
-    if (
-      lastCustomerMessage &&
-      typeof lastCustomerMessage.content !== "string"
-    ) {
-      const customerImages = lastCustomerMessage.content.filter(
-        (item) => item.type === "image_url",
-      );
-      messageContent.push(...customerImages);
-    }
+    // 复用多模态拼装：文本 + 工单描述图片 + 最近客户消息图片
+    const messageContent = buildMultimodalUserContent(prompt, state);
 
     const resp = await chat.invoke([{ role: "user", content: messageContent }]);
 
@@ -616,8 +472,13 @@ export async function getAIResponse(ticketId: string): Promise<string> {
     should_search: true,
   };
 
-  const result = (await workflow.invoke(initialState)) as AgentState;
-  return result.response || "";
+  try {
+    const result = (await workflow.invoke(initialState)) as AgentState;
+    return result.response || "";
+  } catch (e) {
+    logError(String(e));
+    return "";
+  }
 }
 
 // 流式响应支持
@@ -694,4 +555,220 @@ export async function* streamAIResponse(ticketId: string) {
       yield chunk.generateResponse.response;
     }
   }
+}
+
+function ticketDescriptionText(ticket: AgentState["current_ticket"]): string {
+  const desc = ticket?.description;
+  if (!desc) return "";
+
+  const text = getTextWithImageInfo(desc);
+  if (text.length <= 2000) return text;
+  return `${text.slice(0, 2000)}...`;
+}
+
+function safeText(text: string, maxLength: number = 2000): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function lastMessageText(messages: AgentMessage[]): string {
+  const last = messages.at(-1);
+  if (!last) return "";
+  if (typeof last.content === "string") return last.content;
+  // 处理多模态消息，只提取文本部分用于分析
+  return last.content
+    .map((item) => (item.type === "text" ? item.text : "[图片]"))
+    .join(" ");
+}
+
+function lastCustomerMessageText(messages: AgentMessage[]): string {
+  for (const m of [...messages].reverse()) {
+    if ((m.role ?? "").toLowerCase() === "customer") {
+      if (typeof m.content === "string") return m.content;
+      // 处理多模态消息，只提取文本部分用于分析
+      return m.content
+        .map((item) => (item.type === "text" ? item.text : "[图片]"))
+        .join(" ");
+    }
+  }
+  return "";
+}
+
+const toPlainText = (c: AgentMessage["content"]): string => {
+  if (typeof c === "string") return c;
+  // 处理多模态消息，只提取文本部分
+  return c
+    .map((item) => (item.type === "text" ? item.text : "[图片]"))
+    .join(" ");
+};
+
+const roleLabel = (role?: string) => {
+  switch ((role || "user").toLowerCase()) {
+    case "ai":
+      return "AI";
+    case "agent":
+      return "客服";
+    case "technician":
+      return "技术";
+    case "customer":
+    case "user":
+    default:
+      return "用户";
+  }
+};
+
+// ---- 工具：抽取最近一条客户消息与工单描述中的图片，并拼装多模态入参 ----
+function getLastCustomerMessage(state: AgentState): AgentMessage | undefined {
+  for (const m of [...(state.messages || [])].reverse()) {
+    if ((m.role ?? "").toLowerCase() === "customer") return m;
+  }
+  return undefined;
+}
+
+function getTicketDescImages(state: AgentState): string[] {
+  return state.current_ticket?.description
+    ? extractImageUrls(state.current_ticket.description)
+    : [];
+}
+
+function buildMultimodalUserContent(
+  promptText: string,
+  state: AgentState,
+  withTicketDescImages: boolean = true,
+): MMItem[] {
+  const content: MMItem[] = [{ type: "text", text: promptText }];
+
+  const urls: string[] = [];
+  if (withTicketDescImages) {
+    urls.push(...getTicketDescImages(state));
+  }
+  const lastCustomerMessage = getLastCustomerMessage(state);
+  if (lastCustomerMessage && typeof lastCustomerMessage.content !== "string") {
+    for (const it of lastCustomerMessage.content as MMItem[]) {
+      if (it.type === "image_url" && it.image_url?.url) {
+        urls.push(it.image_url.url);
+      }
+    }
+  }
+
+  // 去重 + 截断（比如最多 6 张，保留最近的/靠后的）防止用户 message 和工单描述中图片过多
+  const uniq = Array.from(new Set(urls)).slice(-6);
+  for (const url of uniq) {
+    content.push({ type: "image_url", image_url: { url } });
+  }
+  return content;
+}
+
+// ---
+
+function hasSummaryFlag(meta: unknown): meta is { is_summary?: boolean } {
+  if (!meta || typeof meta !== "object") return false;
+  const v = (meta as Record<string, unknown>)["is_summary"];
+  return typeof v === "boolean";
+}
+
+async function expandDialogResults(
+  hits: SearchHit[],
+  store: StoreWithNeighbors,
+): Promise<SearchHit[]> {
+  const DIALOG_SOURCES = new Set([
+    "favorited_conversation",
+    "historical_ticket",
+  ]);
+  const bySource = new Map<string, SearchHit[]>();
+  for (const h of hits) {
+    const key = `${h.source_type}:${h.source_id ?? ""}`;
+    const list = bySource.get(key) ?? [];
+    list.push(h);
+    bySource.set(key, list);
+  }
+
+  const expanded: SearchHit[] = [];
+  for (const [key, list] of bySource.entries()) {
+    const [source_typeRaw, source_idRaw] = key.split(":");
+    const source_type: string = source_typeRaw ?? "";
+    const source_id: string = source_idRaw ?? "";
+    const isDialog = DIALOG_SOURCES.has(source_type);
+    if (!isDialog) {
+      const first = list[0];
+      if (first) expanded.push(first);
+      continue;
+    }
+
+    const hasSummary = list.find((x) => x.chunk_id === 0);
+    if (hasSummary) {
+      expanded.push(hasSummary);
+      try {
+        if (typeof store.getNeighbors === "function") {
+          const neighbors = await store.getNeighbors({
+            source_type: source_type || "",
+            source_id: source_id || "",
+            chunk_id: 0,
+            window: 1,
+          });
+          const next = neighbors.find((n: SearchHit) => n.chunk_id === 1);
+          if (next) expanded.push(next);
+        }
+      } catch {
+        void 0;
+      }
+      continue;
+    }
+
+    const center = list[0];
+    if (!center) {
+      continue;
+    }
+    if (center.chunk_id == null || center.source_id == null) {
+      expanded.push(center);
+      continue;
+    }
+
+    let group: SearchHit[] = [center];
+    try {
+      if (typeof store.getNeighbors === "function") {
+        const neighbors = await store.getNeighbors({
+          source_type: source_type || "",
+          source_id: center.source_id || source_id || "",
+          chunk_id: center.chunk_id!,
+          window: 1,
+        });
+        const uniq = new Map<string, SearchHit>();
+        for (const n of neighbors) uniq.set(n.id, n);
+        group = [
+          ...([center.chunk_id! - 1, center.chunk_id!, center.chunk_id! + 1]
+            .map((cid) =>
+              Array.from(uniq.values()).find((x) => x.chunk_id === cid),
+            )
+            .filter(Boolean) as SearchHit[]),
+        ];
+      } else {
+        const ids = new Map<number, SearchHit>();
+        for (const h of list) if (h.chunk_id != null) ids.set(h.chunk_id, h);
+        group = [
+          ids.get(center.chunk_id - 1) as SearchHit | undefined,
+          center,
+          ids.get(center.chunk_id + 1) as SearchHit | undefined,
+        ].filter(Boolean) as SearchHit[];
+      }
+    } catch {
+      group = [center];
+    }
+
+    for (const g of group) expanded.push(g);
+  }
+
+  const uniq = new Map<string, SearchHit>();
+  for (const h of expanded) uniq.set(h.id, h);
+  return Array.from(uniq.values()).slice(0, 7);
+}
+
+let sharedStore: VectorStore | undefined;
+function getStore(): VectorStore {
+  if (sharedStore) return sharedStore;
+  sharedStore =
+    OPENAI_CONFIG.vectorBackend === "external"
+      ? knowledgeBuilderConfig.externalProvider
+      : knowledgeBuilderConfig.internalProvider;
+  return sharedStore!;
 }

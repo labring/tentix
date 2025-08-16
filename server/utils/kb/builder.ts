@@ -88,36 +88,56 @@ function formatMessagesForAI(
 }
 
 function splitIntoChunks(text: string, max = 1200): string[] {
-  // 优先按空行分段，再在过长的段内做二次切分，尽量避免语义被截断
+  // 1) 先按空行分段
   const paras = text.split(/\n{2,}/);
   const chunks: string[] = [];
   let buf = "";
+  const pushBuf = () => {
+    if (buf.trim()) chunks.push(buf.trim());
+    buf = "";
+  };
+  const tryAppend = (piece: string) => {
+    const cand = buf ? `${buf}\n\n${piece}` : piece;
+    if (cand.length <= max) {
+      buf = cand;
+      return true;
+    }
+    return false;
+  };
   for (const p of paras) {
-    const candidate = buf ? `${buf}\n\n${p}` : p;
-    if (candidate.length > max) {
-      if (buf) chunks.push(buf);
-      // 对超长段落按句号/换行进行二次切分
-      const parts = p.split(/(?<=[。.!?])\s+|\n+/);
-      let local = "";
-      for (const part of parts) {
-        const cand2 = local ? `${local} ${part}` : part;
-        if (cand2.length > max) {
-          if (local) chunks.push(local);
-          local = part;
-        } else {
-          local = cand2;
+    if (tryAppend(p)) continue;
+    // 2) 过长段落：按句号/问号/感叹号等切
+    const sentences = p.split(/(?<=[。！？!?.])\s+|\n+/);
+    let local = "";
+    const flushLocal = () => {
+      if (local.trim()) {
+        if (!tryAppend(local)) {
+          // 3) 句子仍然过长：再按字符硬切
+          for (let i = 0; i < local.length; i += max) {
+            const slice = local.slice(i, i + max);
+            if (!tryAppend(slice)) {
+              pushBuf();
+              buf = slice;
+            }
+          }
         }
       }
-      if (local) chunks.push(local);
-      buf = "";
-    } else {
-      buf = candidate;
+      local = "";
+    };
+    for (const s of sentences) {
+      const next = local ? `${local} ${s}` : s;
+      if (next.length > max) {
+        flushLocal();
+        local = s;
+      } else {
+        local = next;
+      }
     }
+    flushLocal();
   }
-  if (buf) chunks.push(buf);
+  pushBuf();
   return chunks;
 }
-
 export class KnowledgeBuilderService {
   private externalProvider?: VectorStore;
   private internalProvider?: VectorStore;
