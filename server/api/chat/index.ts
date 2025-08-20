@@ -297,6 +297,7 @@ namespace aiHandler {
     ticketId: string,
     _content?: JSONContentZod | string[],
   ) {
+    const db = connectDB();
     // Skip if there's already an AI task running for this ticket
     if (aiProcessingSet.has(ticketId)) {
       logInfo(`AI already responding for ticket ${ticketId}, skip trigger.`);
@@ -324,8 +325,42 @@ namespace aiHandler {
     }, AI_PROCESSING_TIMEOUT);
     aiProcessingTimeouts.set(ticketId, timeoutId);
 
+    // ai 不响应 closed 状态的工单 和 已经转人工的工单
+    const ticket = await db.query.tickets.findFirst({
+      where: (t, { eq }) => eq(t.id, ticketId),
+      columns: {
+        id: true,
+        title: true,
+        description: true,
+        module: true,
+        category: true,
+        status: true,
+      },
+    });
+
+    if (!ticket || ticket.status === "resolved") {
+      logInfo(`Ticket ${ticketId} is closed or not found, skip AI response.`);
+      return;
+    }
+
+    const handoffRecord = await db.query.handoffRecords.findFirst({
+      where: (h, { eq }) => eq(h.ticketId, ticketId),
+      columns: {
+        id: true,
+        notificationSent: true,
+        handoffReason: false,
+        priority: false,
+        sentiment: false,
+      },
+    });
+
+    if (handoffRecord?.notificationSent) {
+      logInfo(`Ticket ${ticketId} has already been handoff, skip AI response.`);
+      return;
+    }
+
     runWithInterval(
-      () => getAIResponse(ticketId),
+      () => getAIResponse(ticket),
       () =>
         broadcastToRoom(ticketId, {
           type: "user_typing",
@@ -823,6 +858,7 @@ const chatRouter = factory
           if (aiHandler.isAIInFlight(ticketId)) {
             aiHandler.clearAIInFlight(ticketId);
           }
+
           logError(
             `Client ${clientId} UserId: ${userId} Error handling WebSocket message:`,
             evt,

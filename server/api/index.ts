@@ -16,6 +16,7 @@ import { playgroundRouter } from "./playground/index.ts";
 import { feishuRouter } from "./feishu/index.ts";
 import { feedbackRouter } from "./feedback/index.ts";
 import { startAllJobs } from "@/utils/jobs/kb-jobs/index.ts";
+import "@/utils/events/handoff/index.ts";
 import { kbRouter } from "./kb/index.ts";
 
 const app = factory.createApp();

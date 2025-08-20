@@ -135,6 +135,20 @@ export const syncStatusEnumArray = [
   "processing",
 ] as const;
 
+export const handoffPriorityEnumArray = ["P1", "P2", "P3"] as const;
+export const sentimentLabelEnumArray = [
+  "NEUTRAL",
+  "FRUSTRATED",
+  "ANGRY",
+  "REQUEST_AGENT",
+  "ABUSIVE",
+  "CONFUSED",
+  "ANXIOUS",
+  "SATISFIED",
+] as const;
+
+export type SentimentLabel = (typeof sentimentLabelEnumArray)[number];
+
 /**
  * WebSocket token expiry time
  *

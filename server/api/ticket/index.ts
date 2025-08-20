@@ -197,49 +197,49 @@ const ticketRouter = factory
             operatorId: userId,
           });
 
-          const theme = (() => {
-            switch (payload.priority) {
-              case "urgent":
-              case "high":
-                return "red";
-              case "medium":
-                return "orange";
-              case "low":
-                return "indigo";
-              default:
-                return "blue";
-            }
-          })();
+          //   const theme = (() => {
+          //     switch (payload.priority) {
+          //       case "urgent":
+          //       case "high":
+          //         return "red";
+          //       case "medium":
+          //         return "orange";
+          //       case "low":
+          //         return "indigo";
+          //       default:
+          //         return "blue";
+          //     }
+          //   })();
 
-          const ticketUrl = `${c.var.origin}/staff/tickets/${data.id}`;
+          //   const ticketUrl = `${c.var.origin}/staff/tickets/${data.id}`;
 
-          const config = await readConfig();
+          //   const config = await readConfig();
 
-          const card = getFeishuCard("new_ticket", {
-            title: payload.title,
-            description,
-            time: new Date().toLocaleString(),
-            assignee: assigneeFeishuId,
-            number: c.var.incrementTodayTicketCount(),
-            module: c.var.i18n.t(payload.module),
-            theme,
-            internal_url: {
-              url: `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
-            },
-            ticket_url: {
-              url: ticketUrl,
-            },
-          });
+          //   const card = getFeishuCard("new_ticket", {
+          //     title: payload.title,
+          //     description,
+          //     time: new Date().toLocaleString(),
+          //     assignee: assigneeFeishuId,
+          //     number: c.var.incrementTodayTicketCount(),
+          //     module: c.var.i18n.t(payload.module),
+          //     theme,
+          //     internal_url: {
+          //       url: `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
+          //     },
+          //     ticket_url: {
+          //       url: ticketUrl,
+          //     },
+          //   });
 
-          getFeishuAppAccessToken().then(({ tenant_access_token }) => {
-            sendFeishuMsg(
-              "chat_id",
-              config.feishu_chat_id,
-              "interactive",
-              JSON.stringify(card.card),
-              tenant_access_token,
-            );
-          });
+          //   getFeishuAppAccessToken().then(({ tenant_access_token }) => {
+          //     sendFeishuMsg(
+          //       "chat_id",
+          //       config.feishu_chat_id,
+          //       "interactive",
+          //       JSON.stringify(card.card),
+          //       tenant_access_token,
+          //     );
+          //   });
         }
       });
 

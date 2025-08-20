@@ -32,6 +32,8 @@ const envSchema = z.object({
   KB_SYNC_BATCH_SIZE: z.coerce.number().default(10).optional(),
   KB_SYNC_TZ: z.string().trim().default("Asia/Shanghai").optional(),
 
+  APP_URL: z.string().url().trim().optional(),
+
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 
