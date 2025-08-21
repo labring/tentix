@@ -321,6 +321,12 @@ bun run build
 # 2. Start production server
 bun run start
 
+# Dry run build for testing and check build errors
+bun run build --dry
+
+# Force build
+bun run build --force
+
 # Or use PM2
 pm2 start bun --name tentix -- run start
 ```

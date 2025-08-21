@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production --sourcemap",
+    "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production --sourcemap && mv ./api/server.js* ./dist/ 2>/dev/null || true",
     "build:types": "tsc -p ./tsconfig.types.json --noCheck",
     "typecheck": "tsc --b",
     "lint": "eslint .",
