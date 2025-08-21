@@ -597,6 +597,7 @@ const chatRouter = factory
       // Validate token
       const tokenData = validateToken(token!);
       if (!tokenData) {
+        logError(`WebSocket token validation failed - ticketId: ${ticketId}, token: ${token?.substring(0, 8)}..., clientId: ${clientId}`);
         throw new HTTPException(401, {
           message: "Invalid or expired WebSocket token.",
         });

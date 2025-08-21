@@ -95,15 +95,15 @@ async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
     },
   });
 
-  getFeishuAppAccessToken().then(({ tenant_access_token }) => {
-    sendFeishuMsg(
-      "chat_id",
-      config.feishu_chat_id,
-      "interactive",
-      JSON.stringify(card.card),
-      tenant_access_token,
-    );
-  });
+  const { tenant_access_token } = await getFeishuAppAccessToken();
+
+  await sendFeishuMsg(
+    "chat_id",
+    config.feishu_chat_id,
+    "interactive",
+    JSON.stringify(card.card),
+    tenant_access_token,
+  );
 }
 
 // 邮件通知实现

@@ -102,7 +102,15 @@ export const getFeishuCard: (
 export async function sendFeishuMsg(
   receiveIdType: "chat_id" | "user_id" | "email" | "open_id",
   receiveId: string,
-  msgType: "text" | "post" | "image" | "file" | "audio" | "media" | "sticker" | "interactive",
+  msgType:
+    | "text"
+    | "post"
+    | "image"
+    | "file"
+    | "audio"
+    | "media"
+    | "sticker"
+    | "interactive",
   content: string,
   accessToken: `t-${string}`,
 ) {
@@ -111,7 +119,11 @@ export async function sendFeishuMsg(
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ receive_id: receiveId, msg_type: msgType, content }),
+      body: JSON.stringify({
+        receive_id: receiveId,
+        msg_type: msgType,
+        content,
+      }),
     },
   );
   if (!res.ok) {
@@ -120,9 +132,8 @@ export async function sendFeishuMsg(
   return res.json();
 }
 
-
 const proxyHandler = {
-  async apply (
+  async apply(
     target: typeof fetch,
     _this: unknown,
     argumentsList: Parameters<typeof fetch>,
@@ -149,10 +160,7 @@ const proxyHandler = {
 
         if (!res.ok) {
           const cause = await res.json();
-          logError(
-            `Attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`,
-            cause,
-          );
+          logError(`Attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`, cause);
           throw new Error("Failed to fetch.", {
             cause: cause.error_description ?? cause,
           });
@@ -199,6 +207,8 @@ export async function getFeishuAppAccessToken() {
   }
 
   const config = await readConfig();
+  console.log("send feishu app access token");
+  console.log(config);
   const res = await myFetch(
     "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal",
     {
@@ -209,6 +219,7 @@ export async function getFeishuAppAccessToken() {
       }),
     },
   );
+  console.log(res);
   const data: {
     app_access_token: `t-${string}` | `a-${string}`;
     code: number;
