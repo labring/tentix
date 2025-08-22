@@ -126,6 +126,7 @@ export async function sendFeishuMsg(
       }),
     },
   );
+  console.log(res);
   if (!res.ok) {
     throw new Error("Failed to send Feishu message");
   }
@@ -227,6 +228,7 @@ export async function getFeishuAppAccessToken() {
     msg: string;
     tenant_access_token: `t-${string}`;
   } = await res.json();
+  console.log(data);
   if (data.app_access_token && data.expire) {
     tokenCache = {
       app_access_token: data.app_access_token,
