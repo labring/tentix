@@ -763,6 +763,7 @@ export async function generateResponseNode(
   ${
     hasCtx
       ? `### 相关片段（按相关性排序，供你参考）
+      ### 有相关片段时要严格按照相关片段回复，不要自己编造和扩展不存在的功能
   ${ctxBlock}`
       : `### 说明
   当前没有足够的相关片段；请先给出安全、通用且可执行的处置方案。`
