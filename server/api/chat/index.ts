@@ -42,6 +42,16 @@ const msgEmitter = new MessageEmitter();
 const roomEmitter = new RoomEmitter();
 const broadcastToRoom = roomEmitter.broadcastToRoom.bind(roomEmitter);
 
+// Helpers: 判断房间是否存在非 customer 的真人（排除 system/ai）
+const HUMAN_STAFF_ROLES: userRoleType[] = ["agent", "technician", "admin"];
+
+function hasNonCustomerHumanInRoom(roomId: string): boolean {
+  for (const role of HUMAN_STAFF_ROLES) {
+    if (roomEmitter.hasRoleInRoom(roomId, role)) return true;
+  }
+  return false;
+}
+
 // Token management
 interface TokenData {
   userId: number;
@@ -298,6 +308,11 @@ namespace aiHandler {
     _content?: JSONContentZod | string[],
   ) {
     const db = connectDB();
+    // 如果房间存在非 customer 的真人，则 AI 不参与回复
+    if (hasNonCustomerHumanInRoom(ticketId)) {
+      logInfo(`Skip AI response for ${ticketId}: non-customer human present.`);
+      return;
+    }
     // Skip if there's already an AI task running for this ticket
     if (aiProcessingSet.has(ticketId)) {
       logInfo(`AI already responding for ticket ${ticketId}, skip trigger.`);
@@ -429,6 +444,10 @@ msgEmitter.on("new_message", async function ({ ws, ctx, message }) {
     return;
   }
   if (ctx.role === "customer") {
+    // 如果房间存在非 customer 的真人，则 AI 不参与回复
+    if (hasNonCustomerHumanInRoom(ctx.roomId)) {
+      return;
+    }
     const currentCount = await aiHandler.getCurrentAIMsgCount(ctx.roomId);
     // Only trigger AI when strictly below the limit
     if (currentCount < aiHandler.MAX_AI_RESPONSES_PER_TICKET) {
@@ -491,6 +510,10 @@ roomEmitter.on("user_join", async function ({ clientId, roomId, role, ws }) {
     if (currentCount === 0) {
       // Skip if AI is already in flight to avoid duplicate welcome
       if (aiHandler.isAIInFlight(roomId)) {
+        return;
+      }
+      // 如果房间存在非 customer 的真人，则 AI 不参与欢迎回复
+      if (hasNonCustomerHumanInRoom(roomId)) {
         return;
       }
       const db = connectDB();
