@@ -119,7 +119,10 @@ export async function sendFeishuMsg(
     `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=${receiveIdType}`,
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { 
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
         receive_id: receiveId,
         msg_type: msgType,
@@ -141,7 +144,7 @@ const proxyHandler = {
     argumentsList: Parameters<typeof fetch>,
   ) {
     const MAX_RETRIES = 1;
-    const TIMEOUT_MS = 3000;
+    const TIMEOUT_MS = 10000; // 10 seconds timeout for Feishu API
     const INITIAL_RETRY_DELAY = 1000; // 1 second initial delay
 
     let lastError: Error | null = null;
@@ -161,9 +164,14 @@ const proxyHandler = {
         clearTimeout(timeoutId);
 
         if (!res.ok) {
-          const cause = await res.json();
+          let cause: any;
+          try {
+            cause = await res.json();
+          } catch (jsonError) {
+            cause = { status: res.status, statusText: res.statusText };
+          }
           logError(`Attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`, cause);
-          throw new Error("Failed to fetch.", {
+          throw new Error(`Failed to fetch. Status: ${res.status}`, {
             cause: cause.error_description ?? cause,
           });
         }
@@ -215,6 +223,9 @@ export async function getFeishuAppAccessToken() {
     "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal",
     {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
         app_id: config.feishu_app_id,
         app_secret: config.feishu_app_secret,
