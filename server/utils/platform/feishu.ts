@@ -115,6 +115,13 @@ export async function sendFeishuMsg(
   accessToken: `t-${string}`,
 ) {
   console.log("accessToken", accessToken);
+  const requestBody = {
+    receive_id: receiveId,
+    msg_type: msgType,
+    content,
+  };
+  console.log("Sending Feishu message with body:", JSON.stringify(requestBody, null, 2));
+  
   const res = await myFetch(
     `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=${receiveIdType}`,
     {
@@ -123,16 +130,21 @@ export async function sendFeishuMsg(
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        receive_id: receiveId,
-        msg_type: msgType,
-        content,
-      }),
+      body: JSON.stringify(requestBody),
     },
   );
   console.log("send feishu msg res", res);
   if (!res.ok) {
-    throw new Error("Failed to send Feishu message");
+    let errorDetails;
+    try {
+      errorDetails = await res.json();
+    } catch {
+      errorDetails = { status: res.status, statusText: res.statusText };
+    }
+    console.log("Feishu message send error details:", errorDetails);
+    throw new Error(`Failed to send Feishu message. Status: ${res.status}`, {
+      cause: errorDetails
+    });
   }
   return res.json();
 }
