@@ -13,9 +13,10 @@ import { useChatStore } from "@store/index";
 import useLocalUser from "@hook/use-local-user.tsx";
 import { collectFavoritedKnowledge } from "@lib/query";
 import { useTranslation } from "i18n";
+import type { TFunction } from "i18next";
 
 // 错误处理工具函数
-const getErrorMessage = (error: unknown): string => {
+const getErrorMessage = (error: unknown, t: TFunction): string => {
   if (error instanceof Error) {
     return error.message;
   }
@@ -25,7 +26,7 @@ const getErrorMessage = (error: unknown): string => {
   if (error && typeof error === "object" && "message" in error) {
     return String(error.message);
   }
-  return "发送消息时出现未知错误";
+  return t("unknown_error_sending_message");
 };
 
 // 上传进度接口
@@ -172,21 +173,12 @@ export function StaffMessageInput({
     [],
   );
 
-  // 使用 useMemo 优化文件统计计算
-  const fileStats = useMemo(
-    () => analyzeFileContent(newMessage),
-    [newMessage, analyzeFileContent],
-  );
-
-  // 检查消息是否有实际内容可发送
-  const hasMessageContent = useMemo(() => {
-    return newMessage?.content?.some(hasNodeContent) || false;
-  }, [newMessage]);
+  // （发送时再实时统计文件与是否有内容，避免节流导致的状态滞后）
 
   // 显示错误提示
   const showErrorToast = useCallback(
     (error: unknown) => {
-      const message = getErrorMessage(error);
+      const message = getErrorMessage(error, t);
       toast({
         title: t("send_failed"),
         description: message,
@@ -220,46 +212,48 @@ export function StaffMessageInput({
     [],
   );
 
-  // 处理消息提交
+  // 处理消息提交（从编辑器读取最新内容，避免节流/合成态导致的旧值）
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
 
-      if (!newMessage || isLoading || !hasMessageContent) {
-        return;
-      }
+      if (isLoading) return;
+
+      // 以编辑器中的最新 JSON 为准
+      const latestContent =
+        (editorRef.current?.getJSON?.() as JSONContentZod | undefined) ||
+        newMessage;
+
+      const hasCurrentMessageContent =
+        latestContent?.content?.some(hasNodeContent) || false;
+      if (!hasCurrentMessageContent) return;
 
       try {
-        let contentToSend = newMessage;
+        let contentToSend = latestContent;
 
-        // 如果有文件需要上传，先处理上传
-        if (fileStats.hasFiles) {
-          contentToSend = await handleFileUpload(newMessage);
+        // 如果有文件需要上传，先处理上传（基于最新内容重新统计）
+        const currentFileStats = analyzeFileContent(latestContent);
+        if (currentFileStats.hasFiles) {
+          contentToSend = await handleFileUpload(latestContent);
         }
 
-        // 等待消息发送完成
         await onSendMessage(contentToSend, editorRef.current?.isInternal);
-
-        // 只有发送成功后才清理编辑器
         clearEditor();
       } catch (error) {
-        console.error("发送消息失败:", error);
+        console.error(`${t("send_failed")}:`, error);
         setUploadProgress(null);
         showErrorToast(error);
-
-        // 发送失败时不清理编辑器，让用户可以重试
-        // 编辑器内容保持不变，用户可以再次尝试发送
       }
     },
     [
-      newMessage,
       isLoading,
-      hasMessageContent,
-      fileStats,
+      analyzeFileContent,
       handleFileUpload,
       onSendMessage,
       clearEditor,
       showErrorToast,
+      t,
+      newMessage,
     ],
   );
 
@@ -273,6 +267,10 @@ export function StaffMessageInput({
           !event.metaKey &&
           !event.ctrlKey
         ) {
+          // 处于输入法合成阶段时不发送，避免截获中文确认键
+          if ((event as any).isComposing || (event as any).keyCode === 229) {
+            return false;
+          }
           event.preventDefault();
           handleSubmit();
           return true; // 告诉 TipTap 事件已处理
@@ -283,10 +281,14 @@ export function StaffMessageInput({
     [handleSubmit],
   );
 
-  // 检查是否可以发送消息
+  // 检查是否可以发送消息（读取编辑器最新内容，避免滞后）
   const canSend = useMemo(() => {
-    return !isLoading && !uploadProgress && hasMessageContent;
-  }, [isLoading, uploadProgress, hasMessageContent]);
+    const latestContent =
+      (editorRef.current?.getJSON?.() as JSONContentZod | undefined) ||
+      newMessage;
+    const hasContent = latestContent?.content?.some(hasNodeContent) || false;
+    return !isLoading && !uploadProgress && hasContent;
+  }, [isLoading, uploadProgress, newMessage]);
 
   // 计算上传进度条高度（用于动态调整布局）
   const progressBarHeight = uploadProgress ? 60 : 0; // 根据实际高度调整
@@ -347,18 +349,22 @@ export function StaffMessageInput({
           favoritedBy: userId,
         });
         if (res.success) {
-          toast({ title: "成功", description: "已收录到知识库" });
+          toast({ title: t("success"), description: t("kb_added") });
           clearKbSelection();
         } else {
           toast({
-            title: "失败",
+            title: t("error"),
             description: res.message,
             variant: "destructive",
           });
         }
       } catch (error) {
-        const message = getErrorMessage(error);
-        toast({ title: "失败", description: message, variant: "destructive" });
+        const message = getErrorMessage(error, t);
+        toast({
+          title: t("send_failed"),
+          description: message,
+          variant: "destructive",
+        });
       }
     };
     return (
@@ -424,7 +430,7 @@ export function StaffMessageInput({
               onTyping?.();
               setNewMessage(value as JSONContentZod);
             }}
-            throttleDelay={500}
+            throttleDelay={150}
             editorContentClassName="overflow-auto h-full"
             editable={!isUploading}
             editorClassName="focus:outline-none p-4 h-full"

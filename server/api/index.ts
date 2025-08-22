@@ -18,11 +18,41 @@ import { feedbackRouter } from "./feedback/index.ts";
 import { startAllJobs } from "@/utils/jobs/kb-jobs/index.ts";
 import "@/utils/events/handoff/index.ts";
 import { kbRouter } from "./kb/index.ts";
+import { logInfo } from "@/utils/log.ts";
 
 const app = factory.createApp();
 
+// error handler
 app.onError(handleError);
-app.use("*", logger());
+
+// Configure logging based on environment
+if (global.customEnv.NODE_ENV !== "production") {
+  // Development: log all requests
+  app.use("*", logger());
+} else {
+  // Production: only log errors and slow requests
+  app.use(
+    "*",
+    logger((message) => {
+      // Extract status code and response time from log message
+      // Format: "<-- GET /" and "--> GET / 200 2ms"
+      const responsePattern = /--> .+ (\d{3}) (\d+)ms/;
+      const match = message.match(responsePattern);
+
+      if (match && match[1] && match[2]) {
+        const status = parseInt(match[1]);
+        const responseTime = parseInt(match[2]);
+
+        // Log errors (4xx, 5xx) or slow requests (>1000ms)
+        if (status >= 400 || responseTime > 1000) {
+          logInfo(message);
+        }
+      }
+      // Don't log request start messages (<-- GET /) in production
+    }),
+  );
+}
+
 app.use(
   "/api/openapi.json",
   openAPISpecs(app, {

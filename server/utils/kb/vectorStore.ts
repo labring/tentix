@@ -319,16 +319,14 @@ export class ExternalHttpStore implements VectorStore {
   async deleteBySource({
     source_type,
     source_id,
-    namespace = "default",
   }: {
     source_type: string;
     source_id: string;
-    namespace?: string;
   }) {
     await fetch(`${this.base}/deleteBySource`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ source_type, source_id, namespace }),
+      body: JSON.stringify({ source_type, source_id }),
     });
   }
 

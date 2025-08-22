@@ -39,7 +39,6 @@ export interface VectorStore {
   deleteBySource(source: {
     source_type: string;
     source_id: string;
-    namespace?: string;
   }): Promise<void>;
   health(): Promise<{ ok: boolean; info?: unknown }>;
 

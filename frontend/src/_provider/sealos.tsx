@@ -26,6 +26,8 @@ interface SealosContextType {
   sealosToken: string | null;
   sealosArea: string | null;
   sealosUser: SealosUserInfo | null;
+  sealosNs: string | null;
+  currentLanguage: string | null;
 }
 
 const SealosContext = createContext<SealosContextType | null>(null);
@@ -39,6 +41,8 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     sealosToken: null,
     sealosArea: null,
     sealosUser: null,
+    sealosNs: null,
+    currentLanguage: null,
   });
 
   const initializationRef = useRef(false);
@@ -83,10 +87,11 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
         const sealosSession = await sealosApp.getSession();
         const sealosToken = sealosSession.token as unknown as string;
         const sealosArea = extractAreaFromSealosToken(sealosToken ?? "");
+        const sealosNs = sealosSession.user.nsid;
 
         window.localStorage.setItem("sealosToken", sealosToken);
         window.localStorage.setItem("sealosArea", sealosArea ?? "");
-        window.localStorage.setItem("sealosNs", sealosSession.user.nsid ?? "");
+        window.localStorage.setItem("sealosNs", sealosNs ?? "");
 
         console.info("Sealos data saved to localStorage");
 
@@ -97,6 +102,8 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
           sealosToken,
           sealosArea,
           sealosUser: sealosSession.user,
+          sealosNs,
+          currentLanguage: lang.lng,
         });
 
         // cleanup
@@ -105,6 +112,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
           cleanupApp?.();
         };
       } catch (error) {
+        console.error("Sealos initialization failed:", error);
         setState((prev) => ({
           ...prev,
           isLoading: false,

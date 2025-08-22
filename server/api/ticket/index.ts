@@ -163,6 +163,7 @@ const ticketRouter = factory
             description: payload.description,
             module: payload.module,
             area: payload.area,
+            sealosNamespace: payload.sealosNamespace,
             occurrenceTime: payload.occurrenceTime,
             priority: payload.priority,
             customerId: userId,

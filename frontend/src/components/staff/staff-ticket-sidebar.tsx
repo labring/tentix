@@ -116,7 +116,7 @@ export function StaffTicketSidebar({
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // 🔥 将数据查询移到组件内部 - 这样状态变化只影响当前组件
+  // 将数据查询移到组件内部 - 这样状态变化只影响当前组件
   const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
     userTicketsQueryOptions(
       pageSize,
@@ -207,40 +207,47 @@ export function StaffTicketSidebar({
     if (statuses.length === 0) {
       return [];
     }
-    return statuses
-      .map((status) => {
-        const option = statusOptions.find((opt) => opt.value === status);
-        return { icon: option?.icon, status };
-      })
-      .filter((item) => item.icon) as Array<{
-      icon: React.ComponentType<any>;
+    const items: Array<{
+      icon: React.ComponentType<{ className?: string }>;
       status: string;
-    }>;
+    }> = [];
+    statuses.forEach((status) => {
+      const option = statusOptions.find((opt) => opt.value === status);
+      if (option?.icon) {
+        items.push({
+          icon: option.icon as React.ComponentType<{ className?: string }>,
+          status,
+        });
+      }
+    });
+    return items;
   };
 
   // Check if a ticket is unread
   const isTicketUnread = (ticket: TicketsListItemType) => {
-    // 如果没有任何消息，则不算未读
+    // 没有任何消息：未读
     if (!ticket.messages || ticket.messages.length === 0) {
-      return false;
+      return true;
     }
 
     const lastMessage = ticket.messages.at(-1);
+    // 理论上不会发生；兜底按未读处理
     if (!lastMessage) {
-      return false;
+      return true;
     }
 
-    // 如果最后一条消息是自己发送的，则不算未读
+    // 最后一条消息是我发送的：非未读
     if (lastMessage.senderId === userId) {
       return false;
     }
 
-    // 如果没有 readStatus，则算未读
+    // 最后一条消息不是我发的：
+    // 无任何已读记录 → 未读
     if (!lastMessage.readStatus) {
       return true;
     }
 
-    // 如果 readStatus 中有自己的记录，则不算未读
+    // 已读记录中不包含我 → 未读；否则非未读
     return !lastMessage.readStatus.some((status) => status.userId === userId);
   };
 

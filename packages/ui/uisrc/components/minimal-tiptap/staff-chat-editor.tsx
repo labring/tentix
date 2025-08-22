@@ -1,4 +1,4 @@
-import { EditorContent } from "@tiptap/react";
+import { EditorContent, type Content } from "@tiptap/react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { cn } from "uisrc/lib/utils.ts";
@@ -14,6 +14,7 @@ import { useTranslation } from "i18n";
 export interface EditorRef {
   isInternal: boolean;
   clearContent: () => void;
+  getJSON: () => Content;
 }
 
 export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
@@ -42,6 +43,7 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
         editor?.commands.clearContent();
       },
       isInternal: messageType === "internal",
+      getJSON: () => editor?.getJSON() as Content,
     }));
 
     // TODO: 添加模板选择功能
