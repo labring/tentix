@@ -114,6 +114,7 @@ export async function sendFeishuMsg(
   content: string,
   accessToken: `t-${string}`,
 ) {
+  console.log("accessToken", accessToken);
   const res = await myFetch(
     `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=${receiveIdType}`,
     {
@@ -126,7 +127,7 @@ export async function sendFeishuMsg(
       }),
     },
   );
-  console.log(res);
+  console.log("send feishu msg res", res);
   if (!res.ok) {
     throw new Error("Failed to send Feishu message");
   }
