@@ -128,7 +128,7 @@ cp server/config.template.json server/config.dev.json
 
 3. Configure environment variables:
 ```bash
-cp .env.example .env.local
+cp .env.template .env.local
 # Add the generated encryption key to .env.local
 ```
 
