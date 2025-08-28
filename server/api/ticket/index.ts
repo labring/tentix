@@ -7,6 +7,7 @@ import {
   ticketInsertSchema,
   validateJSONContent,
   zs,
+  detectLocale,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq, and, desc, count, or, like, inArray, gte, lte } from "drizzle-orm";
@@ -18,7 +19,6 @@ import { HTTPException } from "hono/http-exception";
 import { authMiddleware, factory, staffOnlyMiddleware } from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
-import { readConfig } from "@/utils/env.ts";
 import {
   getIndex,
   moduleEnumArray,
@@ -29,6 +29,7 @@ import {
 } from "@/utils/const.ts";
 import { userTicketSchema } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
+import { isFeishuConfigured } from "@/utils/tools";
 
 const createResponseSchema = z.array(
   z.object({
@@ -146,11 +147,20 @@ const ticketRouter = factory
         });
       }
 
+      const t = c.get("i18n").getFixedT(detectLocale(c));
       const staffMap = c.var.staffMap();
-      const staffMapEntries = Array.from(staffMap.entries());
-      const [assigneeId, { feishuUnionId: assigneeFeishuId }] = staffMapEntries
-        .filter(([_, info]) => info.role === "agent")
-        .sort((a, b) => a[1].remainingTickets - b[1].remainingTickets)[0]!;
+      const agentEntries = Array.from(staffMap.entries()).filter(
+        ([_, info]) => info.role === "agent",
+      );
+      if (agentEntries.length === 0) {
+        throw new HTTPException(400, {
+          message: t("no_agents_configured"),
+        });
+      }
+      const [assigneeId, { feishuUnionId: _assigneeFeishuId }] =
+        agentEntries.sort(
+          (a, b) => a[1].remainingTickets - b[1].remainingTickets,
+        )[0]!;
 
       let ticketId: string | undefined;
 
@@ -724,6 +734,12 @@ const ticketRouter = factory
         assignees.push(assignee);
       }
 
+      if (!isFeishuConfigured()) {
+        throw new HTTPException(400, {
+          message: "Feishu is not configured",
+        });
+      }
+
       const ticketInfo = (await db.query.tickets.findFirst({
         where: (tickets, { eq }) => eq(tickets.id, ticketId),
       }))!;
@@ -753,9 +769,8 @@ const ticketRouter = factory
         }
       });
 
-      const config = await readConfig();
       const ticketUrl = `${c.var.origin}/staff/tickets/${ticketId}`;
-      const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;
+      const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${global.customEnv.FEISHU_APP_ID}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;
 
       const { tenant_access_token } = await getFeishuAppAccessToken();
 
@@ -778,7 +793,7 @@ const ticketRouter = factory
         // 飞书群聊天
         sendFeishuMsg(
           "chat_id",
-          config.feishu_chat_id,
+          global.customEnv.FEISHU_CHAT_ID!,
           "interactive",
           JSON.stringify(card.card),
           tenant_access_token,

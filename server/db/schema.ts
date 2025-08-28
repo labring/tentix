@@ -71,6 +71,18 @@ export const sentimentLabel = tentix.enum(
   sentimentLabelEnumArray,
 );
 
+export const authProvider = tentix.enum("auth_provider", [
+  "password",
+  "email",
+  "phone",
+  "feishu",
+  "google",
+  "sealos",
+  "fastgpt",
+  "github",
+  "weixin",
+]);
+
 // Core tables with no dependencies
 export const users = tentix.table(
   "users",
@@ -101,6 +113,54 @@ export const users = tentix.table(
     unique("users_sealos_id_key").on(table.sealosId),
     // 角色索引，用于按角色过滤用户
     index("idx_users_role").on(table.role),
+  ],
+);
+
+export const userIdentities = tentix.table(
+  "user_identities",
+  {
+    id: serial("id").primaryKey().notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+
+    provider: authProvider("provider").notNull(),
+    providerUserId: varchar("provider_user_id", { length: 128 }).notNull(),
+
+    /*feishu example
+       {
+         "union_id": "on_1234567890",
+         "open_id": "ou_1234567890",
+       }
+    */
+    metadata: jsonb("metadata")
+      .$type<{
+        feishu?: { unionId?: string; openId?: string };
+        sealos?: { accountId?: string };
+        password?: { passwordHash?: string };
+      }>()
+      .default(sql`'{}'::jsonb`)
+      .notNull(),
+
+    isPrimary: boolean("is_primary").default(false).notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    unique("uniq_provider_uid").on(table.provider, table.providerUserId),
+    index("idx_user_provider").on(table.userId, table.provider),
   ],
 );
 

@@ -9,6 +9,7 @@ import { type TicketType } from "tentix-server/rpc";
 import { PhotoProvider } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";
 import { Button, useToast, ScrollArea } from "tentix-ui";
+import { useTranslation } from "i18n";
 import { useMutation } from "@tanstack/react-query";
 import { joinTicketAsTechnician } from "@lib/query";
 import useLocalUser from "@hook/use-local-user.tsx";
@@ -20,6 +21,7 @@ interface StaffChatProps {
 }
 
 export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
   const { id: userId } = useLocalUser();
@@ -206,9 +208,9 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
 
       // 显示错误提示
       toast({
-        title: "发送失败",
+        title: t("send_failed"),
         description:
-          error instanceof Error ? error.message : "发送消息时出现错误",
+          error instanceof Error ? error.message : t("send_error_generic"),
         variant: "destructive",
       });
 
@@ -233,14 +235,12 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
       {!isTicketMember ? (
         <div className="bg-white h-42 border-t  flex items-center justify-center">
           <div className="text-center">
-            <p className="text-sm text-gray-500 mb-2">
-              你尚未加入该工单，无法发送消息
-            </p>
+            <p className="text-sm text-gray-500 mb-2">{t("not_joined_cannot_send")}</p>
             <Button
               onClick={handleJoinTicket}
               disabled={joinTicketMutation.isPending}
             >
-              {joinTicketMutation.isPending ? "加入中..." : "加入此工单"}
+              {joinTicketMutation.isPending ? t("joining") : t("join_this_ticket")}
             </Button>
           </div>
         </div>

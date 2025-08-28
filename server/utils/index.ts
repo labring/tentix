@@ -7,6 +7,7 @@ export * from "./platform/index.ts";
 export * from "./log.ts";
 export * from "./md.ts";
 export * from "./crypto.ts";
+export * from "./i18n.ts";
 
 /**   Notice:
  * To keep the relevant import package clean,

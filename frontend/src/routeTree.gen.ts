@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UserRouteImport } from './routes/user'
 import { Route as StaffRouteImport } from './routes/staff'
 import { Route as NotLoginRouteImport } from './routes/notLogin'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UserNewticketIndexRouteImport } from './routes/user/newticket/index'
 import { Route as UserTicketsListRouteImport } from './routes/user/tickets/list'
@@ -33,6 +34,11 @@ const StaffRoute = StaffRouteImport.update({
 const NotLoginRoute = NotLoginRouteImport.update({
   id: '/notLogin',
   path: '/notLogin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -73,6 +79,7 @@ const StaffTicketsIdRoute = StaffTicketsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/notLogin': typeof NotLoginRoute
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
@@ -85,6 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/notLogin': typeof NotLoginRoute
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
@@ -98,6 +106,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/notLogin': typeof NotLoginRoute
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
@@ -112,6 +121,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/notLogin'
     | '/staff'
     | '/user'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/notLogin'
     | '/staff'
     | '/user'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/login'
     | '/notLogin'
     | '/staff'
     | '/user'
@@ -149,6 +161,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
   NotLoginRoute: typeof NotLoginRoute
   StaffRoute: typeof StaffRouteWithChildren
   UserRoute: typeof UserRouteWithChildren
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notLogin': {
@@ -259,6 +279,7 @@ const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
   NotLoginRoute: NotLoginRoute,
   StaffRoute: StaffRouteWithChildren,
   UserRoute: UserRouteWithChildren,

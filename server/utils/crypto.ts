@@ -137,6 +137,24 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   }
 }
 
+/**
+ * Hash a password using built-in crypto API
+ */
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return arrayBufferToBase64(hashBuffer);
+}
+
+/**
+ * Verify a password against a hash
+ */
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const passwordHash = await hashPassword(password);
+  return passwordHash === hash;
+}
+
 export {
   generateAesKey,
   exportKeyToString,
@@ -147,6 +165,8 @@ export {
   aesDecrypt,
   aesDecryptFromString,
   arrayBufferToBase64,
-  base64ToArrayBuffer
+  base64ToArrayBuffer,
+  hashPassword,
+  verifyPassword
 };
 

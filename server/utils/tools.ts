@@ -18,7 +18,6 @@ export type StaffMap = Map<
     role: userRoleType;
     feishuUnionId: `on_${string}`;
     feishuOpenId: `ou_${string}`;
-    department: string;
   }
 >;
 
@@ -34,12 +33,12 @@ export function connectDB() {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is not set in environment variables");
   }
-  
+
   const pool = new Pool({
     connectionString: databaseUrl,
   });
   const db = drizzle({ client: pool, schema: { ...schema, ...relations } });
-  
+
   // 设置全局数据库连接
   global.db = db;
   return global.db;
@@ -64,4 +63,11 @@ export function getOrigin(c: Context) {
   const url = new URL(c.req.url);
   url.protocol = "https:";
   return url.origin;
+}
+
+export function isFeishuConfigured(): boolean {
+  const appId = global.customEnv.FEISHU_APP_ID?.trim();
+  const appSecret = global.customEnv.FEISHU_APP_SECRET?.trim();
+  const chatId = global.customEnv.FEISHU_CHAT_ID?.trim();
+  return Boolean(appId && appSecret && chatId);
 }

@@ -5,6 +5,7 @@ export * from './pagination.tsx';
 export * from './sidebar.tsx';
 export * from './toaster.tsx';
 export * from './alert-dialog.tsx';
+export * from './alert.tsx';
 export * from './avatar.tsx';
 export * from './badge.tsx';
 export * from './breadcrumb.tsx';

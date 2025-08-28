@@ -1,5 +1,4 @@
-import { connectDB } from "@/utils/tools";
-import { readConfig } from "@/utils/env.ts";
+import { connectDB, isFeishuConfigured } from "@/utils/tools";
 import {
   getFeishuCard,
   getAbbreviatedText,
@@ -73,9 +72,12 @@ async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
 
   const ticketUrl = `${global.customEnv.APP_URL}/staff/tickets/${ticket.id}`;
 
-  const config = await readConfig();
   const description = getAbbreviatedText(ticket.description, 200);
   const user = global.staffMap!.get(ticket.agentId)!;
+
+  if (!isFeishuConfigured()) {
+    throw new Error("Feishu is not configured");
+  }
 
   // 截止今天多少点，今日工单数
   // 今日通知数
@@ -88,7 +90,7 @@ async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
     module: global.i18n!.t(ticket.module),
     theme,
     internal_url: {
-      url: `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
+      url: `https://applink.feishu.cn/client/web_app/open?appId=${global.customEnv.FEISHU_APP_ID!}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
     },
     ticket_url: {
       url: ticketUrl,
@@ -99,7 +101,7 @@ async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
 
   await sendFeishuMsg(
     "chat_id",
-    config.feishu_chat_id,
+    global.customEnv.FEISHU_CHAT_ID!,
     "interactive",
     JSON.stringify(card.card),
     tenant_access_token,

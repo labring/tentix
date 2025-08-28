@@ -225,6 +225,42 @@ export const translations = {
       setup_session: "Please wait while we set up your session",
       redirecting_dashboard: "Redirecting to your dashboard...",
 
+      // Login/Register page
+      login: "Login",
+      register: "Register",
+      login_title: "Login",
+      register_title: "Register",
+      login_subtitle: "Enter your credentials to access your account",
+      register_subtitle: "Create a new account to get started",
+      field_name: "Name",
+      field_password: "Password",
+      ph_name: "Enter your name",
+      ph_password: "Enter your password",
+      btn_login: "Login",
+      btn_register: "Register",
+      btn_switch_to_register: "Don't have an account? Register",
+      btn_switch_to_login: "Already have an account? Login",
+      name_required: "Name is required",
+      password_min_6: "Password must be at least 6 characters",
+      login_failed: "Login failed",
+      invalid_credentials: "Invalid credentials",
+      unauthorized: "Unauthorized",
+      token_expired: "Token expired",
+      token_invalid: "Token invalid",
+      user_already_exists: "User already exists",
+      failed_create_user: "Failed to create user",
+      user_not_found: "User not found",
+      please_register_first: "Please register first",
+      registration_failed: "Registration failed",
+
+      // WebSocket and chat
+      send_failed: "Failed to send",
+      send_error_generic: "An error occurred while sending",
+      not_joined_cannot_send:
+        "You haven't joined this ticket and cannot send messages",
+      join_this_ticket: "Join this ticket",
+      joining: "Joining...",
+
       // Table pagination and empty states
       total: "Total",
       page: "Page",
@@ -263,14 +299,14 @@ export const translations = {
       failed_to_load_assignees: "Failed to load assignees",
       satisfaction_survey: "Satisfaction Survey",
       share_your_feedback: "Share your feedback",
-      
+      please_provide_rating: "Please provide a rating",
+
       // Chat editor and inputs
       type_your_message: "Type your message...",
       add_internal_note: "Add an internal note...",
       public: "Public",
       public_message: "Public message",
       internal_note: "Internal note",
-      send_failed: "Failed to send",
       unknown_error_sending_message: "An unknown error occurred while sending",
       uploading: "Uploading",
       uploading_simple: "Uploading {{uploaded}}/{{total}}",
@@ -285,7 +321,9 @@ export const translations = {
       file_upload_error: "An error occurred during file upload",
       uploading_files: "Uploading files {{uploaded}}/{{total}}",
       unknown_submit_error: "An unknown error occurred during submission",
-      history_navigation_failed: "History navigation failed, falling back to default route",
+      history_navigation_failed:
+        "History navigation failed, falling back to default route",
+      no_agents_configured: "No agents configured",
     },
   },
   zh: {
@@ -503,6 +541,41 @@ export const translations = {
       setup_session: "请稍候，正在设置您的会话",
       redirecting_dashboard: "正在跳转到您的面板...",
 
+      // Login/Register page
+      login: "登录",
+      register: "注册",
+      login_title: "登录",
+      register_title: "注册",
+      login_subtitle: "请输入账号和密码以登录",
+      register_subtitle: "创建一个新账号以开始使用",
+      field_name: "用户名",
+      field_password: "密码",
+      ph_name: "请输入用户名",
+      ph_password: "请输入密码",
+      btn_login: "登录",
+      btn_register: "注册",
+      btn_switch_to_register: "没有账号？去注册",
+      btn_switch_to_login: "已有账号？去登录",
+      name_required: "用户名为必填项",
+      password_min_6: "密码至少需要 6 位",
+      login_failed: "登录失败",
+      invalid_credentials: "用户名或密码错误",
+      unauthorized: "未授权",
+      token_expired: "Token 已过期",
+      token_invalid: "Token 无效",
+      user_already_exists: "用户已存在",
+      failed_create_user: "创建用户失败",
+      user_not_found: "用户不存在",
+      please_register_first: "请先注册账号",
+      registration_failed: "注册失败",
+
+      // WebSocket and chat
+      send_failed: "发送失败",
+      send_error_generic: "发送消息时出现错误",
+      not_joined_cannot_send: "你尚未加入该工单，无法发送消息",
+      join_this_ticket: "加入此工单",
+      joining: "加入中...",
+
       // Table pagination and empty states
       total: "总计",
       page: "页",
@@ -540,6 +613,7 @@ export const translations = {
       failed_to_load_assignees: "加载负责人失败",
       satisfaction_survey: "满意度调查",
       share_your_feedback: "分享您的反馈",
+      please_provide_rating: "请给出评分",
 
       // Chat editor and inputs
       type_your_message: "输入消息...",
@@ -547,7 +621,6 @@ export const translations = {
       public: "公开",
       public_message: "公开消息",
       internal_note: "内部备注",
-      send_failed: "发送失败",
       unknown_error_sending_message: "发送消息时出现未知错误",
       uploading: "上传中",
       uploading_simple: "上传中 {{uploaded}}/{{total}}",
@@ -563,6 +636,7 @@ export const translations = {
       uploading_files: "正在上传文件 {{uploaded}}/{{total}}",
       unknown_submit_error: "提交时出现未知错误",
       history_navigation_failed: "历史导航失败，回退到默认路由",
+      no_agents_configured: "系统未配置客服人员",
     },
   },
 };

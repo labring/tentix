@@ -5,6 +5,10 @@ import { z } from "zod";
  * Use z.xxx() instead.
  */
 const envSchema = z.object({
+  FEISHU_APP_ID: z.string().trim().optional(),
+  FEISHU_APP_SECRET: z.string().trim().optional(),
+  FEISHU_CHAT_ID: z.string().trim().optional(),
+
   DATABASE_URL: z.string().url().trim(),
   ENCRYPTION_KEY: z.string().base64().trim(),
   MINIO_ACCESS_KEY: z.string().base64().trim(),
@@ -33,6 +37,7 @@ const envSchema = z.object({
   KB_SYNC_TZ: z.string().trim().default("Asia/Shanghai").optional(),
 
   APP_URL: z.string().url().trim().optional(),
+  TARGET_PLATFORM: z.enum(["sealos", "fastgpt", "generic"]).default("generic"),
 
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
@@ -45,7 +50,6 @@ try {
   process.exit(1);
 }
 
-import { AppConfig } from "@/utils";
 import { StaffMap } from "@/utils/tools";
 import * as schema from "@/db/schema";
 import * as relations from "@/db/relations";
@@ -59,7 +63,6 @@ declare global {
   var db: NodePgDatabase<AppSchema> | undefined; // Fix for "sorry, too many clients already"
   var staffMap: StaffMap | undefined;
   var todayTicketCount: number | undefined;
-  var config: AppConfig | undefined;
   var i18n: typeof i18next | undefined;
   var cryptoKey: CryptoKey | undefined;
   var customEnv: z.infer<typeof envSchema>;

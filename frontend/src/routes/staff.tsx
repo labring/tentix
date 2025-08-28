@@ -52,6 +52,7 @@ export const Route = createFileRoute("/staff")({
     // 检查认证状态
     const hasToken = window.localStorage.getItem("token") !== null;
 
+    // 未认证
     if (!hasToken) {
       // 没有token，跳转飞书登录
       // 用 location.href 而不是 location.pathname 是因为 location.pathname 不包含查询参数

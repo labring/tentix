@@ -12,8 +12,8 @@ import { z } from "zod";
 import { CSRF } from "bun";
 import { HTTPException } from "hono/http-exception";
 import NodeCache from "node-cache";
+import { isFeishuConfigured } from "@/utils/tools";
 
-import { readConfig } from "@/utils/env.ts";
 // import { refreshStaffMap } from "../initApp.ts";
 import { signBearerToken } from "../auth/index.ts";
 const cache = new NodeCache();
@@ -27,8 +27,7 @@ const feishuRouter = factory
       description: "Get the app id.",
     }),
     async (c) => {
-      const config = await readConfig();
-      return c.json({ appId: config.feishu_app_id });
+      return c.json({ appId: global.customEnv.FEISHU_APP_ID! });
     },
   )
   .get(
@@ -47,11 +46,15 @@ const feishuRouter = factory
       const state = CSRF.generate();
       const redirectUri = new URL("/api/feishu/callback", c.var.origin);
       const { redirect } = c.req.valid("query");
-      const config = await readConfig();
       const url = new URL(
         "https://accounts.feishu.cn/open-apis/authen/v1/authorize",
       );
-      url.searchParams.set("client_id", config.feishu_app_id);
+      if (!isFeishuConfigured()) {
+        throw new HTTPException(500, {
+          message: "Feishu is not configured.",
+        });
+      }
+      url.searchParams.set("client_id", global.customEnv.FEISHU_APP_ID!);
       url.searchParams.set("state", state);
       cache.set(state, redirect, 30 * 60);
       url.searchParams.set("redirect_uri", redirectUri.toString());
@@ -79,13 +82,17 @@ const feishuRouter = factory
           message: "Invalid state.",
         });
       }
-      const config = await readConfig();
+      if (!isFeishuConfigured()) {
+        throw new HTTPException(500, {
+          message: "Feishu is not configured.",
+        });
+      }
       // Just for verification(redirect_uri must be the same as the one in the login url)
       const nowPath = new URL(c.req.path, c.var.origin);
       const body = {
         grant_type: "authorization_code",
-        client_id: config.feishu_app_id,
-        client_secret: config.feishu_app_secret,
+        client_id: global.customEnv.FEISHU_APP_ID,
+        client_secret: global.customEnv.FEISHU_APP_SECRET,
         code,
         redirect_uri: nowPath.toString(),
       };

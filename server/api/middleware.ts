@@ -9,9 +9,11 @@ import {
   getOrigin,
 } from "@/utils/index.ts";
 import { HTTPException } from "hono/http-exception";
+import { detectLocale } from "@/utils";
 import { ContentfulStatusCode } from "hono/utils/http-status";
 import { styleText } from "util";
 import { createFactory, createMiddleware } from "hono/factory";
+import type { ApiErrorResponse } from "@/utils/types";
 import i18next from "i18n";
 import {
   changeAgentTicket,
@@ -67,16 +69,14 @@ export function handleError(err: Error, c: Context): Response {
     code = 422;
     message = err.message;
   }
-  return c.json(
-    {
-      code,
-      timeUTC: new Date().toUTCString(),
-      message,
-      cause,
-      stack,
-    },
-    { status: code },
-  );
+  const isProd = global.customEnv.NODE_ENV === "production";
+  const body: ApiErrorResponse = {
+    code,
+    timeUTC: new Date().toUTCString(),
+    message,
+    ...(isProd ? {} : { cause, stack }),
+  };
+  return c.json(body, { status: code });
 }
 
 type BasicVariables = {
@@ -120,7 +120,8 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
     const authHeader = c.req.header("Authorization");
     if (!authHeader) {
       console.error("Unauthorized", authHeader);
-      throw new HTTPException(401, { message: "Unauthorized" });
+      const t = c.get("i18n").getFixedT(detectLocale(c));
+      throw new HTTPException(401, { message: t("unauthorized") });
     }
     const cryptoKey = c.get("cryptoKey")();
     const { userId, role, expireTime } = await decryptToken(
@@ -128,7 +129,8 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
       cryptoKey,
     );
     if (parseInt(expireTime) < Date.now() / 1000) {
-      throw new HTTPException(401, { message: "token expired" });
+      const t = c.get("i18n").getFixedT(detectLocale(c));
+      throw new HTTPException(401, { message: t("token_expired") });
     }
     c.set("userId", parseInt(userId));
     c.set("role", role);
@@ -137,7 +139,8 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
     if (error instanceof HTTPException) {
       throw error;
     }
-    throw new HTTPException(401, { message: "Unauthorized" });
+    const t = c.get("i18n").getFixedT(detectLocale(c));
+    throw new HTTPException(401, { message: t("unauthorized") });
   }
 });
 

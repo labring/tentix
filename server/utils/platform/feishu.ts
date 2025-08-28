@@ -1,5 +1,5 @@
-import { readConfig } from "../env.ts";
 import { logError } from "../log.ts";
+import { isFeishuConfigured } from "@/utils/tools";
 import { FeishuDepartmentsInfo } from "./feishu.type.ts";
 
 type cardType = {
@@ -262,7 +262,9 @@ export async function getFeishuAppAccessToken() {
     };
   }
 
-  const config = await readConfig();
+  if (!isFeishuConfigured()) {
+    throw new Error("Feishu is not configured");
+  }
   const res = await myFetch(
     "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal",
     {
@@ -271,8 +273,8 @@ export async function getFeishuAppAccessToken() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        app_id: config.feishu_app_id,
-        app_secret: config.feishu_app_secret,
+        app_id: global.customEnv.FEISHU_APP_ID!,
+        app_secret: global.customEnv.FEISHU_APP_SECRET!,
       }),
     },
   );

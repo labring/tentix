@@ -2,12 +2,11 @@
 
 A FastGPT-powered AI customer service platform with 10x accelerated resolution.
 
-* 🚀 10x Faster Response Speed
-* 🤖 10x Reduced Human Intervention  
-* 😊 10x Improved User Satisfaction
+- 🚀 10x Faster Response Speed
+- 🤖 10x Reduced Human Intervention
+- 😊 10x Improved User Satisfaction
 
 ![image](https://github.com/user-attachments/assets/798dbbd3-4b78-4412-bf69-fda27f12d128)
-
 
 ## 📋 Table of Contents
 
@@ -38,6 +37,7 @@ Tentix is a modern AI-driven customer service system built with Monorepo archite
 ## 🛠 Tech Stack
 
 ### Frontend Tech Stack
+
 - **Framework**: React 19 + TypeScript
 - **Build Tool**: Vite 6.1
 - **Routing**: TanStack Router
@@ -47,6 +47,7 @@ Tentix is a modern AI-driven customer service system built with Monorepo archite
 - **Code Highlighting**: React Syntax Highlighter
 
 ### Backend Tech Stack
+
 - **Runtime**: Bun
 - **Framework**: Hono 4.7
 - **Database**: PostgreSQL + Drizzle ORM
@@ -56,6 +57,7 @@ Tentix is a modern AI-driven customer service system built with Monorepo archite
 - **Rate Limiting**: Hono Rate Limiter
 
 ### Development Tools
+
 - **Monorepo**: Turborepo
 - **Package Manager**: Bun
 - **Code Standards**: ESLint + Prettier
@@ -116,29 +118,34 @@ This Monorepo can only use Bun as the package manager.
 ### Environment Configuration
 
 1. Generate encryption key:
+
 ```bash
 cd server
 bun run script/getCryptoKey.ts
 ```
 
 2. Copy configuration file template:
+
 ```bash
 cp server/config.template.json server/config.dev.json
 ```
 
 3. Configure environment variables:
+
 ```bash
 cp .env.example .env.local
 # Add the generated encryption key to .env.local
 ```
 
 4. Initialize database:
+
 ```bash
 cd server
 bun run script/initDB.ts
 ```
 
 5. (Optional) Generate seed data for development:
+
 ```bash
 cd server
 bun run seed
@@ -181,9 +188,8 @@ bun run seed             # Database seed data
 
 # Database utility scripts
 bun run script/getCryptoKey.ts      # Generate encryption keys
-bun run script/initDB.ts            # Initialize database with users
 bun run script/resetDB.ts           # Reset database completely
-bun run script/migrateStaffList.ts  # Migrate staff from Feishu
+bun run script/seed.ts  # Generate seed data for development and testing
 
 # Helpful Bash Command
 rm -rf ./**/turbo ./**/node_modules ./**/output ./**/dist
@@ -427,5 +433,3 @@ If you encounter problems or have questions:
 ---
 
 **Happy Coding! 🎉**
-
-

@@ -1,16 +1,12 @@
 import * as schema from "@/db/schema";
 import { logInfo } from "@/utils";
 import { importKeyFromString } from "@/utils/crypto";
-import { readConfig } from "@/utils/env";
 import { connectDB } from "@/utils/tools";
 import { and, count, eq, gte, lt } from "drizzle-orm";
 import i18next from "i18next";
 import { translations } from "i18n";
 
 export async function initGlobalVariables() {
-  if (!global.config) {
-    await readConfig();
-  }
   if (!global.cryptoKey) {
     if (!global.customEnv.ENCRYPTION_KEY) {
       throw new Error("ENCRYPTION_KEY is not set");
@@ -100,13 +96,6 @@ export function incrementTodayTicketCount() {
   return global.todayTicketCount;
 }
 
-function getDepartment(uid: `on_${string}`) {
-  return (
-    global.config!.departments.find((d) => d.members.includes(uid))?.name ||
-    "Unknown"
-  );
-}
-
 export async function refreshStaffMap(stale: boolean = false) {
   if (
     global.staffMap === undefined ||
@@ -137,7 +126,6 @@ export async function refreshStaffMap(stale: boolean = false) {
       role: staff.role,
       feishuUnionId: staff.feishuUnionId as `on_${string}`,
       feishuOpenId: staff.feishuOpenId as `ou_${string}`,
-      department: getDepartment(staff.feishuUnionId as `on_${string}`),
     }));
 
     const technicians = (
@@ -168,7 +156,6 @@ export async function refreshStaffMap(stale: boolean = false) {
       role: staff.role,
       feishuUnionId: staff.feishuUnionId as `on_${string}`,
       feishuOpenId: staff.feishuOpenId as `ou_${string}`,
-      department: getDepartment(staff.feishuUnionId as `on_${string}`),
     }));
 
     const staffs = agents.concat(technicians);

@@ -7,6 +7,7 @@ import {
   ticketHistory,
   ticketsTags,
   users,
+  userIdentities,
   userSession,
   requirements,
   techniciansToTickets,
@@ -97,6 +98,9 @@ export const usersRelations = relations(users, ({ many }) => ({
   handoffRecordsAsAgent: many(handoffRecords, {
     relationName: "handoff_agent",
   }),
+
+  // User identities relation
+  identities: many(userIdentities),
 }));
 
 export const techniciansToTicketsRelations = relations(
@@ -289,5 +293,13 @@ export const handoffRecordsRelations = relations(handoffRecords, ({ one }) => ({
     fields: [handoffRecords.assignedAgentId],
     references: [users.id],
     relationName: "handoff_agent",
+  }),
+}));
+
+// User identities relations
+export const userIdentitiesRelations = relations(userIdentities, ({ one }) => ({
+  user: one(users, {
+    fields: [userIdentities.userId],
+    references: [users.id],
   }),
 }));
