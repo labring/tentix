@@ -1,5 +1,7 @@
 # Tentix = Ten (10x Efficiency) Tix (Ticket System)
 
+[English](README.md) | [中文](README.zh-CN.md)
+
 A FastGPT-powered AI customer service platform with 10x accelerated resolution.
 
 * 🚀 10x Faster Response Speed
