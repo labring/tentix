@@ -1,6 +1,6 @@
 import "./styles/index.css";
 
-import { Editor, EditorContent } from "@tiptap/react";
+import { Editor, EditorContent, type Content } from "@tiptap/react";
 import { forwardRef, useImperativeHandle } from "react";
 import { cn } from "uisrc/lib/utils.ts";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
@@ -40,6 +40,7 @@ export const UserChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
       clearContent: () => {
         editor?.commands.clearContent();
       },
+      getJSON: () => (editor?.getJSON() ?? { type: "doc", content: [] }) as Content,
     }));
 
     if (!editor) {

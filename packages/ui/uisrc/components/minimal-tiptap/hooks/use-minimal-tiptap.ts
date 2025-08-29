@@ -38,6 +38,7 @@ export interface UseMinimalTiptapEditorProps extends UseEditorOptions {
   enablePerformanceMode?: boolean;
   isSSR?: boolean;
   editorProps?: any;
+  extensions?: any[];
 }
 
 type FileUploadErrorReason =
@@ -56,6 +57,7 @@ const fileUploadErrorMapping: Record<FileUploadErrorReason, string> = {
 const createExtensions = (
   placeholder: string,
   toast: (...args: any[]) => void,
+  customExtensions: any[] = [],
 ) => [
   StarterKit.configure({
     horizontalRule: false,
@@ -165,6 +167,7 @@ const createExtensions = (
   HorizontalRule,
   CodeBlockLowlight,
   Placeholder.configure({ placeholder: () => placeholder }),
+  ...customExtensions,
 ];
 
 export const useMinimalTiptapEditor = ({
@@ -178,6 +181,7 @@ export const useMinimalTiptapEditor = ({
   enablePerformanceMode = true,
   isSSR = false,
   editorProps: externalEditorProps,
+  extensions: customExtensions = [],
   ...props
 }: UseMinimalTiptapEditorProps) => {
   const { toast } = useToast();
@@ -242,7 +246,7 @@ export const useMinimalTiptapEditor = ({
     };
 
     const baseConfig: UseEditorOptions = {
-      extensions: createExtensions(placeholder, toast),
+      extensions: createExtensions(placeholder, toast, customExtensions),
       editorProps: mergedEditorProps, // 🔥 使用合并后的 editorProps
       onUpdate: ({ editor }: { editor: Editor }) => handleUpdate(editor),
       onCreate: ({ editor }: { editor: Editor }) => handleCreate(editor),
@@ -269,6 +273,7 @@ export const useMinimalTiptapEditor = ({
   }, [
     placeholder,
     toast,
+    customExtensions,
     enablePerformanceMode,
     isSSR,
     editorClassName,

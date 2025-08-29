@@ -12,6 +12,7 @@ import { logWarning } from "@/utils/log";
 import { OPENAI_CONFIG } from "./config";
 import { getAbbreviatedText, type JSONContentZod } from "../types";
 import { basicUserCols } from "../../api/queryParams.ts";
+import { getTextWithImageInfo, extractImageUrls } from "./tools";
 
 function truncateString(input: string, maxLen: number): string {
   if (!input) return "";
@@ -26,11 +27,21 @@ function normalizeWhitespace(input: string): string {
     .trim();
 }
 
+// 获取消息的纯文本内容（用于知识库构建）
+function getTextContent(content: JSONContentZod, maxLength: number): string {
+  const text = getTextWithImageInfo(content);
+  return getAbbreviatedText(
+    { type: "text", text } as JSONContentZod,
+    maxLength,
+  );
+}
+
 /*
 1. [2025-08-14 09:31:22] 用户: 我这边登录报错，提示 Token 失效...
 2. [2025-08-14 09:32:05] 客服: 请确认本地时间是否正确，并尝试重新获取登录二维码...
 3. [2025-08-14 09:33:47] 技术: 我们刚发布了修复补丁，请刷新页面后重试...
 4. [2025-08-14 09:34:10] AI: 根据历史案例，若仍失败，可尝试清理浏览器缓存后再登录...
+5. [2025-08-14 09:35:22] 用户: 还是报错,内容如图所示，[图片: https://xxxx.com/xx.png]
 */
 function formatMessagesForAI(
   msgs: Array<{
@@ -60,7 +71,7 @@ function formatMessagesForAI(
     .map((m) => {
       const role = roleLabel(m?.sender?.role ?? undefined, m?.senderId);
       const text = truncateString(
-        normalizeWhitespace(getAbbreviatedText(m.content, perMessageMax)),
+        normalizeWhitespace(getTextContent(m.content, perMessageMax)),
         perMessageMax,
       );
       const ts = m?.createdAt
@@ -77,35 +88,70 @@ function formatMessagesForAI(
 }
 
 function splitIntoChunks(text: string, max = 1200): string[] {
-  // 优先按空行分段，再在过长的段内做二次切分，尽量避免语义被截断
+  // 1) 先按空行分段
   const paras = text.split(/\n{2,}/);
   const chunks: string[] = [];
   let buf = "";
+  const pushBuf = () => {
+    if (buf.trim()) chunks.push(buf.trim());
+    buf = "";
+  };
+  const tryAppend = (piece: string) => {
+    const cand = buf ? `${buf}\n\n${piece}` : piece;
+    if (cand.length <= max) {
+      buf = cand;
+      return true;
+    }
+    return false;
+  };
   for (const p of paras) {
-    const candidate = buf ? `${buf}\n\n${p}` : p;
-    if (candidate.length > max) {
-      if (buf) chunks.push(buf);
-      // 对超长段落按句号/换行进行二次切分
-      const parts = p.split(/(?<=[。.!?])\s+|\n+/);
-      let local = "";
-      for (const part of parts) {
-        const cand2 = local ? `${local} ${part}` : part;
-        if (cand2.length > max) {
-          if (local) chunks.push(local);
-          local = part;
-        } else {
-          local = cand2;
+    if (tryAppend(p)) continue;
+    // 2) 过长段落：按句号/问号/感叹号等切
+    const sentences = p.split(/(?<=[。！？!?.])\s+|\n+/);
+    let local = "";
+    const flushLocal = () => {
+      if (local.trim()) {
+        if (!tryAppend(local)) {
+          // 3) 句子仍然过长：再按字符硬切
+          for (let i = 0; i < local.length; i += max) {
+            const slice = local.slice(i, i + max);
+            if (!tryAppend(slice)) {
+              pushBuf();
+              buf = slice;
+            }
+          }
         }
       }
-      if (local) chunks.push(local);
-      buf = "";
-    } else {
-      buf = candidate;
+      local = "";
+    };
+    for (const s of sentences) {
+      const next = local ? `${local} ${s}` : s;
+      if (next.length > max) {
+        flushLocal();
+        local = s;
+      } else {
+        local = next;
+      }
     }
+    flushLocal();
   }
-  if (buf) chunks.push(buf);
+  pushBuf();
   return chunks;
 }
+
+const schema = z.object({
+  problem_summary: z.string().describe("用户问题的简要中文概括"),
+  solution_steps: z
+    .array(z.string())
+    .describe("为解决该问题采取的关键步骤，按顺序给出"),
+  generated_queries: z
+    .array(z.string())
+    .describe("适合用来检索知识库的查询词或关键词"),
+  tags: z
+    .array(z.string())
+    .default([])
+    .describe("该问题的主题标签，3-8 个中文或英文关键词"),
+});
 
 export class KnowledgeBuilderService {
   private externalProvider?: VectorStore;
@@ -170,7 +216,7 @@ export class KnowledgeBuilderService {
       },
     );
 
-    const ticketDesc = getAbbreviatedText(t.description, 2000);
+    const ticketDesc = getTextContent(t.description as JSONContentZod, 2000);
     const safeTitle = truncateString(t.title ?? "", 500);
     // AI 增强摘要（用于构建高信息密度的知识内容）
     let problem_summary = "",
@@ -186,24 +232,48 @@ export class KnowledgeBuilderService {
         },
       });
 
-      const schema = z.object({
-        problem_summary: z.string().describe("用户问题的简要中文概括"),
-        solution_steps: z
-          .array(z.string())
-          .describe("为解决该问题采取的关键步骤，按顺序给出"),
-        generated_queries: z
-          .array(z.string())
-          .describe("适合用来检索知识库的查询词或关键词"),
-        tags: z
-          .array(z.string())
-          .default([])
-          .describe("该问题的主题标签，3-8 个中文或英文关键词"),
-      });
-
       const structured = model.withStructuredOutput(schema);
-      const j = await structured.invoke(
-        `阅读以下客服工单的基本信息和对话内容，输出严格符合模式的 JSON（不要额外解释）：{ "problem_summary": string, "solution_steps": string[], "generated_queries": string[], "tags": string[] }\n\n工单信息：\n- 标题: ${safeTitle}\n- 描述: ${ticketDesc}\n- 分类: ${t.category}\n- 模块: ${t.module}\n\n对话记录（按时间排序）：\n${joined}`,
+
+      // 构建多模态消息，包含工单描述和历史对话中的图片
+      const ticketDescImages = extractImageUrls(
+        t.description as JSONContentZod,
       );
+
+      // 提取历史对话中的所有图片
+      const conversationImages: string[] = [];
+      for (const m of msgs) {
+        if (m && m.content) {
+          const msgImages = extractImageUrls(m.content as JSONContentZod);
+          conversationImages.push(...msgImages);
+        }
+      }
+
+      const promptText = `阅读以下客服工单的基本信息和对话内容，输出严格符合模式的 JSON（不要额外解释）：{ "problem_summary": string, "solution_steps": string[], "generated_queries": string[], "tags": string[] }\n\n工单信息：\n- 标题: ${safeTitle}\n- 描述: ${ticketDesc}\n- 分类: ${t.category}\n- 模块: ${t.module}\n\n对话记录（按时间排序）：\n${joined}`;
+
+      // 收集所有图片
+      const allImages = [...ticketDescImages, ...conversationImages];
+
+      let summaryInput;
+      if (allImages.length > 0) {
+        // 如果有图片，构建多模态消息（正确的 LangChain 消息格式）
+        summaryInput = [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: promptText },
+              ...allImages.map((url) => ({
+                type: "image_url",
+                image_url: { url },
+              })),
+            ],
+          },
+        ];
+      } else {
+        // 否则使用纯文本
+        summaryInput = promptText;
+      }
+
+      const j = await structured.invoke(summaryInput);
 
       problem_summary = j.problem_summary ?? "";
       solution_steps = j.solution_steps ?? [];

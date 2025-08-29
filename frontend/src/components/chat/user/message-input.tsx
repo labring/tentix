@@ -55,57 +55,60 @@ const isLocalFileNode = (node: any): boolean => {
 // 检查内容节点是否有实际内容 - 支持所有TipTap节点类型
 const hasNodeContent = (node: any): boolean => {
   if (!node || !node.type) return false;
-  
+
   // 段落：检查是否有内容
   if (node.type === "paragraph" && node.content) {
     return node.content.length > 0;
   }
-  
+
   // 标题：有内容就算有效（支持h1-h6）
   if (node.type === "heading" && node.content) {
     return node.content.length > 0;
   }
-  
+
   // 列表：有列表项就算有效
-  if ((node.type === "orderedList" || node.type === "bulletList") && node.content) {
+  if (
+    (node.type === "orderedList" || node.type === "bulletList") &&
+    node.content
+  ) {
     return node.content.length > 0;
   }
-  
+
   // 列表项：有内容就算有效
   if (node.type === "listItem" && node.content) {
     return node.content.length > 0;
   }
-  
+
   // 引用块：有内容就算有效
   if (node.type === "blockquote" && node.content) {
     return node.content.length > 0;
   }
-  
+
   // 代码块：直接算作有内容（即使空的也可以发送）
   if (node.type === "codeBlock") {
     return true;
   }
-  
+
   // 水平线：直接算作有内容
   if (node.type === "horizontalRule") {
     return true;
   }
-  
+
   // 图片和媒体文件：直接算作有内容
   if (node.type === "image") {
     return true;
   }
-  
+
   // 硬换行：直接算作有内容
   if (node.type === "hardBreak") {
     return true;
   }
-  
+
   // 文本节点：检查是否有文本内容
   if (node.type === "text" && node.text) {
     return node.text.trim().length > 0;
   }
-  
+
   return false;
 };
 
@@ -149,21 +152,13 @@ export function MessageInput({
     [],
   );
 
-  // 使用 useMemo 优化文件统计计算
-  const fileStats = useMemo(
-    () => analyzeFileContent(newMessage),
-    [newMessage, analyzeFileContent],
-  );
-
-  // 检查消息是否有实际内容可发送
-  const hasMessageContent = useMemo(() => {
-    return newMessage?.content?.some(hasNodeContent) || false;
-  }, [newMessage]);
-
   // 显示错误提示
   const showErrorToast = useCallback(
     (error: unknown) => {
-      const message = getErrorMessage(error, t("unknown_error_sending_message"));
+      const message = getErrorMessage(
+        error,
+        t("unknown_error_sending_message"),
+      );
       toast({
         title: t("send_failed"),
         description: message,
@@ -197,47 +192,47 @@ export function MessageInput({
     [],
   );
 
-  // 处理消息提交
+  // 处理消息提交（从编辑器读取最新内容，避免节流/合成态导致的旧值）
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
 
-      if (!newMessage || isLoading || !hasMessageContent) {
-        return;
-      }
+      if (isLoading) return;
+
+      // 始终以编辑器中的最新 JSON 为准，避免因为 onUpdate 节流导致的旧值
+      const latestContent =
+        (editorRef.current?.getJSON?.() as JSONContentZod | undefined) ||
+        newMessage;
+
+      const hasCurrentMessageContent =
+        latestContent?.content?.some(hasNodeContent) || false;
+      if (!hasCurrentMessageContent) return;
 
       try {
-        let contentToSend = newMessage;
-        // TODO: 添加消息发送中状态，用于控制 button 的 disabled 状态 和 enter 键的触发
+        let contentToSend = latestContent;
 
-        // 如果有文件需要上传，先处理上传
-        if (fileStats.hasFiles) {
-          contentToSend = await handleFileUpload(newMessage);
+        // 如果有文件需要上传，先处理上传（基于最新内容重新统计）
+        const currentFileStats = analyzeFileContent(latestContent);
+        if (currentFileStats.hasFiles) {
+          contentToSend = await handleFileUpload(latestContent);
         }
 
-        // 等待消息发送完成
         await onSendMessage(contentToSend);
-
-        // 只有发送成功后才清理编辑器
         clearEditor();
       } catch (error) {
         console.error("发送消息失败:", error);
         setUploadProgress(null);
         showErrorToast(error);
-
-        // 发送失败时不清理编辑器，让用户可以重试
-        // 编辑器内容保持不变，用户可以再次尝试发送
       }
     },
     [
-      newMessage,
       isLoading,
-      hasMessageContent,
-      fileStats,
+      analyzeFileContent,
       handleFileUpload,
       onSendMessage,
       clearEditor,
       showErrorToast,
+      newMessage,
     ],
   );
 
@@ -252,6 +247,10 @@ export function MessageInput({
           !event.metaKey &&
           !event.ctrlKey
         ) {
+          // 如果处于输入法合成阶段，交给 IME 处理，避免截获确认键
+          if (event.isComposing || event.keyCode === 229) {
+            return false;
+          }
           event.preventDefault();
           handleSubmit();
           return true; // 告诉 TipTap 事件已处理
@@ -262,10 +261,14 @@ export function MessageInput({
     [handleSubmit],
   );
 
-  // 检查是否可以发送消息
+  // 检查是否可以发送消息（基于编辑器的最新内容，避免节流带来的滞后）
   const canSend = useMemo(() => {
-    return !isLoading && !uploadProgress && hasMessageContent;
-  }, [isLoading, uploadProgress, hasMessageContent]);
+    const latestContent =
+      (editorRef.current?.getJSON?.() as JSONContentZod | undefined) ||
+      newMessage;
+    const hasContent = latestContent?.content?.some(hasNodeContent) || false;
+    return !isLoading && !uploadProgress && hasContent;
+  }, [isLoading, uploadProgress, newMessage]);
 
   // 计算上传进度条高度（用于动态调整布局）
   const progressBarHeight = uploadProgress ? 60 : 0; // 根据实际高度调整
@@ -332,7 +335,7 @@ export function MessageInput({
               onTyping?.();
               setNewMessage(value as JSONContentZod);
             }}
-            throttleDelay={500}
+            throttleDelay={150}
             editorContentClassName="overflow-auto h-full"
             placeholder={t("enter_message")}
             editable={!isUploading}

@@ -18,6 +18,7 @@ import {
   PriorityBadge,
 } from "tentix-ui";
 import { TruncateWithTooltip } from "@comp/common/truncate-with-tooltip";
+import { CopyableTruncate } from "@comp/common/copyable-truncate";
 import type { TFunction } from "i18next";
 
 // Custom status display function
@@ -126,7 +127,10 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("name")}
               </div>
-              <TruncateWithTooltip className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5" maxWidth={100}>
+              <TruncateWithTooltip
+                className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
+                maxWidth={100}
+              >
                 {customer.name}
               </TruncateWithTooltip>
 
@@ -134,16 +138,24 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("sealos_id")}
               </div>
-              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+              <CopyableTruncate
+                copyText={customer.sealosId}
+                className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
+                maxWidth={100}
+              >
                 {customer.sealosId}
-              </div>
+              </CopyableTruncate>
               {/* Region */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("area")}
               </div>
-              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
-                {ticket.area}
-              </div>
+              <CopyableTruncate
+                copyText={ticket.sealosNamespace}
+                className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
+                maxWidth={100}
+              >
+                {`${ticket.area}/${ticket.sealosNamespace}`}
+              </CopyableTruncate>
             </div>
           </div>
 
@@ -171,9 +183,13 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("ticket_id")}
               </div>
-              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+              <CopyableTruncate
+                copyText={ticket.id}
+                className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
+                maxWidth={100}
+              >
                 {ticket.id}
-              </div>
+              </CopyableTruncate>
 
               {/* priority */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">

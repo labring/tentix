@@ -31,6 +31,8 @@ import {
   feedbackTypeEnumArray,
   dislikeReasonEnumArray,
   syncStatusEnumArray,
+  handoffPriorityEnumArray,
+  sentimentLabelEnumArray,
 } from "../utils/const.ts";
 import { myNanoId } from "../utils/runtime.ts";
 export const tentix = pgSchema("tentix");
@@ -59,6 +61,15 @@ export const dislikeReason = tentix.enum(
   dislikeReasonEnumArray,
 );
 export const syncStatus = tentix.enum("sync_status", syncStatusEnumArray);
+
+export const handoffPriority = tentix.enum(
+  "handoff_priority",
+  handoffPriorityEnumArray,
+);
+export const sentimentLabel = tentix.enum(
+  "sentiment_label",
+  sentimentLabelEnumArray,
+);
 
 // Core tables with no dependencies
 export const users = tentix.table(
@@ -616,5 +627,57 @@ export const historyConversationKnowledge = tentix.table(
     index("idx_history_conversation_knowledge_created_at").on(
       table.createdAt.desc(),
     ),
+  ],
+);
+
+export const handoffRecords = tentix.table(
+  "handoff_records",
+  {
+    id: serial("id").primaryKey().notNull(),
+    ticketId: char("ticket_id", { length: 13 })
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+
+    // 转人工信息
+    handoffReason: text("handoff_reason").notNull(),
+    priority: handoffPriority("priority").default("P2").notNull(),
+    sentiment: sentimentLabel("sentiment").default("NEUTRAL").notNull(),
+
+    // 用户查询
+    userQuery: text("user_query").default("").notNull(),
+
+    // 相关用户
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => users.id),
+    assignedAgentId: integer("assigned_agent_id").references(() => users.id), // 分配的客服
+
+    // 通知状态
+    notificationSent: boolean("notification_sent").default(false).notNull(),
+    notificationError: text("notification_error"),
+
+    // 时间戳
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    assignedAt: timestamp("assigned_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    }),
+  },
+  (table) => [
+    // 同一工单只能有一条转人工记录
+    unique("handoff_records_unique").on(table.ticketId),
+    // 优先级查询
+    index("idx_handoff_priority").on(table.priority),
+    // 时间排序
+    index("idx_handoff_created").on(table.createdAt.desc()),
+    // 客服查询
+    index("idx_handoff_agent").on(table.assignedAgentId),
   ],
 );

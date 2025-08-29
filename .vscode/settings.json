@@ -17,10 +17,12 @@
     "Hnsw",
     "langchain",
     "langgraph",
+    "newticket",
     "prty",
     "sealos",
     "Tentix",
     "uisrc",
-    "uncategorized"
+    "uncategorized",
+    "wechat"
   ]
 }

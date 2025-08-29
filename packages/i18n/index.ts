@@ -74,6 +74,8 @@ export const translations = {
       error: "Error",
       cancel: "Cancel",
       confirm: "Confirm",
+      copied: "Copied",
+      copy_failed: "Failed to copy",
 
       // Update Status Modal
       update_status_title: "Update Ticket Status",
@@ -277,6 +279,13 @@ export const translations = {
       send_message: "Send message",
       enter_message: "Enter message...",
       selected_count: "Selected: {{count}}",
+
+      // File upload and error messages
+      file_upload_failed: "File upload failed",
+      file_upload_error: "An error occurred during file upload",
+      uploading_files: "Uploading files {{uploaded}}/{{total}}",
+      unknown_submit_error: "An unknown error occurred during submission",
+      history_navigation_failed: "History navigation failed, falling back to default route",
     },
   },
   zh: {
@@ -351,6 +360,8 @@ export const translations = {
       error: "错误",
       cancel: "取消",
       confirm: "确定",
+      copied: "已复制",
+      copy_failed: "复制失败",
 
       // Update Status Modal
       update_status_title: "更新工单状态",
@@ -545,6 +556,13 @@ export const translations = {
       send_message: "发送消息",
       enter_message: "输入消息...",
       selected_count: "已选：{{count}}",
+
+      // File upload and error messages
+      file_upload_failed: "文件上传失败",
+      file_upload_error: "文件上传时出现错误",
+      uploading_files: "正在上传文件 {{uploaded}}/{{total}}",
+      unknown_submit_error: "提交时出现未知错误",
+      history_navigation_failed: "历史导航失败，回退到默认路由",
     },
   },
 };

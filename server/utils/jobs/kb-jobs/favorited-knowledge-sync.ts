@@ -2,8 +2,9 @@ import { Cron } from "croner";
 import { connectDB } from "@/utils/tools";
 import { countProcessing, claimNextBatch } from "./favoritedKnowledgeRepo";
 import { emit, Events } from "./bus";
-import { logInfo, logWarning } from "@/utils/log";
+import { logWarning } from "@/utils/log";
 
+// TODO: 将收藏对话知识库建立转为 事件发送模式，而不是定时器任务模式
 export const SCHEDULER = {
   // 轮询间隔（秒）。默认 5s：兼顾实时性与资源占用
   INTERVAL_SEC: Number(global.customEnv.KB_SYNC_INTERVAL_SEC ?? 5),
