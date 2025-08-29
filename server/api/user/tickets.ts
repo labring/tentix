@@ -1,5 +1,4 @@
 import { connectDB, getAbbreviatedText } from "@/utils/index.ts";
-import { zs } from "@/utils/tools.ts";
 import * as schema from "@db/schema.ts";
 import {
   and,
@@ -18,7 +17,6 @@ import {
 } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
-import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import "zod-openapi/extend";
 import { Hono } from "hono";
@@ -800,288 +798,245 @@ async function getTicketStats(userId: number, role: string) {
 
   return [];
 }
-const ticketsRouter = new Hono<AuthEnv>()
-  .get(
-    "/getTickets",
-    describeRoute({
-      description: "Get self info",
-      tags: ["User"],
-      responses: {
-        200: {
-          description: "Self info",
-          content: {
-            "application/json": {
-              schema: resolver(zs.users),
-            },
-          },
-        },
-      },
-    }),
-    async (c) => {
-      const db = c.get("db");
-      const userId = c.var.userId;
-      const [user] = await db
-        .select({
-          id: schema.users.id,
-          name: schema.users.name,
-          nickname: schema.users.nickname,
-          avatar: schema.users.avatar,
-          role: schema.users.role,
-          email: schema.users.email,
-          sealosId: schema.users.sealosId,
-          registerTime: schema.users.registerTime,
-          level: schema.users.level,
-        })
-        .from(schema.users)
-        .where(eq(schema.users.id, userId));
-      if (!user) {
-        throw new HTTPException(404, {
-          message: "User not found",
-        });
-      }
-      return c.json({ ...user });
-    },
-  )
-  .get(
-    "/getTickets",
-    describeRoute({
-      description:
-        "Get all tickets for a user with customer info and last message. Supports page-based pagination and search by keyword (ID/title) and status filtering.",
-      tags: ["User", "Ticket"],
-      responses: {
-        200: {
-          description: "All tickets with related information and pagination.",
-          content: {
-            "application/json": {
-              schema: resolver(
-                z.object({
-                  tickets: z.array(userTicketSchema),
-                  totalCount: z.number().openapi({
-                    description: "Total number of tickets",
-                  }),
-                  totalPages: z.number().openapi({
-                    description: "Total number of pages",
-                  }),
-                  currentPage: z.number().openapi({
-                    description: "Current page number",
-                  }),
-                  stats: z.array(
-                    z
-                      .object({
-                        status: z.string(),
-                        count: z.number(),
-                      })
-                      .openapi({
-                        description: "Statistics of ticket counts by status",
-                      }),
-                  ),
+const ticketsRouter = new Hono<AuthEnv>().get(
+  "/getTickets",
+  describeRoute({
+    description:
+      "Get all tickets for a user with customer info and last message. Supports page-based pagination and search by keyword (ID/title) and status filtering.",
+    tags: ["User", "Ticket"],
+    responses: {
+      200: {
+        description: "All tickets with related information and pagination.",
+        content: {
+          "application/json": {
+            schema: resolver(
+              z.object({
+                tickets: z.array(userTicketSchema),
+                totalCount: z.number().openapi({
+                  description: "Total number of tickets",
                 }),
-              ),
-            },
+                totalPages: z.number().openapi({
+                  description: "Total number of pages",
+                }),
+                currentPage: z.number().openapi({
+                  description: "Current page number",
+                }),
+                stats: z.array(
+                  z
+                    .object({
+                      status: z.string(),
+                      count: z.number(),
+                    })
+                    .openapi({
+                      description: "Statistics of ticket counts by status",
+                    }),
+                ),
+              }),
+            ),
           },
         },
       },
-    }),
-    zValidator(
-      "query",
-      z.object({
-        page: z
-          .string()
-          .optional()
-          .default("1")
-          .transform((val) => {
-            const num = parseInt(val, 10);
-            return isNaN(num) || num <= 0 ? 1 : num;
-          })
-          .openapi({
-            description: "Page number, starting from 1",
-          }),
-        pageSize: z
-          .string()
-          .optional()
-          .default("20")
-          .transform((val) => {
-            const num = parseInt(val, 10);
-            return isNaN(num) || num <= 0 || num > 100 ? 20 : num;
-          })
-          .openapi({
-            description: "Number of records returned per page (1-100)",
-          }),
-        keyword: z.string().optional().openapi({
-          description: "Search keyword to match ticket ID or title",
-        }),
-        readStatus: z.enum(["read", "unread"]).optional().openapi({
-          description:
-            "根据已读/未读状态筛选工单。'read' 为已读，'unread' 为未读。",
-        }),
-        pending: z
-          .string()
-          .optional()
-          .transform((val) => val === "true")
-          .openapi({
-            description: "Include pending tickets",
-          }),
-        in_progress: z
-          .string()
-          .optional()
-          .transform((val) => val === "true")
-          .openapi({
-            description: "Include in_progress tickets",
-          }),
-        resolved: z
-          .string()
-          .optional()
-          .transform((val) => val === "true")
-          .openapi({
-            description: "Include resolved tickets",
-          }),
-        scheduled: z
-          .string()
-          .optional()
-          .transform((val) => val === "true")
-          .openapi({
-            description: "Include scheduled tickets",
-          }),
-        createdAt_start: z
-          .string()
-          .datetime({ message: "Invalid datetime format" })
-          .optional()
-          .openapi({
-            description:
-              "Filter tickets created after this timestamp (inclusive)",
-          }),
-        createdAt_end: z
-          .string()
-          .datetime({ message: "Invalid datetime format" })
-          .optional()
-          .openapi({
-            description:
-              "Filter tickets created before this timestamp (inclusive)",
-          }),
-        module: z.enum(moduleEnumArray).optional().openapi({
-          description: "Filter tickets by module",
-        }),
-        allTicket: z
-          .string()
-          .optional()
-          .transform((val) => val === "true")
-          .openapi({
-            description:
-              "Get all tickets (only for technician and agent roles)",
-          }),
-      }),
-    ),
-    async (c) => {
-      const userId = c.var.userId;
-      const role = c.var.role;
-      const {
-        page,
-        pageSize,
-        keyword,
-        readStatus,
-        pending,
-        in_progress,
-        resolved,
-        scheduled,
-        createdAt_start,
-        createdAt_end,
-        module,
-        allTicket,
-      } = c.req.valid("query");
-
-      const selectedStatuses: TicketStatus[] = [];
-      if (pending) selectedStatuses.push("pending");
-      if (in_progress) selectedStatuses.push("in_progress");
-      if (resolved) selectedStatuses.push("resolved");
-      if (scheduled) selectedStatuses.push("scheduled");
-
-      let ticketsResult;
-      let stats;
-
-      // 如果是 allTicket 模式，且用户是 technician 或 agent
-      if (allTicket && (role === "technician" || role === "agent")) {
-        // readStatus 参数优先级更高，如果提供了 readStatus，则使用它进行过滤
-        const [ticketsData, statsData] = await Promise.all([
-          getAllTickets(
-            page,
-            pageSize,
-            keyword,
-            selectedStatuses.length > 0 ? selectedStatuses : undefined,
-            readStatus, // 使用 readStatus 过滤
-            createdAt_start,
-            createdAt_end,
-            module,
-          ),
-          // 获取全局统计
-          (async () => {
-            const db = connectDB();
-            return await db
-              .select({
-                status: schema.tickets.status,
-                count: count().as("count"),
-              })
-              .from(schema.tickets)
-              .groupBy(schema.tickets.status);
-          })(),
-        ]);
-        ticketsResult = ticketsData;
-        stats = statsData;
-      } else {
-        // 正常的角色基础查询
-        const [ticketsData, statsData] = await Promise.all([
-          (async () => {
-            switch (role) {
-              case "agent":
-                return getTicketsForAgent(
-                  userId,
-                  page,
-                  pageSize,
-                  keyword,
-                  selectedStatuses.length > 0 ? selectedStatuses : undefined,
-                  readStatus,
-                  createdAt_start,
-                  createdAt_end,
-                  module,
-                );
-              case "technician":
-                return getTicketsWithPagination(
-                  userId,
-                  "technician",
-                  page,
-                  pageSize,
-                  keyword,
-                  selectedStatuses.length > 0 ? selectedStatuses : undefined,
-                  readStatus,
-                  createdAt_start,
-                  createdAt_end,
-                  module,
-                );
-              default: // customer
-                return getTicketsWithPagination(
-                  userId,
-                  "customer",
-                  page,
-                  pageSize,
-                  keyword,
-                  selectedStatuses.length > 0 ? selectedStatuses : undefined,
-                  readStatus,
-                  createdAt_start,
-                  createdAt_end,
-                  module,
-                );
-            }
-          })(),
-          getTicketStats(userId, role),
-        ]);
-        ticketsResult = ticketsData;
-        stats = statsData;
-      }
-
-      return c.json({
-        ...ticketsResult,
-        stats: stats || [],
-      });
     },
-  );
+  }),
+  zValidator(
+    "query",
+    z.object({
+      page: z
+        .string()
+        .optional()
+        .default("1")
+        .transform((val) => {
+          const num = parseInt(val, 10);
+          return isNaN(num) || num <= 0 ? 1 : num;
+        })
+        .openapi({
+          description: "Page number, starting from 1",
+        }),
+      pageSize: z
+        .string()
+        .optional()
+        .default("20")
+        .transform((val) => {
+          const num = parseInt(val, 10);
+          return isNaN(num) || num <= 0 || num > 100 ? 20 : num;
+        })
+        .openapi({
+          description: "Number of records returned per page (1-100)",
+        }),
+      keyword: z.string().optional().openapi({
+        description: "Search keyword to match ticket ID or title",
+      }),
+      readStatus: z.enum(["read", "unread"]).optional().openapi({
+        description:
+          "根据已读/未读状态筛选工单。'read' 为已读，'unread' 为未读。",
+      }),
+      pending: z
+        .string()
+        .optional()
+        .transform((val) => val === "true")
+        .openapi({
+          description: "Include pending tickets",
+        }),
+      in_progress: z
+        .string()
+        .optional()
+        .transform((val) => val === "true")
+        .openapi({
+          description: "Include in_progress tickets",
+        }),
+      resolved: z
+        .string()
+        .optional()
+        .transform((val) => val === "true")
+        .openapi({
+          description: "Include resolved tickets",
+        }),
+      scheduled: z
+        .string()
+        .optional()
+        .transform((val) => val === "true")
+        .openapi({
+          description: "Include scheduled tickets",
+        }),
+      createdAt_start: z
+        .string()
+        .datetime({ message: "Invalid datetime format" })
+        .optional()
+        .openapi({
+          description:
+            "Filter tickets created after this timestamp (inclusive)",
+        }),
+      createdAt_end: z
+        .string()
+        .datetime({ message: "Invalid datetime format" })
+        .optional()
+        .openapi({
+          description:
+            "Filter tickets created before this timestamp (inclusive)",
+        }),
+      module: z.enum(moduleEnumArray).optional().openapi({
+        description: "Filter tickets by module",
+      }),
+      allTicket: z
+        .string()
+        .optional()
+        .transform((val) => val === "true")
+        .openapi({
+          description: "Get all tickets (only for technician and agent roles)",
+        }),
+    }),
+  ),
+  async (c) => {
+    const userId = c.var.userId;
+    const role = c.var.role;
+    const {
+      page,
+      pageSize,
+      keyword,
+      readStatus,
+      pending,
+      in_progress,
+      resolved,
+      scheduled,
+      createdAt_start,
+      createdAt_end,
+      module,
+      allTicket,
+    } = c.req.valid("query");
+
+    const selectedStatuses: TicketStatus[] = [];
+    if (pending) selectedStatuses.push("pending");
+    if (in_progress) selectedStatuses.push("in_progress");
+    if (resolved) selectedStatuses.push("resolved");
+    if (scheduled) selectedStatuses.push("scheduled");
+
+    let ticketsResult;
+    let stats;
+
+    // 如果是 allTicket 模式，且用户是 technician 或 agent
+    if (allTicket && (role === "technician" || role === "agent")) {
+      // readStatus 参数优先级更高，如果提供了 readStatus，则使用它进行过滤
+      const [ticketsData, statsData] = await Promise.all([
+        getAllTickets(
+          page,
+          pageSize,
+          keyword,
+          selectedStatuses.length > 0 ? selectedStatuses : undefined,
+          readStatus, // 使用 readStatus 过滤
+          createdAt_start,
+          createdAt_end,
+          module,
+        ),
+        // 获取全局统计
+        (async () => {
+          const db = connectDB();
+          return await db
+            .select({
+              status: schema.tickets.status,
+              count: count().as("count"),
+            })
+            .from(schema.tickets)
+            .groupBy(schema.tickets.status);
+        })(),
+      ]);
+      ticketsResult = ticketsData;
+      stats = statsData;
+    } else {
+      // 正常的角色基础查询
+      const [ticketsData, statsData] = await Promise.all([
+        (async () => {
+          switch (role) {
+            case "agent":
+              return getTicketsForAgent(
+                userId,
+                page,
+                pageSize,
+                keyword,
+                selectedStatuses.length > 0 ? selectedStatuses : undefined,
+                readStatus,
+                createdAt_start,
+                createdAt_end,
+                module,
+              );
+            case "technician":
+              return getTicketsWithPagination(
+                userId,
+                "technician",
+                page,
+                pageSize,
+                keyword,
+                selectedStatuses.length > 0 ? selectedStatuses : undefined,
+                readStatus,
+                createdAt_start,
+                createdAt_end,
+                module,
+              );
+            default: // customer
+              return getTicketsWithPagination(
+                userId,
+                "customer",
+                page,
+                pageSize,
+                keyword,
+                selectedStatuses.length > 0 ? selectedStatuses : undefined,
+                readStatus,
+                createdAt_start,
+                createdAt_end,
+                module,
+              );
+          }
+        })(),
+        getTicketStats(userId, role),
+      ]);
+      ticketsResult = ticketsData;
+      stats = statsData;
+    }
+
+    return c.json({
+      ...ticketsResult,
+      stats: stats || [],
+    });
+  },
+);
 
 export { ticketsRouter };
