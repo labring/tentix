@@ -37,6 +37,7 @@ import NodeCache from "node-cache";
 import { z } from "zod";
 import { authMiddleware, factory } from "../middleware.ts";
 import { sendUnreadSSE, sendWsMessage, wsInstance } from "./tools.ts";
+import { optimizeRouter } from "./optimize.ts";
 
 const msgEmitter = new MessageEmitter();
 const roomEmitter = new RoomEmitter();
@@ -963,4 +964,7 @@ const chatRouter = factory
     },
   );
 
-export { websocket, chatRouter };
+// 注册optimize路由
+const chatRouterWithOptimize = chatRouter.route("/", optimizeRouter);
+
+export { websocket, chatRouter, chatRouterWithOptimize };

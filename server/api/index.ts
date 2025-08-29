@@ -19,6 +19,9 @@ import { startAllJobs } from "@/utils/jobs/kb-jobs/index.ts";
 import "@/utils/events/handoff/index.ts";
 import { kbRouter } from "./kb/index.ts";
 import { logInfo } from "@/utils/log.ts";
+import { optimizeRouter } from "./chat/optimize.ts";
+import { aiOrganizeRouter } from "./chat/organize-context.ts";
+import { getContextDataRouter } from "./chat/get-context-data.ts";
 
 const app = factory.createApp();
 
@@ -126,6 +129,9 @@ const routes = app // RPC routes
   .route("/ticket", ticketRouter)
   .route("/auth", authRouter)
   .route("/chat", chatRouter)
+  .route("/chat", optimizeRouter) 
+  .route("/chat", getContextDataRouter) 
+  .route("/chat", aiOrganizeRouter) 
   .route("/file", fileRouter)
   .route("/admin", adminRouter)
   .route("/feishu", feishuRouter)

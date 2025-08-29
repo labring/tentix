@@ -1,0 +1,21 @@
+{
+  "optimization_success": "优化成功",
+  "optimization_failed": "优化失败",
+  "optimization_undone": "已撤销优化",
+  "text_optimized_successfully": "文本已成功优化",
+  "failed_to_optimize_text": "文本优化失败，请重试",
+  "empty_text_cannot_optimize": "空文本无法优化",
+  "text_restored_to_original": "文本已恢复到原始状态",
+  "optimizing": "优化中...",
+  "confidence": "置信度",
+  "press_tab_to_optimize": "按Tab键优化文本",
+  "optimize_text": "优化文本",
+  "undo_optimization": "撤销优化",
+  "cancel_optimization": "取消优化",
+  "enable_tab_optimization": "启用Tab键优化",
+  "ai_optimizing_text": "AI正在优化文本...",
+  "text_optimization_completed": "文本优化完成",
+  "optimization_suggestions": "优化建议",
+  "no_text_to_optimize": "无法优化",
+  "please_enter_text_first": "请先输入一些文本"
+}

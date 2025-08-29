@@ -7,3 +7,5 @@ export * from "./selection/index.ts";
 export * from "./unset-all-marks/index.ts";
 export * from "./file-handler/index.ts";
 export * from "./shortcut/index.ts";
+export * from "./text-optimizer-extension.ts";
+

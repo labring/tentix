@@ -6,4 +6,6 @@ export * from './staff-chat-editor.tsx';
 export * from './user-chat-editor.tsx';
 export * from './types.ts';
 export * from './utils.ts';
+export * from './components/context-organizer-dialog.tsx';
+export * from './components/context-organizer-button.tsx';
 import './styles/index.css';
