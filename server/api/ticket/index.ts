@@ -171,9 +171,9 @@ const ticketRouter = factory
             // don't use destructuring, user input is not trusted
             title: payload.title,
             description: payload.description,
-            module: payload.module,
-            area: payload.area,
-            sealosNamespace: payload.sealosNamespace,
+            module: payload.module || "",
+            area: payload.area || "",
+            sealosNamespace: payload.sealosNamespace || "",
             occurrenceTime: payload.occurrenceTime,
             priority: payload.priority,
             customerId: userId,

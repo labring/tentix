@@ -32,7 +32,6 @@ import type { ticketInsertType, JSONContentZod } from "tentix-server/types";
 import {
   ticketPriorityEnumArray,
   moduleEnumArray,
-  areaEnumArray,
 } from "tentix-server/constants";
 import { ArrowLeftIcon, TriangleAlertIcon } from "lucide-react";
 import { processFilesAndUpload } from "@comp/chat/upload-utils";
@@ -51,7 +50,7 @@ const createTicketFormSchema = (t: TFunction) =>
       required_error: t("please_select_module") || "Please select a module",
     }),
     description: z.any(),
-    area: z.enum(areaEnumArray).optional(),
+    area: z.string().optional(),
     sealosNamespace: z.string().optional(),
     occurrenceTime: z.string().optional(),
     priority: z.enum(ticketPriorityEnumArray).optional(),
@@ -142,11 +141,13 @@ function TicketForm({
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {moduleEnumArray.filter((m) => m !== "all").map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {t(m)}
-                      </SelectItem>
-                    ))}
+                    {moduleEnumArray
+                      .filter((m) => m !== "all")
+                      .map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {t(m)}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               )}
@@ -201,7 +202,7 @@ function useTicketCreation() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { sealosArea, sealosNs } = useSealos();
+  const { sealosArea, sealosNs, isSealos } = useSealos();
   const queryClient = useQueryClient();
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
     null,
@@ -216,8 +217,8 @@ function useTicketCreation() {
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
-      area: sealosArea as (typeof areaEnumArray)[number],
-      sealosNamespace: sealosNs || "",
+      area: isSealos ? sealosArea || "hzh" : "",
+      sealosNamespace: isSealos ? sealosNs || "" : "",
       priority: ticketPriorityEnumArray[0],
       occurrenceTime: new Date().toISOString(),
     },
@@ -231,9 +232,8 @@ function useTicketCreation() {
         title: data.title,
         module: data.module,
         description: data.description,
-        area:
-          data.area || (sealosArea as (typeof areaEnumArray)[number]) || "hzh",
-        sealosNamespace: data.sealosNamespace || sealosNs || "",
+        area: isSealos ? data.area || sealosArea || "hzh" : "",
+        sealosNamespace: isSealos ? data.sealosNamespace || sealosNs || "" : "",
         occurrenceTime: data.occurrenceTime || new Date().toISOString(),
         priority: data.priority || ticketPriorityEnumArray[0],
       };
@@ -389,10 +389,7 @@ function RouteComponent() {
     try {
       router.history.back();
     } catch (error) {
-      console.warn(
-        `${t("history_navigation_failed")}:`,
-        error,
-      );
+      console.warn(`${t("history_navigation_failed")}:`, error);
       navigate({ to: "/user/tickets/list" });
     }
   };

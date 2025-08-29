@@ -21,8 +21,6 @@ import {
   real,
 } from "drizzle-orm/pg-core";
 import {
-  areaEnumArray,
-  moduleEnumArray,
   ticketCategoryEnumArray,
   ticketHistoryTypeEnumArray,
   ticketPriorityEnumArray,
@@ -36,8 +34,6 @@ import {
 } from "../utils/const.ts";
 import { myNanoId } from "../utils/runtime.ts";
 export const tentix = pgSchema("tentix");
-export const area = tentix.enum("area", areaEnumArray);
-export const module = tentix.enum("module", moduleEnumArray);
 export const ticketCategory = tentix.enum(
   "ticket_category",
   ticketCategoryEnumArray,
@@ -176,8 +172,8 @@ export const tickets = tentix.table(
     status: ticketStatus("status")
       .notNull()
       .$default(() => "pending"),
-    module: module("module").notNull(),
-    area: area("area").notNull(),
+    module: varchar("module", { length: 50 }).default("").notNull(),
+    area: varchar("area", { length: 50 }).default("").notNull(),
     sealosNamespace: varchar("sealos_namespace", { length: 64 })
       .default("")
       .notNull(),
@@ -363,7 +359,7 @@ export const requirements = tentix.table("requirements", {
   id: serial("id").primaryKey().notNull(),
   title: varchar("title", { length: 254 }).notNull(),
   description: jsonb().$type<JSONContentZod>().notNull(),
-  module: module("module").notNull(),
+  module: varchar("module", { length: 50 }).default("").notNull(),
   priority: ticketPriority("priority").notNull(),
   relatedTicket: char("related_ticket", { length: 13 }).references(
     () => tickets.id,

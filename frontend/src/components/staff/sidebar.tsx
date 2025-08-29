@@ -31,25 +31,6 @@ export function StaffSidebar() {
             </span>
           </Link>
         </Button>
-        {/* <Button
-          asChild
-          variant="ghost"
-          className={`flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500 ${
-            pathname === "/staff/tickets/all"
-              ? "bg-black/[0.04] text-zinc-900"
-              : ""
-          }`}
-        >
-          <Link
-            to="/staff/tickets/all"
-            className="flex flex-col items-center justify-center gap-1 text-center"
-          >
-            <LayersIcon className="!w-6 !h-6" strokeWidth={1.33} />
-            <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
-              {joinTrans([t("all"), t("tkt_other")])}
-            </span>
-          </Link>
-        </Button> */}
       </div>
     </div>
   );

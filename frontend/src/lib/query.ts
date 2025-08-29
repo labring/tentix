@@ -212,36 +212,6 @@ export const staffListQueryOptions = () =>
     staleTime: 60 * 60 * 1000,
   });
 
-export async function raiseRequirement({
-  title,
-  description,
-  module,
-  priority,
-  relatedTicket,
-}: {
-  title: string;
-  description: string;
-  module: (typeof moduleEnumArray)[number];
-  priority: (typeof ticketPriorityEnumArray)[number];
-  relatedTicket: string;
-}) {
-  const res = await apiClient.admin.raiseReq
-    .$post({
-      json: {
-        title,
-        description,
-        module,
-        priority,
-        relatedTicket,
-      },
-    })
-    .then((r) => r.json());
-  if (res.success) {
-    return res;
-  }
-  throw new Error(res.message);
-}
-
 export async function updateTicketStatus({
   ticketId,
   status,

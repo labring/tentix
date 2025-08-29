@@ -213,3 +213,6 @@ export function quickNoSearchHeuristic(text: string): boolean {
   ];
   return patterns.some((re) => re.test(t));
 }
+
+export const sleep = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));

@@ -9,7 +9,7 @@ import { type JSONContentZod } from "../types";
 import * as schema from "@/db/schema.ts";
 import { asc } from "drizzle-orm";
 import { basicUserCols } from "../../api/queryParams.ts";
-import { convertToMultimodalMessage } from "./tools";
+import { convertToMultimodalMessage, sleep } from "./tools";
 import { logError } from "@/utils/log.ts";
 import {
   analyzeQueryNode,
@@ -191,13 +191,28 @@ export async function getAIResponse(
     escalation_reason: "",
   };
 
-  try {
-    const result = (await workflow.invoke(initialState)) as AgentState;
-    return result.response || "";
-  } catch (e) {
-    logError(String(e));
-    return "";
+  // 当响应为空字符串时，进行最多三次重试（总尝试次数最多四次）
+  const maxRetries = 3;
+  let attempt = 0;
+
+  while (attempt <= maxRetries) {
+    try {
+      const result = (await workflow.invoke(initialState)) as AgentState;
+      const response = result.response ?? "";
+      if (response !== "") {
+        return response;
+      }
+    } catch (e) {
+      logError(String(e));
+    }
+
+    attempt++;
+    if (attempt <= maxRetries) {
+      await sleep(300);
+    }
   }
+
+  return "";
 }
 
 // 流式响应支持
