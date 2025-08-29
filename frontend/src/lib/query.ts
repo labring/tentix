@@ -3,7 +3,6 @@ import {
   useSuspenseQuery as useSuspenseQueryTanStack,
 } from "@tanstack/react-query";
 import {
-  moduleEnumArray,
   ticketPriorityEnumArray,
   ticketStatusEnumArray,
   WS_TOKEN_EXPIRY_TIME,
@@ -186,6 +185,7 @@ export const userInfoQueryOptions = () =>
           id: 0,
           name: "",
           nickname: "",
+          realName: "",
           avatar: "",
           role: "customer",
           email: "",

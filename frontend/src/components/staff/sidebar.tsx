@@ -1,11 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { joinTrans, useTranslation } from "i18n";
-import { LayersIcon } from "lucide-react";
+import { LayersIcon, Settings } from "lucide-react";
 import { Button } from "tentix-ui";
+import { useSettingsModal } from "@modal/use-settings-modal";
 
 export function StaffSidebar() {
   const pathname = useLocation().pathname;
   const { t } = useTranslation();
+  const { openSettingsModal, settingsModal } = useSettingsModal();
 
   return (
     <div className="py-3 px-2 hidden md:flex flex-col h-full items-center w-fit border-r-[0.8px] border-solid border-zinc-200 bg-zinc-50">
@@ -31,7 +33,18 @@ export function StaffSidebar() {
             </span>
           </Link>
         </Button>
+        <Button
+          variant="ghost"
+          className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"
+          onClick={openSettingsModal}
+        >
+          <Settings className="!w-6 !h-6" strokeWidth={1.33} />
+          <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
+            {t("settings")}
+          </span>
+        </Button>
       </div>
+      {settingsModal}
     </div>
   );
 }
