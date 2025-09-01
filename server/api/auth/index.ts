@@ -87,6 +87,15 @@ const authRouter = factory
       const db = c.get("db");
       const payload = c.req.valid("json");
 
+      if (
+        global.customEnv.TARGET_PLATFORM === "sealos" ||
+        global.customEnv.TARGET_PLATFORM === "fastgpt"
+      ) {
+        throw new HTTPException(401, {
+          message: `Login is not allowed on this platform: ${global.customEnv.TARGET_PLATFORM}`,
+        });
+      }
+
       const { name, password } = payload;
 
       // Find user identity with password provider
@@ -166,6 +175,15 @@ const authRouter = factory
     async (c) => {
       const db = c.get("db");
       const payload = c.req.valid("json");
+
+      if (
+        global.customEnv.TARGET_PLATFORM === "sealos" ||
+        global.customEnv.TARGET_PLATFORM === "fastgpt"
+      ) {
+        throw new HTTPException(401, {
+          message: `Registration is not allowed on this platform: ${global.customEnv.TARGET_PLATFORM}`,
+        });
+      }
 
       const { name, password } = payload;
 
@@ -264,6 +282,12 @@ const authRouter = factory
     async (c) => {
       const db = connectDB();
       const payload = c.req.valid("json");
+
+      if (global.customEnv.TARGET_PLATFORM !== "sealos") {
+        throw new HTTPException(401, {
+          message: `Sealos login is not allowed on this platform: ${global.customEnv.TARGET_PLATFORM}`,
+        });
+      }
 
       const { token, userInfo: userInfoPayload } = payload;
 
