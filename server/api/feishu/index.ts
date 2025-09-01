@@ -14,8 +14,7 @@ import { HTTPException } from "hono/http-exception";
 import NodeCache from "node-cache";
 import { isFeishuConfigured } from "@/utils/tools";
 import { detectLocale } from "@/utils/index.ts";
-
-// import { refreshStaffMap } from "../initApp.ts";
+import { refreshStaffMap } from "../initApp.ts";
 import { signBearerToken } from "../auth/index.ts";
 const cache = new NodeCache();
 
@@ -206,7 +205,6 @@ const feishuRouter = factory
     async (c) => {
       const userId = c.var.userId;
 
-
       const state = CSRF.generate();
       const redirectUri = new URL("/api/feishu/bind-callback", c.var.origin);
       const url = new URL(
@@ -355,6 +353,8 @@ const feishuRouter = factory
           isPrimary: false,
         });
       }
+
+      await refreshStaffMap(true);
 
       // Generate token for the bound user and redirect with token (works for both iframe and non-iframe)
       const [boundUser] = await db

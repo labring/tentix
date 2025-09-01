@@ -102,7 +102,12 @@ export async function refreshStaffMap(stale: boolean = false) {
     stale ||
     global.customEnv.NODE_ENV !== "production"
   ) {
-    logInfo("Staff map not initialized, initializing...");
+    if (stale) {
+      logInfo("Staff map is stale, initializing...");
+    } else {
+      logInfo("Staff map not initialized, initializing...");
+    }
+
     const db = connectDB();
     const agents = (
       await db.query.users.findMany({
@@ -114,19 +119,39 @@ export async function refreshStaffMap(stale: boolean = false) {
             },
             where: (tickets, { eq }) => eq(tickets.status, "in_progress"),
           },
+          identities: {
+            where: (userIdentities, { eq }) =>
+              eq(userIdentities.provider, "feishu"),
+            columns: {
+              id: true,
+              provider: true,
+              isPrimary: true,
+              metadata: true,
+            },
+          },
         },
       })
-    ).map((staff) => ({
-      id: staff.id,
-      sealosId: staff.sealosId,
-      realName: staff.name,
-      nickname: staff.nickname,
-      avatar: staff.avatar,
-      remainingTickets: staff.ticketAgent.length,
-      role: staff.role,
-      feishuUnionId: staff.feishuUnionId as `on_${string}`,
-      feishuOpenId: staff.feishuOpenId as `ou_${string}`,
-    }));
+    ).map((staff) => {
+      const feishuIdentities = staff.identities ?? [];
+      const primaryFirst = [...feishuIdentities].sort((a, b) =>
+        a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1,
+      );
+      const feishuMeta = primaryFirst.find((i) => i.metadata?.feishu)?.metadata
+        ?.feishu;
+      const feishuUnionId = (feishuMeta?.unionId as `on_${string}` | "") ?? "";
+      const feishuOpenId = (feishuMeta?.openId as `ou_${string}` | "") ?? "";
+      return {
+        id: staff.id,
+        sealosId: staff.sealosId,
+        realName: staff.name,
+        nickname: staff.nickname,
+        avatar: staff.avatar,
+        remainingTickets: staff.ticketAgent.length,
+        role: staff.role,
+        feishuUnionId,
+        feishuOpenId,
+      };
+    });
 
     const technicians = (
       await db.query.users.findMany({
@@ -142,21 +167,41 @@ export async function refreshStaffMap(stale: boolean = false) {
               },
             },
           },
+          identities: {
+            where: (userIdentities, { eq }) =>
+              eq(userIdentities.provider, "feishu"),
+            columns: {
+              id: true,
+              provider: true,
+              isPrimary: true,
+              metadata: true,
+            },
+          },
         },
       })
-    ).map((staff) => ({
-      id: staff.id,
-      sealosId: staff.sealosId,
-      realName: staff.name,
-      nickname: staff.nickname,
-      avatar: staff.avatar,
-      remainingTickets: staff.ticketTechnicians.filter(
-        (ticket) => ticket.ticket.status === "in_progress",
-      ).length,
-      role: staff.role,
-      feishuUnionId: staff.feishuUnionId as `on_${string}`,
-      feishuOpenId: staff.feishuOpenId as `ou_${string}`,
-    }));
+    ).map((staff) => {
+      const feishuIdentities = staff.identities ?? [];
+      const primaryFirst = [...feishuIdentities].sort((a, b) =>
+        a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1,
+      );
+      const feishuMeta = primaryFirst.find((i) => i.metadata?.feishu)?.metadata
+        ?.feishu;
+      const feishuUnionId = (feishuMeta?.unionId as `on_${string}` | "") ?? "";
+      const feishuOpenId = (feishuMeta?.openId as `ou_${string}` | "") ?? "";
+      return {
+        id: staff.id,
+        sealosId: staff.sealosId,
+        realName: staff.name,
+        nickname: staff.nickname,
+        avatar: staff.avatar,
+        remainingTickets: staff.ticketTechnicians.filter(
+          (ticket) => ticket.ticket.status === "in_progress",
+        ).length,
+        role: staff.role,
+        feishuUnionId,
+        feishuOpenId,
+      };
+    });
 
     const staffs = agents.concat(technicians);
     global.staffMap = new Map(staffs.map((staff) => [staff.id, staff]));

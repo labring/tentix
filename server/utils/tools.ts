@@ -16,8 +16,8 @@ export type StaffMap = Map<
     avatar: string;
     remainingTickets: number;
     role: userRoleType;
-    feishuUnionId: `on_${string}`;
-    feishuOpenId: `ou_${string}`;
+    feishuUnionId: `on_${string}` | "";
+    feishuOpenId: `ou_${string}` | "";
   }
 >;
 
