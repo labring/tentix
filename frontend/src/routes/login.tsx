@@ -97,6 +97,7 @@ function LoginComponent() {
         });
         console.error("Login error:", error);
       } else {
+        console.error("Login error:", error);
         toast({
           title: t("login_failed"),
           description: err?.message || t("invalid_credentials"),

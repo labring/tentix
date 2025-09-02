@@ -35,7 +35,7 @@ export const useSessionMembersStore = create<SessionMembersStore>((set) => ({
     }
     set({
       sessionMembers: [
-        newTicket.ai!,
+        ...(newTicket.ai ? [newTicket.ai] : []),
         newTicket.customer,
         newTicket.agent,
         ...newTicket.technicians,

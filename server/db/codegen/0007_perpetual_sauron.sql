@@ -1,7 +1,8 @@
 -- Migrate existing sealos_id to user_identities before dropping columns
-INSERT INTO "tentix"."user_identities" ("user_id", "provider", "provider_user_id", "metadata")
+INSERT INTO "tentix"."user_identities" ("user_id", "provider", "provider_user_id", "metadata", "created_at", "updated_at")
 SELECT u.id, 'sealos', u.sealos_id,
-  jsonb_build_object('sealos', jsonb_build_object('accountId', u.sealos_id))
+  jsonb_build_object('sealos', jsonb_build_object('accountId', u.sealos_id)),
+  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "tentix"."users" u
 WHERE u.sealos_id IS NOT NULL AND u.sealos_id <> ''
 ON CONFLICT DO NOTHING;--> statement-breakpoint

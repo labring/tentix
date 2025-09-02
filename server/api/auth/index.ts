@@ -242,6 +242,7 @@ const authRouter = factory
       });
     },
   )
+  // TODO: 添加 统一接口对接第三方  /third-party
   .post(
     "/sealos",
     describeRoute({
