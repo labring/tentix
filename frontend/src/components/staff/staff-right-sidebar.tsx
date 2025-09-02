@@ -135,16 +135,20 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
               </TruncateWithTooltip>
 
               {/* sealos ID */}
-              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                {t("sealos_id")}
-              </div>
-              <CopyableTruncate
-                copyText={customer.sealosId}
-                className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
-                maxWidth={100}
-              >
-                {customer.sealosId}
-              </CopyableTruncate>
+              {customer.sealosId && (
+                <>
+                  <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                    {t("sealos_id")}
+                  </div>
+                  <CopyableTruncate
+                    copyText={customer.sealosId}
+                    className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
+                    maxWidth={100}
+                  >
+                    {customer.sealosId}
+                  </CopyableTruncate>
+                </>
+              )}
               {/* Region */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("area")}

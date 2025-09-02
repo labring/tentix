@@ -10,7 +10,6 @@ export type StaffMap = Map<
   number,
   {
     id: number;
-    sealosId: string;
     realName: string;
     nickname: string;
     avatar: string;

@@ -65,9 +65,9 @@ const updateTicketStatusSchema = z.object({
 
 const ticketInfoResponseSchema = zs.ticket.extend({
   // 扩展客户信息
-  customer: zs.users,
+  customer: zs.users.extend({ sealosId: z.string().optional() }),
   // 扩展客服信息（处理人）
-  agent: zs.users,
+  agent: zs.users.extend({ sealosId: z.string().optional() }),
   // 扩展技术人员信息
   technicians: z.array(zs.users),
   // 扩展标签信息
@@ -574,8 +574,39 @@ const ticketRouter = factory
         }
 
         const aiRole: (typeof userRoleEnumArray)[number] = "ai";
+        const [customerSealos, agentSealos] = await Promise.all([
+          db.query.userIdentities.findFirst({
+            where: (ui, { and, eq }) =>
+              and(eq(ui.userId, data.customer.id), eq(ui.provider, "sealos")),
+          }),
+          db.query.userIdentities.findFirst({
+            where: (ui, { and, eq }) =>
+              and(eq(ui.userId, data.agent.id), eq(ui.provider, "sealos")),
+          }),
+        ]);
+
         const response = {
           ...data,
+          customer: {
+            ...data.customer,
+            ...(customerSealos
+              ? {
+                  sealosId:
+                    customerSealos?.metadata?.sealos?.accountId ||
+                    customerSealos?.providerUserId,
+                }
+              : {}),
+          },
+          agent: {
+            ...data.agent,
+            ...(agentSealos
+              ? {
+                  sealosId:
+                    agentSealos?.metadata?.sealos?.accountId ||
+                    agentSealos?.providerUserId,
+                }
+              : {}),
+          },
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
           ai: await db.query.users.findFirst({
@@ -590,7 +621,7 @@ const ticketRouter = factory
           }),
         };
 
-        return c.json(response);
+        return c.json<typeof response>(response);
       } else if (staffMap.get(userId) !== undefined) {
         // 员工可以查看所有工单
         const data = await db.query.tickets.findFirst({
@@ -620,8 +651,45 @@ const ticketRouter = factory
         }
 
         const aiRole: (typeof userRoleEnumArray)[number] = "ai";
+        const [customerSealos, agentSealos] = await Promise.all([
+          db.query.userIdentities.findFirst({
+            where: (ui, { and, eq }) =>
+              and(eq(ui.userId, data.customer.id), eq(ui.provider, "sealos")),
+          }),
+          db.query.userIdentities.findFirst({
+            where: (ui, { and, eq }) =>
+              and(eq(ui.userId, data.agent.id), eq(ui.provider, "sealos")),
+          }),
+        ]);
+
         const response = {
           ...data,
+          customer: {
+            ...data.customer,
+            ...(customerSealos
+              ? {
+                  sealosId:
+                    (
+                      customerSealos?.metadata as {
+                        sealos?: { accountId?: string };
+                      }
+                    )?.sealos?.accountId || customerSealos?.providerUserId,
+                }
+              : {}),
+          },
+          agent: {
+            ...data.agent,
+            ...(agentSealos
+              ? {
+                  sealosId:
+                    (
+                      agentSealos?.metadata as {
+                        sealos?: { accountId?: string };
+                      }
+                    )?.sealos?.accountId || agentSealos?.providerUserId,
+                }
+              : {}),
+          },
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
           ai: await db.query.users.findFirst({
@@ -636,7 +704,7 @@ const ticketRouter = factory
           }),
         };
 
-        return c.json(response);
+        return c.json<typeof response>(response);
       } else {
         // 非员工且非客户，直接拒绝
         throw new HTTPException(403, {

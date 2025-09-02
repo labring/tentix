@@ -22,7 +22,11 @@ const userRouter = factory
           description: "Self info",
           content: {
             "application/json": {
-              schema: resolver(zs.users),
+              schema: resolver(
+                zs.users.extend({
+                  sealosId: z.string().optional(),
+                }),
+              ),
             },
           },
         },
@@ -40,7 +44,6 @@ const userRouter = factory
           avatar: schema.users.avatar,
           role: schema.users.role,
           email: schema.users.email,
-          sealosId: schema.users.sealosId,
           registerTime: schema.users.registerTime,
           level: schema.users.level,
         })
@@ -51,7 +54,51 @@ const userRouter = factory
           message: "User not found",
         });
       }
-      return c.json({ ...user });
+      // try get sealosId from identities
+      const sealosIdentity = await db.query.userIdentities.findFirst({
+        where: (ui, { and, eq }) =>
+          and(eq(ui.userId, userId), eq(ui.provider, "sealos")),
+      });
+      const sealosId =
+        sealosIdentity?.metadata?.sealos?.accountId ||
+        sealosIdentity?.providerUserId;
+      return c.json({
+        ...user,
+        ...(sealosId ? { sealosId } : {}),
+      });
+    },
+  )
+  .get(
+    "/sealosId",
+    describeRoute({
+      description: "Get current user's sealosId if bound",
+      tags: ["User"],
+      responses: {
+        200: {
+          description: "Current user's sealosId",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  sealosId: z.string().optional(),
+                }),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const db = c.get("db");
+      const userId = c.var.userId;
+      const sealosIdentity = await db.query.userIdentities.findFirst({
+        where: (ui, { and, eq }) =>
+          and(eq(ui.userId, userId), eq(ui.provider, "sealos")),
+      });
+      const sealosId =
+        sealosIdentity?.metadata?.sealos?.accountId ||
+        sealosIdentity?.providerUserId;
+      return c.json({ sealosId });
     },
   )
   .post(

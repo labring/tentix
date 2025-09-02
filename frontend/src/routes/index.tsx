@@ -49,11 +49,8 @@ function AuthGuard() {
                 json: {
                   token: sealosToken,
                   userInfo: {
-                    sealosId: sealosUser?.id ?? "",
                     name: sealosUser?.name ?? "",
                     avatar: sealosUser?.avatar ?? "",
-                    k8sUsername: sealosUser?.k8sUsername ?? "",
-                    nsid: sealosUser?.nsid ?? "",
                   },
                 },
               })
@@ -120,7 +117,14 @@ function AuthGuard() {
     };
 
     initializeAndAuthenticate();
-  }, [router, authContext, isSealos, isInitialized, sealosUser, routeContext.apiClient]);
+  }, [
+    router,
+    authContext,
+    isSealos,
+    isInitialized,
+    sealosUser,
+    routeContext.apiClient,
+  ]);
 
   if (error) {
     return (

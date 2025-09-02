@@ -142,7 +142,6 @@ export async function refreshStaffMap(stale: boolean = false) {
       const feishuOpenId = (feishuMeta?.openId as `ou_${string}` | "") ?? "";
       return {
         id: staff.id,
-        sealosId: staff.sealosId,
         realName: staff.name,
         nickname: staff.nickname,
         avatar: staff.avatar,
@@ -190,7 +189,6 @@ export async function refreshStaffMap(stale: boolean = false) {
       const feishuOpenId = (feishuMeta?.openId as `ou_${string}` | "") ?? "";
       return {
         id: staff.id,
-        sealosId: staff.sealosId,
         realName: staff.name,
         nickname: staff.nickname,
         avatar: staff.avatar,

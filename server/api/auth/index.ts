@@ -254,8 +254,7 @@ const authRouter = factory
             "application/json": {
               schema: resolver(
                 z.object({
-                  id: z.string(),
-                  sealosId: z.string(),
+                  id: z.number(),
                   role: z.string(),
                   token: z.string(),
                   expireTime: z.number(),
@@ -271,11 +270,8 @@ const authRouter = factory
       z.object({
         token: z.string(),
         userInfo: z.object({
-          sealosId: z.string(),
           name: z.string(),
           avatar: z.string(),
-          k8sUsername: z.string(),
-          nsid: z.string(),
         }),
       }),
     ),
@@ -312,14 +308,22 @@ const authRouter = factory
       }
 
       const userInfo = await (async () => {
-        const user = await db.query.users.findFirst({
-          where: eq(schema.users.sealosId, sealosJwtPayload.userId),
+        const identity = await db.query.userIdentities.findFirst({
+          where: and(
+            eq(schema.userIdentities.provider, "sealos"),
+            eq(schema.userIdentities.providerUserId, sealosJwtPayload.userId),
+          ),
+          with: { user: true },
         });
-        if (user === undefined) {
-          const [newUser] = await db
+
+        if (identity && identity.user) {
+          return identity.user;
+        }
+
+        const newUser = await db.transaction(async (tx) => {
+          const [createdUser] = await tx
             .insert(schema.users)
             .values({
-              sealosId: sealosJwtPayload.userId,
               name: userInfoPayload.name,
               nickname: "",
               realName: "",
@@ -332,19 +336,28 @@ const authRouter = factory
             })
             .returning();
 
-          if (!newUser) {
+          if (!createdUser) {
             throw new Error("Failed to create user");
           }
-          return newUser;
-        }
-        return user;
+
+          await tx.insert(schema.userIdentities).values({
+            userId: createdUser.id,
+            provider: "sealos",
+            providerUserId: sealosJwtPayload.userId,
+            metadata: { sealos: { accountId: sealosJwtPayload.userId } },
+            isPrimary: false,
+          });
+
+          return createdUser;
+        });
+
+        return newUser;
       })();
 
       const tokenInfo = await signBearerToken(c, userInfo.id, userInfo.role);
 
       return c.json({
         id: userInfo.id,
-        sealosId: userInfo.sealosId,
         role: userInfo.role,
         ...tokenInfo,
       });

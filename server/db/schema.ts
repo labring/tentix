@@ -84,7 +84,6 @@ export const users = tentix.table(
   "users",
   {
     id: serial("id").primaryKey().notNull(),
-    sealosId: varchar("sealos_id", { length: 64 }).default("").notNull(),
     name: varchar("name", { length: 64 }).default("").notNull(),
     nickname: varchar("nickname", { length: 64 }).default("").notNull(),
     realName: varchar("real_name", { length: 64 }).default("").notNull(),
@@ -98,15 +97,8 @@ export const users = tentix.table(
     }).notNull(),
     level: smallint("level").default(0).notNull(),
     email: varchar("email", { length: 254 }).default("").notNull(),
-    feishuUnionId: varchar("feishu_union_id", { length: 64 })
-      .default("")
-      .notNull(),
-    feishuOpenId: varchar("feishu_open_id", { length: 64 })
-      .default("")
-      .notNull(),
   },
   (table) => [
-    unique("users_sealos_id_key").on(table.sealosId),
     // 角色索引，用于按角色过滤用户
     index("idx_users_role").on(table.role),
   ],
