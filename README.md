@@ -1,5 +1,7 @@
 # Tentix = Ten (10x Efficiency) Tix (Ticket System)
 
+[English](README.md) | [中文](README.zh-CN.md)
+
 A FastGPT-powered AI customer service platform with 10x accelerated resolution.
 
 - 🚀 10x Faster Response Speed
@@ -133,7 +135,7 @@ cp server/config.template.json server/config.dev.json
 3. Configure environment variables:
 
 ```bash
-cp .env.example .env.local
+cp .env.template .env.local
 # Add the generated encryption key to .env.local
 ```
 
