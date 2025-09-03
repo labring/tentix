@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useSealos, waitForSealosInit } from "../_provider/sealos";
 import { useTranslation } from "i18n";
 
+// beforeLoad: 检查 url 是否有 token 信息，如果有则走第三方登录
 export const Route = createFileRoute("/")({
   component: AuthGuard,
 });
@@ -29,6 +30,38 @@ function AuthGuard() {
         await waitForSealosInit();
 
         if (!isInitialized) {
+          return;
+        }
+
+        // Third-party login via URL token (takes precedence)
+        const url = new URL(window.location.href);
+        const thirdPartyToken = url.searchParams.get("token");
+        if (thirdPartyToken && (!authContext.isAuthenticated || !authContext.user)) {
+          const apiClient = routeContext.apiClient;
+          const res = await (
+            await apiClient.auth["third-party"].$post({
+              query: { token: thirdPartyToken },
+            })
+          ).json();
+
+          window.localStorage.setItem("role", res.role);
+          window.localStorage.setItem("id", res.id.toString());
+          window.localStorage.setItem("token", res.token);
+
+          const userData = await apiClient.user.info.$get().then((r) => r.json());
+          authContext.updateUser(userData);
+          authContext.setIsAuthenticated(true);
+
+          const role = window.localStorage.getItem("role");
+          switch (role) {
+            case "technician":
+            case "agent":
+              router.navigate({ to: "/staff/tickets/list", replace: true });
+              break;
+            default:
+              router.navigate({ to: "/user/tickets/list", replace: true });
+              break;
+          }
           return;
         }
 

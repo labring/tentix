@@ -77,6 +77,7 @@ export const authProvider = tentix.enum("auth_provider", [
   "fastgpt",
   "github",
   "weixin",
+  "third_party",
 ]);
 
 // Core tables with no dependencies
@@ -126,6 +127,7 @@ export const userIdentities = tentix.table(
         feishu?: { unionId?: string; openId?: string };
         sealos?: { accountId?: string };
         password?: { passwordHash?: string };
+        third_party?: { name?: string };
       }>()
       .default(sql`'{}'::jsonb`)
       .notNull(),

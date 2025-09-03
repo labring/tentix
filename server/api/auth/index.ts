@@ -242,7 +242,121 @@ const authRouter = factory
       });
     },
   )
-  // TODO: 添加 统一接口对接第三方  /third-party
+  .post(
+    "/third-party",
+    describeRoute({
+      description: "Third Party Registration or Login",
+      tags: ["User"],
+      responses: {
+        200: {
+          description: "Login success",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  id: z.number(),
+                  role: z.string(),
+                  token: z.string(),
+                  expireTime: z.number(),
+                }),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    zValidator(
+      "query",
+      z.object({
+        token: z.string(),
+      }),
+    ),
+    async (c) => {
+      const db = c.get("db");
+      const payload = c.req.valid("query");
+      const { token } = payload;
+
+      if (!global.customEnv.THIRD_PARTY_API) {
+        throw new HTTPException(500, { message: "THIRD_PARTY_API not configured" });
+      }
+
+      const response = await fetch(global.customEnv.THIRD_PARTY_API, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        throw new HTTPException(401, {
+          message: "Third party authorization failed",
+          cause: errText,
+        });
+      }
+
+      const data = await response.json().catch(() => ({}));
+      const name = data?.name as string | undefined;
+      const level = Number(data?.level ?? 1);
+
+      if (!name) {
+        throw new HTTPException(400, { message: "Invalid third party response: missing name" });
+      }
+
+      const user = await (async () => {
+        const identity = await db.query.userIdentities.findFirst({
+          where: and(
+            eq(schema.userIdentities.provider, "third_party"),
+            eq(schema.userIdentities.providerUserId, name),
+          ),
+          with: { user: true },
+        });
+
+        if (identity && identity.user) {
+          return identity.user;
+        }
+
+        const newUser = await db.transaction(async (tx) => {
+          const [createdUser] = await tx
+            .insert(schema.users)
+            .values({
+              name,
+              nickname: "",
+              realName: "",
+              avatar: "",
+              registerTime: new Date().toISOString(),
+              level: Number.isFinite(level) ? (level as number) : 1,
+              role: "customer",
+              email: "",
+              phoneNum: "",
+            })
+            .returning();
+
+          if (!createdUser) {
+            throw new Error("Failed to create user");
+          }
+
+          await tx.insert(schema.userIdentities).values({
+            userId: createdUser.id,
+            provider: "third_party",
+            providerUserId: name,
+            metadata: { third_party: { name } },
+            isPrimary: false,
+          });
+
+          return createdUser;
+        });
+
+        return newUser;
+      })();
+
+      const tokenInfo = await signBearerToken(c, user.id, user.role);
+
+      return c.json({
+        id: user.id,
+        role: user.role,
+        ...tokenInfo,
+      });
+    },
+  )
   .post(
     "/sealos",
     describeRoute({
