@@ -22,6 +22,48 @@
       "when": 1755170335259,
       "tag": "0002_futuristic_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1755596996733,
+      "tag": "0003_wooden_mystique",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1755680139741,
+      "tag": "0004_tricky_gravity",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1756283128166,
+      "tag": "0005_outstanding_dexter_bennett",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1756351983088,
+      "tag": "0006_tidy_tana_nile",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1756797417254,
+      "tag": "0007_perpetual_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1756968603043,
+      "tag": "0008_condemned_blindfold",
+      "breakpoints": true
     }
   ]
 }

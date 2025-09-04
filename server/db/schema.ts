@@ -21,8 +21,6 @@ import {
   real,
 } from "drizzle-orm/pg-core";
 import {
-  areaEnumArray,
-  moduleEnumArray,
   ticketCategoryEnumArray,
   ticketHistoryTypeEnumArray,
   ticketPriorityEnumArray,
@@ -31,11 +29,11 @@ import {
   feedbackTypeEnumArray,
   dislikeReasonEnumArray,
   syncStatusEnumArray,
+  handoffPriorityEnumArray,
+  sentimentLabelEnumArray,
 } from "../utils/const.ts";
 import { myNanoId } from "../utils/runtime.ts";
 export const tentix = pgSchema("tentix");
-export const area = tentix.enum("area", areaEnumArray);
-export const module = tentix.enum("module", moduleEnumArray);
 export const ticketCategory = tentix.enum(
   "ticket_category",
   ticketCategoryEnumArray,
@@ -60,12 +58,33 @@ export const dislikeReason = tentix.enum(
 );
 export const syncStatus = tentix.enum("sync_status", syncStatusEnumArray);
 
+export const handoffPriority = tentix.enum(
+  "handoff_priority",
+  handoffPriorityEnumArray,
+);
+export const sentimentLabel = tentix.enum(
+  "sentiment_label",
+  sentimentLabelEnumArray,
+);
+
+export const authProvider = tentix.enum("auth_provider", [
+  "password",
+  "email",
+  "phone",
+  "feishu",
+  "google",
+  "sealos",
+  "fastgpt",
+  "github",
+  "weixin",
+  "third_party",
+]);
+
 // Core tables with no dependencies
 export const users = tentix.table(
   "users",
   {
     id: serial("id").primaryKey().notNull(),
-    sealosId: varchar("sealos_id", { length: 64 }).default("").notNull(),
     name: varchar("name", { length: 64 }).default("").notNull(),
     nickname: varchar("nickname", { length: 64 }).default("").notNull(),
     realName: varchar("real_name", { length: 64 }).default("").notNull(),
@@ -79,17 +98,59 @@ export const users = tentix.table(
     }).notNull(),
     level: smallint("level").default(0).notNull(),
     email: varchar("email", { length: 254 }).default("").notNull(),
-    feishuUnionId: varchar("feishu_union_id", { length: 64 })
-      .default("")
+  },
+  (table) => [
+    // 角色索引，用于按角色过滤用户
+    index("idx_users_role").on(table.role),
+  ],
+);
+
+export const userIdentities = tentix.table(
+  "user_identities",
+  {
+    id: serial("id").primaryKey().notNull(),
+    userId: integer("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    feishuOpenId: varchar("feishu_open_id", { length: 64 })
-      .default("")
+
+    provider: authProvider("provider").notNull(),
+    providerUserId: varchar("provider_user_id", { length: 128 }).notNull(),
+
+    /*feishu example
+       {
+         "union_id": "on_1234567890",
+         "open_id": "ou_1234567890",
+       }
+    */
+    metadata: jsonb("metadata")
+      .$type<{
+        feishu?: { unionId?: string; openId?: string };
+        sealos?: { accountId?: string };
+        password?: { passwordHash?: string };
+        third_party?: { name?: string };
+      }>()
+      .default(sql`'{}'::jsonb`)
+      .notNull(),
+
+    isPrimary: boolean("is_primary").default(false).notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
       .notNull(),
   },
   (table) => [
-    unique("users_sealos_id_key").on(table.sealosId),
-    // 角色索引，用于按角色过滤用户
-    index("idx_users_role").on(table.role),
+    unique("uniq_provider_uid").on(table.provider, table.providerUserId),
+    index("idx_user_provider").on(table.userId, table.provider),
   ],
 );
 
@@ -105,8 +166,8 @@ export const tickets = tentix.table(
     status: ticketStatus("status")
       .notNull()
       .$default(() => "pending"),
-    module: module("module").notNull(),
-    area: area("area").notNull(),
+    module: varchar("module", { length: 50 }).default("").notNull(),
+    area: varchar("area", { length: 50 }).default("").notNull(),
     sealosNamespace: varchar("sealos_namespace", { length: 64 })
       .default("")
       .notNull(),
@@ -292,7 +353,7 @@ export const requirements = tentix.table("requirements", {
   id: serial("id").primaryKey().notNull(),
   title: varchar("title", { length: 254 }).notNull(),
   description: jsonb().$type<JSONContentZod>().notNull(),
-  module: module("module").notNull(),
+  module: varchar("module", { length: 50 }).default("").notNull(),
   priority: ticketPriority("priority").notNull(),
   relatedTicket: char("related_ticket", { length: 13 }).references(
     () => tickets.id,
@@ -616,5 +677,57 @@ export const historyConversationKnowledge = tentix.table(
     index("idx_history_conversation_knowledge_created_at").on(
       table.createdAt.desc(),
     ),
+  ],
+);
+
+export const handoffRecords = tentix.table(
+  "handoff_records",
+  {
+    id: serial("id").primaryKey().notNull(),
+    ticketId: char("ticket_id", { length: 13 })
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+
+    // 转人工信息
+    handoffReason: text("handoff_reason").notNull(),
+    priority: handoffPriority("priority").default("P2").notNull(),
+    sentiment: sentimentLabel("sentiment").default("NEUTRAL").notNull(),
+
+    // 用户查询
+    userQuery: text("user_query").default("").notNull(),
+
+    // 相关用户
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => users.id),
+    assignedAgentId: integer("assigned_agent_id").references(() => users.id), // 分配的客服
+
+    // 通知状态
+    notificationSent: boolean("notification_sent").default(false).notNull(),
+    notificationError: text("notification_error"),
+
+    // 时间戳
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    assignedAt: timestamp("assigned_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    }),
+  },
+  (table) => [
+    // 同一工单只能有一条转人工记录
+    unique("handoff_records_unique").on(table.ticketId),
+    // 优先级查询
+    index("idx_handoff_priority").on(table.priority),
+    // 时间排序
+    index("idx_handoff_created").on(table.createdAt.desc()),
+    // 客服查询
+    index("idx_handoff_agent").on(table.assignedAgentId),
   ],
 );

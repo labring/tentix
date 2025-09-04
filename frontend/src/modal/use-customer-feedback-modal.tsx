@@ -90,7 +90,7 @@ export function useCustomerFeedbackModal({
     if (satisfactionRating === 0) {
       toast({
         title: t("error"),
-        description: "Please provide a rating",
+        description: t("please_provide_rating") ?? "Please provide a rating",
         variant: "destructive",
       });
       return;

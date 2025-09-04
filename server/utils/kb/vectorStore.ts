@@ -1,4 +1,4 @@
-import { sql, desc, and, eq, inArray, type SQL } from "drizzle-orm";
+import { sql, asc, and, eq, inArray, type SQL } from "drizzle-orm";
 
 import { knowledgeBase } from "@/db/schema";
 import {
@@ -91,74 +91,84 @@ export class PgVectorStore implements VectorStore {
     k: number;
     filters?: KBFilter;
   }): Promise<SearchHit[]> {
-    const qEmbArr = await embed(query);
-    const qEmbText = toPgVectorLiteral(qEmbArr);
+    return await this.db.transaction(async (tx) => {
+      const qEmbArr = await embed(query);
+      const qEmbText = toPgVectorLiteral(qEmbArr);
 
-    // 提高召回（按需）
-    await this.db.execute(sql`SET LOCAL ivfflat.probes = 10`);
-
-    const lhs = sql`((${knowledgeBase.embedding})::tentix.halfvec(3072))`;
-    const rhs = sql`((${qEmbText}::tentix.vector(3072))::tentix.halfvec(3072))`;
-    const similarity = sql<number>`1 - (${lhs} OPERATOR(tentix.<=>) ${rhs})`;
-
-    const conditions: SQL[] = [eq(knowledgeBase.isDeleted, false)];
-    if (filters?.source_type?.length) {
-      conditions.push(inArray(knowledgeBase.sourceType, filters.source_type));
-    }
-    if (filters?.module) {
-      conditions.push(
-        sql`(${knowledgeBase.metadata} ->> 'module') = ${filters.module}`,
+      // 使用 set_config，支持参数化，并将作用域限定在当前事务（第三个参数为 true）
+      const probes = Math.min(Math.max(8, k * 2), 200);
+      await tx.execute(
+        sql`select set_config('ivfflat.probes', ${String(probes)}, true)`,
       );
-    }
 
-    const qb = this.db
-      .select({
-        id: knowledgeBase.id,
-        content: knowledgeBase.content,
-        source_type: knowledgeBase.sourceType,
-        source_id: knowledgeBase.sourceId,
-        chunk_id: knowledgeBase.chunkId,
-        metadata: knowledgeBase.metadata,
-        similarity,
-        score: knowledgeBase.score,
-        accessCount: knowledgeBase.accessCount,
-      })
-      .from(knowledgeBase)
-      .where(and(...conditions));
+      // 与 ivfflat 索引一致：halfvec + cosine 距离（<=>），按“距离升序”排序
+      const lhs = sql`((${knowledgeBase.embedding})::tentix.halfvec(3072))`;
+      const rhs = sql`((${qEmbText}::tentix.vector(3072))::tentix.halfvec(3072))`;
+      const distance = sql<number>`(${lhs} OPERATOR(tentix.<=>) ${rhs})`;
 
-    const rough = await qb.orderBy(desc(similarity)).limit(Math.max(k * 3, 30));
+      const conditions: SQL[] = [eq(knowledgeBase.isDeleted, false)];
+      if (filters?.source_type?.length) {
+        conditions.push(inArray(knowledgeBase.sourceType, filters.source_type));
+      }
+      if (filters?.module) {
+        conditions.push(
+          sql`(${knowledgeBase.metadata} ->> 'module') = ${filters.module}`,
+        );
+      }
 
-    const reRank = rough
-      .map((r) => {
-        const w = SOURCE_WEIGHTS[r.source_type as SourceType] ?? 0.5;
-        const final =
-          Number(r.similarity) * w + Math.min((r.accessCount ?? 0) / 100, 0.05);
-        return { ...r, final };
-      })
-      .sort((a, b) => b.final - a.final)
-      .slice(0, k);
-
-    // Increment access_count for hits
-    if (reRank.length > 0) {
-      const hitIds = reRank.map((r) => r.id);
-      await this.db
-        .update(knowledgeBase)
-        .set({
-          accessCount: sql`COALESCE(${knowledgeBase.accessCount}, 0) + 1`,
-          updatedAt: sql`NOW()`,
+      const qb = tx
+        .select({
+          id: knowledgeBase.id,
+          content: knowledgeBase.content,
+          source_type: knowledgeBase.sourceType,
+          source_id: knowledgeBase.sourceId,
+          chunk_id: knowledgeBase.chunkId,
+          metadata: knowledgeBase.metadata,
+          distance,
+          scoreCol: knowledgeBase.score,
+          accessCount: knowledgeBase.accessCount,
         })
-        .where(inArray(knowledgeBase.id, hitIds));
-    }
+        .from(knowledgeBase)
+        .where(and(...conditions));
 
-    return reRank.map((r) => ({
-      id: String(r.id),
-      content: r.content,
-      source_type: r.source_type as SourceType,
-      source_id: String(r.source_id),
-      chunk_id: Number(r.chunk_id),
-      score: r.final,
-      metadata: r.metadata,
-    }));
+      const candidateLimit = Math.max(k * 3, 30);
+      const rough = await qb.orderBy(asc(distance)).limit(candidateLimit);
+
+      // 轻度 re-rank：以距离为主，来源权重与热度做微调，输出 score 越大越相关
+      // 访问次数高的内容在相似度接近时会被优先推荐
+      const ranked = rough
+        .map((r) => {
+          const w = SOURCE_WEIGHTS[r.source_type as SourceType] ?? 0.5;
+          const dist = Number(r.distance); // 0..2（cosine）
+          const relevance = Math.max(0, 1 - Math.min(dist, 1)); // 0..1
+          const boost = Math.min((r.accessCount ?? 0) / 100, 0.05); // ≤ 0.05 热度加分(访问次数)
+          const final = relevance * w + boost; // 最终得分 = 相关度×权重 + 热度加分
+          return { ...r, final };
+        })
+        .sort((a, b) => b.final - a.final)
+        .slice(0, k);
+
+      if (ranked.length > 0) {
+        const ids = ranked.map((r) => r.id);
+        await tx
+          .update(knowledgeBase)
+          .set({
+            accessCount: sql`COALESCE(${knowledgeBase.accessCount}, 0) + 1`,
+            updatedAt: sql`NOW()`,
+          })
+          .where(inArray(knowledgeBase.id, ids));
+      }
+
+      return ranked.map((r) => ({
+        id: String(r.id),
+        content: r.content,
+        source_type: r.source_type as SourceType,
+        source_id: String(r.source_id),
+        chunk_id: Number(r.chunk_id),
+        score: r.final,
+        metadata: r.metadata,
+      }));
+    });
   }
 
   async deleteBySource({
@@ -309,16 +319,14 @@ export class ExternalHttpStore implements VectorStore {
   async deleteBySource({
     source_type,
     source_id,
-    namespace = "default",
   }: {
     source_type: string;
     source_id: string;
-    namespace?: string;
   }) {
     await fetch(`${this.base}/deleteBySource`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ source_type, source_id, namespace }),
+      body: JSON.stringify({ source_type, source_id }),
     });
   }
 

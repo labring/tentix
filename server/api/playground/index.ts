@@ -7,7 +7,6 @@ import {
   getFeishuAppAccessToken,
   sendFeishuMsg,
 } from "@/utils/platform/index.ts";
-import { readConfig } from "@/utils/env.ts";
 import v8 from "node:v8";
 import { refreshStaffMap } from "../initApp.ts";
 import { signBearerToken } from "../auth/index.ts";
@@ -15,6 +14,8 @@ import { getAIResponse } from "@/utils/platform/ai.ts";
 import { runWithInterval } from "@/utils/runtime.ts";
 import { markdownToTipTapJSON } from "@/utils/md.ts";
 import { userRoleEnumArray } from "@/utils/const.ts";
+import { isFeishuConfigured } from "@/utils/tools.ts";
+import { HTTPException } from "hono/http-exception";
 
 const playgroundRouter = factory
   .createApp()
@@ -81,12 +82,16 @@ const playgroundRouter = factory
       const staffMapEntries = Array.from(staffMap.entries());
       const id = staffMapEntries[0]![1].feishuUnionId;
 
-      const config = await readConfig();
+      if (!isFeishuConfigured()) {
+        throw new HTTPException(400, {
+          message: "Feishu is not configured",
+        });
+      }
 
       const { tenant_access_token } = await getFeishuAppAccessToken();
       const send = await sendFeishuMsg(
         "chat_id",
-        config.feishu_chat_id,
+        global.customEnv.FEISHU_CHAT_ID!,
         "text",
         '{"text":"<at user_id=\\"ou_xxx\\">Tom</at> 新更新提醒"}',
         tenant_access_token,

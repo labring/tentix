@@ -10,6 +10,7 @@ import { type TicketType } from "tentix-server/rpc";
 import "react-photo-view/dist/react-photo-view.css";
 import { PhotoProvider } from "react-photo-view";
 import { useToast, ScrollArea } from "tentix-ui";
+import { useTranslation } from "i18n";
 
 export function UserChat({
   ticket,
@@ -20,6 +21,7 @@ export function UserChat({
   token: string;
   isTicketLoading: boolean;
 }) {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [otherTyping, setOtherTyping] = useState<number | false>(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -154,9 +156,9 @@ export function UserChat({
 
       // 显示错误提示
       toast({
-        title: "发送失败",
+        title: t("send_failed"),
         description:
-          error instanceof Error ? error.message : "发送消息时出现错误",
+          error instanceof Error ? error.message : t("send_error_generic"),
         variant: "destructive",
       });
 

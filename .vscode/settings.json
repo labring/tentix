@@ -10,17 +10,23 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "cSpell.words": [
+    "ahooks",
     "cand",
     "checkperiod",
+    "fastgpt",
     "favorited",
     "feishu",
     "Hnsw",
     "langchain",
     "langgraph",
+    "newticket",
+    "presign",
     "prty",
     "sealos",
     "Tentix",
     "uisrc",
-    "uncategorized"
+    "uncategorized",
+    "wechat",
+    "weixin"
   ]
 }

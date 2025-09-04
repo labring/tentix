@@ -56,7 +56,7 @@ export function useUpdatePriorityModal() {
     resolver: zodResolver(updatePriorityFormSchema),
     defaultValues: {
       priority: undefined,
-      description: "change ticket priority",
+      description: t("tktH.upgrade", { priority: t("normal") }),
     },
   });
 

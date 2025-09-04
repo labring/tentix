@@ -7,6 +7,7 @@ import {
   ticketInsertSchema,
   validateJSONContent,
   zs,
+  detectLocale,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq, and, desc, count, or, like, inArray, gte, lte } from "drizzle-orm";
@@ -18,7 +19,6 @@ import { HTTPException } from "hono/http-exception";
 import { authMiddleware, factory, staffOnlyMiddleware } from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
-import { readConfig } from "@/utils/env.ts";
 import {
   getIndex,
   moduleEnumArray,
@@ -29,6 +29,7 @@ import {
 } from "@/utils/const.ts";
 import { userTicketSchema } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
+import { isFeishuConfigured } from "@/utils/tools";
 
 const createResponseSchema = z.array(
   z.object({
@@ -64,9 +65,9 @@ const updateTicketStatusSchema = z.object({
 
 const ticketInfoResponseSchema = zs.ticket.extend({
   // 扩展客户信息
-  customer: zs.users,
+  customer: zs.users.extend({ sealosId: z.string().optional() }),
   // 扩展客服信息（处理人）
-  agent: zs.users,
+  agent: zs.users.extend({ sealosId: z.string().optional() }),
   // 扩展技术人员信息
   technicians: z.array(zs.users),
   // 扩展标签信息
@@ -146,11 +147,20 @@ const ticketRouter = factory
         });
       }
 
+      const t = c.get("i18n").getFixedT(detectLocale(c));
       const staffMap = c.var.staffMap();
-      const staffMapEntries = Array.from(staffMap.entries());
-      const [assigneeId, { feishuUnionId: assigneeFeishuId }] = staffMapEntries
-        .filter(([_, info]) => info.role === "agent")
-        .sort((a, b) => a[1].remainingTickets - b[1].remainingTickets)[0]!;
+      const agentEntries = Array.from(staffMap.entries()).filter(
+        ([_, info]) => info.role === "agent",
+      );
+      if (agentEntries.length === 0) {
+        throw new HTTPException(400, {
+          message: t("no_agents_configured"),
+        });
+      }
+      const [assigneeId, { feishuUnionId: _assigneeFeishuId }] =
+        agentEntries.sort(
+          (a, b) => a[1].remainingTickets - b[1].remainingTickets,
+        )[0]!;
 
       let ticketId: string | undefined;
 
@@ -161,8 +171,9 @@ const ticketRouter = factory
             // don't use destructuring, user input is not trusted
             title: payload.title,
             description: payload.description,
-            module: payload.module,
-            area: payload.area,
+            module: payload.module || "",
+            area: payload.area || "",
+            sealosNamespace: payload.sealosNamespace || "",
             occurrenceTime: payload.occurrenceTime,
             priority: payload.priority,
             customerId: userId,
@@ -197,49 +208,49 @@ const ticketRouter = factory
             operatorId: userId,
           });
 
-          const theme = (() => {
-            switch (payload.priority) {
-              case "urgent":
-              case "high":
-                return "red";
-              case "medium":
-                return "orange";
-              case "low":
-                return "indigo";
-              default:
-                return "blue";
-            }
-          })();
+          //   const theme = (() => {
+          //     switch (payload.priority) {
+          //       case "urgent":
+          //       case "high":
+          //         return "red";
+          //       case "medium":
+          //         return "orange";
+          //       case "low":
+          //         return "indigo";
+          //       default:
+          //         return "blue";
+          //     }
+          //   })();
 
-          const ticketUrl = `${c.var.origin}/staff/tickets/${data.id}`;
+          //   const ticketUrl = `${c.var.origin}/staff/tickets/${data.id}`;
 
-          const config = await readConfig();
+          //   const config = await readConfig();
 
-          const card = getFeishuCard("new_ticket", {
-            title: payload.title,
-            description,
-            time: new Date().toLocaleString(),
-            assignee: assigneeFeishuId,
-            number: c.var.incrementTodayTicketCount(),
-            module: c.var.i18n.t(payload.module),
-            theme,
-            internal_url: {
-              url: `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
-            },
-            ticket_url: {
-              url: ticketUrl,
-            },
-          });
+          //   const card = getFeishuCard("new_ticket", {
+          //     title: payload.title,
+          //     description,
+          //     time: new Date().toLocaleString(),
+          //     assignee: assigneeFeishuId,
+          //     number: c.var.incrementTodayTicketCount(),
+          //     module: c.var.i18n.t(payload.module),
+          //     theme,
+          //     internal_url: {
+          //       url: `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
+          //     },
+          //     ticket_url: {
+          //       url: ticketUrl,
+          //     },
+          //   });
 
-          getFeishuAppAccessToken().then(({ tenant_access_token }) => {
-            sendFeishuMsg(
-              "chat_id",
-              config.feishu_chat_id,
-              "interactive",
-              JSON.stringify(card.card),
-              tenant_access_token,
-            );
-          });
+          //   getFeishuAppAccessToken().then(({ tenant_access_token }) => {
+          //     sendFeishuMsg(
+          //       "chat_id",
+          //       config.feishu_chat_id,
+          //       "interactive",
+          //       JSON.stringify(card.card),
+          //       tenant_access_token,
+          //     );
+          //   });
         }
       });
 
@@ -563,8 +574,39 @@ const ticketRouter = factory
         }
 
         const aiRole: (typeof userRoleEnumArray)[number] = "ai";
+        const [customerSealos, agentSealos] = await Promise.all([
+          db.query.userIdentities.findFirst({
+            where: (ui, { and, eq }) =>
+              and(eq(ui.userId, data.customer.id), eq(ui.provider, "sealos")),
+          }),
+          db.query.userIdentities.findFirst({
+            where: (ui, { and, eq }) =>
+              and(eq(ui.userId, data.agent.id), eq(ui.provider, "sealos")),
+          }),
+        ]);
+
         const response = {
           ...data,
+          customer: {
+            ...data.customer,
+            ...(customerSealos
+              ? {
+                  sealosId:
+                    customerSealos?.metadata?.sealos?.accountId ||
+                    customerSealos?.providerUserId,
+                }
+              : {}),
+          },
+          agent: {
+            ...data.agent,
+            ...(agentSealos
+              ? {
+                  sealosId:
+                    agentSealos?.metadata?.sealos?.accountId ||
+                    agentSealos?.providerUserId,
+                }
+              : {}),
+          },
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
           ai: await db.query.users.findFirst({
@@ -579,7 +621,7 @@ const ticketRouter = factory
           }),
         };
 
-        return c.json(response);
+        return c.json<typeof response>(response);
       } else if (staffMap.get(userId) !== undefined) {
         // 员工可以查看所有工单
         const data = await db.query.tickets.findFirst({
@@ -609,8 +651,45 @@ const ticketRouter = factory
         }
 
         const aiRole: (typeof userRoleEnumArray)[number] = "ai";
+        const [customerSealos, agentSealos] = await Promise.all([
+          db.query.userIdentities.findFirst({
+            where: (ui, { and, eq }) =>
+              and(eq(ui.userId, data.customer.id), eq(ui.provider, "sealos")),
+          }),
+          db.query.userIdentities.findFirst({
+            where: (ui, { and, eq }) =>
+              and(eq(ui.userId, data.agent.id), eq(ui.provider, "sealos")),
+          }),
+        ]);
+
         const response = {
           ...data,
+          customer: {
+            ...data.customer,
+            ...(customerSealos
+              ? {
+                  sealosId:
+                    (
+                      customerSealos?.metadata as {
+                        sealos?: { accountId?: string };
+                      }
+                    )?.sealos?.accountId || customerSealos?.providerUserId,
+                }
+              : {}),
+          },
+          agent: {
+            ...data.agent,
+            ...(agentSealos
+              ? {
+                  sealosId:
+                    (
+                      agentSealos?.metadata as {
+                        sealos?: { accountId?: string };
+                      }
+                    )?.sealos?.accountId || agentSealos?.providerUserId,
+                }
+              : {}),
+          },
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
           ai: await db.query.users.findFirst({
@@ -625,7 +704,7 @@ const ticketRouter = factory
           }),
         };
 
-        return c.json(response);
+        return c.json<typeof response>(response);
       } else {
         // 非员工且非客户，直接拒绝
         throw new HTTPException(403, {
@@ -723,6 +802,12 @@ const ticketRouter = factory
         assignees.push(assignee);
       }
 
+      if (!isFeishuConfigured()) {
+        throw new HTTPException(400, {
+          message: "Feishu is not configured",
+        });
+      }
+
       const ticketInfo = (await db.query.tickets.findFirst({
         where: (tickets, { eq }) => eq(tickets.id, ticketId),
       }))!;
@@ -752,9 +837,8 @@ const ticketRouter = factory
         }
       });
 
-      const config = await readConfig();
       const ticketUrl = `${c.var.origin}/staff/tickets/${ticketId}`;
-      const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;
+      const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${global.customEnv.FEISHU_APP_ID}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;
 
       const { tenant_access_token } = await getFeishuAppAccessToken();
 
@@ -777,7 +861,7 @@ const ticketRouter = factory
         // 飞书群聊天
         sendFeishuMsg(
           "chat_id",
-          config.feishu_chat_id,
+          global.customEnv.FEISHU_CHAT_ID!,
           "interactive",
           JSON.stringify(card.card),
           tenant_access_token,

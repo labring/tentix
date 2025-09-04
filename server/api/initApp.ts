@@ -1,16 +1,12 @@
 import * as schema from "@/db/schema";
 import { logInfo } from "@/utils";
 import { importKeyFromString } from "@/utils/crypto";
-import { readConfig } from "@/utils/env";
 import { connectDB } from "@/utils/tools";
 import { and, count, eq, gte, lt } from "drizzle-orm";
 import i18next from "i18next";
 import { translations } from "i18n";
 
 export async function initGlobalVariables() {
-  if (!global.config) {
-    await readConfig();
-  }
   if (!global.cryptoKey) {
     if (!global.customEnv.ENCRYPTION_KEY) {
       throw new Error("ENCRYPTION_KEY is not set");
@@ -100,20 +96,18 @@ export function incrementTodayTicketCount() {
   return global.todayTicketCount;
 }
 
-function getDepartment(uid: `on_${string}`) {
-  return (
-    global.config!.departments.find((d) => d.members.includes(uid))?.name ||
-    "Unknown"
-  );
-}
-
 export async function refreshStaffMap(stale: boolean = false) {
   if (
     global.staffMap === undefined ||
     stale ||
     global.customEnv.NODE_ENV !== "production"
   ) {
-    logInfo("Staff map not initialized, initializing...");
+    if (stale) {
+      logInfo("Staff map is stale, initializing...");
+    } else {
+      logInfo("Staff map not initialized, initializing...");
+    }
+
     const db = connectDB();
     const agents = (
       await db.query.users.findMany({
@@ -125,20 +119,38 @@ export async function refreshStaffMap(stale: boolean = false) {
             },
             where: (tickets, { eq }) => eq(tickets.status, "in_progress"),
           },
+          identities: {
+            where: (userIdentities, { eq }) =>
+              eq(userIdentities.provider, "feishu"),
+            columns: {
+              id: true,
+              provider: true,
+              isPrimary: true,
+              metadata: true,
+            },
+          },
         },
       })
-    ).map((staff) => ({
-      id: staff.id,
-      sealosId: staff.sealosId,
-      realName: staff.name,
-      nickname: staff.nickname,
-      avatar: staff.avatar,
-      remainingTickets: staff.ticketAgent.length,
-      role: staff.role,
-      feishuUnionId: staff.feishuUnionId as `on_${string}`,
-      feishuOpenId: staff.feishuOpenId as `ou_${string}`,
-      department: getDepartment(staff.feishuUnionId as `on_${string}`),
-    }));
+    ).map((staff) => {
+      const feishuIdentities = staff.identities ?? [];
+      const primaryFirst = [...feishuIdentities].sort((a, b) =>
+        a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1,
+      );
+      const feishuMeta = primaryFirst.find((i) => i.metadata?.feishu)?.metadata
+        ?.feishu;
+      const feishuUnionId = (feishuMeta?.unionId as `on_${string}` | "") ?? "";
+      const feishuOpenId = (feishuMeta?.openId as `ou_${string}` | "") ?? "";
+      return {
+        id: staff.id,
+        realName: staff.name,
+        nickname: staff.nickname,
+        avatar: staff.avatar,
+        remainingTickets: staff.ticketAgent.length,
+        role: staff.role,
+        feishuUnionId,
+        feishuOpenId,
+      };
+    });
 
     const technicians = (
       await db.query.users.findMany({
@@ -154,22 +166,40 @@ export async function refreshStaffMap(stale: boolean = false) {
               },
             },
           },
+          identities: {
+            where: (userIdentities, { eq }) =>
+              eq(userIdentities.provider, "feishu"),
+            columns: {
+              id: true,
+              provider: true,
+              isPrimary: true,
+              metadata: true,
+            },
+          },
         },
       })
-    ).map((staff) => ({
-      id: staff.id,
-      sealosId: staff.sealosId,
-      realName: staff.name,
-      nickname: staff.nickname,
-      avatar: staff.avatar,
-      remainingTickets: staff.ticketTechnicians.filter(
-        (ticket) => ticket.ticket.status === "in_progress",
-      ).length,
-      role: staff.role,
-      feishuUnionId: staff.feishuUnionId as `on_${string}`,
-      feishuOpenId: staff.feishuOpenId as `ou_${string}`,
-      department: getDepartment(staff.feishuUnionId as `on_${string}`),
-    }));
+    ).map((staff) => {
+      const feishuIdentities = staff.identities ?? [];
+      const primaryFirst = [...feishuIdentities].sort((a, b) =>
+        a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1,
+      );
+      const feishuMeta = primaryFirst.find((i) => i.metadata?.feishu)?.metadata
+        ?.feishu;
+      const feishuUnionId = (feishuMeta?.unionId as `on_${string}` | "") ?? "";
+      const feishuOpenId = (feishuMeta?.openId as `ou_${string}` | "") ?? "";
+      return {
+        id: staff.id,
+        realName: staff.name,
+        nickname: staff.nickname,
+        avatar: staff.avatar,
+        remainingTickets: staff.ticketTechnicians.filter(
+          (ticket) => ticket.ticket.status === "in_progress",
+        ).length,
+        role: staff.role,
+        feishuUnionId,
+        feishuOpenId,
+      };
+    });
 
     const staffs = agents.concat(technicians);
     global.staffMap = new Map(staffs.map((staff) => [staff.id, staff]));

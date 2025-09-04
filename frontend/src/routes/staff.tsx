@@ -3,6 +3,7 @@ import { areaEnumArray } from "tentix-server/constants";
 import { useAuth } from "../hooks/use-local-user";
 import { z } from "zod";
 
+// TODO: 如何处理多种 oauth 登录方式
 export const Route = createFileRoute("/staff")({
   validateSearch: z
     .object({
@@ -42,6 +43,7 @@ export const Route = createFileRoute("/staff")({
       } catch (error) {
         console.error("Failed to fetch user info during callback:", error);
         window.localStorage.removeItem("token");
+        context.authContext.logout();
         context.authContext.setIsAuthenticated(false);
         context.authContext.setIsLoading(false);
         window.location.href = `/api/feishu/login?redirect=${location.href}`;
@@ -52,6 +54,7 @@ export const Route = createFileRoute("/staff")({
     // 检查认证状态
     const hasToken = window.localStorage.getItem("token") !== null;
 
+    // 未认证
     if (!hasToken) {
       // 没有token，跳转飞书登录
       // 用 location.href 而不是 location.pathname 是因为 location.pathname 不包含查询参数
@@ -85,6 +88,7 @@ export const Route = createFileRoute("/staff")({
         console.error("Failed to fetch user info:", error);
         // 用户信息获取失败，可能token已过期，重新认证
         window.localStorage.removeItem("token");
+        context.authContext.logout();
         context.authContext.setIsAuthenticated(false);
         context.authContext.setIsLoading(false);
         window.location.href = `/api/feishu/login?redirect=${location.href}`;

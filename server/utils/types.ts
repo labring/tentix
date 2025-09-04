@@ -57,7 +57,7 @@ export function extractText(json: JSONContentZod) {
         break;
       }
       case "paragraph": {
-        node.content?.forEach(child => walk(child, isInList));
+        node.content?.forEach((child) => walk(child, isInList));
         if (!isInList) {
           out += "\n";
         }
@@ -67,7 +67,7 @@ export function extractText(json: JSONContentZod) {
         const level = node.attrs?.level || 1;
         out += "#".repeat(level);
         out += " ";
-        node.content?.forEach(child => walk(child));
+        node.content?.forEach((child) => walk(child));
         out += "\n";
         break;
       }
@@ -77,14 +77,14 @@ export function extractText(json: JSONContentZod) {
       }
       case "bulletList": {
         inOrderedList = false;
-        node.content?.forEach(child => walk(child));
+        node.content?.forEach((child) => walk(child));
         out += "\n";
         break;
       }
       case "orderedList": {
         inOrderedList = true;
         listCounter = node.attrs?.start || 1;
-        node.content?.forEach(child => walk(child));
+        node.content?.forEach((child) => walk(child));
         out += "\n";
         break;
       }
@@ -95,13 +95,13 @@ export function extractText(json: JSONContentZod) {
         } else {
           out += "- ";
         }
-        node.content?.forEach(child => walk(child, true));
+        node.content?.forEach((child) => walk(child, true));
         out += "\n";
         break;
       }
       case "blockquote": {
         out += "> ";
-        node.content?.forEach(child => walk(child));
+        node.content?.forEach((child) => walk(child));
         out += "\n";
         break;
       }
@@ -110,7 +110,7 @@ export function extractText(json: JSONContentZod) {
         out += "\n```";
         out += language;
         out += "\n";
-        node.content?.forEach(child => walk(child));
+        node.content?.forEach((child) => walk(child));
         out += "\n```\n";
         break;
       }
@@ -127,13 +127,16 @@ export function extractText(json: JSONContentZod) {
         break;
       }
       default: {
-        node.content?.forEach(child => walk(child, isInList));
+        node.content?.forEach((child) => walk(child, isInList));
       }
     }
   }
 
   walk(json);
-  return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return out
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function getAbbreviatedText(
@@ -151,43 +154,6 @@ export function getAbbreviatedText(
 export const extractPlainText = extractText;
 
 export type userRoleType = (typeof userRoleEnumArray)[number];
-
-export type AppConfig = {
-  feishu_bot_webhook_id: string;
-  feishu_app_id: `cli_${string}`;
-  feishu_app_secret: string;
-  feishu_chat_id: `oc_${string}`;
-  department_ids: `od-${string}`[];
-  agents_ids: string[];
-  admin_ids: string[];
-  aiProfile: {
-    sealosId: string;
-    name: string;
-    nickname: string;
-    realName: string;
-    status: string;
-    phoneNum: string;
-    role: "ai";
-    avatar: string;
-    registerTime: string;
-  };
-  departments: {
-    openId: `ou_${string}`;
-    id: string;
-    name: string;
-    members: `on_${string}`[];
-  }[];
-  staffs: {
-    name: string;
-    nickname?: string;
-    description: string;
-    feishuOpenId?: `ou_${string}`;
-    feishuUnionId?: `on_${string}`;
-    sealosId: string;
-    avatar: string;
-    phoneNum: string;
-  }[];
-};
 
 export const sealosJWT = z.object({
   workspaceUid: z.string(),
@@ -325,6 +291,16 @@ export const unreadSSESchema = z.object({
 });
 
 export type UnreadSSEType = z.infer<typeof unreadSSESchema>;
+
+// ---------- API error response ----------
+export type ApiErrorResponse = {
+  code: number;
+  timeUTC: string;
+  message: string;
+  // only present in non-production or when explicitly allowed
+  cause?: unknown;
+  stack?: string;
+};
 
 // ticket
 export const ticketInsertSchema = createInsertSchema(schema.tickets).omit({

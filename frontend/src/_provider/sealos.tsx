@@ -22,10 +22,13 @@ let sealosInitPromise: Promise<void> | null = null;
 interface SealosContextType {
   isInitialized: boolean;
   isLoading: boolean;
+  isSealos: boolean;
   error: string | null;
   sealosToken: string | null;
   sealosArea: string | null;
   sealosUser: SealosUserInfo | null;
+  sealosNs: string | null;
+  currentLanguage: string | null;
 }
 
 const SealosContext = createContext<SealosContextType | null>(null);
@@ -35,10 +38,13 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<SealosContextType>({
     isInitialized: false,
     isLoading: true,
+    isSealos: false,
     error: null,
     sealosToken: null,
     sealosArea: null,
     sealosUser: null,
+    sealosNs: null,
+    currentLanguage: null,
   });
 
   const initializationRef = useRef(false);
@@ -83,20 +89,24 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
         const sealosSession = await sealosApp.getSession();
         const sealosToken = sealosSession.token as unknown as string;
         const sealosArea = extractAreaFromSealosToken(sealosToken ?? "");
+        const sealosNs = sealosSession.user.nsid;
 
         window.localStorage.setItem("sealosToken", sealosToken);
         window.localStorage.setItem("sealosArea", sealosArea ?? "");
-        window.localStorage.setItem("sealosNs", sealosSession.user.nsid ?? "");
+        window.localStorage.setItem("sealosNs", sealosNs ?? "");
 
         console.info("Sealos data saved to localStorage");
 
         setState({
           isInitialized: true,
           isLoading: false,
+          isSealos: true,
           error: null,
           sealosToken,
           sealosArea,
           sealosUser: sealosSession.user,
+          sealosNs,
+          currentLanguage: lang.lng,
         });
 
         // cleanup
@@ -105,12 +115,17 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
           cleanupApp?.();
         };
       } catch (error) {
+        console.info(
+          "Maybe not in Sealos environment, Sealos initialization failed, error info:",
+          error,
+        );
         setState((prev) => ({
           ...prev,
+          isInitialized: true,
           isLoading: false,
+          isSealos: false,
           error: error instanceof Error ? error.message : "Unknown error",
         }));
-        throw error;
       }
     };
 
@@ -121,7 +136,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cleanupRef.current?.();
     };
-  }, []);
+  }, [i18n]);
 
   return (
     <SealosContext.Provider value={state}>{children}</SealosContext.Provider>

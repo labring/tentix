@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production",
+    "build": "bun build --target=bun --outfile=./dist/server.js ./api/index.ts --production --sourcemap && mv ./api/server.js ./api/server.js.map ./dist/ 2>/dev/null || true",
     "build:types": "tsc -p ./tsconfig.types.json --noCheck",
     "typecheck": "tsc --b",
     "lint": "eslint .",
@@ -14,7 +14,9 @@
     "pull": "bun script/drizzle-pull.sh",
     "studio": "bun --env-file=../.env.local drizzle-kit studio --config=db/drizzle.config.ts",
     "seed": "bun --env-file=../.env.local ./script/seed.ts",
-    "tsr": "bun x tsr --project tsconfig.json 'api/index.ts$' 'script/*' 'test/*' 'db/drizzle.config.ts' 'utils/index.ts' 'utils/rpc.ts' --write"
+    "tsr": "bun x tsr --project tsconfig.json 'api/index.ts$' 'script/*' 'test/*' 'db/drizzle.config.ts' 'utils/index.ts' 'utils/rpc.ts' --write",
+    "migrate:image:build": "docker build -f ../Dockerfile.migrate -t tentix-migrate:latest ..",
+    "migrate:image:run": "docker run --rm --network=host -e DATABASE_URL=$DATABASE_URL -e NODE_ENV=production tentix-migrate:latest"
   },
   "dependencies": {
     "@faker-js/faker": "^9.8.0",

@@ -32,15 +32,15 @@ import type { ticketInsertType, JSONContentZod } from "tentix-server/types";
 import {
   ticketPriorityEnumArray,
   moduleEnumArray,
-  areaEnumArray,
 } from "tentix-server/constants";
 import { ArrowLeftIcon, TriangleAlertIcon } from "lucide-react";
 import { processFilesAndUpload } from "@comp/chat/upload-utils";
 import { useSealos } from "src/_provider/sealos";
 import { RouteTransition } from "@comp/page-transition";
+import type { TFunction } from "i18next";
 
 // Client-side validation schema - 只验证用户需要填写的字段
-const createTicketFormSchema = (t: (key: string) => string) =>
+const createTicketFormSchema = (t: TFunction) =>
   z.object({
     title: z
       .string()
@@ -50,7 +50,8 @@ const createTicketFormSchema = (t: (key: string) => string) =>
       required_error: t("please_select_module") || "Please select a module",
     }),
     description: z.any(),
-    area: z.enum(areaEnumArray).optional(),
+    area: z.string().optional(),
+    sealosNamespace: z.string().optional(),
     occurrenceTime: z.string().optional(),
     priority: z.enum(ticketPriorityEnumArray).optional(),
   });
@@ -140,11 +141,13 @@ function TicketForm({
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {moduleEnumArray.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {t(m)}
-                      </SelectItem>
-                    ))}
+                    {moduleEnumArray
+                      .filter((m) => m !== "all")
+                      .map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {t(m)}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               )}
@@ -199,7 +202,7 @@ function useTicketCreation() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { sealosArea } = useSealos();
+  const { sealosArea, sealosNs, isSealos } = useSealos();
   const queryClient = useQueryClient();
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
     null,
@@ -214,7 +217,8 @@ function useTicketCreation() {
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
-      area: sealosArea as (typeof areaEnumArray)[number],
+      area: isSealos ? sealosArea || "hzh" : "",
+      sealosNamespace: isSealos ? sealosNs || "" : "",
       priority: ticketPriorityEnumArray[0],
       occurrenceTime: new Date().toISOString(),
     },
@@ -228,8 +232,8 @@ function useTicketCreation() {
         title: data.title,
         module: data.module,
         description: data.description,
-        area:
-          data.area || (sealosArea as (typeof areaEnumArray)[number]) || "hzh",
+        area: isSealos ? data.area || sealosArea || "hzh" : "",
+        sealosNamespace: isSealos ? data.sealosNamespace || sealosNs || "" : "",
         occurrenceTime: data.occurrenceTime || new Date().toISOString(),
         priority: data.priority || ticketPriorityEnumArray[0],
       };
@@ -318,14 +322,14 @@ function useTicketCreation() {
           setUploadProgress(null);
         } catch (uploadError) {
           setUploadProgress(null);
-          console.error("文件上传失败:", uploadError);
+          console.error(`${t("file_upload_failed")}:`, uploadError);
 
           toast({
-            title: "文件上传失败",
+            title: t("file_upload_failed"),
             description:
               uploadError instanceof Error
                 ? uploadError.message
-                : "文件上传时出现错误",
+                : t("file_upload_error"),
             variant: "destructive",
           });
           return false;
@@ -342,12 +346,12 @@ function useTicketCreation() {
       return true;
     } catch (error) {
       setUploadProgress(null);
-      console.error("提交工单失败:", error);
+      console.error(`${t("ticket_create_failed")}:`, error);
 
       toast({
         title: t("ticket_create_failed"),
         description:
-          error instanceof Error ? error.message : "提交时出现未知错误",
+          error instanceof Error ? error.message : t("unknown_submit_error"),
         variant: "destructive",
       });
       return false;
@@ -385,10 +389,7 @@ function RouteComponent() {
     try {
       router.history.back();
     } catch (error) {
-      console.warn(
-        "History navigation failed, falling back to default route:",
-        error,
-      );
+      console.warn(`${t("history_navigation_failed")}:`, error);
       navigate({ to: "/user/tickets/list" });
     }
   };
@@ -449,8 +450,10 @@ function RouteComponent() {
                   <div className="space-y-2">
                     <div>{t("are_you_sure_submit_ticket")}</div>
                     <div className="text-sm text-zinc-600">
-                      正在上传文件 {uploadProgress.uploaded}/
-                      {uploadProgress.total}
+                      {t("uploading_files", {
+                        uploaded: uploadProgress.uploaded,
+                        total: uploadProgress.total,
+                      })}
                       {uploadProgress.currentFile &&
                         ` - ${uploadProgress.currentFile}`}
                     </div>

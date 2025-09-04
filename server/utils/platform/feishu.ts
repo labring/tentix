@@ -1,5 +1,5 @@
-import { readConfig } from "../env.ts";
 import { logError } from "../log.ts";
+import { isFeishuConfigured } from "@/utils/tools";
 import { FeishuDepartmentsInfo } from "./feishu.type.ts";
 
 type cardType = {
@@ -102,7 +102,15 @@ export const getFeishuCard: (
 export async function sendFeishuMsg(
   receiveIdType: "chat_id" | "user_id" | "email" | "open_id",
   receiveId: string,
-  msgType: "text" | "post" | "image" | "file" | "audio" | "media" | "sticker" | "interactive",
+  msgType:
+    | "text"
+    | "post"
+    | "image"
+    | "file"
+    | "audio"
+    | "media"
+    | "sticker"
+    | "interactive",
   content: string,
   accessToken: `t-${string}`,
 ) {
@@ -110,8 +118,15 @@ export async function sendFeishuMsg(
     `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=${receiveIdType}`,
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ receive_id: receiveId, msg_type: msgType, content }),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        receive_id: receiveId,
+        msg_type: msgType,
+        content,
+      }),
     },
   );
   if (!res.ok) {
@@ -120,59 +135,108 @@ export async function sendFeishuMsg(
   return res.json();
 }
 
+interface RetryConfig {
+  maxRetries: number;
+  timeoutMs: number;
+  initialDelayMs: number;
+}
 
-const proxyHandler = {
-  async apply (
-    target: typeof fetch,
-    _this: unknown,
-    argumentsList: Parameters<typeof fetch>,
-  ) {
-    const MAX_RETRIES = 1;
-    const TIMEOUT_MS = 3000;
-    const INITIAL_RETRY_DELAY = 1000; // 1 second initial delay
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 1,
+  timeoutMs: 3000, // 3 seconds timeout for Feishu API
+  initialDelayMs: 1000, // 1 second initial delay
+};
 
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  controller?: AbortController,
+): Promise<T> {
+  const timeoutId = setTimeout(() => {
+    // If we have a controller, abort it to trigger timeout
+    if (controller && !controller.signal.aborted) {
+      controller.abort();
+    }
+  }, timeoutMs);
+
+  try {
+    return await promise;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function handleFetchError(
+  res: Response,
+  attemptNumber: number,
+  maxRetries: number,
+): Promise<never> {
+  let errorDetails: unknown;
+  try {
+    errorDetails = await res.json();
+  } catch {
+    errorDetails = { status: res.status, statusText: res.statusText };
+  }
+
+  logError(`Attempt ${attemptNumber}/${maxRetries + 1} failed:`, errorDetails);
+  throw new Error(`HTTP ${res.status}: ${res.statusText}`, {
+    cause: errorDetails,
+  });
+}
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const proxyHandler: ProxyHandler<typeof fetch> = {
+  async apply(target, _thisArg, argumentsList) {
+    const config = DEFAULT_RETRY_CONFIG;
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
         const [url, options = {}] = argumentsList;
-        const fetchOptions = {
+
+        // Don't override existing signal if provided
+        const controller = new AbortController();
+        const fetchOptions: RequestInit = {
           ...options,
-          signal: controller.signal,
+          signal: options.signal || controller.signal,
         };
 
-        const res = await target(url, fetchOptions);
-        clearTimeout(timeoutId);
+        const fetchPromise = target(url, fetchOptions);
+        const res = await withTimeout(
+          fetchPromise,
+          config.timeoutMs,
+          controller,
+        );
 
         if (!res.ok) {
-          const cause = await res.json();
-          logError(
-            `Attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`,
-            cause,
-          );
-          throw new Error("Failed to fetch.", {
-            cause: cause.error_description ?? cause,
-          });
+          await handleFetchError(res, attempt + 1, config.maxRetries);
         }
+
         return res;
       } catch (error) {
-        lastError = error as Error;
-        if (error instanceof Error && error.name === "AbortError") {
-          throw new Error("Request timeout", { cause: error });
-        }
-        if (attempt === MAX_RETRIES) {
+        const err = error as Error;
+        lastError = err;
+
+        // Don't retry on timeout or if this is the last attempt
+        if (err.name === "AbortError" || attempt === config.maxRetries) {
+          if (err.name === "AbortError") {
+            throw new Error("Request timeout", { cause: err });
+          }
           break;
         }
-        const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+
+        // Exponential backoff for retries
+        const delayMs = config.initialDelayMs * Math.pow(2, attempt);
         logError(
-          `Retrying in ${delay}ms... (Attempt ${attempt + 1}/${MAX_RETRIES})`,
+          `Retrying in ${delayMs}ms... (Attempt ${attempt + 1}/${config.maxRetries})`,
         );
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await delay(delayMs);
       }
     }
+
     throw lastError || new Error("Failed to fetch after all retries");
   },
 };
@@ -198,14 +262,19 @@ export async function getFeishuAppAccessToken() {
     };
   }
 
-  const config = await readConfig();
+  if (!isFeishuConfigured()) {
+    throw new Error("Feishu is not configured");
+  }
   const res = await myFetch(
     "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal",
     {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        app_id: config.feishu_app_id,
-        app_secret: config.feishu_app_secret,
+        app_id: global.customEnv.FEISHU_APP_ID!,
+        app_secret: global.customEnv.FEISHU_APP_SECRET!,
       }),
     },
   );
@@ -284,7 +353,7 @@ export async function getFeishuUserInfoByDepartment(
     }[];
   };
 }> {
-  const allItems: any[] = [];
+  const allItems: unknown[] = [];
 
   async function fetchPage(pageToken?: string) {
     const url = new URL(

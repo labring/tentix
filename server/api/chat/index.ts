@@ -42,6 +42,16 @@ const msgEmitter = new MessageEmitter();
 const roomEmitter = new RoomEmitter();
 const broadcastToRoom = roomEmitter.broadcastToRoom.bind(roomEmitter);
 
+// Helpers: 判断房间是否存在非 customer 的真人（排除 system/ai）
+const HUMAN_STAFF_ROLES: userRoleType[] = ["agent", "technician", "admin"];
+
+function hasNonCustomerHumanInRoom(roomId: string): boolean {
+  for (const role of HUMAN_STAFF_ROLES) {
+    if (roomEmitter.hasRoleInRoom(roomId, role)) return true;
+  }
+  return false;
+}
+
 // Token management
 interface TokenData {
   userId: number;
@@ -297,6 +307,12 @@ namespace aiHandler {
     ticketId: string,
     _content?: JSONContentZod | string[],
   ) {
+    const db = connectDB();
+    // 如果房间存在非 customer 的真人，则 AI 不参与回复
+    if (hasNonCustomerHumanInRoom(ticketId)) {
+      logInfo(`Skip AI response for ${ticketId}: non-customer human present.`);
+      return;
+    }
     // Skip if there's already an AI task running for this ticket
     if (aiProcessingSet.has(ticketId)) {
       logInfo(`AI already responding for ticket ${ticketId}, skip trigger.`);
@@ -324,8 +340,42 @@ namespace aiHandler {
     }, AI_PROCESSING_TIMEOUT);
     aiProcessingTimeouts.set(ticketId, timeoutId);
 
+    // ai 不响应 closed 状态的工单 和 已经转人工的工单
+    const ticket = await db.query.tickets.findFirst({
+      where: (t, { eq }) => eq(t.id, ticketId),
+      columns: {
+        id: true,
+        title: true,
+        description: true,
+        module: true,
+        category: true,
+        status: true,
+      },
+    });
+
+    if (!ticket || ticket.status === "resolved") {
+      logInfo(`Ticket ${ticketId} is closed or not found, skip AI response.`);
+      return;
+    }
+
+    const handoffRecord = await db.query.handoffRecords.findFirst({
+      where: (h, { eq }) => eq(h.ticketId, ticketId),
+      columns: {
+        id: true,
+        notificationSent: true,
+        handoffReason: false,
+        priority: false,
+        sentiment: false,
+      },
+    });
+
+    if (handoffRecord?.notificationSent) {
+      logInfo(`Ticket ${ticketId} has already been handoff, skip AI response.`);
+      return;
+    }
+
     runWithInterval(
-      () => getAIResponse(ticketId),
+      () => getAIResponse(ticket),
       () =>
         broadcastToRoom(ticketId, {
           type: "user_typing",
@@ -394,6 +444,10 @@ msgEmitter.on("new_message", async function ({ ws, ctx, message }) {
     return;
   }
   if (ctx.role === "customer") {
+    // 如果房间存在非 customer 的真人，则 AI 不参与回复
+    if (hasNonCustomerHumanInRoom(ctx.roomId)) {
+      return;
+    }
     const currentCount = await aiHandler.getCurrentAIMsgCount(ctx.roomId);
     // Only trigger AI when strictly below the limit
     if (currentCount < aiHandler.MAX_AI_RESPONSES_PER_TICKET) {
@@ -456,6 +510,10 @@ roomEmitter.on("user_join", async function ({ clientId, roomId, role, ws }) {
     if (currentCount === 0) {
       // Skip if AI is already in flight to avoid duplicate welcome
       if (aiHandler.isAIInFlight(roomId)) {
+        return;
+      }
+      // 如果房间存在非 customer 的真人，则 AI 不参与欢迎回复
+      if (hasNonCustomerHumanInRoom(roomId)) {
         return;
       }
       const db = connectDB();
@@ -562,6 +620,7 @@ const chatRouter = factory
       // Validate token
       const tokenData = validateToken(token!);
       if (!tokenData) {
+        logError(`WebSocket token validation failed - ticketId: ${ticketId}, token: ${token?.substring(0, 8)}..., clientId: ${clientId}`);
         throw new HTTPException(401, {
           message: "Invalid or expired WebSocket token.",
         });
@@ -823,6 +882,7 @@ const chatRouter = factory
           if (aiHandler.isAIInFlight(ticketId)) {
             aiHandler.clearAIInFlight(ticketId);
           }
+
           logError(
             `Client ${clientId} UserId: ${userId} Error handling WebSocket message:`,
             evt,

@@ -7,6 +7,7 @@ import {
   ticketHistory,
   ticketsTags,
   users,
+  userIdentities,
   userSession,
   requirements,
   techniciansToTickets,
@@ -17,6 +18,7 @@ import {
   knowledgeUsageStats,
   favoritedConversationsKnowledge,
   historyConversationKnowledge,
+  handoffRecords,
 } from "./schema.ts";
 
 // Define relations for detailed tickets
@@ -46,10 +48,12 @@ export const ticketsRelations = relations(tickets, ({ many, one }) => ({
   knowledgeUsageStats: many(knowledgeUsageStats), // 工单可以有多个知识库使用统计
   favoritedConversationsKnowledge: one(favoritedConversationsKnowledge), // 工单最多只能被收藏一次
   historyConversationKnowledge: one(historyConversationKnowledge), // 工单最多只能有一条历史对话知识记录
+
+  handoffRecord: one(handoffRecords), // 工单可以有一条转人工请求记录
 }));
 
 export const ticketHistoryRelations = relations(ticketHistory, ({ one }) => ({
-  ticketsRelations: one(tickets, {
+  ticket: one(tickets, {
     fields: [ticketHistory.ticketId],
     references: [tickets.id],
   }), // ref to ticketsRelations
@@ -86,6 +90,17 @@ export const usersRelations = relations(users, ({ many }) => ({
   // 新增的关联关系
   knowledgeUsageStats: many(knowledgeUsageStats), // 用户可以有多个知识库使用统计
   favoritedConversationsKnowledge: many(favoritedConversationsKnowledge), // 用户可以收藏多个对话
+
+  // 转人工记录相关
+  handoffRecordsAsCustomer: many(handoffRecords, {
+    relationName: "handoff_customer",
+  }),
+  handoffRecordsAsAgent: many(handoffRecords, {
+    relationName: "handoff_agent",
+  }),
+
+  // User identities relation
+  identities: many(userIdentities),
 }));
 
 export const techniciansToTicketsRelations = relations(
@@ -238,7 +253,7 @@ export const knowledgeUsageStatsRelations = relations(
 );
 
 // 收藏对话表的关联关系
-export const favoritedConversationsRelations = relations(
+export const favoritedConversationsKnowledgeRelations = relations(
   favoritedConversationsKnowledge,
   ({ one }) => ({
     ticket: one(tickets, {
@@ -262,3 +277,29 @@ export const historyConversationKnowledgeRelations = relations(
     }),
   }),
 );
+
+// 转人工记录关联关系
+export const handoffRecordsRelations = relations(handoffRecords, ({ one }) => ({
+  ticket: one(tickets, {
+    fields: [handoffRecords.ticketId],
+    references: [tickets.id],
+  }),
+  customer: one(users, {
+    fields: [handoffRecords.customerId],
+    references: [users.id],
+    relationName: "handoff_customer",
+  }),
+  assignedAgent: one(users, {
+    fields: [handoffRecords.assignedAgentId],
+    references: [users.id],
+    relationName: "handoff_agent",
+  }),
+}));
+
+// User identities relations
+export const userIdentitiesRelations = relations(userIdentities, ({ one }) => ({
+  user: one(users, {
+    fields: [userIdentities.userId],
+    references: [users.id],
+  }),
+}));

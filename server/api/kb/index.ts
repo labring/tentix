@@ -42,6 +42,7 @@ const kbRouter = factory
     async (c) => {
       const db = c.var.db;
       const { ticketId, messageIds, favoritedBy } = c.req.valid("json");
+      // BUG: 需要判断并发处理，对处理中的记录不进行处理，对已经处理的进行删除重建
 
       // 1) 查询是否已有收藏记录
       const existed = await db.query.favoritedConversationsKnowledge.findFirst({

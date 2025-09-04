@@ -4,11 +4,16 @@ import { areaEnumArray } from "tentix-server/constants";
 export interface AuthContext {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: (UserType & { sealosArea: (typeof areaEnumArray)[number]; sealosNs: string }) | null;
+  user:
+    | (UserType & {
+        sealosArea?: (typeof areaEnumArray)[number];
+        sealosNs?: string;
+      })
+    | null;
   updateUser: (
     userData: UserType,
-    sealosArea: (typeof areaEnumArray)[number],
-    sealosNs: string,
+    sealosArea?: (typeof areaEnumArray)[number],
+    sealosNs?: string,
   ) => void;
   setIsAuthenticated: (isAuthenticated: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
@@ -49,10 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateUser = React.useCallback(
     (
       userData: UserType,
-      sealosArea: (typeof areaEnumArray)[number],
-      sealosNs: string,
+      sealosArea?: (typeof areaEnumArray)[number],
+      sealosNs?: string,
     ) => {
-      const userWithArea = { ...userData, sealosArea, sealosNs };
+      const userWithArea = {
+        ...userData,
+        ...(sealosArea && { sealosArea }),
+        ...(sealosNs && { sealosNs }),
+      };
       setUser(userWithArea);
       setIsLoading(false); // 用户信息加载完成
       window.localStorage.setItem("user", JSON.stringify(userWithArea));

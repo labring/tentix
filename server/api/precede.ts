@@ -5,32 +5,42 @@ import { z } from "zod";
  * Use z.xxx() instead.
  */
 const envSchema = z.object({
-  DATABASE_URL: z.string().url().trim(),
-  ENCRYPTION_KEY: z.string().base64().trim(),
-  MINIO_ACCESS_KEY: z.string().base64().trim(),
-  MINIO_SECRET_KEY: z.string().base64().trim(),
+  FEISHU_APP_ID: z.string().trim().optional(),
+  FEISHU_APP_SECRET: z.string().trim().optional(),
+  FEISHU_CHAT_ID: z.string().trim().optional(),
+
+  FASTGPT_API_URL: z.string().url().trim().optional(),
+  FASTGPT_API_KEY: z.string().startsWith("fastgpt-").trim().optional(),
+  FASTGPT_API_LIMIT: z.coerce.number().default(10).optional(),
+
+  MINIO_ACCESS_KEY: z.string().trim(),
+  MINIO_SECRET_KEY: z.string().trim(),
   MINIO_BUCKET: z.string().trim(),
   MINIO_ENDPOINT: z.string().trim(),
-  FASTGPT_API_URL: z.string().url().trim(),
-  FASTGPT_API_KEY: z.string().startsWith("fastgpt-").trim(),
-  FASTGPT_API_LIMIT: z.coerce.number().default(10),
 
-  SEALOS_APP_TOKEN: z.string().trim(),
+  DATABASE_URL: z.string().url().trim(),
+
+  ENCRYPTION_KEY: z.string().base64().trim(),
+  SEALOS_APP_TOKEN: z.string().trim().optional(),
 
   OPENAI_BASE_URL: z.string().url().trim().optional(),
-  OPENAI_API_KEY: z.string().trim(),
+  OPENAI_API_KEY: z.string().trim().optional(),
   SUMMARY_MODEL: z.string().trim().optional(),
   FAST_MODEL: z.string().trim().optional(),
   EMBEDDING_MODEL: z.string().trim().optional(),
   CHAT_MODEL: z.string().trim().optional(),
+  MAX_AI_RESPONSES_PER_TICKET: z.coerce.number().default(3),
   VECTOR_BACKEND: z.enum(["internal", "external"]).default("internal"),
   EXTERNAL_VECTOR_BASE_URL: z.string().url().trim().optional(),
-  MAX_AI_RESPONSES_PER_TICKET: z.coerce.number().default(3),
 
   KB_SYNC_INTERVAL_SEC: z.coerce.number().default(5).optional(),
   KB_SYNC_MAX_PROCESSING: z.coerce.number().default(10).optional(),
   KB_SYNC_BATCH_SIZE: z.coerce.number().default(10).optional(),
   KB_SYNC_TZ: z.string().trim().default("Asia/Shanghai").optional(),
+
+  APP_URL: z.string().url().trim().optional(),
+  TARGET_PLATFORM: z.enum(["sealos", "fastgpt", "generic"]).default("generic"),
+  THIRD_PARTY_API: z.string().url().trim().optional(),
 
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
@@ -43,7 +53,6 @@ try {
   process.exit(1);
 }
 
-import { AppConfig } from "@/utils";
 import { StaffMap } from "@/utils/tools";
 import * as schema from "@/db/schema";
 import * as relations from "@/db/relations";
@@ -57,7 +66,6 @@ declare global {
   var db: NodePgDatabase<AppSchema> | undefined; // Fix for "sorry, too many clients already"
   var staffMap: StaffMap | undefined;
   var todayTicketCount: number | undefined;
-  var config: AppConfig | undefined;
   var i18n: typeof i18next | undefined;
   var cryptoKey: CryptoKey | undefined;
   var customEnv: z.infer<typeof envSchema>;
