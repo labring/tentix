@@ -1,411 +1,277 @@
-# Tentix = Ten (10x Efficiency) Tix (Ticket System)
+# Tentix = Ten (10x Efficiency) Tix (Ticketing System)
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-A FastGPT-powered AI customer service platform with 10x accelerated resolution.
+An AI-native customer service platform that delivers 10x accelerated resolution.
 
-- 🚀 10x Faster Response Speed
-- 🤖 10x Reduced Human Intervention
-- 😊 10x Improved User Satisfaction
+- 🚀 10x faster response time
+- 🤖 10x less human intervention
+- 😊 10x higher customer satisfaction
 
-![image](https://github.com/user-attachments/assets/798dbbd3-4b78-4412-bf69-fda27f12d128)
+![Tentix UI](https://github.com/user-attachments/assets/798dbbd3-4b78-4412-bf69-fda27f12d128)
 
-## 📋 Table of Contents
+## 🖥 Try on Sealos
 
-- [Project Overview](#project-overview)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Quick Start](#quick-start)
-- [Development Guide](#development-guide)
-- [Database Scripts](#database-scripts)
-- [Configuration Files](#configuration-files)
-- [Deployment Guide](#deployment-guide)
-- [API Documentation](#api-documentation)
-- [Contributing](#contributing)
+One-click deployment in the App Market. Configure one AI agent and one staff member to try it out.
 
-## 🎯 Project Overview
+[![Deploy on Sealos](https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg)](https://bja.sealos.run/?openapp=system-template%3FtemplateName%3Dtentix)
 
-Tentix is a modern AI-driven customer service system built with Monorepo architecture, integrating frontend interface, backend API, and AI processing capabilities. The system supports multi-channel integration (Feishu, etc.) and provides intelligent ticket processing, automatic replies, and seamless human-AI handover functionality.
+## Table of Contents
 
-### Core Features
+- [Architecture](#architecture)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Deployment](#deployment)
+- [Developer Guide](#developer-guide)
+- [Roadmap](#roadmap)
+- [Contributing](#-contributing)
+- [Support](#-support)
 
-- 🤖 **AI Smart Customer Service**: Intelligent conversation system based on FastGPT
-- 📱 **Multi-Channel Integration**: Support for Feishu, WeChat and other platforms
-- 🎫 **Ticket Management**: Complete ticket lifecycle management
-- 👥 **Team Collaboration**: Support for multi-department, multi-role collaboration
-- 📊 **Data Analytics**: Real-time monitoring and data statistics
-- 🔧 **Scalable Architecture**: Modular design, easy to extend
+## Architecture
 
-## 🛠 Tech Stack
+```mermaid
+graph TD
+    A[Ticket data sources] --> B[Knowledge base builder]
+    C[General docs] --> B
+    D[Starred conversations] --> B
 
-### Frontend Tech Stack
+    B --> E[Unified Vector KB<br/>PostgreSQL + pgvector]
 
-- **Framework**: React 19 + TypeScript
-- **Build Tool**: Vite 6.1
-- **Routing**: TanStack Router
-- **State Management**: Zustand + TanStack Query
-- **UI Components**: Custom UI component library + Tailwind CSS 4.0
-- **Rich Text Editor**: TipTap
-- **Code Highlighting**: React Syntax Highlighter
+    E --> F[LangGraph AI Agent]
 
-### Backend Tech Stack
+    G[User messages] --> H[Query refinement]
+    I[Ticket info] --> H
 
-- **Runtime**: Bun
-- **Framework**: Hono 4.7
-- **Database**: PostgreSQL + Drizzle ORM
-- **API Documentation**: OpenAPI + Scalar
-- **File Storage**: MinIO
-- **Caching**: Node Cache
-- **Rate Limiting**: Hono Rate Limiter
+    H --> J[Knowledge retrieval]
+    E --> J
 
-### Development Tools
+    J --> F
+    F --> K[Generate reply]
 
-- **Monorepo**: Turborepo
-- **Package Manager**: Bun
-- **Code Standards**: ESLint + Prettier
-- **Type Checking**: TypeScript 5.8
-- **Containerization**: Docker + Docker Compose
-
-## 📁 Project Structure
-
-```
-tentix-v2/
-├── frontend/                 # Frontend application
-│   ├── src/
-│   │   ├── components/      # UI components
-│   │   ├── routes/          # Route pages
-│   │   ├── store/           # State management
-│   │   ├── hooks/           # Custom Hooks
-│   │   ├── lib/             # Utility libraries
-│   │   └── modal/           # Modal components
-│   ├── public/              # Static assets
-│   └── package.json
-├── server/                   # Backend service
-│   ├── api/                 # API routes
-│   ├── db/                  # Database configuration
-│   ├── utils/               # Utility functions
-│   ├── types/               # Type definitions
-│   ├── script/              # Script files
-│   ├── config.*.json        # Configuration files
-│   └── package.json
-├── packages/                 # Shared packages
-│   ├── ui/                  # UI component library
-│   ├── i18n/                # Internationalization
-│   ├── eslint-config/       # ESLint configuration
-│   └── typescript-config/   # TypeScript configuration
-├── docker-compose.yml        # Docker Compose configuration
-├── Dockerfile               # Docker image configuration
-├── Makefile                 # Build scripts
-├── turbo.json               # Turborepo configuration
-└── package.json             # Root package configuration
+    subgraph "Knowledge priority"
+        L[1. Starred conversations<br/>Weight: 1.0]
+        M[2. Historical tickets<br/>Weight: 0.8]
+        N[3. General knowledge<br/>Weight: 0.6]
+    end
 ```
 
-## 🚀 Quick Start
+```mermaid
+graph TD
+    A[Start build] --> B{Select knowledge type}
 
-### Environment Requirements
+    B -->|Starred| C[Extract starred tickets/messages]
+    B -->|Historical| D[Filter solved, high-quality tickets]
+    B -->|General| E[Load document files]
 
-- Node.js >= 20
-- Bun >= 1.2.16
-- PostgreSQL
-- Docker (optional)
+    C --> F[AI-enhanced processing<br/>Summaries and retrievers]
+    D --> G[Ticket doc building<br/>Key dialog extraction]
+    E --> H[Document chunking]
 
-### Install Dependencies
+    F --> I[Embedding]
+    G --> I
+    H --> I
+
+    I --> J[Store into unified KB]
+    J --> K[Done]
+```
+
+## Features
+
+- Customer service chat system
+- AI workflow (LangGraph: Analyze → Generate query → Retrieve → Generate answer)
+- Multi-channel notifications; Feishu supported; other IM/forms via modular integration
+- Extensible architecture: Modular design for pluggable extensions
+- Unified authentication design: Pluggable third-party integrations
+- Vector backend: PostgreSQL + pgvector or external vector service (FastGPT)
+- Agent model config: Model/temperature/TopP/max tokens, etc., configurable in admin
+
+## Requirements
+
+- Bun ≥ 1.2.16
+- PostgreSQL (with pgvector extension)
+- MinIO (or S3-compatible object storage)
+- OpenAI/FastGPT credentials
+
+## Deployment
+
+### 1) Build Docker image
 
 ```bash
+docker build -t tentix:latest .
+```
+
+### 2) Configure PostgreSQL and run migrations
+
+> Note: Migration reads `.env.local` in the project root. Set `DATABASE_URL` first.
+
+```bash
+cd server
+bun run migrate
+```
+
+### 3) Configure required environment variables
+
+- Required:
+
+```bash
+DATABASE_URL="postgres://USER:PASSWORD@HOST:PORT/DB"
+
+# Generate Base64 encryption key (run in server/):
+#   cd server && bun run script/getCryptoKey.ts
+ENCRYPTION_KEY="<Base64 key generated above>"
+
+# Object storage for images and other media in conversations
+MINIO_ACCESS_KEY="<minio-access-key>"
+MINIO_SECRET_KEY="<minio-secret-key>"
+MINIO_BUCKET="<bucket-name>"
+MINIO_ENDPOINT="<http(s)://host:port>"  # e.g., http://minio:9000
+```
+
+- AI-related (optional, when enabling AI replies):
+
+```bash
+OPENAI_BASE_URL="<https://api.openai.com/v1>"
+OPENAI_API_KEY="<openai-api-key>"
+SUMMARY_MODEL="<model for summarization>"
+EMBEDDING_MODEL="<model for embeddings>"
+CHAT_MODEL="<model for chat>"
+FAST_MODEL="<model for fast responses>"
+MAX_AI_RESPONSES_PER_TICKET=3  # default 3
+```
+
+- Optional (Feishu group and staff push):
+
+```bash
+FEISHU_APP_ID="<feishu-app-id>"
+FEISHU_APP_SECRET="<feishu-app-secret>"
+FEISHU_CHAT_ID="<feishu-chat-id>"
+APP_URL="<public app URL>"
+```
+
+### 5) Run the container
+
+```bash
+docker run -d \
+  --name tentix \
+  -p 3000:3000 \
+  --env-file ./.env.local \
+  tentix:latest
+```
+
+- Health check: `/health`
+- Default port: `3000`
+
+## Developer Guide
+
+> Developer help: See [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) · [server/README.md](server/README.md) · [frontend/README.md](frontend/README.md)
+
+Follow these steps to quickly start the local development environment.
+
+### Clone and Install
+
+```bash
+git clone https://github.com/labring/tentix.git
+cd tentix
 bun install
 ```
 
-This Monorepo can only use Bun as the package manager.
+### Configure Database and Migrate
 
-### Environment Configuration
-
-1. Generate encryption key:
+> Note: Migration reads `.env.local` in the project root; set `DATABASE_URL` first.
+>
+> You can provision a PostgreSQL database on the [Sealos Console](https://usw.sealos.io/). Sealos provides easy database setup and a built-in management UI.
 
 ```bash
+# Create/edit .env.local in project root with at least:
+echo 'DATABASE_URL="postgres://USER:PASSWORD@HOST:PORT/DB"' >> .env.local
+
+# Enter server/ and run migration
 cd server
-bun run script/getCryptoKey.ts
+bun run migrate
 ```
 
-2. Copy configuration file template:
+Migrations completed.
 
-```bash
-cp server/config.template.json server/config.dev.json
-```
-
-3. Configure environment variables:
+### Configure Environment Variables
 
 ```bash
 cp .env.template .env.local
-# Add the generated encryption key to .env.local
+# Complete/override variables in .env.local as needed (e.g., ENCRYPTION_KEY, MINIO_*, OPENAI_*)
 ```
 
-4. Initialize database:
+> Tip: To generate `ENCRYPTION_KEY`, run `bun run script/getCryptoKey.ts` under `server/` and put the result into `.env.local`.
+
+### Start Development
 
 ```bash
-cd server
-bun run script/initDB.ts
-```
-
-5. (Optional) Generate seed data for development:
-
-```bash
-cd server
-bun run seed
-```
-
-For detailed configuration instructions, see [Configuration Files](#configuration-files) and [Database Scripts](#database-scripts) sections.
-
-### Start Development Server
-
-```bash
-# Start development environment
+cd ..  # back to project root if currently under server/
 bun run dev
-
-# Or use Make command
-make dev
 ```
 
-Visit http://localhost:5173 to view the frontend application
-Visit http://localhost:3000/api/reference to view the backend API
-
-## 💻 Development Guide
-
-### Development Commands
+### Common Commands
 
 ```bash
-# Development environment
-bun run dev              # Start development server
-bun run build            # Build project
-bun run lint             # Code linting
-bun run format           # Code formatting
-bun run typecheck        # Type checking
-bun run test             # Run tests
-
-# Database operations
-cd server
-bun run generate         # Generate database migrations
-bun run migrate          # Execute database migrations
-bun run studio           # Open Drizzle Studio
-bun run seed             # Database seed data
-
-# Database utility scripts
-bun run script/getCryptoKey.ts      # Generate encryption keys
-bun run script/resetDB.ts           # Reset database completely
-bun run script/seed.ts  # Generate seed data for development and testing
-
-# Helpful Bash Command
-rm -rf ./**/turbo ./**/node_modules ./**/output ./**/dist
-```
-
-### Code Standards
-
-The project uses ESLint + Prettier for code standards management:
-
-- Use TypeScript strict mode
-- Follow React Hooks conventions
-- Components use PascalCase naming
-- Files use kebab-case naming
-- Automatically run lint checks before commits
-
-### Development Workflow
-
-1. **Create feature branch**: `git checkout -b feature/your-feature`
-2. **Develop feature**: Follow code standards for development
-3. **Run tests**: `bun run test` to ensure tests pass
-4. **Code checking**: `bun run lint` to fix code issues
-5. **Commit code**: Use standardized commit messages
-6. **Create PR**: Submit Pull Request for code review
-
-## 🗄️ Database Scripts
-
-The project includes several utility scripts for database management and system initialization. These scripts are located in `server/script/` and handle various aspects of database setup, user management, and data migration.
-
-### Available Scripts
-
-- **`getCryptoKey.ts`**: Generate secure AES-256 encryption keys for the application
-- **`initDB.ts`**: Initialize database with system users, AI user, and staff members
-- **`resetDB.ts`**: Completely reset database schema and regenerate migrations
-- **`migrateStaffList.ts`**: Fetch and migrate staff data from Feishu platform
-- **`seed.ts`**: Generate realistic seed data for development and testing
-
-### Quick Setup Workflow
-
-```bash
-# 1. Generate encryption key
-cd server && bun run script/getCryptoKey.ts
-
-# 2. Initialize database
-bun run script/initDB.ts
-
-# 3. (Optional) Generate test data
-bun run seed
-```
-
-For detailed information about each script, including usage examples, configuration requirements, and troubleshooting, see the [**Scripts Documentation**](SCRIPTS.md).
-
-## ⚙️ Configuration Files
-
-### Server Configuration (`server/config.*.json`)
-
-```json
-{
-  "$schema": "./config.schema.json",
-  "feishu_app_id": "your_feishu_app_id",
-  "feishu_app_secret": "your_feishu_app_secret",
-  "aiProfile": {
-    "uid": "0",
-    "name": "Tentix AI",
-    "nickname": "Tentix AI",
-    "role": "ai",
-    "avatar": "avatar_url"
-  },
-  "department_ids": ["department_id"],
-  "agents_ids": ["agent_id"],
-  "admin_ids": ["admin_id"],
-  "staffs": [],
-  "departments": []
-}
-```
-
-### Environment Variables (`.env.local`)
-
-```bash
-# Database configuration
-DATABASE_URL=postgresql://username:password@localhost:5432/tentix
-ENCRYPTION_KEY="q1cRtBG7J9YyFlPmeynwlJ1B+5Nu0SOa+hAUtUhh9lk="
-
-# MinIO configuration
-MINIO_ACCESS_KEY=your_access_key
-MINIO_SECRET_KEY=your_secret_key
-MINIO_BUCKET=your_bucket_name
-MINIO_ENDPOINT=your_minio_endpoint
-
-# FastGPT configuration
-FASTGPT_API_URL=your_fastgpt_api_url
-FASTGPT_API_KEY=your_fastgpt_api_key
-FASTGPT_API_LIMIT=50
-
-# Other configuration
-NODE_ENV=development
-```
-
-### Configuration File Description
-
-- `config.dev.json`: Development environment configuration
-- `config.prod.json`: Production environment configuration
-- `config.template.json`: Configuration template file
-- `config.schema.json`: Configuration file JSON Schema
-
-## 🚢 Deployment Guide
-
-### Docker Deployment (Recommended)
-
-#### Production Environment Deployment
-
-```bash
-# Deploy using Docker Compose
-make docker-up
-
-# Or use docker-compose directly
-docker-compose up -d --build
-```
-
-#### Development Environment Build Testing
-
-```bash
-# Start development environment
-make docker-dev
-
-# Or use docker-compose
-docker-compose --profile dev up --build
-```
-
-### Manual Deployment
-
-```bash
-# 1. Build project
+bun run lint
+bun run typecheck
+bun run format
 bun run build
-
-# 2. Start production server
-bun run start
-
-# Dry run build for testing and check build errors
+# Dry run build for testing and checking build errors
 bun run build --dry
-
 # Force build
 bun run build --force
-
-# Or use PM2
-pm2 start bun --name tentix -- run start
 ```
 
-### Deploy to Cloud Server
+## Roadmap
 
-```bash
-# 1. Build Docker image
-make build
+Planned features in priority order, covering Admin and Agent dashboards:
 
-# 2. Push to image registry
-make push DOCKER_REGISTRY=your-registry
+- Admin
+  - Staff management panel: modify roles (including agents), manage accounts and bindings (Sealos/Feishu)
+  - Knowledge base indexing: add indexing for "General Docs" and "Historical Tickets"
+    - Historical ticket indexing: scheduled jobs (e.g., every 7/14 days)
+    - General docs: upload, parse, and structure into unified knowledge entries
+  - KB hit testing: test retrieval and answer quality without creating tickets
+  - KB visualization: view and visualize starred/general/historical KB entries
+  - Knowledge graph visualization: entities, relations, and weights
+  - Prompt customization: visualize and A/B test the agent workflow prompts
+  - Workflow orchestration: evolve the fixed workflow into a composable bot
+- Analytics
+  - Ticket distribution: by category (pie), feedback tickets ratio (pie)
+  - KB hit rate: trend and distribution
+  - Ticket volume: time series (line)
+  - Feedback: time series (line) and star distribution (pie)
+  - Handoff metrics: human-handoff vs. non-handoff vs. total
+- Agent dashboard and features
+  - KB hit testing entry point
+  - Index management and visualization
+  - Personal ticket metrics:
+    - Assigned/participated/related ticket counts (filters: handed-off/not handed-off/all)
+    - Distribution by module and trends
 
-# 3. Pull and run on server
-docker pull your-registry/tentix:latest
-docker run -d -p 3000:3000 your-registry/tentix:latest
-```
+Todo summary:
 
-### Health Check
-
-After deployment, you can check service status through the following endpoints:
-
-- Health check: `GET /health`
-- API documentation: `GET /api/reference`
-- Service status: `GET /api/status`
-
-## 📚 API Documentation
-
-### Access API Documentation
-
-After starting the service, visit the following addresses to view API documentation:
-
-- **Scalar UI**: http://localhost:3000/api/reference
-- **OpenAPI JSON**: http://localhost:3000/openapi.json
-
-### Main API Endpoints
-
-```
-GET    /api/health          # Health check
-POST   /api/auth/login      # User login
-GET    /api/tickets         # Get ticket list
-POST   /api/tickets         # Create ticket
-GET    /api/tickets/:id     # Get ticket details
-PUT    /api/tickets/:id     # Update ticket
-DELETE /api/tickets/:id     # Delete ticket
-```
-
-### Authentication Method
-
-API uses Bearer Token authentication:
-
-```bash
-curl -H "Authorization: Bearer your-token" \
-     http://localhost:3000/api/tickets
-```
+- [ ] Admin: Staff management and account binding (Sealos/Feishu)
+- [ ] Admin: General docs and historical ticket indexing (with schedules)
+- [ ] Admin: KB hit testing and visualization
+- [ ] Admin: Prompt customization and workflow orchestration
+- [ ] Analytics: Ticket distribution, hit rate, volume, and feedback trends
+- [ ] Agent: Hit testing and index visualization; personal metrics dashboard
 
 ## 🤝 Contributing
 
 ### Submit Code
 
 1. Fork the project to your GitHub account
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push branch: `git push origin feature/amazing-feature`
-5. Create Pull Request
+2. Create feature branch: `git checkout -b feature/your-feature`
+3. Commit changes: `git commit -m 'feat: your change'`
+4. Push branch: `git push origin feature/your-feature`
+5. Create Pull Request (PR)
 
 ### Commit Message Standards
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) standards:
 
-```
+```text
 feat: add new feature
 fix: fix bug
 docs: update documentation
@@ -417,7 +283,7 @@ chore: update dependencies
 
 ### Code Review
 
-All code changes need to go through Pull Request review:
+All code changes must go through Pull Request review:
 
 - Ensure all tests pass
 - Follow project code standards
@@ -434,4 +300,4 @@ If you encounter problems or have questions:
 
 ---
 
-**Happy Coding! 🎉**
+Happy Coding! 🎉
