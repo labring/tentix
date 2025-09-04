@@ -57,6 +57,13 @@
       "when": 1756797417254,
       "tag": "0007_perpetual_sauron",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1756968603043,
+      "tag": "0008_condemned_blindfold",
+      "breakpoints": true
     }
   ]
 }

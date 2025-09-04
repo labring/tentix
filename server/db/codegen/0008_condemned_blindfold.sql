@@ -1,0 +1,1 @@
+ALTER TYPE "tentix"."auth_provider" ADD VALUE 'third_party';
