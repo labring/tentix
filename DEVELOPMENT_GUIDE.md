@@ -2,7 +2,7 @@
 
 A comprehensive guide for developers working on the Tentix project, covering essential concepts, best practices, and learning resources for modern monorepo development.
 
-![Uploading 下载.png…]()
+<img width="1384" height="1272" alt="structure" src="https://github.com/user-attachments/assets/31e7c4be-85e0-4e75-8eb3-a4f1e71b0871" />
 
 
 ## 📚 Table of Contents
