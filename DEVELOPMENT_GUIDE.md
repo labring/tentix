@@ -2,6 +2,9 @@
 
 A comprehensive guide for developers working on the Tentix project, covering essential concepts, best practices, and learning resources for modern monorepo development.
 
+![Uploading 下载.png…]()
+
+
 ## 📚 Table of Contents
 
 - [Core Technologies Overview](#core-technologies-overview)
