@@ -56,6 +56,10 @@ async function sendNotificationByChannel(
 
 // 飞书通知实现
 async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
+  if (!isFeishuConfigured()) {
+    return;
+  }
+
   const theme = (() => {
     switch (ticket.priority) {
       case "urgent":
@@ -74,10 +78,6 @@ async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
 
   const description = getAbbreviatedText(ticket.description, 200);
   const user = global.staffMap!.get(ticket.agentId)!;
-
-  if (!isFeishuConfigured()) {
-    throw new Error("Feishu is not configured");
-  }
 
   // 截止今天多少点，今日工单数
   // 今日通知数

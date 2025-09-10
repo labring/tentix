@@ -215,6 +215,7 @@ export async function guardrailHandoffNode(
 
   const HISTORY_MAX = 8;
   const historyBlock = blockFrom((state.messages || []).slice(-HISTORY_MAX));
+
   const userMsg = `最近对话（压缩）：
 ${historyBlock || "（无）"}
 
@@ -257,7 +258,7 @@ export async function handoffNode(
   const reason = state.handoff_reason || "需要人工协助";
   const moduleName = state.current_ticket?.module ?? "相关";
   const text = [
-    `我理解您的诉求（${reason}）。为不耽误您时间，我现在为您转接到【${moduleName}】技术同学继续处理。`,
+    `我理解您的诉求。为不耽误您时间，我现在为您转接到【${moduleName}】技术同学继续处理。`,
   ].join("\n");
 
   const db = connectDB();
@@ -406,7 +407,7 @@ export async function escalationCheckNode(
 {"decision":"PROPOSE_ESCALATION","reasons":["用户有强烈的不满情绪"],"priority":"P3"}
 `.trim();
 
-  const payload = `模块：${moduleName}
+  const userMsg = `模块：${moduleName}
 召回片段数量：${ctxCount}
 最近对话（压缩）：
 ${historyBlock || "（无）"}
@@ -414,7 +415,7 @@ ${historyBlock || "（无）"}
 最新用户消息：
 ${last || "（空）"}`;
 
-  const mm = buildMultimodalUserContent(payload, state, false);
+  const mm = buildMultimodalUserContent(userMsg, state, false);
 
   try {
     const out = await fast

@@ -194,8 +194,6 @@ const ticketRouter = factory
 
         ticketId = data.id;
 
-        const description = getAbbreviatedText(payload.description, 200);
-
         // Assign ticket to agent with least in-progress tickets
         if (staffMap.size > 0) {
           c.var.incrementAgentTicket(assigneeId);
@@ -207,50 +205,6 @@ const ticketRouter = factory
             meta: assigneeId, // assignee
             operatorId: userId,
           });
-
-          //   const theme = (() => {
-          //     switch (payload.priority) {
-          //       case "urgent":
-          //       case "high":
-          //         return "red";
-          //       case "medium":
-          //         return "orange";
-          //       case "low":
-          //         return "indigo";
-          //       default:
-          //         return "blue";
-          //     }
-          //   })();
-
-          //   const ticketUrl = `${c.var.origin}/staff/tickets/${data.id}`;
-
-          //   const config = await readConfig();
-
-          //   const card = getFeishuCard("new_ticket", {
-          //     title: payload.title,
-          //     description,
-          //     time: new Date().toLocaleString(),
-          //     assignee: assigneeFeishuId,
-          //     number: c.var.incrementTodayTicketCount(),
-          //     module: c.var.i18n.t(payload.module),
-          //     theme,
-          //     internal_url: {
-          //       url: `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
-          //     },
-          //     ticket_url: {
-          //       url: ticketUrl,
-          //     },
-          //   });
-
-          //   getFeishuAppAccessToken().then(({ tenant_access_token }) => {
-          //     sendFeishuMsg(
-          //       "chat_id",
-          //       config.feishu_chat_id,
-          //       "interactive",
-          //       JSON.stringify(card.card),
-          //       tenant_access_token,
-          //     );
-          //   });
         }
       });
 
@@ -802,12 +756,6 @@ const ticketRouter = factory
         assignees.push(assignee);
       }
 
-      if (!isFeishuConfigured()) {
-        throw new HTTPException(400, {
-          message: "Feishu is not configured",
-        });
-      }
-
       const ticketInfo = (await db.query.tickets.findFirst({
         where: (tickets, { eq }) => eq(tickets.id, ticketId),
       }))!;
@@ -836,6 +784,13 @@ const ticketRouter = factory
           c.var.incrementAgentTicket(staffId);
         }
       });
+
+      if (!isFeishuConfigured()) {
+        return c.json({
+          success: true,
+          message: `Ticket transferred successfully, but Feishu is not configured`,
+        });
+      }
 
       const ticketUrl = `${c.var.origin}/staff/tickets/${ticketId}`;
       const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${global.customEnv.FEISHU_APP_ID}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;

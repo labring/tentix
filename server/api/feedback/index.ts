@@ -16,8 +16,8 @@ import {
 } from "@/utils/types.ts";
 
 const feedbackRateLimiter = rateLimiter({
-  windowMs: 5 * 60 * 1000, // 15分钟
-  limit: 3, // 3次限制
+  windowMs: 5 * 60 * 1000, // 5分钟
+  limit: 300, // 300次限制
   standardHeaders: "draft-6",
   keyGenerator: (c) => {
     const connInfo = getConnInfo(c);
