@@ -6,6 +6,7 @@ import {
   TriangleAlertIcon,
   LibraryBigIcon,
   NavigationIcon,
+  FileTextIcon,
 } from "lucide-react";
 import { type TicketType } from "tentix-server/rpc";
 import { updateTicketStatus } from "@lib/query";
@@ -27,6 +28,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
 import useLocalUser from "@hook/use-local-user.tsx";
 import { useChatStore } from "@store/index";
+import { ContextOrganizerDialog } from "../../modal/use-context-organizer-modal";
 
 interface SiteHeaderProps {
   ticket: TicketType;
@@ -46,9 +48,11 @@ export function StaffSiteHeader({
 
   const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
+  const [showContextDialog, setShowContextDialog] = useState(false);
   const { t } = useTranslation();
   const { role } = useLocalUser();
   const notCustomer = role !== "customer";
+  const isAgent = role === "agent" || role === "technician" || role === "admin";
   const { kbSelectionMode, setKbSelectionMode, clearKbSelection } = useChatStore();
 
   // Close ticket mutation
@@ -102,6 +106,8 @@ export function StaffSiteHeader({
     setShowDialog(false);
   };
 
+
+
   return (
     <header className="hidden md:flex h-14 w-full border-b items-center justify-between px-4 ">
       <div className="flex items-center gap-1">
@@ -128,11 +134,31 @@ export function StaffSiteHeader({
       </div>
       <div className="flex items-center gap-3">
         <div className="flex items-center h-10 rounded-lg border border-zinc-200">
+          {/* 上下文整理按钮 - 仅对客服agent可见 */}
+          {isAgent && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center justify-center h-10 rounded-r-none border-l-0 rounded-l-lg border-r border-zinc-200 hover:bg-zinc-50"
+                  onClick={() => setShowContextDialog(true)}
+                >
+                  <FileTextIcon
+                    className="h-3 w-3 text-zinc-500"
+                    strokeWidth={1.33}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={2}>
+                <p>{t('organize_ticket_context')}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
-                className="flex items-center justify-center h-10 rounded-r-none border-l-0 rounded-l-lg border-r border-zinc-200 hover:bg-zinc-50"
+                className={`flex items-center justify-center h-10 ${isAgent ? 'rounded-none border-l-0 border-r' : 'rounded-r-none border-l-0 rounded-l-lg border-r'} border-zinc-200 hover:bg-zinc-50`}
                 onClick={() => {
                   if (kbSelectionMode) {
                     // 再次点击时关闭
@@ -224,6 +250,17 @@ export function StaffSiteHeader({
       </div>
       {transferModal}
       {updatePriorityModal}
+      
+      {/* 上下文整理对话框 */}
+      {isAgent && (
+        <ContextOrganizerDialog
+          open={showContextDialog}
+          onOpenChange={setShowContextDialog}
+          ticketId={ticket.id}
+          authToken={typeof window !== 'undefined' ? localStorage.getItem("token") || "" : ""}
+        />
+      )}
+      
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="w-96 p-6">
           <DialogHeader>

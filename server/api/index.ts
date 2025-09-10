@@ -19,6 +19,8 @@ import { startAllJobs } from "@/utils/jobs/kb-jobs/index.ts";
 import "@/utils/events/handoff/index.ts";
 import { kbRouter } from "./kb/index.ts";
 import { logInfo } from "@/utils/log.ts";
+import { optimizeRouter } from "./ai-tool/index.ts"; 
+
 
 const app = factory.createApp();
 
@@ -75,6 +77,14 @@ app.use(
           name: "Auth",
         },
         {
+          name: "Chat",
+          description: "Chat related endpoints",
+        },
+        {
+          name: "Optimize",
+          description: "AI optimization related endpoints",
+        },
+        {
           name: "Playground",
           description: "Test endpoint. Not for production use.",
         },
@@ -110,6 +120,7 @@ app.use(
     },
   }),
 );
+
 app.get(
   "/api/reference",
   Scalar({
@@ -118,6 +129,7 @@ app.get(
     hideClientButton: true,
   }),
 );
+
 app.get("/health", (c) => c.json({ status: "ok" }));
 
 const routes = app // RPC routes
@@ -126,11 +138,13 @@ const routes = app // RPC routes
   .route("/ticket", ticketRouter)
   .route("/auth", authRouter)
   .route("/chat", chatRouter)
+  .route("/optimize", optimizeRouter)
   .route("/file", fileRouter)
   .route("/admin", adminRouter)
   .route("/feishu", feishuRouter)
   .route("/feedback", feedbackRouter)
   .route("/kb", kbRouter);
+
 if (global.customEnv.NODE_ENV !== "production") {
   routes.route("/playground", playgroundRouter);
 }

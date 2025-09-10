@@ -13,7 +13,6 @@ import { type TicketType } from "tentix-server/rpc";
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage,
   Badge,
   Button,
   Popover,
@@ -28,6 +27,8 @@ import {
 } from "tentix-ui";
 import useLocalUser from "../../hooks/use-local-user.tsx";
 import { useChatStore, useSessionMembersStore } from "../../store/index.ts";
+import { useUserCacheStore } from "@store/user-cache";
+import { CachedAvatar } from "@comp/common/cached-avatar";
 import ContentRenderer from "./content-renderer.tsx";
 import { useTranslation } from "i18n";
 import { memo, useState, useEffect } from "react";
@@ -39,13 +40,37 @@ interface MessageItemProps {
   message: TicketType["messages"][number];
 }
 
+
+const useMessageSender = (message: TicketType["messages"][number]) => {
+  const { sessionMembers } = useSessionMembersStore();
+  const setUser = useUserCacheStore((state: any) => state.setUser);
+
+  const messageSender = sessionMembers?.find(
+    (member) => member.id === message.senderId,
+  );
+
+  // 缓存消息发送者信息
+  useEffect(() => {
+    if (messageSender) {
+      setUser({
+        id: messageSender.id,
+        name: messageSender.name,
+        nickname: messageSender.nickname || messageSender.name,
+        avatar: messageSender.avatar,
+        role: messageSender.role || 'unknown'
+      });
+    }
+  }, [messageSender, setUser]);
+
+  return messageSender;
+};
+
 // other's message component
 const OtherMessage = ({
   message,
 }: {
   message: TicketType["messages"][number];
 }) => {
-  const { sessionMembers } = useSessionMembersStore();
   const { role } = useLocalUser();
   const { currentTicketId, updateMessage } = useChatStore();
   const notCustomer = role !== "customer";
@@ -57,9 +82,8 @@ const OtherMessage = ({
   const [feedbackComment, setFeedbackComment] = useState("");
   const [hasComplaint, setHasComplaint] = useState(false);
 
-  const messageSender = sessionMembers?.find(
-    (member) => member.id === message.senderId,
-  );
+  // 使用提取的Hook
+  const messageSender = useMessageSender(message);
 
   // Get current feedback status
   const currentFeedback = message.feedbacks?.[0];
@@ -158,15 +182,17 @@ const OtherMessage = ({
   return (
     <div className="flex  flex-col animate-fadeIn justify-start">
       <div className="flex max-w-[85%] gap-3 min-w-0">
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarImage
-            src={messageSender?.avatar}
-            alt={messageSender?.nickname ?? t("unknown")}
+        {messageSender ? (
+          <CachedAvatar 
+            user={messageSender} 
+            size="md" 
+            showDebugInfo={import.meta.env.DEV}
           />
-          <AvatarFallback>
-            {messageSender?.nickname?.charAt(0) ?? "U"}
-          </AvatarFallback>
-        </Avatar>
+        ) : (
+          <Avatar className="h-8 w-8 shrink-0">
+            <AvatarFallback>U</AvatarFallback>
+          </Avatar>
+        )}
         <div
           className={cn(
             "flex flex-col gap-2 min-w-0 flex-1",
@@ -434,27 +460,28 @@ const MyMessage = ({
 }: {
   message: TicketType["messages"][number];
 }) => {
-  const { sessionMembers } = useSessionMembersStore();
   const { isMessageSending, withdrawMessageFunc: withdrawMessage, kbSelectionMode } =
     useChatStore();
   const { t } = useTranslation();
 
-  const messageSender = sessionMembers?.find(
-    (member) => member.id === message.senderId,
-  );
+  // 使用提取的Hook
+  const messageSender = useMessageSender(message);
 
   return (
     <div className="flex animate-fadeIn justify-end">
       <div className="flex max-w-[85%]  flex-row-reverse min-w-0">
-        <Avatar className="h-8 w-8 shrink-0 ml-3">
-          <AvatarImage
-            src={messageSender?.avatar}
-            alt={messageSender?.nickname ?? t("unknown")}
+        {messageSender ? (
+          <CachedAvatar 
+            user={messageSender} 
+            size="md" 
+            className="ml-3"
+            showDebugInfo={import.meta.env.DEV}
           />
-          <AvatarFallback>
-            {messageSender?.nickname?.charAt(0) ?? "U"}
-          </AvatarFallback>
-        </Avatar>
+        ) : (
+          <Avatar className="h-8 w-8 shrink-0 ml-3">
+            <AvatarFallback>U</AvatarFallback>
+          </Avatar>
+        )}
         <div
           className={cn(
             "flex flex-col gap-2 rounded-xl py-4 px-5 ml-1 min-w-0 flex-1",

@@ -1,5 +1,5 @@
 import { type JSONContentZod } from "tentix-server/types";
-import { Loader2Icon, UploadIcon, LibraryBigIcon, XIcon } from "lucide-react";
+import { Loader2Icon, UploadIcon, LibraryBigIcon, XIcon, FileTextIcon } from "lucide-react";
 import React, { useRef, useState, useCallback, useMemo } from "react";
 import {
   SendIcon,
@@ -14,6 +14,8 @@ import useLocalUser from "@hook/use-local-user.tsx";
 import { collectFavoritedKnowledge } from "@lib/query";
 import { useTranslation } from "i18n";
 import type { TFunction } from "i18next";
+import { cn } from "../../../lib/utils";
+import { ContextOrganizerDialog } from "../../../modal/use-context-organizer-modal";
 
 // 错误处理工具函数
 const getErrorMessage = (error: unknown, t: TFunction): string => {
@@ -139,14 +141,18 @@ export function StaffMessageInput({
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
     null,
   );
+  const [isContextOrganizerOpen, setIsContextOrganizerOpen] = useState(false);
 
   const editorRef = useRef<EditorRef>(null);
   const { toast } = useToast();
   const { kbSelectionMode, clearKbSelection, selectedMessageIds } =
     useChatStore();
   const { id: userId } = useLocalUser();
+  
 
-  // 分析消息内容中的文件情况
+  const authToken = window.localStorage.getItem("token");
+  const ticketId = window.location.pathname.split('/').pop();
+
   const analyzeFileContent = useCallback(
     (content: JSONContentZod): FileStats => {
       let count = 0;
@@ -257,6 +263,12 @@ export function StaffMessageInput({
     ],
   );
 
+  // 工单整理按钮点击
+  const handleContextOrganizerClick = useCallback(() => {
+    if (isLoading || uploadProgress) return;
+    setIsContextOrganizerOpen(true);
+  }, [isLoading, uploadProgress]);
+
   const editorProps = useMemo(
     () => ({
       handleKeyDown: (_: unknown, event: KeyboardEvent) => {
@@ -336,6 +348,7 @@ export function StaffMessageInput({
   };
 
   const isUploading = uploadProgress !== null;
+  const isContextOrganizerDisabled = isLoading || isUploading;
 
   if (kbSelectionMode) {
     const count = selectedMessageIds.size;
@@ -410,45 +423,75 @@ export function StaffMessageInput({
   }
 
   return (
-    <div className="border-t relative">
-      {/* 上传进度指示器 */}
-      {renderUploadProgress()}
+    <>
+      <div className="border-t relative">
+        {/* 上传进度指示器 */}
+        {renderUploadProgress()}
 
-      {/* 主要内容区域 - 动态调整顶部间距 */}
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          marginTop: progressBarHeight,
-          transition: "margin-top 0.3s ease-in-out",
-        }}
-      >
-        <div className="flex">
-          <StaffChatEditor
-            ref={editorRef}
-            value={newMessage}
-            onChange={(value) => {
-              onTyping?.();
-              setNewMessage(value as JSONContentZod);
-            }}
-            throttleDelay={150}
-            editorContentClassName="overflow-auto h-full"
-            editable={!isUploading}
-            editorClassName="focus:outline-none p-4 h-full"
-            className="border-none"
-            editorProps={editorProps}
-          />
-        </div>
-
-        <Button
-          type="submit"
-          size="icon"
-          className="absolute right-3 bottom-4 flex justify-center items-center rounded-[10px] bg-zinc-900 z-20 h-9 w-9"
-          disabled={!canSend}
+        {/* 主要内容区域 - 动态调整顶部间距 */}
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            marginTop: progressBarHeight,
+            transition: "margin-top 0.3s ease-in-out",
+          }}
         >
-          {renderSendButtonContent()}
-          <span className="sr-only">{t("send_message_shortcut")}</span>
-        </Button>
-      </form>
-    </div>
+          <div className="flex">
+            <StaffChatEditor
+              ref={editorRef}
+              value={newMessage}
+              onChange={(value) => {
+                onTyping?.();
+                setNewMessage(value as JSONContentZod);
+              }}
+              throttleDelay={150}
+              editorContentClassName="overflow-auto h-full"
+              editable={!isUploading}
+              editorClassName="focus:outline-none p-4 h-full"
+              ticketId={ticketId || undefined}
+              authToken={authToken || undefined}
+              className="border-none"
+              editorProps={editorProps}
+            />
+          </div>
+
+          {/* 工具栏区域 */}
+          <div className="absolute right-14 bottom-4 flex items-center gap-2 z-20">
+            {ticketId && authToken && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleContextOrganizerClick}
+                disabled={isContextOrganizerDisabled}
+                className={cn(
+                  "h-9 w-9 p-0 hover:bg-gray-100"
+                )}
+                title={t('organize_ticket_context')}
+              >
+                <FileTextIcon className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            size="icon"
+            className="absolute right-3 bottom-4 flex justify-center items-center rounded-[10px] bg-zinc-900 z-20 h-9 w-9"
+            disabled={!canSend}
+          >
+            {renderSendButtonContent()}
+            <span className="sr-only">{t("send_message_shortcut")}</span>
+          </Button>
+        </form>
+      </div>
+
+      {/* 工单整理对话框 */}
+      <ContextOrganizerDialog
+        open={isContextOrganizerOpen}
+        onOpenChange={setIsContextOrganizerOpen}
+        ticketId={ticketId || ""}
+        authToken={authToken || ""}
+      />
+    </>
   );
 }

@@ -10,9 +10,6 @@ import {
 } from "tentix-server/rpc";
 import { ThumbsUpIcon, ThumbsDownIcon } from "lucide-react";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   ScrollArea,
   timeAgo,
   PendingIcon,
@@ -30,12 +27,14 @@ import {
 } from "tentix-ui";
 import type { TFunction } from "i18next";
 import { useSessionMembersStore } from "@store/index";
+import { useUserCacheStore } from "@store/user-cache";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   technicianFeedbackQueryOptions,
   submitStaffFeedback,
 } from "@lib/query";
 import { cn } from "@lib/utils";
+import { CachedAvatar } from "@comp/common/cached-avatar";
 import { memo, useState, useEffect } from "react";
 
 // Custom status display function
@@ -135,6 +134,7 @@ const StaffFeedbackItem = memo(
     ticketId: string;
   }) => {
     const { t } = useTranslation();
+    const setUser = useUserCacheStore((state) => state.setUser);
     const queryClient = useQueryClient();
     const [showDislikeForm, setShowDislikeForm] = useState(false);
     const [dislikeReasons, setDislikeReasons] = useState<string[]>([]);
@@ -145,6 +145,19 @@ const StaffFeedbackItem = memo(
     const currentFeedback = staff.feedbacks?.[0];
     const hasLiked = currentFeedback?.feedbackType === "like";
     const hasDisliked = currentFeedback?.feedbackType === "dislike";
+
+
+    useEffect(() => {
+      if (staff) {
+        setUser({
+          id: staff.id,
+          name: staff.name,
+          nickname: staff.nickname || staff.name,
+          avatar: staff.avatar,
+          role: 'staff'
+        });
+      }
+    }, [staff, setUser]);
 
     // Initialize form state from existing feedback data
     useEffect(() => {
@@ -210,10 +223,11 @@ const StaffFeedbackItem = memo(
     return (
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Avatar className="h-5 w-5">
-            <AvatarImage src={staff.avatar} />
-            <AvatarFallback>{staff.name.charAt(0)}</AvatarFallback>
-          </Avatar>
+          <CachedAvatar 
+            user={staff} 
+            size="sm" 
+            showDebugInfo={import.meta.env.DEV}
+          />
           <span className="font-medium">{staff.name}</span>
         </div>
 
@@ -412,12 +426,31 @@ StaffFeedbackItem.displayName = "StaffFeedbackItem";
 
 export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
   const { t } = useTranslation();
+  const setUsers = useUserCacheStore((state) => state.setUsers);
   const statusDisplay = getStatusDisplay(ticket?.status, t);
 
   // Fetch technicians and their feedback data
   const technicianFeedbackQuery = useQuery(
     technicianFeedbackQueryOptions(ticket.id),
   );
+
+  // 🔄 缓存工单相关用户信息
+  useEffect(() => {
+    if (ticket) {
+      const usersToCache = [
+        ticket.customer,
+        ticket.agent,
+        ...ticket.technicians,
+      ].filter(Boolean);
+
+      setUsers(usersToCache);
+      
+      // 输出缓存统计信息（开发环境）
+      if (import.meta.env.DEV) {
+        console.log(`📊 [TicketDetailsSidebar] 已缓存 ${usersToCache.length} 个用户`);
+      }
+    }
+  }, [ticket, setUsers]);
 
   if (ticket) {
     return (

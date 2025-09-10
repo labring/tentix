@@ -1,13 +1,16 @@
 import { EditorContent, type Content } from "@tiptap/react";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { EyeIcon, EyeOffIcon, SparklesIcon } from "lucide-react";
+import { forwardRef, useImperativeHandle, useState, useCallback } from "react";
 import { cn } from "uisrc/lib/utils.ts";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group.tsx";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
 import { MeasuredContainer } from "./components/measured-container.tsx";
 import { SectionTwo } from "./components/section/two.tsx";
+import { ToolbarButton } from "./components/toolbar-button.tsx";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
+import { TextOptimizer } from "./extensions/text-optimizer/text-optimizer.ts";
+
 import "./styles/index.css";
 import { useTranslation } from "i18n";
 
@@ -15,17 +18,138 @@ export interface EditorRef {
   isInternal: boolean;
   clearContent: () => void;
   getJSON: () => Content;
+  optimizeText?: () => void;
 }
 
-export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
+export interface StaffChatEditorProps extends MinimalTiptapProps {
+  ticketId?: string;
+  authToken?: string;
+}
+
+export const StaffChatEditor = forwardRef<EditorRef, StaffChatEditorProps>(
   function ChatEditor(
-    { value, onChange, className, editorContentClassName, ...props },
+    { value, onChange, className, editorContentClassName, ticketId, authToken, ...props },
     ref,
   ) {
     const { t } = useTranslation();
     const [messageType, setMessageType] = useState<"public" | "internal">(
       "public",
     );
+    const [isOptimizing, setIsOptimizing] = useState(false);
+    const [optimizeError, setOptimizeError] = useState<string>("");
+    
+    // 清除错误状态
+    const clearError = useCallback(() => {
+      if (optimizeError) {
+        setOptimizeError("");
+      }
+    }, [optimizeError]);
+    
+    // 优化文本的核心逻辑
+    const handleOptimizeText = useCallback(async (text: string) => {
+      if (!authToken || !ticketId) return;
+      
+      setIsOptimizing(true);
+      setOptimizeError("");
+      
+      try {
+        const response = await fetch("/api/optimize/optimize-text", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            originalText: text,
+            ticketId,
+            messageType,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.optimizedText) {
+          // 更新编辑器内容
+          const optimizedContent = {
+            type: "doc",
+            content: [{
+              type: "paragraph",
+              content: [{ type: "text", text: data.optimizedText }],
+            }],
+          };
+          editor?.commands.setContent(optimizedContent);
+        } else {
+          throw new Error(data.error || "优化失败");
+        }
+      } catch (error: any) {
+        console.error("优化失败:", error);
+        setOptimizeError(error.message || "优化失败，请重试");
+      } finally {
+        setIsOptimizing(false);
+      }
+    }, [authToken, ticketId, messageType]);
+
+    // 内联的优化按钮组件
+    const OptimizeButton = () => {
+      const getButtonContent = () => {
+        if (isOptimizing) {
+          return (
+            <SparklesIcon className="size-5 text-blue-600 animate-spin" />
+          );
+        }
+        
+        if (optimizeError) {
+          return (
+            <SparklesIcon className="size-5 text-red-500" />
+          );
+        }
+        
+        return (
+          <SparklesIcon className="size-5 text-zinc-500" />
+        );
+      };
+
+      const getTooltip = () => {
+        if (isOptimizing) {
+          return "AI 优化中...";
+        }
+        
+        if (optimizeError) {
+          return optimizeError;
+        }
+        
+        return "TAB ⌘ ↹";
+      };
+
+      return (
+        <ToolbarButton
+          onClick={() => {
+            const text = editor?.getText()?.trim();
+            if (text) {
+              handleOptimizeText(text);
+            }
+          }}
+          disabled={!editor?.getText()?.trim() || isOptimizing}
+          tooltip={getTooltip()}
+          className={cn(
+            "!w-9 !h-9 transition-colors",
+            {
+              "hover:bg-blue-50": !isOptimizing && !optimizeError,
+              "hover:bg-red-50": optimizeError && !isOptimizing,
+              "bg-blue-50": isOptimizing,
+              "bg-red-50": optimizeError && !isOptimizing,
+            }
+          )}
+          aria-label={getTooltip()}
+        >
+          {getButtonContent()}
+        </ToolbarButton>
+      );
+    };
 
     const editor = useMinimalTiptapEditor({
       value,
@@ -35,6 +159,13 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
         messageType === "public"
           ? t("type_your_message")
           : t("add_internal_note"),
+      extensions: authToken && ticketId ? [
+        TextOptimizer.configure({
+          enabled: true,
+          isOptimizing,
+          onOptimize: handleOptimizeText,
+        }),
+      ] : [],
       ...props,
     });
 
@@ -44,12 +175,13 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
       },
       isInternal: messageType === "internal",
       getJSON: () => editor?.getJSON() as Content,
+      optimizeText: () => {
+        const text = editor?.getText()?.trim();
+        if (text) {
+          handleOptimizeText(text);
+        }
+      },
     }));
-
-    // TODO: 添加模板选择功能
-    // const handleTemplateSelect = (content: string) => {
-    //   editor?.commands.insertContent(content);
-    // };
 
     if (!editor) {
       return null;
@@ -83,7 +215,11 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
               size="sm"
               className="!w-9 !h-9"
             />
+            
+            {/* AI 优化按钮 */}
+            {authToken && ticketId && <OptimizeButton />}
           </div>
+          
           <div className="w-full" />
           {/* <TemplateReplies onSelectTemplate={handleTemplateSelect} />
           <KnowledgeBase /> */}

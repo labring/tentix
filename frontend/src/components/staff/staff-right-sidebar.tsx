@@ -1,4 +1,5 @@
 import { useSessionMembersStore } from "@store/index";
+import { useUserCacheStore } from "../../store/user-cache";
 import { useTranslation } from "i18n";
 import {
   getEnumKey,
@@ -7,9 +8,6 @@ import {
 } from "tentix-server/constants";
 import { type TicketType } from "tentix-server/rpc";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   ScrollArea,
   timeAgo,
   PendingIcon,
@@ -19,7 +17,9 @@ import {
 } from "tentix-ui";
 import { TruncateWithTooltip } from "@comp/common/truncate-with-tooltip";
 import { CopyableTruncate } from "@comp/common/copyable-truncate";
+import { CachedAvatar } from "@comp/common/cached-avatar";
 import type { TFunction } from "i18next";
+import { useEffect } from "react";
 
 // Custom status display function
 function getStatusDisplay(status: TicketType["status"], t: TFunction) {
@@ -110,9 +110,24 @@ export function TicketHistory({
 
 export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
   const { t } = useTranslation();
+  const setUsers = useUserCacheStore((state: any) => state.setUsers);
   const agent = ticket?.agent;
   const customer = ticket.customer;
   const statusDisplay = getStatusDisplay(ticket?.status, t);
+
+  // 🔄 批量缓存工单相关用户信息
+  useEffect(() => {
+    if (ticket) {
+      const usersToCache = [
+        agent,
+        customer,
+        ...ticket.technicians,
+      ].filter(Boolean);
+
+      setUsers(usersToCache);
+      
+    }
+  }, [ticket, agent, customer, setUsers]);
 
   if (ticket) {
     return (
@@ -135,20 +150,16 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
               </TruncateWithTooltip>
 
               {/* sealos ID */}
-              {customer.sealosId && (
-                <>
-                  <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                    {t("sealos_id")}
-                  </div>
-                  <CopyableTruncate
-                    copyText={customer.sealosId}
-                    className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
-                    maxWidth={100}
-                  >
-                    {customer.sealosId}
-                  </CopyableTruncate>
-                </>
-              )}
+              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                {t("sealos_id")}
+              </div>
+              <CopyableTruncate
+                copyText={customer.sealosId || ""}
+                className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
+                maxWidth={100}
+              >
+                {customer.sealosId}
+              </CopyableTruncate>
               {/* Region */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("area")}
@@ -241,10 +252,11 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
             </p>
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
-                <Avatar className="h-5 w-5">
-                  <AvatarImage src={agent.avatar} />
-                  <AvatarFallback>{agent.name.charAt(0)}</AvatarFallback>
-                </Avatar>
+                <CachedAvatar 
+                  user={agent} 
+                  size="sm" 
+                  showDebugInfo={import.meta.env.DEV}
+                />
                 <span className="font-medium">{agent.name}</span>
               </div>
             </div>
