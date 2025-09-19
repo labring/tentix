@@ -152,9 +152,10 @@ export async function refreshStaffMap(stale: boolean = false) {
       };
     });
 
-    const technicians = (
+    const techniciansAndAdmin = (
       await db.query.users.findMany({
-        where: (users) => eq(users.role, "technician"),
+        where: (users, { or, eq }) =>
+          or(eq(users.role, "technician"), eq(users.role, "admin")),
         with: {
           ticketTechnicians: {
             with: {
@@ -201,7 +202,7 @@ export async function refreshStaffMap(stale: boolean = false) {
       };
     });
 
-    const staffs = agents.concat(technicians);
+    const staffs = agents.concat(techniciansAndAdmin);
     global.staffMap = new Map(staffs.map((staff) => [staff.id, staff]));
   }
   return global.staffMap;

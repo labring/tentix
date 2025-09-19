@@ -577,7 +577,6 @@ const ticketRouter = factory
 
         return c.json<typeof response>(response);
       } else if (staffMap.get(userId) !== undefined) {
-        // 员工可以查看所有工单
         const data = await db.query.tickets.findFirst({
           where: (tickets, { eq }) => eq(tickets.id, id),
           with: {

@@ -36,7 +36,10 @@ function AuthGuard() {
         // Third-party login via URL token (takes precedence)
         const url = new URL(window.location.href);
         const thirdPartyToken = url.searchParams.get("token");
-        if (thirdPartyToken && (!authContext.isAuthenticated || !authContext.user)) {
+        if (
+          thirdPartyToken &&
+          (!authContext.isAuthenticated || !authContext.user)
+        ) {
           const apiClient = routeContext.apiClient;
           const res = await (
             await apiClient.auth["third-party"].$post({
@@ -48,12 +51,15 @@ function AuthGuard() {
           window.localStorage.setItem("id", res.id.toString());
           window.localStorage.setItem("token", res.token);
 
-          const userData = await apiClient.user.info.$get().then((r) => r.json());
+          const userData = await apiClient.user.info
+            .$get()
+            .then((r) => r.json());
           authContext.updateUser(userData);
           authContext.setIsAuthenticated(true);
 
           const role = window.localStorage.getItem("role");
           switch (role) {
+            case "admin":
             case "technician":
             case "agent":
               router.navigate({ to: "/staff/tickets/list", replace: true });
@@ -108,6 +114,7 @@ function AuthGuard() {
           const role = window.localStorage.getItem("role");
 
           switch (role) {
+            case "admin":
             case "technician":
             case "agent":
               router.navigate({ to: "/staff/tickets/list", replace: true });
@@ -126,6 +133,7 @@ function AuthGuard() {
           const role = window.localStorage.getItem("role");
 
           switch (role) {
+            case "admin":
             case "technician":
             case "agent":
               router.navigate({ to: "/staff/tickets/list", replace: true });

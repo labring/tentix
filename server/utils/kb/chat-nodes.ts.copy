@@ -107,18 +107,7 @@ type MMItem =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } };
 
-type StoreWithNeighbors = VectorStore & {
-  getNeighbors?: (args: {
-    source_type: string;
-    source_id: string;
-    chunk_id: number;
-    window?: number;
-  }) => Promise<SearchHit[]>;
-  getBySource?: (args: {
-    source_type: string;
-    source_id: string;
-  }) => Promise<SearchHit[]>;
-};
+type StoreWithNeighbors = VectorStore;
 
 export const chat = new ChatOpenAI({
   apiKey: OPENAI_CONFIG.apiKey,

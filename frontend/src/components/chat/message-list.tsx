@@ -211,7 +211,9 @@ export function MessageList({
                       <div className="w-8 mr-3 flex items-center justify-center">
                         <Checkbox
                           checked={selectedMessageIds.has(message.id)}
-                          onCheckedChange={() => toggleSelectMessage(message.id)}
+                          onCheckedChange={() =>
+                            toggleSelectMessage(message.id)
+                          }
                           className="h-4 w-4"
                           aria-label={`select-message-${message.id}`}
                         />

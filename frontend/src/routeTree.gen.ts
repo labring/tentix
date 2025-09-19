@@ -14,9 +14,11 @@ import { Route as StaffRouteImport } from './routes/staff'
 import { Route as NotLoginRouteImport } from './routes/notLogin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StaffWorkflowRouteImport } from './routes/staff/workflow'
 import { Route as UserNewticketIndexRouteImport } from './routes/user/newticket/index'
 import { Route as UserTicketsListRouteImport } from './routes/user/tickets/list'
 import { Route as UserTicketsIdRouteImport } from './routes/user/tickets/$id'
+import { Route as StaffWorkflowIdRouteImport } from './routes/staff/workflow_.$id'
 import { Route as StaffTicketsListRouteImport } from './routes/staff/tickets/list'
 import { Route as StaffTicketsAllRouteImport } from './routes/staff/tickets/all'
 import { Route as StaffTicketsIdRouteImport } from './routes/staff/tickets/$id'
@@ -46,6 +48,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StaffWorkflowRoute = StaffWorkflowRouteImport.update({
+  id: '/workflow',
+  path: '/workflow',
+  getParentRoute: () => StaffRoute,
+} as any)
 const UserNewticketIndexRoute = UserNewticketIndexRouteImport.update({
   id: '/newticket/',
   path: '/newticket/',
@@ -60,6 +67,11 @@ const UserTicketsIdRoute = UserTicketsIdRouteImport.update({
   id: '/tickets/$id',
   path: '/tickets/$id',
   getParentRoute: () => UserRoute,
+} as any)
+const StaffWorkflowIdRoute = StaffWorkflowIdRouteImport.update({
+  id: '/workflow_/$id',
+  path: '/workflow/$id',
+  getParentRoute: () => StaffRoute,
 } as any)
 const StaffTicketsListRoute = StaffTicketsListRouteImport.update({
   id: '/tickets/list',
@@ -83,9 +95,11 @@ export interface FileRoutesByFullPath {
   '/notLogin': typeof NotLoginRoute
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/staff/workflow': typeof StaffWorkflowRoute
   '/staff/tickets/$id': typeof StaffTicketsIdRoute
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
+  '/staff/workflow/$id': typeof StaffWorkflowIdRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
   '/user/newticket': typeof UserNewticketIndexRoute
@@ -96,9 +110,11 @@ export interface FileRoutesByTo {
   '/notLogin': typeof NotLoginRoute
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/staff/workflow': typeof StaffWorkflowRoute
   '/staff/tickets/$id': typeof StaffTicketsIdRoute
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
+  '/staff/workflow/$id': typeof StaffWorkflowIdRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
   '/user/newticket': typeof UserNewticketIndexRoute
@@ -110,9 +126,11 @@ export interface FileRoutesById {
   '/notLogin': typeof NotLoginRoute
   '/staff': typeof StaffRouteWithChildren
   '/user': typeof UserRouteWithChildren
+  '/staff/workflow': typeof StaffWorkflowRoute
   '/staff/tickets/$id': typeof StaffTicketsIdRoute
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
+  '/staff/workflow_/$id': typeof StaffWorkflowIdRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
   '/user/newticket/': typeof UserNewticketIndexRoute
@@ -125,9 +143,11 @@ export interface FileRouteTypes {
     | '/notLogin'
     | '/staff'
     | '/user'
+    | '/staff/workflow'
     | '/staff/tickets/$id'
     | '/staff/tickets/all'
     | '/staff/tickets/list'
+    | '/staff/workflow/$id'
     | '/user/tickets/$id'
     | '/user/tickets/list'
     | '/user/newticket'
@@ -138,9 +158,11 @@ export interface FileRouteTypes {
     | '/notLogin'
     | '/staff'
     | '/user'
+    | '/staff/workflow'
     | '/staff/tickets/$id'
     | '/staff/tickets/all'
     | '/staff/tickets/list'
+    | '/staff/workflow/$id'
     | '/user/tickets/$id'
     | '/user/tickets/list'
     | '/user/newticket'
@@ -151,9 +173,11 @@ export interface FileRouteTypes {
     | '/notLogin'
     | '/staff'
     | '/user'
+    | '/staff/workflow'
     | '/staff/tickets/$id'
     | '/staff/tickets/all'
     | '/staff/tickets/list'
+    | '/staff/workflow_/$id'
     | '/user/tickets/$id'
     | '/user/tickets/list'
     | '/user/newticket/'
@@ -204,6 +228,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/staff/workflow': {
+      id: '/staff/workflow'
+      path: '/workflow'
+      fullPath: '/staff/workflow'
+      preLoaderRoute: typeof StaffWorkflowRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/staff/tickets/$id': {
       id: '/staff/tickets/$id'
       path: '/tickets/$id'
@@ -223,6 +254,13 @@ declare module '@tanstack/react-router' {
       path: '/tickets/list'
       fullPath: '/staff/tickets/list'
       preLoaderRoute: typeof StaffTicketsListRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/staff/workflow_/$id': {
+      id: '/staff/workflow_/$id'
+      path: '/workflow/$id'
+      fullPath: '/staff/workflow/$id'
+      preLoaderRoute: typeof StaffWorkflowIdRouteImport
       parentRoute: typeof StaffRoute
     }
     '/user/tickets/$id': {
@@ -250,15 +288,19 @@ declare module '@tanstack/react-router' {
 }
 
 interface StaffRouteChildren {
+  StaffWorkflowRoute: typeof StaffWorkflowRoute
   StaffTicketsIdRoute: typeof StaffTicketsIdRoute
   StaffTicketsAllRoute: typeof StaffTicketsAllRoute
   StaffTicketsListRoute: typeof StaffTicketsListRoute
+  StaffWorkflowIdRoute: typeof StaffWorkflowIdRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
+  StaffWorkflowRoute: StaffWorkflowRoute,
   StaffTicketsIdRoute: StaffTicketsIdRoute,
   StaffTicketsAllRoute: StaffTicketsAllRoute,
   StaffTicketsListRoute: StaffTicketsListRoute,
+  StaffWorkflowIdRoute: StaffWorkflowIdRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)

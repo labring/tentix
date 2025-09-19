@@ -33,6 +33,15 @@ import {
   sentimentLabelEnumArray,
 } from "../utils/const.ts";
 import { myNanoId } from "../utils/runtime.ts";
+import {
+  EmotionDetectionConfig,
+  HandoffConfig,
+  EscalationOfferConfig,
+  SmartChatConfig,
+  WorkflowEdge,
+  BaseNodeConfig,
+} from "@/utils/const";
+
 export const tentix = pgSchema("tentix");
 export const ticketCategory = tentix.enum(
   "ticket_category",
@@ -729,5 +738,101 @@ export const handoffRecords = tentix.table(
     index("idx_handoff_created").on(table.createdAt.desc()),
     // 客服查询
     index("idx_handoff_agent").on(table.assignedAgentId),
+  ],
+);
+
+// 1. 工作流配置表 - 严格按照 WorkflowConfig 接口
+export const workflow = tentix.table(
+  "workflow",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description").default("").notNull(),
+
+    // 工作流节点配置
+    nodes: jsonb("nodes")
+      .$type<
+        Array<
+          | EmotionDetectionConfig
+          | HandoffConfig
+          | EscalationOfferConfig
+          | SmartChatConfig
+          | BaseNodeConfig
+        >
+      >()
+      .notNull(),
+
+    // 工作流边配置
+    edges: jsonb("edges").$type<WorkflowEdge[]>().notNull(),
+
+    // 时间戳
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    // 更新时间排序索引
+    index("idx_workflows_updated_at").on(table.updatedAt.desc()),
+  ],
+);
+
+// 2. AI 角色配置表 - 精简版
+export const aiRoleConfig = tentix.table(
+  "ai_role_config",
+  {
+    id: serial("id").primaryKey().notNull(),
+
+    // AI 角色关联的用户ID
+    aiUserId: integer("ai_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    // 激活状态
+    isActive: boolean("is_active").default(true).notNull(),
+
+    // AI 角色回答范围
+    scope: text("scope").default("default_all").notNull(),
+
+    // 绑定的工作流ID
+    workflowId: uuid("workflow_id").references(() => workflow.id, {
+      onDelete: "set null",
+    }),
+
+    // 时间戳
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    // 每个 AI 用户只能有一个配置
+    unique("ai_role_configs_unique_user").on(table.aiUserId),
+    // 激活状态查询索引
+    index("idx_ai_role_configs_active").on(table.isActive),
+    // 工作流查询索引
+    index("idx_ai_role_configs_workflow").on(table.workflowId),
   ],
 );

@@ -64,6 +64,13 @@
       "when": 1756968603043,
       "tag": "0008_condemned_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1758282366330,
+      "tag": "0009_kind_invaders",
+      "breakpoints": true
     }
   ]
 }

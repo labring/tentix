@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { joinTrans, useTranslation } from "i18n";
-import { LayersIcon, Settings, LogOut } from "lucide-react";
+import { LayersIcon, Settings, LogOut, Bot } from "lucide-react";
 import { Button } from "tentix-ui";
 import { useSettingsModal } from "@modal/use-settings-modal";
 import { useSealos } from "src/_provider/sealos";
@@ -28,6 +28,21 @@ export function StaffSidebar() {
             <LayersIcon className="!w-6 !h-6" strokeWidth={1.33} />
             <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
               {joinTrans([t("all"), t("tkt_other")])}
+            </span>
+          </Link>
+        </Button>
+        <Button
+          asChild
+          variant="ghost"
+          className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"
+        >
+          <Link
+            to="/staff/workflow"
+            className="flex flex-col items-center justify-center gap-1 text-center"
+          >
+            <Bot className="!w-7 !h-7" strokeWidth={1.33} />
+            <span className="text-[13px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
+              {"AI"}
             </span>
           </Link>
         </Button>

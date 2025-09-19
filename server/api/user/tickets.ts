@@ -954,7 +954,10 @@ const ticketsRouter = new Hono<AuthEnv>().get(
     let stats;
 
     // 如果是 allTicket 模式，且用户是 technician 或 agent
-    if (allTicket && (role === "technician" || role === "agent")) {
+    if (
+      allTicket &&
+      (role === "technician" || role === "agent" || role === "admin")
+    ) {
       // readStatus 参数优先级更高，如果提供了 readStatus，则使用它进行过滤
       const [ticketsData, statsData] = await Promise.all([
         getAllTickets(
@@ -998,6 +1001,7 @@ const ticketsRouter = new Hono<AuthEnv>().get(
                 createdAt_end,
                 module,
               );
+            case "admin":
             case "technician":
               return getTicketsWithPagination(
                 userId,

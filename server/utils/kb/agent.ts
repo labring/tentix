@@ -1,104 +1,295 @@
 import {
+  EmotionDetectionConfig,
+  HandoffConfig,
+  EscalationOfferConfig,
+  SmartChatConfig,
+  WorkflowEdge,
+  WorkflowConfig,
+  BaseNodeConfig,
+  NodeType,
+} from "@/utils/const";
+import {
+  WorkflowState,
+  WorkflowStateAnnotation,
+  AgentMessage,
+  emotionDetectionNode,
+  handoffNode,
+  escalationOfferNode,
+  smartChatNode,
+  getVariables,
+} from "./chat-node";
+
+import {
   StateGraph,
   END,
   type CompiledStateGraph,
   START,
 } from "@langchain/langgraph";
+
 import { connectDB } from "../tools";
 import { type JSONContentZod } from "../types";
 import * as schema from "@/db/schema.ts";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { basicUserCols } from "../../api/queryParams.ts";
 import { convertToMultimodalMessage, sleep } from "./tools";
 import { logError } from "@/utils/log.ts";
-import {
-  analyzeQueryNode,
-  generateSearchQueriesNode,
-  generateResponseNode,
-  retrieveKnowledgeNode,
-  AgentStateAnnotation,
-  type AgentState,
-  type AgentMessage,
-  guardrailHandoffNode,
-  handoffNode,
-  escalationCheckNode,
-  offerEscalationNode,
-} from "./chat-nodes";
 
 let compiledWorkflow: CompiledStateGraph<
-  AgentState,
-  Partial<AgentState>,
-  string
+  WorkflowState,
+  Partial<WorkflowState>
 > | null = null;
 
-export function createWorkflow(): CompiledStateGraph<
-  AgentState,
-  Partial<AgentState>,
-  string
+export async function createWorkflow(): Promise<
+  CompiledStateGraph<WorkflowState, Partial<WorkflowState>>
 > {
   if (compiledWorkflow) return compiledWorkflow;
 
-  const graph = new StateGraph(AgentStateAnnotation)
-    // NEW ①：情绪/转人工守门，优先级最高
-    .addNode("guardrailHandoff", guardrailHandoffNode)
-    .addNode("handoff", handoffNode)
+  const db = connectDB();
+  const aiRoleConfig = await db.query.aiRoleConfig.findFirst({
+    where: eq(schema.aiRoleConfig.scope, "default_all"),
+  });
 
-    // 原有节点
-    .addNode("analyzeQuery", analyzeQueryNode)
-    .addNode("generateSearchQueries", generateSearchQueriesNode)
-    .addNode("retrieveKnowledge", retrieveKnowledgeNode)
+  if (!aiRoleConfig || !aiRoleConfig.workflowId) {
+    throw new Error("No ai role config found");
+  }
 
-    // NEW ②：无法解决→建议升级判断 & 询问
-    .addNode("escalationCheck", escalationCheckNode)
-    .addNode("offerEscalation", offerEscalationNode)
+  const workflow = await db.query.workflow.findFirst({
+    where: eq(schema.workflow.id, aiRoleConfig.workflowId),
+  });
 
-    .addNode("generateResponse", generateResponseNode)
+  console.log("workflow", workflow);
 
-    // 入口从 START → guardrail
-    .addEdge(START, "guardrailHandoff")
+  if (!workflow) {
+    throw new Error(`Workflow ${aiRoleConfig.workflowId} not found`);
+  }
 
-    // 守门后：要转人工则直接 handoff → END；否则进入原流程 analyzeQuery
-    .addConditionalEdges(
-      "guardrailHandoff",
-      (state: AgentState) =>
-        state.handoff_required ? "handoff" : "analyzeQuery",
-      { handoff: "handoff", analyzeQuery: "analyzeQuery" },
-    )
-    .addEdge("handoff", END)
-
-    // analyzeQuery：保留你的原逻辑，但不再直接去 generateResponse，而是统一走 escalationCheck
-    .addConditionalEdges(
-      "analyzeQuery",
-      (state: AgentState) =>
-        state.should_search ? "generateSearchQueries" : "escalationCheck",
-      {
-        generateSearchQueries: "generateSearchQueries",
-        escalationCheck: "escalationCheck",
-      },
-    )
-
-    // 原路径：检索 → 检索结果 → 升级判断
-    .addEdge("generateSearchQueries", "retrieveKnowledge")
-    .addEdge("retrieveKnowledge", "escalationCheck")
-
-    // 升级判断：如果建议升级，先 offer；否则正常生成答案
-    .addConditionalEdges(
-      "escalationCheck",
-      (state: AgentState) =>
-        state.propose_escalation ? "offerEscalation" : "generateResponse",
-      {
-        offerEscalation: "offerEscalation",
-        generateResponse: "generateResponse",
-      },
-    )
-    .addEdge("offerEscalation", END)
-
-    // 常规路径
-    .addEdge("generateResponse", END);
-
-  // 编译时类型会被正确推断
-  compiledWorkflow = graph.compile();
+  compiledWorkflow = new WorkflowBuilder(
+    normalizeWorkflowConfig(workflow),
+  ).build();
   return compiledWorkflow;
+}
+
+class WorkflowBuilder {
+  private config: WorkflowConfig;
+  private nodeMap: Map<
+    string,
+    | EmotionDetectionConfig
+    | HandoffConfig
+    | EscalationOfferConfig
+    | SmartChatConfig
+    | BaseNodeConfig
+  >;
+
+  constructor(config: WorkflowConfig) {
+    this.config = config;
+    this.nodeMap = new Map();
+
+    // 创建节点ID到配置的映射
+    for (const node of config.nodes) {
+      this.nodeMap.set(node.id, node);
+    }
+  }
+
+  build() {
+    console.log(
+      `\n========== Building Workflow: ${this.config.name} ==========`,
+    );
+    let graph: any = new StateGraph(WorkflowStateAnnotation);
+
+    // 添加所有节点
+    for (const node of this.config.nodes) {
+      if (node.type === NodeType.START || node.type === NodeType.END) {
+        continue;
+      }
+
+      console.log(`Adding node: ${node.id} (${node.type})`);
+      graph = graph.addNode(node.id, async (state: WorkflowState) => {
+        console.log(`\n>>> Executing node: ${node.id} (${node.name})`);
+        return await this.executeNode(
+          node as
+            | EmotionDetectionConfig
+            | HandoffConfig
+            | EscalationOfferConfig
+            | SmartChatConfig,
+          state,
+        );
+      });
+    }
+
+    // 构建边的映射
+    const edgeMap = new Map<string, WorkflowEdge[]>();
+    for (const edge of this.config.edges) {
+      const edges = edgeMap.get(edge.source) || [];
+      edges.push(edge);
+      edgeMap.set(edge.source, edges);
+    }
+
+    // 添加边
+    for (const [sourceId, edges] of edgeMap.entries()) {
+      if (edges.length === 0) {
+        continue;
+      }
+
+      const sourceNode = this.nodeMap.get(sourceId);
+      const isStartNode = sourceNode?.type === NodeType.START;
+
+      if (isStartNode) {
+        const firstEdge = edges[0];
+        // 规则：START 仅允许一条无条件边
+        if (edges.length === 1 && firstEdge && !firstEdge.condition) {
+          const targetNode = this.nodeMap.get(firstEdge.target);
+          const target =
+            targetNode?.type === NodeType.END ? END : firstEdge.target;
+          console.log(`Adding edge: START -> ${target}`);
+          graph.addEdge(START, target as any);
+          continue;
+        }
+        throw new Error(
+          `Invalid workflow: START must have exactly one unconditional edge, got ${edges.length} edge(s) with condition count ${edges.filter((e) => e.condition).length}`,
+        );
+      }
+
+      // 非 START 源
+      const firstEdge = edges[0];
+      if (edges.length === 1 && firstEdge && !firstEdge.condition) {
+        // 简单边（单一无条件边）
+        const targetNode = this.nodeMap.get(firstEdge.target);
+        const target =
+          targetNode?.type === NodeType.END ? END : firstEdge.target;
+        console.log(`Adding edge: ${sourceId} -> ${target}`);
+        graph.addEdge(sourceId as any, target as any);
+      } else {
+        // 条件边（多条边或有条件的边）
+        const conditions = edges
+          .filter((e) => !!e.condition)
+          .map((e) => ({ edge: e, cond: e.condition as string }));
+        const defaultEdge = edges.find((e) => !e.condition);
+
+        console.log(`Adding conditional edges from: ${sourceId}`);
+        graph.addConditionalEdges(sourceId as any, (state: WorkflowState) => {
+          const variables = getVariables(state);
+
+          // 检查条件边
+          for (const item of conditions) {
+            if (evaluateCondition(item.cond, variables)) {
+              const targetNode = this.nodeMap.get(item.edge.target);
+              return targetNode?.type === NodeType.END ? END : item.edge.target;
+            }
+          }
+
+          // 默认边
+          if (defaultEdge) {
+            const targetNode = this.nodeMap.get(defaultEdge.target);
+            return targetNode?.type === NodeType.END ? END : defaultEdge.target;
+          }
+
+          return END;
+        });
+      }
+    }
+
+    console.log(`Workflow built successfully!\n`);
+    return graph.compile() as CompiledStateGraph<
+      WorkflowState,
+      Partial<WorkflowState>
+    >;
+  }
+
+  private async executeNode(
+    node:
+      | EmotionDetectionConfig
+      | HandoffConfig
+      | EscalationOfferConfig
+      | SmartChatConfig,
+    state: WorkflowState,
+  ): Promise<Partial<WorkflowState>> {
+    switch (node.type) {
+      case NodeType.EMOTION_DETECTOR:
+        return await emotionDetectionNode(state, node.config);
+      case NodeType.SMART_CHAT:
+        return await smartChatNode(state, node.config);
+      case NodeType.HANDOFF:
+        return await handoffNode(state, node.config);
+      case NodeType.ESCALATION_OFFER:
+        return await escalationOfferNode(state, node.config);
+      default:
+        console.log(`Unknown node type: ${(node as BaseNodeConfig).type}`);
+        return {};
+    }
+  }
+}
+
+// 将数据库中的工作流记录规范化为内部 WorkflowConfig
+function normalizeWorkflowConfig(
+  dbRec: typeof schema.workflow.$inferSelect,
+): WorkflowConfig {
+  const mapType = (t: unknown): NodeType => {
+    if (typeof t !== "string") return (t as NodeType) ?? NodeType.SMART_CHAT;
+    const upper = t.toUpperCase();
+    switch (upper) {
+      case "EMOTION_DETECTOR":
+        return NodeType.EMOTION_DETECTOR;
+      case "HANDOFF":
+        return NodeType.HANDOFF;
+      case "SMART_CHAT":
+        return NodeType.SMART_CHAT;
+      case "ESCALATION_OFFER":
+        return NodeType.ESCALATION_OFFER;
+      case "VARIABLE_SETTER":
+        return NodeType.VARIABLE_SETTER;
+      case "START":
+        return NodeType.START;
+      case "END":
+        return NodeType.END;
+      default: {
+        const low = t as NodeType;
+        return low ?? NodeType.SMART_CHAT;
+      }
+    }
+  };
+
+  const nodes = (dbRec.nodes || []).map((n) => ({
+    ...n,
+    type: mapType((n as any).type),
+  })) as WorkflowConfig["nodes"];
+
+  const edges = (dbRec.edges || []).map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    condition: e.condition,
+    source_handle: (e as any).source_handle,
+    target_handle: (e as any).target_handle,
+  })) as WorkflowEdge[];
+
+  return {
+    id: dbRec.id,
+    name: dbRec.name,
+    description: dbRec.description ?? "",
+    nodes,
+    edges,
+    createdAt: dbRec.createdAt,
+    updatedAt: dbRec.updatedAt,
+  } as WorkflowConfig;
+}
+
+function evaluateCondition(
+  expression: string,
+  variables: Record<string, any>,
+): boolean {
+  try {
+    // 创建一个安全的评估环境
+    const func = new Function(
+      ...Object.keys(variables),
+      `return ${expression}`,
+    );
+    const result = func(...Object.values(variables));
+    console.log(`[Condition] Evaluating: ${expression} = ${result}`);
+    return result;
+  } catch (error) {
+    console.error(`[Condition] Failed to evaluate: ${expression}`, error);
+    return false;
+  }
 }
 
 export async function getAIResponse(
@@ -164,12 +355,11 @@ export async function getAIResponse(
     return at - bt;
   });
 
-  const workflow = createWorkflow();
-
+  const workflow = await createWorkflow();
   // 准备初始状态
-  const initialState: AgentState = {
+  const initialState: WorkflowState = {
     messages: history,
-    current_ticket: ticket
+    currentTicket: ticket
       ? {
           id: ticket.id,
           title: ticket.title,
@@ -178,17 +368,17 @@ export async function getAIResponse(
           category: ticket.category ?? undefined,
         }
       : undefined,
-    user_query: "",
-    search_queries: [],
-    retrieved_context: [],
+    userQuery: "",
+    sentimentLabel: "NEUTRAL",
+    handoffRequired: false,
+    handoffReason: "",
+    handoffPriority: "P2",
+    searchQueries: [],
+    retrievedContext: [],
     response: "",
-    should_search: true,
-    handoff_required: false,
-    handoff_reason: "",
-    handoff_priority: "P2",
-    sentiment_label: "NEUTRAL",
-    propose_escalation: false,
-    escalation_reason: "",
+    proposeEscalation: false,
+    escalationReason: "",
+    variables: {},
   };
 
   // 当响应为空字符串时，进行最多三次重试（总尝试次数最多四次）
@@ -197,7 +387,7 @@ export async function getAIResponse(
 
   while (attempt <= maxRetries) {
     try {
-      const result = (await workflow.invoke(initialState)) as AgentState;
+      const result = (await workflow.invoke(initialState)) as WorkflowState;
       const response = result.response ?? "";
       if (response !== "") {
         return response;
@@ -254,11 +444,11 @@ export async function* streamAIResponse(
     return at - bt;
   });
 
-  const workflow = createWorkflow();
+  const workflow = await createWorkflow();
 
-  const initialState: AgentState = {
+  const initialState: WorkflowState = {
     messages: history,
-    current_ticket: ticket
+    currentTicket: ticket
       ? {
           id: ticket.id,
           title: ticket.title,
@@ -267,26 +457,39 @@ export async function* streamAIResponse(
           category: ticket.category ?? undefined,
         }
       : undefined,
-    user_query: "",
-    search_queries: [],
-    retrieved_context: [],
+    userQuery: "",
+    searchQueries: [],
+    retrievedContext: [],
     response: "",
-    should_search: true,
-    handoff_required: false,
-    handoff_reason: "",
-    handoff_priority: "P2",
-    sentiment_label: "NEUTRAL",
-    propose_escalation: false,
-    escalation_reason: "",
+    handoffRequired: false,
+    handoffReason: "",
+    handoffPriority: "P2",
+    sentimentLabel: "NEUTRAL",
+    proposeEscalation: false,
+    escalationReason: "",
+    variables: {},
   };
 
   // 使用 stream 方法进行流式处理
   const stream = await workflow.stream(initialState);
 
+  // BUG: 应该只拿 smart chat 的 response
   for await (const chunk of stream) {
-    // 每个 chunk 包含节点名称和状态更新
-    if (chunk.generateResponse?.response) {
-      yield chunk.generateResponse.response;
+    // 不关心具体是哪个节点，只要有response就输出
+    const updates = chunk as Record<string, any>;
+
+    for (const [nodeId, update] of Object.entries(updates)) {
+      if (update?.response) {
+        yield update.response;
+        break; // 假设每个chunk只有一个节点有response
+      }
     }
   }
+
+  // for await (const chunk of stream) {
+  //   // 每个 chunk 包含节点名称和状态更新
+  //   if (chunk.generateResponse?.response) {
+  //     yield chunk.generateResponse.response;
+  //   }
+  // }
 }

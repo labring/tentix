@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { handoffRecords, tickets } from "@/db/schema";
+import { HandoffNotifyChannel } from "@/utils/const";
 
 class HandoffEventEmitter extends EventEmitter {
   constructor() {
@@ -19,7 +20,7 @@ export type HandoffEventPayloads = {
   [HandoffEventTypes.NOTIFICATION_SENT]: {
     record: typeof handoffRecords.$inferSelect;
     ticket: typeof tickets.$inferSelect;
-    channel: "feishu" | "email" | "wechat" | "sms";
+    channel: HandoffNotifyChannel;
   };
 };
 

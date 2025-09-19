@@ -236,7 +236,7 @@ namespace aiHandler {
 
   // In-flight lock set and timeout map to avoid concurrent AI runs per ticket
   const aiProcessingSet = new Set<string>();
-  const AI_PROCESSING_TIMEOUT = 60000;
+  const AI_PROCESSING_TIMEOUT = 180000; // 3 minute
   const aiProcessingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   export function isAIInFlight(ticketId: string) {
@@ -620,7 +620,9 @@ const chatRouter = factory
       // Validate token
       const tokenData = validateToken(token!);
       if (!tokenData) {
-        logError(`WebSocket token validation failed - ticketId: ${ticketId}, token: ${token?.substring(0, 8)}..., clientId: ${clientId}`);
+        logError(
+          `WebSocket token validation failed - ticketId: ${ticketId}, token: ${token?.substring(0, 8)}..., clientId: ${clientId}`,
+        );
         throw new HTTPException(401, {
           message: "Invalid or expired WebSocket token.",
         });
