@@ -253,6 +253,18 @@ export const translations = {
       please_register_first: "Please register first",
       registration_failed: "Registration failed",
 
+      // Admin workflow & AI role config errors
+      workflow_not_found: "Workflow not found",
+      workflow_name_exists: "Workflow name already exists",
+      active_ai_role_exists_in_scope:
+        "An active AI role already exists in scope '{{scope}}'",
+      invalid_nodes: "Invalid nodes payload",
+      duplicate_node_id: "Duplicate node id detected",
+      invalid_node_type: "Invalid node type",
+      invalid_edges: "Invalid edges payload",
+      invalid_edge_reference: "Edge references unknown node id",
+      invalid_edge_cycle: "Cycle detected in workflow edges",
+
       // WebSocket and chat
       send_failed: "Failed to send",
       send_error_generic: "An error occurred while sending",
@@ -610,6 +622,17 @@ export const translations = {
       user_not_found: "用户不存在",
       please_register_first: "请先注册账号",
       registration_failed: "注册失败",
+
+      // Admin workflow & AI role config errors
+      workflow_not_found: "未找到工作流",
+      workflow_name_exists: "工作流名称已存在",
+      active_ai_role_exists_in_scope: "scope '{{scope}}' 下已有激活的 AI 角色",
+      invalid_nodes: "无效的节点数据",
+      duplicate_node_id: "存在重复的节点 ID",
+      invalid_node_type: "无效的节点类型",
+      invalid_edges: "无效的边数据",
+      invalid_edge_reference: "边引用了不存在的节点",
+      invalid_edge_cycle: "检测到环路，边不允许形成环",
 
       // WebSocket and chat
       send_failed: "发送失败",

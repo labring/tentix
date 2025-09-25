@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/* handle 连接点动画 */
+@layer components {
+  .purple-glow-handle {
+    background: radial-gradient(
+      circle,
+      #a855f7 0%,
+      #7c3aed 50%,
+      #6d28d9 100%
+    ) !important;
+    border: 2px solid #e879f9 !important;
+    box-shadow:
+      0 0 0 4px rgba(168, 85, 247, 0.2),
+      0 0 0 8px rgba(168, 85, 247, 0.1),
+      0 0 20px rgba(168, 85, 247, 0.4) !important;
+    animation: pulse-glow 2s ease-in-out infinite !important;
+  }
+
+  .purple-glow-handle:hover {
+    background: radial-gradient(
+      circle,
+      #c084fc 0%,
+      #a855f7 50%,
+      #7c3aed 100%
+    ) !important;
+    border-color: #f0abfc !important;
+    box-shadow:
+      0 0 0 6px rgba(168, 85, 247, 0.3),
+      0 0 0 12px rgba(168, 85, 247, 0.15),
+      0 0 30px rgba(168, 85, 247, 0.6) !important;
+    transform: scale(1.2) !important;
+  }
+
+  .handle-breathing {
+    animation: breathing 3s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(168, 85, 247, 0.2),
+      0 0 0 8px rgba(168, 85, 247, 0.1),
+      0 0 20px rgba(168, 85, 247, 0.4);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(168, 85, 247, 0.3),
+      0 0 0 12px rgba(168, 85, 247, 0.15),
+      0 0 25px rgba(168, 85, 247, 0.5);
+  }
+}
+
+@keyframes breathing {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* 条件边配合 dash 的流动动画 */
+@keyframes conditionEdgeFlow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -12;
+  }
+}

@@ -57,15 +57,11 @@ export async function createWorkflow(): Promise<
     where: eq(schema.workflow.id, aiRoleConfig.workflowId),
   });
 
-  console.log("workflow", workflow);
-
   if (!workflow) {
     throw new Error(`Workflow ${aiRoleConfig.workflowId} not found`);
   }
 
-  compiledWorkflow = new WorkflowBuilder(
-    normalizeWorkflowConfig(workflow),
-  ).build();
+  compiledWorkflow = new WorkflowBuilder(workflow).build();
   return compiledWorkflow;
 }
 
@@ -217,60 +213,6 @@ class WorkflowBuilder {
         return {};
     }
   }
-}
-
-// 将数据库中的工作流记录规范化为内部 WorkflowConfig
-function normalizeWorkflowConfig(
-  dbRec: typeof schema.workflow.$inferSelect,
-): WorkflowConfig {
-  const mapType = (t: unknown): NodeType => {
-    if (typeof t !== "string") return (t as NodeType) ?? NodeType.SMART_CHAT;
-    const upper = t.toUpperCase();
-    switch (upper) {
-      case "EMOTION_DETECTOR":
-        return NodeType.EMOTION_DETECTOR;
-      case "HANDOFF":
-        return NodeType.HANDOFF;
-      case "SMART_CHAT":
-        return NodeType.SMART_CHAT;
-      case "ESCALATION_OFFER":
-        return NodeType.ESCALATION_OFFER;
-      case "VARIABLE_SETTER":
-        return NodeType.VARIABLE_SETTER;
-      case "START":
-        return NodeType.START;
-      case "END":
-        return NodeType.END;
-      default: {
-        const low = t as NodeType;
-        return low ?? NodeType.SMART_CHAT;
-      }
-    }
-  };
-
-  const nodes = (dbRec.nodes || []).map((n) => ({
-    ...n,
-    type: mapType((n as any).type),
-  })) as WorkflowConfig["nodes"];
-
-  const edges = (dbRec.edges || []).map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    condition: e.condition,
-    source_handle: (e as any).source_handle,
-    target_handle: (e as any).target_handle,
-  })) as WorkflowEdge[];
-
-  return {
-    id: dbRec.id,
-    name: dbRec.name,
-    description: dbRec.description ?? "",
-    nodes,
-    edges,
-    createdAt: dbRec.createdAt,
-    updatedAt: dbRec.updatedAt,
-  } as WorkflowConfig;
 }
 
 function evaluateCondition(

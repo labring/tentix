@@ -37,7 +37,7 @@ export function StaffSidebar() {
           className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"
         >
           <Link
-            to="/staff/workflow"
+            to="/staff/ai"
             className="flex flex-col items-center justify-center gap-1 text-center"
           >
             <Bot className="!w-7 !h-7" strokeWidth={1.33} />

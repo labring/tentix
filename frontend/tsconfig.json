@@ -18,6 +18,7 @@
       "@modal/*": ["./src/modal/*"],
       "@/*": ["./*"],
       "@store/*": ["./src/store/*"],
+      "@utils/*": ["./src/utils/*"],
       // "src/*": ["./src/*"],
       // "tentix-ui/*": ["../packages/ui/*"]
     }

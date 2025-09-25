@@ -2,7 +2,6 @@ import { type AppType } from "../api/index.ts";
 import { ClientRequestOptions, hc, type InferResponseType } from "hono/client";
 
 // this is a trick to calculate the type when compiling
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _api = hc<AppType>("").api;
 
 export const initClient = (
@@ -37,3 +36,11 @@ export type TicketType = InferResponseType<ApiClient["ticket"]["info"]["$get"]>;
 export type GetTechnicianFeedbackResponseType = InferResponseType<
   ApiClient["feedback"]["technicians"][":ticketId"]["$get"]
 >["data"];
+
+export type AiUserWithRoleConfigResponseType = InferResponseType<
+  ApiClient["admin"]["ai-role-config"]["all"]["$get"]
+>[number];
+
+export type WorkflowBasicResponseType = InferResponseType<
+  ApiClient["admin"]["workflow"]["basic"]["$get"]
+>[number];

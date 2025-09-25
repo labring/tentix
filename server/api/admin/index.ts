@@ -2,6 +2,7 @@ import * as schema from "@db/schema.ts";
 import { inArray } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { factory } from "../middleware.ts";
+import { workflowRouter } from "./workflow.ts";
 import { basicUserCols } from "../queryParams.ts";
 
 const adminRouter = factory.createApp().get(
@@ -42,5 +43,7 @@ const adminRouter = factory.createApp().get(
 
     return c.json(res);
   },
-);
+)
+// 挂载工作流与 AI 角色配置相关路由
+.route("/", workflowRouter);
 export { adminRouter };

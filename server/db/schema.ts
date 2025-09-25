@@ -783,6 +783,8 @@ export const workflow = tentix.table(
       .notNull(),
   },
   (table) => [
+    // 名字唯一性
+    unique("workflow_unique_name").on(table.name),
     // 更新时间排序索引
     index("idx_workflows_updated_at").on(table.updatedAt.desc()),
   ],

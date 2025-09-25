@@ -1,10 +1,10 @@
 /* eslint-disable no-undef */
-import { defineConfig } from "vite";
-import viteReact from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite"
+import viteReact from "@vitejs/plugin-react"
+import tailwindcss from "@tailwindcss/vite"
 
-import { tanstackRouter } from "@tanstack/router-plugin/vite";
-import { resolve } from "node:path";
+import { tanstackRouter } from "@tanstack/router-plugin/vite"
+import { resolve } from "node:path"
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -32,6 +32,7 @@ export default defineConfig({
       "@server": resolve(__dirname, "../server"),
       "@db": resolve(__dirname, "../server/db"),
       "@api": resolve(__dirname, "../server/api"),
+      "@utils": resolve(__dirname, "./src/utils"),
       "tentix-ui": resolve(__dirname, "../packages/ui"),
       "src": resolve(__dirname, "./src"),
       "uisrc": resolve(__dirname, "../packages/ui/uisrc"),
@@ -69,9 +70,9 @@ export default defineConfig({
         entryFileNames: 'assets/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {
-            return 'assets/styles-[hash].css';
+            return 'assets/styles-[hash].css'
           }
-          return 'assets/[name]-[hash].[ext]';
+          return 'assets/[name]-[hash].[ext]'
         },
       },
     },
@@ -80,4 +81,4 @@ export default defineConfig({
     assetsInlineLimit: 10240,
     reportCompressedSize: true,
   }
-});
+})

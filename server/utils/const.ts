@@ -185,6 +185,10 @@ export enum NodeType {
   START = "start", // 哨兵节点
   END = "end",
 }
+export enum WorkflowEdgeType {
+  CONDITION = "condition",
+  NORMAL = "normal",
+}
 
 // node config
 export interface BaseNodeConfig {
@@ -193,6 +197,7 @@ export interface BaseNodeConfig {
   name: string;
   position?: { x: number; y: number };
   handles?: HandleConfig[];
+  description?: string;
 }
 export interface EmotionDetectionConfig extends BaseNodeConfig {
   type: NodeType.EMOTION_DETECTOR;
@@ -246,6 +251,19 @@ export interface SmartChatConfig extends BaseNodeConfig {
   };
 }
 
+export type NodeConfig =
+  | EmotionDetectionConfig
+  | HandoffConfig
+  | EscalationOfferConfig
+  | SmartChatConfig
+  | BaseNodeConfig;
+
+export type NodeConfigData =
+  | EmotionDetectionConfig["config"]
+  | HandoffConfig["config"]
+  | EscalationOfferConfig["config"]
+  | SmartChatConfig["config"];
+
 export interface LLMConfig {
   apiKey?: string; // 可不填 -> 用全局 OPENAI_CONFIG
   baseURL?: string; // 可不填 -> 用全局 OPENAI_CONFIG
@@ -263,6 +281,7 @@ export interface HandleConfig {
 
 export interface WorkflowEdge {
   id: string;
+  type: WorkflowEdgeType;
   source: string;
   target: string;
   condition?: string;
@@ -271,7 +290,7 @@ export interface WorkflowEdge {
 }
 
 export interface WorkflowConfig {
-  id: string;
+  id?: string;
   name: string;
   description: string;
   nodes: Array<

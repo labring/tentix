@@ -428,3 +428,33 @@ export const ticketFeedbackSchema = z
         "dislikeReasons, feedbackComment, and hasComplaint can only be provided when satisfactionRating is less than 3",
     },
   );
+
+// admin
+// workflow
+
+// AI Role Config update schema
+export const AiRoleConfigPatchSchema = z
+  .object({
+    isActive: z.boolean().optional(),
+    scope: z.string().optional(),
+    workflowId: z.string().uuid().nullable().optional(),
+  })
+  .strict();
+
+// Workflow schemas
+export const WorkflowCreateSchema = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().default(""),
+    nodes: z.array(z.any()).default([]),
+    edges: z.array(z.any()).default([]),
+  })
+  .strict();
+
+export const WorkflowPatchSchema = z
+  .object({
+    description: z.string().optional(),
+    nodes: z.array(z.any()).optional(),
+    edges: z.array(z.any()).optional(),
+  })
+  .strict();

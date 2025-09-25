@@ -595,6 +595,8 @@ export async function smartChatNode(
     retrievedContextCount,
   });
 
+  console.log("userPrompt", userPrompt);
+
   let mm: MMItem[] = [];
   if (config.enableVision) {
     mm = buildMultimodalUserContent(

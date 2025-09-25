@@ -26,6 +26,7 @@ CREATE INDEX "idx_ai_role_configs_workflow" ON "tentix"."ai_role_config" USING b
 CREATE INDEX "idx_workflows_updated_at" ON "tentix"."workflow" USING btree ("updated_at" DESC NULLS LAST);--> statement-breakpoint
 
 -- 插入 workflow 数据
+
 INSERT INTO "tentix"."workflow" (
     "name", 
     "description",
@@ -39,12 +40,12 @@ INSERT INTO "tentix"."workflow" (
     '[
         {
             "id": "start",
-            "type": "START",
+            "type": "start",
             "name": "开始"
         },
         {
             "id": "emotion_detect",
-            "type": "EMOTION_DETECTOR",
+            "type": "emotionDetector",
             "name": "情绪检测",
             "config": {
                 "systemPrompt": "你是工单守门助手，只判断\"是否立即转人工（handoff）\"与情绪分类（只输出 JSON）。\n\n## 输出协议（严格）\n- 只输出**不带 Markdown**的 JSON 字符串，可被 JSON.parse 成功解析\n- 结构与字段：\n  {\n    \"sentiment\": \"NEUTRAL\" | \"FRUSTRATED\" | \"ANGRY\" | \"REQUEST_AGENT\" | \"ABUSIVE\" | \"CONFUSED\" | \"ANXIOUS\" | \"SATISFIED\",\n    \"handoff\": boolean,\n    \"reasons\": string[] (1-3 条, 每条 ≤100 字),\n    \"priority\": \"P1\" | \"P2\" | \"P3\"\n  }\n\n## handoff=true 触发规则（严格判断）\n\n### 1. 明确请求类\n- 用户明确要求：人工/专员/真人/不要机器人/转接等\n- sentiment=REQUEST_AGENT，priority=P2\n\n### 2. 解决无效类（需同时满足）\n必须**同时**满足以下条件才转人工：\n- **连续3轮**对话中出现2次以上否定（不对/不是/错了/没用）\n- **且**用户表达了具体需求但AI未能准确理解\n- **且**存在以下信号之一：\n  a) 用户明确说\"你不理解/答非所问/听不懂吗\"\n  b) AI给出了重复或相似的错误方案\n  c) 用户语气明显不耐烦（如使用感叹号、省略号表达无奈）\n- sentiment=FRUSTRATED，priority=P2\n\n### 3. 强负面情绪类\n- 辱骂/人身攻击/威胁 → sentiment=ABUSIVE，priority=P1\n- 连续使用脏话/爆粗 → sentiment=ANGRY，priority=P1\n- 表达紧急+焦虑（\"马上/立刻/等不了\"）→ sentiment=ANXIOUS，priority=P1\n\n### 4. 明确超界类\n用户需求明确涉及以下AI无权限事项：\n- 查询/修改具体订单、账户、支付信息\n- 申请退款/补偿/赔付\n- 内部系统报错/bug处理\n- 需要人工核实身份/授权的操作\n- priority=P2\n\n## handoff=false 场景（给AI机会）\n- 用户首次表达不满或否定（可能是表述不清）\n- 用户在澄清需求或补充信息\n- 技术问题但AI可以提供故障排查步骤\n- 用户虽有情绪但问题在AI能力范围内\n- 简单的产品咨询、使用指导、常见问题\n\n## 判断平衡原则\n### 容错机制（避免过早转人工）\n- 单次否定 → 不转，让AI再尝试\n- 两次否定但无情绪化 → 不转，可能是沟通问题\n- 用户在配合提供信息 → 不转，问题可能正在解决\n- 常规技术问题 → 先让AI提供标准解决方案\n\n### 及时转人工信号\n- 否定+情绪化词汇 → 转\n- 重复否定+问题未变 → 转\n- 明确表达AI无用 → 转\n- 涉及权限/系统/账户 → 转\n\n## 优先级\n- P1：情绪失控/紧急安全\n- P2：明确要求/连续失败/权限问题\n- P3：轻度不满但可继续尝试\n\n## 示例\n输入：\"不对，不是这个\"（第一次）\n输出：{\"sentiment\":\"NEUTRAL\",\"handoff\":false,\"reasons\":[\"首次否定，可再尝试理解\"],\"priority\":\"P3\"}\n\n输入：\"都说了不是这个，你到底懂不懂？\"（多次否定后）\n输出：{\"sentiment\":\"FRUSTRATED\",\"handoff\":true,\"reasons\":[\"连续否定且表达不满\",\"AI未准确理解需求\"],\"priority\":\"P2\"}\n\n输入：\"帮我查下订单1234为什么还没发货\"\n输出：{\"sentiment\":\"NEUTRAL\",\"handoff\":true,\"reasons\":[\"需查询具体订单信息，超出AI权限\"],\"priority\":\"P2\"}",
@@ -53,7 +54,7 @@ INSERT INTO "tentix"."workflow" (
         },
         {
             "id": "escalation",
-            "type": "ESCALATION_OFFER",
+            "type": "escalationOffer",
             "name": "询问是否升级",
             "config": {
                 "escalationOfferMessageTemplate": "我理解您的困扰，是否需要我现在为您转接到【{{ ticketModule | default: \"相关\" }}】技术同学为您详细解答？",
@@ -63,7 +64,7 @@ INSERT INTO "tentix"."workflow" (
         },
         {
             "id": "handoff",
-            "type": "HANDOFF",
+            "type": "handoff",
             "name": "转人工",
             "config": {
                 "messageTemplate": "我理解您的诉求。为不耽误您时间，我现在为您转接到【{{ ticketModule | default: \"相关\" }}】技术同学继续为您处理。",
@@ -72,7 +73,7 @@ INSERT INTO "tentix"."workflow" (
         },
         {
             "id": "smart_chat",
-            "type": "SMART_CHAT",
+            "type": "smartChat",
             "name": "智能对话",
             "config": {
                 "enableRAG": true,
@@ -93,7 +94,7 @@ INSERT INTO "tentix"."workflow" (
         },
         {
             "id": "end",
-            "type": "END",
+            "type": "end",
             "name": "结束"
         }
     ]'::jsonb,
