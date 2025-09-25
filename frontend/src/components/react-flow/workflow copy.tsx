@@ -180,25 +180,20 @@ const WorkflowEditor: React.FC = () => {
         selectNodesOnDrag={false}
         className="bg-muted/20"
       >
-        {/* <Background bgColor="#EDEDED" /> */}
+        {/* 背景层：细点阵 + 大网格线，随主题色变化 */}
         <Background
-          id="dots"
+          id="rf-dots"
           variant={BackgroundVariant.Dots}
-          bgColor="#EDEDED"
-          color="#696969"
           gap={20}
-          size={1.5}
-          // className="opacity-45"
+          size={1}
+          color="hsl(var(--muted-foreground) / 0.18)"
         />
-        {/* <Background
-          id="subtle-grid"
+        <Background
+          id="rf-lines"
           variant={BackgroundVariant.Lines}
-          bgColor="transparent"
-          color="red"
-          gap={90}
-          lineWidth={0.5}
-          className="opacity-25"
-        /> */}
+          gap={80}
+          color="hsl(var(--muted-foreground) / 0.08)"
+        />
       </ReactFlow>
     </ReactFlowProvider>
   );

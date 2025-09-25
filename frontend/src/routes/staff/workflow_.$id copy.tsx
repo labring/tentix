@@ -9,7 +9,7 @@ import { Button } from "tentix-ui";
 import { ArrowLeft, Play, Save } from "lucide-react";
 import type { WorkflowConfig } from "tentix-server/constants";
 
-export const Route = createFileRoute("/staff/workflow_/$id")({
+export const Route = createFileRoute("/staff/workflow_/$id copy")({
   head: ({ params }) => ({
     meta: [{ title: `工作流 #${params.id} | Tentix` }],
   }),
@@ -79,44 +79,38 @@ function RouteComponent() {
     <RouteTransition>
       <div className="relative h-screen w-full overflow-hidden">
         {/* 左上角：返回 + 标题信息 */}
-        <div className="absolute left-4 top-4 z-20">
-          <div className="flex items-center gap-3 rounded-2xl border border-border/40 bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-accent/50 transition-colors"
-              onClick={() =>
-                navigate({ to: "/staff/ai", search: { tab: "workflow" } })
-              }
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="min-w-0 select-none">
-              <div className="text-sm font-semibold text-foreground truncate max-w-[35vw]">
-                {wf?.name ?? "工作流"}
-              </div>
-              {wf?.description ? (
-                <div className="text-xs text-muted-foreground/80 truncate max-w-[35vw] mt-0.5">
-                  {wf.description}
-                </div>
-              ) : null}
+        <div className="absolute left-4 top-4 z-20 flex items-center gap-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full border border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70 hover:bg-background"
+            onClick={() =>
+              navigate({ to: "/staff/ai", search: { tab: "workflow" } })
+            }
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0 select-none">
+            <div className="text-sm font-medium text-foreground truncate max-w-[40vw]">
+              {wf?.name ?? "工作流"}
             </div>
+            {wf?.description ? (
+              <div className="text-xs text-muted-foreground truncate max-w-[40vw]">
+                {wf.description}
+              </div>
+            ) : null}
           </div>
         </div>
 
         {/* 右上角操作区 */}
         <div className="absolute right-4 top-4 z-20">
-          <div className="rounded-2xl border border-border/40 bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                className="h-8 gap-2 px-3 rounded-xl hover:bg-accent/50 transition-all duration-200 text-sm font-medium"
-              >
+          <div className="rounded-2xl border border-border/60 bg-background/70 p-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-card/90 px-2 py-1 shadow-sm supports-[backdrop-filter]:bg-card/70">
+              <Button variant="ghost" className="h-8 gap-1.5 px-3">
                 <Play className="h-4 w-4" />
                 <span>对话测试</span>
               </Button>
-              <div className="w-px h-5 bg-border/60" />
-              <Button className="h-8 gap-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-all duration-200">
+              <Button className="h-8 gap-1.5 px-3">
                 <Save className="h-4 w-4" />
                 <span>保存工作流</span>
               </Button>

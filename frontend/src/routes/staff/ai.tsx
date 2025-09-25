@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { StaffSidebar } from "@comp/staff/sidebar";
 import { RouteTransition } from "@comp/page-transition";
 import {
@@ -29,7 +28,7 @@ import {
   AvatarImage,
   AvatarFallback,
 } from "tentix-ui";
-import { useMemo, useState, useCallback, Suspense, useRef } from "react";
+import { useMemo, useState, useCallback, Suspense, useRef, useEffect } from "react";
 import { motion } from "motion/react";
 import {
   useSuspenseQuery,
@@ -158,11 +157,21 @@ function formatRelativeFromNow(iso?: string): string {
 }
 
 export const Route = createFileRoute("/staff/ai")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: (search.tab as string) || undefined,
+  }),
   component: RouteComponent,
 });
 
 export function RouteComponent() {
+  const { tab: searchTab } = Route.useSearch();
   const [tab, setTab] = useState<"ai" | "workflow">("ai");
+
+  useEffect(() => {
+    if (searchTab === "workflow" || searchTab === "ai") {
+      setTab(searchTab);
+    }
+  }, [searchTab]);
 
   const tabs = useMemo(
     () => [
@@ -665,7 +674,18 @@ function WorkflowsList({
       {workflows.map((wf) => (
         <div
           key={wf.id}
-          className="group relative flex items-center justify-between rounded-lg px-4 py-4 transition-all duration-200 hover:bg-accent/50 border border-transparent hover:border-border/50"
+              className="group relative flex items-center justify-between rounded-lg px-4 py-4 transition-all duration-200 hover:bg-accent/50 border border-transparent hover:border-border/50 cursor-pointer"
+              role="button"
+              tabIndex={0}
+              onClick={() =>
+                navigate({ to: "/staff/workflow/$id", params: { id: wf.id } })
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate({ to: "/staff/workflow/$id", params: { id: wf.id } });
+                }
+              }}
         >
           <div className="min-w-0 flex items-center gap-4">
             <div
@@ -688,6 +708,7 @@ function WorkflowsList({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>

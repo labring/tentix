@@ -18,6 +18,7 @@ import { Route as StaffAiRouteImport } from './routes/staff/ai'
 import { Route as UserNewticketIndexRouteImport } from './routes/user/newticket/index'
 import { Route as UserTicketsListRouteImport } from './routes/user/tickets/list'
 import { Route as UserTicketsIdRouteImport } from './routes/user/tickets/$id'
+import { Route as StaffWorkflowIdcopyRouteImport } from './routes/staff/workflow_.$id copy'
 import { Route as StaffWorkflowIdRouteImport } from './routes/staff/workflow_.$id'
 import { Route as StaffTicketsListRouteImport } from './routes/staff/tickets/list'
 import { Route as StaffTicketsAllRouteImport } from './routes/staff/tickets/all'
@@ -68,6 +69,11 @@ const UserTicketsIdRoute = UserTicketsIdRouteImport.update({
   path: '/tickets/$id',
   getParentRoute: () => UserRoute,
 } as any)
+const StaffWorkflowIdcopyRoute = StaffWorkflowIdcopyRouteImport.update({
+  id: '/workflow_/$id copy',
+  path: '/workflow/$id copy',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffWorkflowIdRoute = StaffWorkflowIdRouteImport.update({
   id: '/workflow_/$id',
   path: '/workflow/$id',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
   '/staff/workflow/$id': typeof StaffWorkflowIdRoute
+  '/staff/workflow/$id copy': typeof StaffWorkflowIdcopyRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
   '/user/newticket': typeof UserNewticketIndexRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
   '/staff/workflow/$id': typeof StaffWorkflowIdRoute
+  '/staff/workflow/$id copy': typeof StaffWorkflowIdcopyRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
   '/user/newticket': typeof UserNewticketIndexRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/staff/tickets/all': typeof StaffTicketsAllRoute
   '/staff/tickets/list': typeof StaffTicketsListRoute
   '/staff/workflow_/$id': typeof StaffWorkflowIdRoute
+  '/staff/workflow_/$id copy': typeof StaffWorkflowIdcopyRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
   '/user/newticket/': typeof UserNewticketIndexRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/staff/tickets/all'
     | '/staff/tickets/list'
     | '/staff/workflow/$id'
+    | '/staff/workflow/$id copy'
     | '/user/tickets/$id'
     | '/user/tickets/list'
     | '/user/newticket'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/staff/tickets/all'
     | '/staff/tickets/list'
     | '/staff/workflow/$id'
+    | '/staff/workflow/$id copy'
     | '/user/tickets/$id'
     | '/user/tickets/list'
     | '/user/newticket'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/staff/tickets/all'
     | '/staff/tickets/list'
     | '/staff/workflow_/$id'
+    | '/staff/workflow_/$id copy'
     | '/user/tickets/$id'
     | '/user/tickets/list'
     | '/user/newticket/'
@@ -263,6 +275,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffWorkflowIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/staff/workflow_/$id copy': {
+      id: '/staff/workflow_/$id copy'
+      path: '/workflow/$id copy'
+      fullPath: '/staff/workflow/$id copy'
+      preLoaderRoute: typeof StaffWorkflowIdcopyRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/user/tickets/$id': {
       id: '/user/tickets/$id'
       path: '/tickets/$id'
@@ -293,6 +312,7 @@ interface StaffRouteChildren {
   StaffTicketsAllRoute: typeof StaffTicketsAllRoute
   StaffTicketsListRoute: typeof StaffTicketsListRoute
   StaffWorkflowIdRoute: typeof StaffWorkflowIdRoute
+  StaffWorkflowIdcopyRoute: typeof StaffWorkflowIdcopyRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
@@ -301,6 +321,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffTicketsAllRoute: StaffTicketsAllRoute,
   StaffTicketsListRoute: StaffTicketsListRoute,
   StaffWorkflowIdRoute: StaffWorkflowIdRoute,
+  StaffWorkflowIdcopyRoute: StaffWorkflowIdcopyRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)

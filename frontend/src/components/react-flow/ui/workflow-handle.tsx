@@ -37,8 +37,9 @@ export const WorkflowHandle: React.FC<WorkflowHandleProps> = ({
     ) {
       return {
         ...baseStyle,
+        // 自定义定位：x -> left，y -> top
         ...(position.x !== undefined && { left: position.x }),
-        ...(position.y !== undefined && { right: position.y }),
+        ...(position.y !== undefined && { top: position.y }),
         ...(position.transform && { transform: position.transform }),
       };
     }
