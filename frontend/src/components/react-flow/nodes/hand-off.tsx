@@ -17,8 +17,9 @@ import {
   type HandoffConfig,
   type HandoffNotifyChannel,
 } from "tentix-server/constants";
-import { Label, Textarea, Separator, ScrollArea, ScrollBar } from "tentix-ui";
+import { Label, Separator, ScrollArea, ScrollBar } from "tentix-ui";
 import { CommonCombobox } from "@comp/common/combobox";
+import { WorkflowTextarea } from "@comp/react-flow/components/workflow-textarea";
 
 type HandoffNodeData = HandoffConfig["config"] & {
   name: string;
@@ -98,12 +99,14 @@ const HandOff: React.FC<NodeProps<Node<HandoffNodeData>>> = ({ id, data }) => {
               <div className="space-y-3 text-sm">
                 <div className="grid gap-1">
                   <Label className="text-xs">消息模板</Label>
-                  <Textarea
-                    className="min-h-12 nodrag nowheel"
+                  <WorkflowTextarea
+                    className="min-h-12"
                     value={safeData.messageTemplate || ""}
-                    onChange={(e) =>
-                      patchConfig({ messageTemplate: e.target.value })
+                    onChange={(value) =>
+                      patchConfig({ messageTemplate: value })
                     }
+                    dialogTitle="Edit Message Template"
+                    placeholder="输入消息模板..."
                   />
                 </div>
 

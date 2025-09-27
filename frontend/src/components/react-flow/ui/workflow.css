@@ -1,5 +1,3 @@
-@import "tailwindcss";
-
 /* handle 连接点动画 */
 @layer components {
   .purple-glow-handle {

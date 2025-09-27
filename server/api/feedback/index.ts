@@ -5,7 +5,11 @@ import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import "zod-openapi/extend";
 import { HTTPException } from "hono/http-exception";
-import { authMiddleware, factory } from "../middleware.ts";
+import {
+  authMiddleware,
+  factory,
+  customerOnlyMiddleware,
+} from "../middleware.ts";
 import { rateLimiter } from "hono-rate-limiter";
 import { getConnInfo } from "hono/bun";
 import { createSelectSchema } from "drizzle-zod";
@@ -63,6 +67,7 @@ const technicianWithFeedbackResponseSchema = createSelectSchema(schema.users)
 const feedbackRouter = factory
   .createApp()
   .use(authMiddleware)
+  .use(customerOnlyMiddleware())
   .post(
     "/message",
     feedbackRateLimiter,

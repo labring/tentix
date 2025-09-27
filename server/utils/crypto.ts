@@ -91,7 +91,7 @@ async function aesDecrypt(ciphertext: ArrayBuffer, key: CryptoKey, iv: Uint8Arra
   const dec = new TextDecoder();
   const plaintext = await crypto.subtle.decrypt({
     name: 'AES-CBC',
-    iv,
+    iv: new Uint8Array(iv),
   }, key, ciphertext);
 
   return dec.decode(plaintext);

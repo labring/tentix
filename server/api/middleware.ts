@@ -155,6 +155,29 @@ export function staffOnlyMiddleware(
     await next();
   });
 }
+export function adminOnlyMiddleware(
+  message: string = "Forbidden. Only admin can access this resource.",
+) {
+  return createMiddleware<AuthEnv>(async (c, next) => {
+    const role = c.get("role");
+    if (role !== "admin") {
+      throw new HTTPException(403, { message });
+    }
+    await next();
+  });
+}
+
+export function customerOnlyMiddleware(
+  message: string = "Forbidden. Only customer can access this resource.",
+) {
+  return createMiddleware<AuthEnv>(async (c, next) => {
+    const role = c.get("role");
+    if (role !== "customer") {
+      throw new HTTPException(403, { message });
+    }
+    await next();
+  });
+}
 export const factory = createFactory<MyEnv>({
   initApp: (app) => {
     app.use(async (c, next) => {

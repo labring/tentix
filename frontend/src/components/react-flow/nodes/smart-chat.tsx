@@ -20,12 +20,12 @@ import {
 import {
   Input,
   Switch,
-  Textarea,
   Label,
   Separator,
   ScrollArea,
   ScrollBar,
 } from "tentix-ui";
+import { WorkflowTextarea } from "@comp/react-flow/components/workflow-textarea";
 type SmartChatNodeData = SmartChatConfig["config"] & {
   name: string;
   handles?: HandleConfig[];
@@ -195,15 +195,15 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                           <Label className="text-xs">
                             意图分析 System Prompt
                           </Label>
-                          <Textarea
-                            className="min-h-12 nodrag nowheel"
+                          <WorkflowTextarea
+                            className="min-h-12"
                             value={
                               safeData.ragConfig?.intentAnalysisSystemPrompt ||
                               ""
                             }
-                            onChange={(e) =>
+                            onChange={(value) =>
                               patchNested("ragConfig", {
-                                intentAnalysisSystemPrompt: e.target.value,
+                                intentAnalysisSystemPrompt: value,
                               })
                             }
                           />
@@ -212,14 +212,14 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                           <Label className="text-xs">
                             意图分析 User Prompt
                           </Label>
-                          <Textarea
-                            className="min-h-12 nodrag nowheel"
+                          <WorkflowTextarea
+                            className="min-h-12"
                             value={
                               safeData.ragConfig?.intentAnalysisUserPrompt || ""
                             }
-                            onChange={(e) =>
+                            onChange={(value) =>
                               patchNested("ragConfig", {
-                                intentAnalysisUserPrompt: e.target.value,
+                                intentAnalysisUserPrompt: value,
                               })
                             }
                           />
@@ -286,15 +286,15 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                         <Label className="text-xs">
                           生成检索语 System Prompt
                         </Label>
-                        <Textarea
-                          className="min-h-12 nodrag nowheel"
+                        <WorkflowTextarea
+                          className="min-h-12"
                           value={
                             safeData.ragConfig
                               ?.generateSearchQueriesSystemPrompt || ""
                           }
-                          onChange={(e) =>
+                          onChange={(value) =>
                             patchNested("ragConfig", {
-                              generateSearchQueriesSystemPrompt: e.target.value,
+                              generateSearchQueriesSystemPrompt: value,
                             })
                           }
                         />
@@ -303,15 +303,15 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                         <Label className="text-xs">
                           生成检索语 User Prompt
                         </Label>
-                        <Textarea
-                          className="min-h-12 nodrag nowheel"
+                        <WorkflowTextarea
+                          className="min-h-12"
                           value={
                             safeData.ragConfig
                               ?.generateSearchQueriesUserPrompt || ""
                           }
-                          onChange={(e) =>
+                          onChange={(value) =>
                             patchNested("ragConfig", {
-                              generateSearchQueriesUserPrompt: e.target.value,
+                              generateSearchQueriesUserPrompt: value,
                             })
                           }
                         />
@@ -379,21 +379,21 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                   <div className="font-medium text-foreground">对话设置</div>
                   <div className="grid gap-1">
                     <Label className="text-xs">System Prompt</Label>
-                    <Textarea
-                      className="min-h-12 nodrag nowheel"
+                    <WorkflowTextarea
+                      className="min-h-12"
                       value={safeData.systemPrompt || ""}
-                      onChange={(e) =>
-                        patchConfig({ systemPrompt: e.target.value })
+                      onChange={(value) =>
+                        patchConfig({ systemPrompt: value })
                       }
                     />
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">User Prompt</Label>
-                    <Textarea
-                      className="min-h-12 nodrag nowheel"
+                    <WorkflowTextarea
+                      className="min-h-12"
                       value={safeData.userPrompt || ""}
-                      onChange={(e) =>
-                        patchConfig({ userPrompt: e.target.value })
+                      onChange={(value) =>
+                        patchConfig({ userPrompt: value })
                       }
                     />
                   </div>

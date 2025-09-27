@@ -135,7 +135,7 @@ export const userIdentities = tentix.table(
       .$type<{
         feishu?: { unionId?: string; openId?: string };
         sealos?: { accountId?: string };
-        password?: { passwordHash?: string };
+        password?: { passwordHash?: string; needReset?: boolean };
         third_party?: { name?: string };
       }>()
       .default(sql`'{}'::jsonb`)

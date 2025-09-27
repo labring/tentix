@@ -1,5 +1,10 @@
 import { userInfoQueryOptions, useSuspenseQuery } from "@lib/query";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useQuery,
+  queryOptions,
+} from "@tanstack/react-query";
 import { useBoolean } from "ahooks";
 import { useTranslation } from "i18n";
 import { useState, useRef } from "react";
@@ -15,20 +20,46 @@ import {
   Separator,
   toast,
   cn,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Badge,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "tentix-ui";
-import { Camera, Settings, Link, Unlink } from "lucide-react";
+import {
+  Camera,
+  Settings,
+  Link,
+  Unlink,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { apiClient } from "@lib/api-client";
 import { uploadAvatar, updateUserAvatar } from "@utils/avatar-manager";
 
 export function useSettingsModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false);
   const [activeSection, setActiveSection] = useState<
-    "userInfo" | "accountBinding"
+    "userInfo" | "accountBinding" | "userManagement"
   >("userInfo");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+
+  // User management states
+  const [userManagementPage, setUserManagementPage] = useState(1);
+  const [userManagementSearch, setUserManagementSearch] = useState("");
+  const [userManagementRole, setUserManagementRole] = useState<string>("all");
 
   // Get user info from API
   const { data: userInfo } = useSuspenseQuery(userInfoQueryOptions());
@@ -135,6 +166,61 @@ export function useSettingsModal() {
     },
   });
 
+  // User management query
+  const usersQueryOptions = queryOptions({
+    queryKey: [
+      "admin-users",
+      userManagementPage,
+      userManagementSearch,
+      userManagementRole,
+    ],
+    queryFn: async () => {
+      const res = await apiClient.admin.users.$get({
+        query: {
+          page: userManagementPage.toString(),
+          limit: "10",
+          ...(userManagementSearch && { search: userManagementSearch }),
+          ...(userManagementRole && userManagementRole !== "all" && { role: userManagementRole }),
+        },
+      });
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return await res.json();
+    },
+    enabled: activeSection === "userManagement" && userInfo.role === "admin",
+    staleTime: 30 * 1000, // 30 seconds
+  });
+
+  const { data: usersData } = useQuery(usersQueryOptions);
+
+  // Update user role mutation
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ id, role }: { id: number; role: string }) => {
+      const res = await apiClient.admin.users[":id"]["role"].$patch({
+        param: { id: id.toString() },
+        json: { role },
+      });
+      if (!res.ok) throw new Error("Failed to update user role");
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "成功",
+        description: "用户角色已更新",
+        variant: "default",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-users"],
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "错误",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleAvatarUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -201,9 +287,11 @@ export function useSettingsModal() {
   };
 
   // Function to open the settings modal
-  function openSettingsModal() {
+  function openSettingsModal(
+    section?: "userInfo" | "accountBinding" | "userManagement",
+  ) {
     setTrue();
-    setActiveSection("userInfo");
+    setActiveSection(section || "userInfo");
   }
 
   const modal = (
@@ -243,6 +331,21 @@ export function useSettingsModal() {
                   onClick={() => setActiveSection("accountBinding")}
                 >
                   {t("account_binding")}
+                </Button>
+              )}
+              {userInfo.role === "admin" && (
+                <Button
+                  variant={
+                    activeSection === "userManagement" ? "secondary" : "ghost"
+                  }
+                  className={cn(
+                    "w-full justify-start h-10 px-3",
+                    activeSection === "userManagement" &&
+                      "bg-white shadow-sm border",
+                  )}
+                  onClick={() => setActiveSection("userManagement")}
+                >
+                  用户管理
                 </Button>
               )}
             </div>
@@ -472,6 +575,203 @@ export function useSettingsModal() {
                       <p>• {t("feishu_bind_tip_fast_login")}</p>
                       <p>• {t("feishu_bind_tip_one_to_one")}</p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+            {activeSection === "userManagement" &&
+              userInfo.role === "admin" && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-zinc-900 mb-4">
+                      用户管理
+                    </h3>
+
+                    {/* Filters */}
+                    <div className="flex gap-4 mb-6">
+                      <div className="relative flex-1 max-w-sm">
+                        <Input
+                          placeholder="搜索用户（姓名、ID、真实姓名）"
+                          value={userManagementSearch}
+                          onChange={(e) =>
+                            setUserManagementSearch(e.target.value)
+                          }
+                          className="pl-9"
+                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <Select
+                        value={userManagementRole}
+                        onValueChange={setUserManagementRole}
+                      >
+                        <SelectTrigger className="w-48">
+                          <SelectValue placeholder="按角色筛选" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">全部角色</SelectItem>
+                          <SelectItem value="customer">客户</SelectItem>
+                          <SelectItem value="agent">客服</SelectItem>
+                          <SelectItem value="technician">技术员</SelectItem>
+                          <SelectItem value="admin">管理员</SelectItem>
+                          <SelectItem value="ai">AI</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Users Table */}
+                    {usersData ? (
+                      <div className="space-y-4">
+                        <div className="border rounded-lg">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead className="w-16">ID</TableHead>
+                                <TableHead>用户名</TableHead>
+                                <TableHead>真实姓名</TableHead>
+                                <TableHead>邮箱</TableHead>
+                                <TableHead>角色</TableHead>
+                                <TableHead>注册时间</TableHead>
+                                <TableHead className="w-24">操作</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {usersData.users.map((user) => (
+                                <TableRow key={user.id}>
+                                  <TableCell className="font-mono text-sm">
+                                    {user.id}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Avatar className="w-6 h-6">
+                                        <AvatarImage
+                                          src={
+                                            user.avatar || "/placeholder.svg"
+                                          }
+                                        />
+                                        <AvatarFallback className="text-xs">
+                                          {user.name?.charAt(0) || "U"}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span className="font-medium">
+                                        {user.name}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>{user.realName || "-"}</TableCell>
+                                  <TableCell className="font-mono text-sm">
+                                    {user.email || "-"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Select
+                                      value={user.role}
+                                      onValueChange={(newRole) =>
+                                        updateUserRoleMutation.mutate({
+                                          id: user.id,
+                                          role: newRole,
+                                        })
+                                      }
+                                      disabled={
+                                        updateUserRoleMutation.isPending
+                                      }
+                                    >
+                                      <SelectTrigger className="w-28 h-8">
+                                        <SelectValue>
+                                          <Badge
+                                            variant={
+                                              user.role === "admin"
+                                                ? "destructive"
+                                                : user.role === "ai"
+                                                  ? "secondary"
+                                                  : "outline"
+                                            }
+                                            className="text-xs"
+                                          >
+                                            {user.role === "customer" && "客户"}
+                                            {user.role === "agent" && "客服"}
+                                            {user.role === "technician" &&
+                                              "技术员"}
+                                            {user.role === "admin" && "管理员"}
+                                            {user.role === "ai" && "AI"}
+                                          </Badge>
+                                        </SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="customer">
+                                          客户
+                                        </SelectItem>
+                                        <SelectItem value="agent">
+                                          客服
+                                        </SelectItem>
+                                        <SelectItem value="technician">
+                                          技术员
+                                        </SelectItem>
+                                        <SelectItem value="admin">
+                                          管理员
+                                        </SelectItem>
+                                        <SelectItem value="ai">AI</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell className="text-sm text-muted-foreground">
+                                    {formatRegisterTime(user.registerTime)}
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="text-xs text-muted-foreground">
+                                      级别 {user.level}
+                                    </span>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-muted-foreground">
+                            显示 {(userManagementPage - 1) * 10 + 1} -{" "}
+                            {Math.min(
+                              userManagementPage * 10,
+                              usersData.pagination.total,
+                            )}{" "}
+                            条，共 {usersData.pagination.total} 条
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setUserManagementPage(
+                                  Math.max(1, userManagementPage - 1),
+                                )
+                              }
+                              disabled={userManagementPage <= 1}
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                              上一页
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setUserManagementPage(userManagementPage + 1)
+                              }
+                              disabled={
+                                userManagementPage >=
+                                usersData.pagination.totalPages
+                              }
+                            >
+                              下一页
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        加载中...
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

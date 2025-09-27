@@ -61,8 +61,9 @@ const authRouter = factory
                   id: z.number(),
                   role: z.string(),
                   name: z.string(),
-                  token: z.string(),
-                  expireTime: z.number(),
+                  token: z.string().optional(),
+                  expireTime: z.number().optional(),
+                  needReset: z.boolean().optional(),
                 }),
               ),
             },
@@ -121,6 +122,16 @@ const authRouter = factory
         const t = c.get("i18n").getFixedT(detectLocale(c));
         throw new HTTPException(401, {
           message: t("invalid_credentials"),
+        });
+      }
+
+      // Check if admin user needs password reset
+      if (userIdentity.user.role === "admin" && userIdentity.metadata?.password?.needReset) {
+        return c.json({
+          needReset: true,
+          id: userIdentity.user.id,
+          name: userIdentity.user.name,
+          role: userIdentity.user.role,
         });
       }
 
@@ -474,6 +485,115 @@ const authRouter = factory
       return c.json({
         id: userInfo.id,
         role: userInfo.role,
+        ...tokenInfo,
+      });
+    },
+  )
+  .post(
+    "/reset-password",
+    describeRoute({
+      description: "Reset Password",
+      tags: ["User"],
+      responses: {
+        200: {
+          description: "Password reset success",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  id: z.number(),
+                  role: z.string(),
+                  name: z.string(),
+                  token: z.string(),
+                  expireTime: z.number(),
+                }),
+              ),
+            },
+          },
+        },
+        404: {
+          description: "User not found",
+        },
+        401: {
+          description: "Invalid credentials",
+        },
+      },
+    }),
+    zValidator(
+      "json",
+      z.object({
+        id: z.number(),
+        currentPassword: z.string().min(6),
+        newPassword: z.string().min(6),
+      }),
+    ),
+    async (c) => {
+      const db = c.get("db");
+      const payload = c.req.valid("json");
+
+      if (
+        global.customEnv.TARGET_PLATFORM === "sealos" ||
+        global.customEnv.TARGET_PLATFORM === "fastgpt"
+      ) {
+        throw new HTTPException(401, {
+          message: `Password reset is not allowed on this platform: ${global.customEnv.TARGET_PLATFORM}`,
+        });
+      }
+
+      const { id, currentPassword, newPassword } = payload;
+
+      // Find user identity with password provider
+      const userIdentity = await db.query.userIdentities.findFirst({
+        where: and(
+          eq(schema.userIdentities.provider, "password"),
+          eq(schema.userIdentities.userId, id),
+        ),
+        with: {
+          user: true,
+        },
+      });
+
+      if (!userIdentity) {
+        const t = c.get("i18n").getFixedT(detectLocale(c));
+        throw new HTTPException(404, {
+          message: t("user_not_found"),
+        });
+      }
+
+      const passwordHash = userIdentity.metadata?.password?.passwordHash;
+      if (!passwordHash || !(await verifyPassword(currentPassword, passwordHash))) {
+        const t = c.get("i18n").getFixedT(detectLocale(c));
+        throw new HTTPException(401, {
+          message: t("invalid_credentials"),
+        });
+      }
+
+      // Update password and clear needReset flag
+      const newPasswordHash = await hashPassword(newPassword);
+      const updatedMetadata = {
+        ...userIdentity.metadata,
+        password: {
+          passwordHash: newPasswordHash,
+          needReset: false,
+        },
+      };
+
+      await db
+        .update(schema.userIdentities)
+        .set({ metadata: updatedMetadata })
+        .where(eq(schema.userIdentities.id, userIdentity.id));
+
+      // Generate token for immediate login
+      const tokenInfo = await signBearerToken(
+        c,
+        userIdentity.user.id,
+        userIdentity.user.role,
+      );
+
+      return c.json({
+        id: userIdentity.user.id,
+        name: userIdentity.user.name,
+        role: userIdentity.user.role,
         ...tokenInfo,
       });
     },

@@ -4,6 +4,7 @@ import {
   ReactFlowProvider,
   Background,
   BackgroundVariant,
+  useReactFlow,
   type EdgeChange,
   type NodeChange,
   type OnConnect,
@@ -21,6 +22,7 @@ import {
   WorkflowEdgeType,
   type WorkflowEdge as DomainWorkflowEdge,
   type NodeConfig as DomainNodeConfig,
+  type HandleConfig,
 } from "tentix-server/constants";
 
 import EmotionDetector from "@comp/react-flow/nodes/emotion-detector";
@@ -82,9 +84,10 @@ function toReactFlow(
   return { nodes, edges };
 }
 
-const WorkflowEditor: React.FC = () => {
+const InnerWorkflow: React.FC = () => {
   const sourceNodes = useWorkflowStore((s) => s.nodes);
   const sourceEdges = useWorkflowStore((s) => s.edges);
+  const { screenToFlowPosition } = useReactFlow();
   const { nodes, edges } = useMemo(
     () => toReactFlow(sourceNodes, sourceEdges),
     [sourceNodes, sourceEdges],
@@ -163,43 +166,102 @@ const WorkflowEditor: React.FC = () => {
     [removeNode],
   );
 
+  // 允许从外部拖拽创建节点
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      const droppedType = event.dataTransfer.getData("application/reactflow");
+      if (!droppedType) return;
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      const { idGenerator, addNode } = useWorkflowStore.getState();
+
+      // 构造一个基础节点配置，handles 尽量通用
+      const createDefaultHandles = (nodeId: string, type: NodeType): HandleConfig[] => {
+        if (type === NodeType.START)
+          return [{
+            id: idGenerator.generateHandleId(nodeId, "out"),
+            type: "source",
+            position: "right"
+          } as HandleConfig];
+        if (type === NodeType.END)
+          return [{
+            id: idGenerator.generateHandleId(nodeId, "in"),
+            type: "target",
+            position: "left"
+          } as HandleConfig];
+        return [
+          {
+            id: idGenerator.generateHandleId(nodeId, "in"),
+            type: "target",
+            position: "left"
+          } as HandleConfig,
+          {
+            id: idGenerator.generateHandleId(nodeId, "out"),
+            type: "source",
+            position: "right"
+          } as HandleConfig,
+        ];
+      };
+
+      const nodeType = droppedType as NodeType;
+      const nodeId = idGenerator.generateNodeId(nodeType);
+      addNode({
+        id: nodeId,
+        type: nodeType,
+        name: nodeId,
+        position,
+        handles: createDefaultHandles(nodeId, nodeType),
+        description: undefined,
+      });
+    },
+    [screenToFlowPosition],
+  );
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onNodesDelete={onNodesDelete}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      fitView
+      deleteKeyCode={["Backspace", "Delete"]}
+      elementsSelectable={true}
+      selectNodesOnDrag={false}
+      className="bg-muted/20"
+    >
+      <Background
+        id="dots"
+        variant={BackgroundVariant.Dots}
+        bgColor="#EDEDED"
+        color="#696969"
+        gap={20}
+        size={1.8}
+        className="opacity-50"
+      />
+    </ReactFlow>
+  );
+};
+
+const WorkflowEditor: React.FC = () => {
   return (
     <ReactFlowProvider>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodesDelete={onNodesDelete}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        fitView
-        deleteKeyCode={["Backspace", "Delete"]}
-        elementsSelectable={true}
-        selectNodesOnDrag={false}
-        className="bg-muted/20"
-      >
-        {/* <Background bgColor="#EDEDED" /> */}
-        <Background
-          id="dots"
-          variant={BackgroundVariant.Dots}
-          bgColor="#EDEDED"
-          color="#696969"
-          gap={20}
-          size={1.5}
-          // className="opacity-45"
-        />
-        {/* <Background
-          id="subtle-grid"
-          variant={BackgroundVariant.Lines}
-          bgColor="transparent"
-          color="red"
-          gap={90}
-          lineWidth={0.5}
-          className="opacity-25"
-        /> */}
-      </ReactFlow>
+      <InnerWorkflow />
     </ReactFlowProvider>
   );
 };

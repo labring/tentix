@@ -16,7 +16,12 @@ import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import "zod-openapi/extend";
 import { HTTPException } from "hono/http-exception";
-import { authMiddleware, factory, staffOnlyMiddleware } from "../middleware.ts";
+import {
+  authMiddleware,
+  factory,
+  staffOnlyMiddleware,
+  customerOnlyMiddleware,
+} from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
 import {
@@ -114,6 +119,7 @@ const ticketRouter = factory
   .use(authMiddleware)
   .post(
     "/create",
+    customerOnlyMiddleware(),
     describeRoute({
       tags: ["Ticket"],
       description: "Create ticket",
@@ -223,6 +229,7 @@ const ticketRouter = factory
   )
   .get(
     "/all",
+    staffOnlyMiddleware(),
     describeRoute({
       description:
         "Get all tickets with customer info and last message. Supports page-based pagination and search by keyword (ID/title) and status filtering.",

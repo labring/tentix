@@ -27,8 +27,16 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
+  EmptyBoxIcon,
 } from "tentix-ui";
-import { useMemo, useState, useCallback, Suspense, useRef, useEffect } from "react";
+import {
+  useMemo,
+  useState,
+  useCallback,
+  Suspense,
+  useRef,
+  useEffect,
+} from "react";
 import { motion } from "motion/react";
 import {
   useSuspenseQuery,
@@ -45,6 +53,7 @@ import {
   Pencil,
   Trash2,
   Camera,
+  Settings,
 } from "lucide-react";
 import { uploadAvatar, deleteOldAvatar } from "@utils/avatar-manager";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -54,6 +63,7 @@ import type { WorkflowBasicResponseType } from "tentix-server/rpc";
 import { CommonCombobox } from "@comp/common/combobox";
 import { Tabs } from "@comp/common/tabs";
 import useDebounce from "@hook/use-debounce";
+import { useSettingsModal } from "@modal/use-settings-modal";
 
 function getErrorMessage(err: unknown, fallback = "操作失败"): string {
   if (typeof err === "object" && err && "message" in err) {
@@ -365,6 +375,10 @@ function AiRolesTab() {
     }
   };
 
+  if (aiUsers.length === 0) {
+    return <AiRolesEmptyState />;
+  }
+
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {aiUsers.map((u) => (
@@ -674,18 +688,18 @@ function WorkflowsList({
       {workflows.map((wf) => (
         <div
           key={wf.id}
-              className="group relative flex items-center justify-between rounded-lg px-4 py-4 transition-all duration-200 hover:bg-accent/50 border border-transparent hover:border-border/50 cursor-pointer"
-              role="button"
-              tabIndex={0}
-              onClick={() =>
-                navigate({ to: "/staff/workflow/$id", params: { id: wf.id } })
-              }
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  navigate({ to: "/staff/workflow/$id", params: { id: wf.id } });
-                }
-              }}
+          className="group relative flex items-center justify-between rounded-lg px-4 py-4 transition-all duration-200 hover:bg-accent/50 border border-transparent hover:border-border/50 cursor-pointer"
+          role="button"
+          tabIndex={0}
+          onClick={() =>
+            navigate({ to: "/staff/workflow/$id", params: { id: wf.id } })
+          }
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              navigate({ to: "/staff/workflow/$id", params: { id: wf.id } });
+            }
+          }}
         >
           <div className="min-w-0 flex items-center gap-4">
             <div
@@ -756,5 +770,41 @@ function WorkflowsListSkeleton() {
         </div>
       ))}
     </div>
+  );
+}
+
+function AiRolesEmptyState() {
+  const { openSettingsModal, settingsModal } = useSettingsModal();
+
+  const handleOpenUserManagement = () => {
+    openSettingsModal("userManagement");
+  };
+
+  return (
+    <>
+      <div className="flex flex-col items-center justify-center h-full py-16">
+        <div className="flex flex-col items-center text-center space-y-6 max-w-md">
+          <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
+            <EmptyBoxIcon className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-foreground">
+              暂无AI角色
+            </h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              还没有配置任何AI角色。点击下方按钮前往用户管理，将用户设置为AI角色。
+            </p>
+          </div>
+          <Button
+            onClick={handleOpenUserManagement}
+            className="flex items-center gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            设置AI角色
+          </Button>
+        </div>
+      </div>
+      {settingsModal}
+    </>
   );
 }

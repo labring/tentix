@@ -20,13 +20,13 @@ import {
 } from "tentix-server/constants";
 import {
   Input,
-  Textarea,
   Label,
   Separator,
   ScrollArea,
   ScrollBar,
   Button,
 } from "tentix-ui";
+import { WorkflowTextarea } from "@comp/react-flow/components/workflow-textarea";
 import { cn } from "@lib/utils";
 
 type EmotionDetectorNodeData = EmotionDetectionConfig["config"] & {
@@ -213,21 +213,21 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
                   <div className="font-medium text-foreground">检测配置</div>
                   <div className="grid gap-1">
                     <Label className="text-xs">System Prompt</Label>
-                    <Textarea
-                      className="min-h-12 nodrag nowheel"
+                    <WorkflowTextarea
+                      className="min-h-12"
                       value={safeData.systemPrompt || ""}
-                      onChange={(e) =>
-                        patchConfig({ systemPrompt: e.target.value })
+                      onChange={(value) =>
+                        patchConfig({ systemPrompt: value })
                       }
                     />
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">User Prompt</Label>
-                    <Textarea
-                      className="min-h-12 nodrag nowheel"
+                    <WorkflowTextarea
+                      className="min-h-12"
                       value={safeData.userPrompt || ""}
-                      onChange={(e) =>
-                        patchConfig({ userPrompt: e.target.value })
+                      onChange={(value) =>
+                        patchConfig({ userPrompt: value })
                       }
                     />
                   </div>

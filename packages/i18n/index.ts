@@ -253,6 +253,23 @@ export const translations = {
       please_register_first: "Please register first",
       registration_failed: "Registration failed",
 
+      // Password reset
+      reset_password_title: "Reset Password",
+      reset_password_subtitle: "Please reset your password to continue",
+      reset_password_for_user: "Resetting password for: {{name}}",
+      field_current_password: "Current Password",
+      field_new_password: "New Password",
+      field_confirm_password: "Confirm Password",
+      ph_current_password: "Enter your current password",
+      ph_new_password: "Enter your new password",
+      ph_confirm_password: "Confirm your new password",
+      btn_reset_password: "Reset Password",
+      btn_back_to_login: "Back to Login",
+      password_not_match: "Passwords do not match",
+      password_reset_success: "Password Reset Successful",
+      password_reset_success_desc: "Your password has been reset successfully",
+      password_reset_failed: "Password Reset Failed",
+
       // Admin workflow & AI role config errors
       workflow_not_found: "Workflow not found",
       workflow_name_exists: "Workflow name already exists",
@@ -622,6 +639,23 @@ export const translations = {
       user_not_found: "用户不存在",
       please_register_first: "请先注册账号",
       registration_failed: "注册失败",
+
+      // Password reset
+      reset_password_title: "重置密码",
+      reset_password_subtitle: "请重置您的密码以继续",
+      reset_password_for_user: "为用户重置密码：{{name}}",
+      field_current_password: "当前密码",
+      field_new_password: "新密码",
+      field_confirm_password: "确认密码",
+      ph_current_password: "请输入当前密码",
+      ph_new_password: "请输入新密码",
+      ph_confirm_password: "请确认新密码",
+      btn_reset_password: "重置密码",
+      btn_back_to_login: "返回登录",
+      password_not_match: "密码不匹配",
+      password_reset_success: "密码重置成功",
+      password_reset_success_desc: "您的密码已成功重置",
+      password_reset_failed: "密码重置失败",
 
       // Admin workflow & AI role config errors
       workflow_not_found: "未找到工作流",

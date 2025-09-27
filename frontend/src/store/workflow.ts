@@ -37,6 +37,10 @@ export interface WorkflowState {
   idGenerator: WorkflowIdGenerator;
   validator: WorkflowValidator;
 
+  // 保存状态管理
+  isSaved: boolean;
+  setIsSaved: (saved: boolean) => void;
+
   // 基本操作
   setNodes: (nodes: NodeConfig[]) => void;
   setEdges: (edges: WorkflowEdge[]) => void;
@@ -115,9 +119,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
     idGenerator,
     validator: workflowValidator,
 
+    // 保存状态管理
+    isSaved: true,
+    setIsSaved: (saved) => set({ isSaved: saved }),
+
     // 基本操作
-    setNodes: (nodes) => set({ nodes }),
-    setEdges: (edges) => set({ edges }),
+    setNodes: (nodes) => set({ nodes, isSaved: false }),
+    setEdges: (edges) => set({ edges, isSaved: false }),
 
     updateNode: (nodeId, updater) =>
       set((state) => {
@@ -130,12 +138,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
         const nextNodes = state.nodes.map((n) =>
           n.id === nodeId ? sanitized : n,
         );
-        return { nodes: nextNodes };
+        return { nodes: nextNodes, isSaved: false };
       }),
 
     updateEdge: (edgeId, updater) =>
       set((state) => ({
         edges: state.edges.map((e) => (e.id === edgeId ? updater(e) : e)),
+        isSaved: false,
       })),
 
     addNode: (node) =>
@@ -159,7 +168,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
         });
 
         const finalNode = { ...node, id: nodeId, handles };
-        return { nodes: [...state.nodes, finalNode] };
+        return { nodes: [...state.nodes, finalNode], isSaved: false };
       }),
 
     addEdge: (edge) =>
@@ -174,7 +183,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
           );
         }
         const finalEdge = { ...edge, id: edgeId };
-        return { edges: [...state.edges, finalEdge] };
+        return { edges: [...state.edges, finalEdge], isSaved: false };
       }),
 
     removeNode: (nodeId) =>
@@ -184,11 +193,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
         edges: state.edges.filter(
           (e) => e.source !== nodeId && e.target !== nodeId,
         ),
+        isSaved: false,
       })),
 
     removeEdge: (edgeId) =>
       set((state) => ({
         edges: state.edges.filter((e) => e.id !== edgeId),
+        isSaved: false,
       })),
 
     // Handle 操作
@@ -215,6 +226,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
             ? { ...n, handles: [...(n.handles || []), finalHandle] }
             : n,
         ),
+        isSaved: false,
       }));
     },
 
@@ -236,6 +248,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
               (e.target === nodeId && e.target_handle === handleId)
             ),
         ),
+        isSaved: false,
       }));
     },
 
@@ -257,7 +270,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
               }
             : n,
         );
-        return { nodes: nextNodes };
+        return { nodes: nextNodes, isSaved: false };
       });
     },
 
@@ -281,6 +294,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
           source: e.source === nodeId ? finalId! : e.source,
           target: e.target === nodeId ? finalId! : e.target,
         })),
+        isSaved: false,
       });
 
       return finalId;
@@ -322,6 +336,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
           }
           return e;
         }),
+        isSaved: false,
       });
 
       return finalId;
@@ -333,6 +348,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
         edges: state.edges.map((e) =>
           e.id === edgeId ? { ...e, condition } : e,
         ),
+        isSaved: false,
       }));
     },
 
@@ -386,7 +402,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
     // 从配置导入
     fromConfig: (config) => {
       const { nodes, edges } = config;
-      set({ nodes, edges });
+      set({ nodes, edges, isSaved: true });
     },
 
     // 验证功能

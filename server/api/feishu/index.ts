@@ -1,5 +1,10 @@
 import { describeRoute } from "hono-openapi";
-import { factory, authMiddleware, staffOnlyMiddleware } from "../middleware.ts";
+import {
+  factory,
+  authMiddleware,
+  staffOnlyMiddleware,
+  adminOnlyMiddleware,
+} from "../middleware.ts";
 import * as schema from "@db/schema.ts";
 import { eq, and } from "drizzle-orm";
 import {
@@ -22,6 +27,8 @@ const feishuRouter = factory
   .createApp()
   .get(
     "/appId",
+    authMiddleware,
+    adminOnlyMiddleware(),
     describeRoute({
       tags: ["Feishu"],
       description: "Get the app id.",
@@ -173,6 +180,8 @@ const feishuRouter = factory
   )
   .get(
     "/userListByDepartment",
+    authMiddleware,
+    adminOnlyMiddleware(),
     describeRoute({
       tags: ["Feishu"],
       description: "Test endpoint. Not for production use.",

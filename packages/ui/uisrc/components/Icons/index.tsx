@@ -149,3 +149,93 @@ export const SendIcon = ({
   </svg>
 );
 
+export const AppDots6Icon = ({
+  className,
+  ...props
+}: {
+  className?: string;
+} & React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="21"
+    height="21"
+    viewBox="0 0 21 21"
+    fill="none"
+    className={className}
+    {...props}
+  >
+    {/* 左列 */}
+    <circle cx="8" cy="6" r="1.4" fill="currentColor" />
+    <circle cx="8" cy="10.5" r="1.4" fill="currentColor" />
+    <circle cx="8" cy="15" r="1.4" fill="currentColor" />
+    {/* 右列 */}
+    <circle cx="13" cy="6" r="1.4" fill="currentColor" />
+    <circle cx="13" cy="10.5" r="1.4" fill="currentColor" />
+    <circle cx="13" cy="15" r="1.4" fill="currentColor" />
+  </svg>
+);
+
+export const ExpandEditIcon = ({
+  className,
+  ...props
+}: {
+  className?: string;
+} & React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+    <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+    <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+    <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+  </svg>
+);
+
+export const EmptyBoxIcon = ({
+  className,
+  ...props
+}: {
+  className?: string;
+} & React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="48"
+    height="48"
+    viewBox="0 0 48 48"
+    fill="none"
+    className={className}
+    {...props}
+  >
+    <path
+      d="M6 16L24 8L42 16V32C42 33.0609 41.5786 34.0783 40.8284 34.8284C40.0783 35.5786 39.0609 36 38 36H10C8.93913 36 7.92172 35.5786 7.17157 34.8284C6.42143 34.0783 6 33.0609 6 32V16Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6 16L24 24L42 16"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M24 24V36"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
