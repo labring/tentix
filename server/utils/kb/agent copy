@@ -87,6 +87,9 @@ class WorkflowBuilder {
   }
 
   build() {
+    console.log(
+      `\n========== Building Workflow: ${this.config.name} ==========`,
+    );
     let graph: any = new StateGraph(WorkflowStateAnnotation);
 
     // 添加所有节点
@@ -95,7 +98,9 @@ class WorkflowBuilder {
         continue;
       }
 
+      console.log(`Adding node: ${node.id} (${node.type})`);
       graph = graph.addNode(node.id, async (state: WorkflowState) => {
+        console.log(`\n>>> Executing node: ${node.id} (${node.name})`);
         return await this.executeNode(
           node as
             | EmotionDetectionConfig
@@ -131,6 +136,7 @@ class WorkflowBuilder {
           const targetNode = this.nodeMap.get(firstEdge.target);
           const target =
             targetNode?.type === NodeType.END ? END : firstEdge.target;
+          console.log(`Adding edge: START -> ${target}`);
           graph.addEdge(START, target as any);
           continue;
         }
@@ -146,6 +152,7 @@ class WorkflowBuilder {
         const targetNode = this.nodeMap.get(firstEdge.target);
         const target =
           targetNode?.type === NodeType.END ? END : firstEdge.target;
+        console.log(`Adding edge: ${sourceId} -> ${target}`);
         graph.addEdge(sourceId as any, target as any);
       } else {
         // 条件边（多条边或有条件的边）
@@ -154,6 +161,7 @@ class WorkflowBuilder {
           .map((e) => ({ edge: e, cond: e.condition as string }));
         const defaultEdge = edges.find((e) => !e.condition);
 
+        console.log(`Adding conditional edges from: ${sourceId}`);
         graph.addConditionalEdges(sourceId as any, (state: WorkflowState) => {
           const variables = getVariables(state);
 
@@ -176,6 +184,7 @@ class WorkflowBuilder {
       }
     }
 
+    console.log(`Workflow built successfully!\n`);
     return graph.compile() as CompiledStateGraph<
       WorkflowState,
       Partial<WorkflowState>
@@ -200,7 +209,7 @@ class WorkflowBuilder {
       case NodeType.ESCALATION_OFFER:
         return await escalationOfferNode(state, node.config);
       default:
-        logError(`Unknown node type: ${(node as BaseNodeConfig).type}`);
+        console.log(`Unknown node type: ${(node as BaseNodeConfig).type}`);
         return {};
     }
   }
@@ -217,9 +226,10 @@ function evaluateCondition(
       `return ${expression}`,
     );
     const result = func(...Object.values(variables));
+    console.log(`[Condition] Evaluating: ${expression} = ${result}`);
     return result;
   } catch (error) {
-    logError(`[Condition] Failed to evaluate: ${expression}`, error);
+    console.error(`[Condition] Failed to evaluate: ${expression}`, error);
     return false;
   }
 }

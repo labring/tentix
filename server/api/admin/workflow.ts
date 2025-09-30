@@ -6,7 +6,11 @@ import { z } from "zod";
 import "zod-openapi/extend";
 import { HTTPException } from "hono/http-exception";
 import { Hono } from "hono";
-import type { AuthEnv } from "../middleware.ts";
+import {
+  adminOnlyMiddleware,
+  authMiddleware,
+  type AuthEnv,
+} from "../middleware.ts";
 import { detectLocale } from "@/utils/index.ts";
 import {
   NodeType,
@@ -74,6 +78,8 @@ const PageQuerySchema = z
   .strict();
 
 export const workflowRouter = new Hono<AuthEnv>()
+  .use(authMiddleware)
+  .use(adminOnlyMiddleware())
   // GET /ai-role-config
   .get(
     "/ai-role-config",

@@ -10,7 +10,7 @@ import { factory, handleError } from "./middleware.ts";
 import { fileRouter } from "./file/index.ts";
 import { ticketRouter } from "./ticket/index.ts";
 import { userRouter } from "./user/index.ts";
-import { websocket, chatRouter } from "./chat/index.ts";
+import { chatRouter } from "./chat/index.ts";
 import { adminRouter } from "./admin/index.ts";
 import { playgroundRouter } from "./playground/index.ts";
 import { feishuRouter } from "./feishu/index.ts";
@@ -19,6 +19,7 @@ import { startAllJobs } from "@/utils/jobs/kb-jobs/index.ts";
 import "@/utils/events/handoff/index.ts";
 import { kbRouter } from "./kb/index.ts";
 import { logInfo } from "@/utils/log.ts";
+import { websocket } from "@/utils/websocket.ts";
 
 const app = factory.createApp();
 

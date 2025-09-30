@@ -71,6 +71,13 @@
       "when": 1758282366330,
       "tag": "0009_kind_invaders",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1759237242857,
+      "tag": "0010_natural_adam_warlock",
+      "breakpoints": true
     }
   ]
 }

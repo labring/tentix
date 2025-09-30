@@ -21,6 +21,8 @@ import {
   handoffRecords,
   workflow,
   aiRoleConfig,
+  workflowTestTicket,
+  workflowTestMessage,
 } from "./schema.ts";
 
 // Define relations for detailed tickets
@@ -110,6 +112,9 @@ export const usersRelations = relations(users, ({ many, one }) => ({
     references: [aiRoleConfig.aiUserId],
     relationName: "ai_role_user",
   }),
+
+  // 新增:测试消息关联
+  workflowTestMessages: many(workflowTestMessage),
 }));
 
 export const techniciansToTicketsRelations = relations(
@@ -334,3 +339,25 @@ export const aiRoleConfigsRelation = relations(aiRoleConfig, ({ one }) => ({
     references: [workflow.id],
   }),
 }));
+
+// Workflow Test Messages
+export const workflowTestTicketRelation = relations(
+  workflowTestTicket,
+  ({ many }) => ({
+    messages: many(workflowTestMessage), // 一个测试工单可以有多条测试消息
+  }),
+);
+
+export const workflowTestMessageRelation = relations(
+  workflowTestMessage,
+  ({ one }) => ({
+    testTicket: one(workflowTestTicket, {
+      fields: [workflowTestMessage.testTicketId],
+      references: [workflowTestTicket.id],
+    }),
+    sender: one(users, {
+      fields: [workflowTestMessage.senderId],
+      references: [users.id],
+    }),
+  }),
+);

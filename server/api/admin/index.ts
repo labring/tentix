@@ -1,17 +1,84 @@
 import * as schema from "@db/schema.ts";
-import { inArray, ilike, or, desc, eq, count, sql, and, type SQL } from "drizzle-orm";
+import {
+  inArray,
+  ilike,
+  or,
+  desc,
+  eq,
+  count,
+  sql,
+  and,
+  type SQL,
+} from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
-import { authMiddleware, adminOnlyMiddleware, factory } from "../middleware.ts";
+import {
+  authMiddleware,
+  adminOnlyMiddleware,
+  factory,
+  staffOnlyMiddleware,
+} from "../middleware.ts";
 import { workflowRouter } from "./workflow.ts";
 import { basicUserCols } from "../queryParams.ts";
+import { userRoleEnumArray } from "@/utils/const";
+import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
+import "zod-openapi/extend";
+import { createSelectSchema } from "drizzle-zod";
+
+// response schemas
+const userBasicResponseSchema = createSelectSchema(schema.users).pick({
+  id: true,
+  name: true,
+  nickname: true,
+  avatar: true,
+  role: true,
+});
+
+const staffListItemSchema = userBasicResponseSchema.extend({
+  ticketNum: z.number().int().nonnegative(),
+  workload: z.enum(["Low", "Medium", "High"]),
+});
+
+const usersListItemSchema = createSelectSchema(schema.users).pick({
+  id: true,
+  name: true,
+  nickname: true,
+  realName: true,
+  phoneNum: true,
+  role: true,
+  avatar: true,
+  registerTime: true,
+  level: true,
+  email: true,
+});
+
+const usersPaginationSchema = z.object({
+  page: z.number().int().positive(),
+  limit: z.number().int().positive(),
+  total: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(),
+});
+
+// request validators
+const usersQuerySchema = z.object({
+  page: z.string().regex(/^\d+$/).optional(),
+  limit: z.string().regex(/^\d+$/).optional(),
+  role: z.enum(userRoleEnumArray).optional(),
+  search: z.string().optional(),
+});
+
+const updateRoleSchema = z.object({
+  role: z.enum(userRoleEnumArray).refine((v) => v !== "system", {
+    message: "system role is not assignable",
+  }),
+});
 
 const adminRouter = factory
   .createApp()
-  .use(authMiddleware)
-  .use(adminOnlyMiddleware())
   .get(
     "/staffList",
+    authMiddleware,
+    staffOnlyMiddleware(),
     describeRoute({
       description: "Get all staff members",
       tags: ["Admin"],
@@ -20,7 +87,7 @@ const adminRouter = factory
           description: "All staff members with their open tickets",
           content: {
             "application/json": {
-              // schema will be defined here
+              schema: resolver(z.array(staffListItemSchema)),
             },
           },
         },
@@ -51,6 +118,8 @@ const adminRouter = factory
   )
   .get(
     "/users",
+    authMiddleware,
+    adminOnlyMiddleware(),
     describeRoute({
       description: "Get all users with pagination and filtering",
       tags: ["Admin"],
@@ -59,15 +128,21 @@ const adminRouter = factory
           description: "Users list with pagination",
           content: {
             "application/json": {
-              // schema will be defined here
+              schema: resolver(
+                z.object({
+                  users: z.array(usersListItemSchema),
+                  pagination: usersPaginationSchema,
+                }),
+              ),
             },
           },
         },
       },
     }),
+    zValidator("query", usersQuerySchema),
     async (c) => {
       const db = c.var.db;
-      const { page = "1", limit = "20", role, search } = c.req.query();
+      const { page = "1", limit = "20", role, search } = c.req.valid("query");
 
       const pageNum = Math.max(1, parseInt(page));
       const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
@@ -78,8 +153,8 @@ const adminRouter = factory
       const whereConditions: SQL[] = [];
 
       // Role filter
-      if (role && ["customer", "agent", "technician", "admin", "ai"].includes(role)) {
-        whereConditions.push(eq(schema.users.role, role as "customer" | "agent" | "technician" | "admin" | "ai"));
+      if (role && userRoleEnumArray.includes(role)) {
+        whereConditions.push(eq(schema.users.role, role));
       }
 
       // Search filter
@@ -87,18 +162,19 @@ const adminRouter = factory
         const searchCondition = or(
           ilike(schema.users.name, `%${trimmed}%`),
           ilike(schema.users.realName, `%${trimmed}%`),
-          sql`CAST(${schema.users.id} AS TEXT) ILIKE ${`%${trimmed}%`}`
+          sql`CAST(${schema.users.id} AS TEXT) ILIKE ${`%${trimmed}%`}`,
         );
         if (searchCondition) {
           whereConditions.push(searchCondition);
         }
       }
 
-      const whereClause = whereConditions.length > 0
-        ? whereConditions.length === 1
-          ? whereConditions[0]
-          : and(...whereConditions)
-        : undefined;
+      const whereClause =
+        whereConditions.length > 0
+          ? whereConditions.length === 1
+            ? whereConditions[0]
+            : and(...whereConditions)
+          : undefined;
 
       // Get total count
       const [totalResult] = await db
@@ -124,9 +200,9 @@ const adminRouter = factory
         })
         .from(schema.users);
 
-      const users = await (whereClause
-        ? baseQuery.where(whereClause)
-        : baseQuery)
+      const users = await (
+        whereClause ? baseQuery.where(whereClause) : baseQuery
+      )
         .orderBy(desc(schema.users.registerTime))
         .limit(limitNum)
         .offset(offset);
@@ -144,6 +220,8 @@ const adminRouter = factory
   )
   .patch(
     "/users/:id/role",
+    authMiddleware,
+    adminOnlyMiddleware(),
     describeRoute({
       description: "Update user role",
       tags: ["Admin"],
@@ -152,22 +230,27 @@ const adminRouter = factory
           description: "Role updated successfully",
           content: {
             "application/json": {
-              // schema will be defined here
+              schema: resolver(
+                z.object({
+                  success: z.boolean(),
+                  user: createSelectSchema(schema.users).pick({
+                    id: true,
+                    name: true,
+                    role: true,
+                  }),
+                }),
+              ),
             },
           },
         },
       },
     }),
+    zValidator("param", z.object({ id: z.string().regex(/^\d+$/) })),
+    zValidator("json", updateRoleSchema),
     async (c) => {
       const db = c.var.db;
-      const id = parseInt(c.req.param("id"));
-      const body = await c.req.json();
-
-      const updateRoleSchema = z.object({
-        role: z.enum(["customer", "agent", "technician", "admin", "ai"]),
-      });
-
-      const { role } = updateRoleSchema.parse(body);
+      const id = parseInt(c.req.valid("param").id);
+      const { role } = c.req.valid("json");
 
       if (isNaN(id)) {
         return c.json({ error: "Invalid user ID" }, 400);
@@ -195,7 +278,7 @@ const adminRouter = factory
 
       return c.json({
         success: true,
-        user: updatedUser
+        user: updatedUser,
       });
     },
   )

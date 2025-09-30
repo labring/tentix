@@ -790,7 +790,7 @@ export const workflow = tentix.table(
   ],
 );
 
-// 2. AI 角色配置表 - 精简版
+// 2. AI 角色配置表
 export const aiRoleConfig = tentix.table(
   "ai_role_config",
   {
@@ -836,5 +836,76 @@ export const aiRoleConfig = tentix.table(
     index("idx_ai_role_configs_active").on(table.isActive),
     // 工作流查询索引
     index("idx_ai_role_configs_workflow").on(table.workflowId),
+  ],
+);
+
+// Workflow Test Messages
+export const workflowTestMessage = tentix.table(
+  "workflow_test_message",
+  {
+    id: serial("id").primaryKey().notNull(),
+    testTicketId: char("test_ticket_id", { length: 13 })
+      .notNull()
+      .references(() => workflowTestTicket.id),
+    senderId: integer("sender_id")
+      .notNull()
+      .references(() => users.id),
+    content: jsonb().$type<JSONContentZod>().notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    // 复合索引：按工单ID和创建时间倒序，用于获取工单的最新消息
+    index("idx_workflow_test_message_test_ticket_created").on(
+      table.testTicketId,
+      table.createdAt.desc(),
+    ),
+  ],
+);
+
+export const workflowTestTicket = tentix.table(
+  "workflow_test_ticket",
+  {
+    id: char("id", { length: 13 })
+      .primaryKey()
+      .$defaultFn(myNanoId(13))
+      .notNull(),
+    title: varchar("title", { length: 254 }).notNull(),
+    description: jsonb().$type<JSONContentZod>().notNull(),
+    module: varchar("module", { length: 50 }).default("").notNull(),
+    area: varchar("area", { length: 50 }).default("").notNull(),
+    occurrenceTime: timestamp("occurrence_time", {
+      precision: 6,
+      mode: "string",
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    category: ticketCategory("category").default("uncategorized").notNull(),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    // 更新时间排序索引（用于列表查询）
+    index("idx_workflow_test_tickets_updated_at").on(table.updatedAt.desc()),
   ],
 );
