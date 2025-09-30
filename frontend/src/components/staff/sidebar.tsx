@@ -11,6 +11,7 @@ export function StaffSidebar() {
   const { openSettingsModal, settingsModal } = useSettingsModal();
   const sealosContext = useSealos();
   const authContext = useAuth();
+  const role = authContext.user?.role;
   const { isSealos } = sealosContext;
 
   return (
@@ -31,21 +32,24 @@ export function StaffSidebar() {
             </span>
           </Link>
         </Button>
-        <Button
-          asChild
-          variant="ghost"
-          className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"
-        >
-          <Link
-            to="/staff/ai"
-            className="flex flex-col items-center justify-center gap-1 text-center"
+        {role === "admin" && (
+          <Button
+            asChild
+            variant="ghost"
+            className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"
           >
-            <Bot className="!w-7 !h-7" strokeWidth={1.33} />
-            <span className="text-[13px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
-              {"AI"}
-            </span>
-          </Link>
-        </Button>
+            <Link
+              to="/staff/ai"
+              search={{ tab: "ai" }}
+              className="flex flex-col items-center justify-center gap-1 text-center"
+            >
+              <Bot className="!w-7 !h-7" strokeWidth={1.33} />
+              <span className="text-[13px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
+                {"AI"}
+              </span>
+            </Link>
+          </Button>
+        )}
         <Button
           variant="ghost"
           className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"

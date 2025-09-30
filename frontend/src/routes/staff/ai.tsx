@@ -27,7 +27,7 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
-  EmptyBoxIcon,
+  EmptyStateIcon,
 } from "tentix-ui";
 import {
   useMemo,
@@ -53,7 +53,6 @@ import {
   Pencil,
   Trash2,
   Camera,
-  Settings,
 } from "lucide-react";
 import { uploadAvatar, deleteOldAvatar } from "@utils/avatar-manager";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -207,17 +206,13 @@ export function RouteComponent() {
     <RouteTransition>
       <div className="flex h-screen w-full overflow-hidden">
         <StaffSidebar />
-        <div className="flex-1 h-full overflow-hidden">
-          <div className="h-full w-full px-6 py-6">
-            <div className="h-full flex flex-col">
-              <Tabs
-                tabs={tabs}
-                activeTab={tab}
-                onTabChange={(tabKey) => setTab(tabKey as "ai" | "workflow")}
-                className="h-full"
-              />
-            </div>
-          </div>
+        <div className="flex-1 h-full overflow-hidden flex flex-col px-6 py-6">
+          <Tabs
+            tabs={tabs}
+            activeTab={tab}
+            onTabChange={(tabKey) => setTab(tabKey as "ai" | "workflow")}
+            className="h-full"
+          />
         </div>
       </div>
     </RouteTransition>
@@ -782,26 +777,29 @@ function AiRolesEmptyState() {
 
   return (
     <>
-      <div className="flex flex-col items-center justify-center h-full py-16">
-        <div className="flex flex-col items-center text-center space-y-6 max-w-md">
-          <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
-            <EmptyBoxIcon className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-foreground">
+      <div className="h-full w-full flex items-center justify-center">
+        <div
+          className="flex w-full h-full flex-col items-center justify-center rounded-2xl text-center cursor-pointer group -mt-24 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          role="button"
+          tabIndex={0}
+          aria-label="前往用户管理，设置AI角色"
+          onClick={handleOpenUserManagement}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleOpenUserManagement();
+            }
+          }}
+        >
+          <EmptyStateIcon className="w-24 h-24 [&_*]:transition-colors [&_*]:fill-zinc-400 group-hover:[&_[data-hover-fill]]:fill-zinc-700" />
+          <div className="space-y-3 mt-4">
+            <h3 className="text-2xl font-semibold text-foreground">
               暂无AI角色
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              还没有配置任何AI角色。点击下方按钮前往用户管理，将用户设置为AI角色。
+              还没有配置任何AI角色。点击前往用户管理，将用户设置为AI角色。
             </p>
           </div>
-          <Button
-            onClick={handleOpenUserManagement}
-            className="flex items-center gap-2"
-          >
-            <Settings className="w-4 h-4" />
-            设置AI角色
-          </Button>
         </div>
       </div>
       {settingsModal}

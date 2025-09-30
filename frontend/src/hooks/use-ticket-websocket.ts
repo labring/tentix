@@ -108,6 +108,7 @@ export function useTicketWebSocket({
       clearInterval(heartbeatIntervalRef.current);
     }
 
+    // TODO: 缺少对心跳返回 heartbeat_ack 的处理
     heartbeatIntervalRef.current = setInterval(() => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(

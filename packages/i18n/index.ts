@@ -228,15 +228,14 @@ export const translations = {
       // Login/Register page
       login: "Login",
       register: "Register",
-      login_title: "Login",
+      login_title: "Welcome to Tentix Inc.",
       register_title: "Register",
-      login_subtitle: "Enter your credentials to access your account",
-      register_subtitle: "Create a new account to get started",
       field_name: "Name",
       field_password: "Password",
       ph_name: "Enter your name",
       ph_password: "Enter your password",
       btn_login: "Login",
+      or: "Or",
       btn_register: "Register",
       btn_switch_to_register: "Don't have an account? Register",
       btn_switch_to_login: "Already have an account? Login",
@@ -255,7 +254,6 @@ export const translations = {
 
       // Password reset
       reset_password_title: "Reset Password",
-      reset_password_subtitle: "Please reset your password to continue",
       reset_password_for_user: "Resetting password for: {{name}}",
       field_current_password: "Current Password",
       field_new_password: "New Password",
@@ -392,8 +390,7 @@ export const translations = {
       feishu_identity_not_found:
         "Feishu user identity not found. Please contact the administrator.",
       user_not_found_admin: "User not found. Please contact the administrator.",
-      invalid_or_expired_binding_session:
-        "Invalid or expired binding session.",
+      invalid_or_expired_binding_session: "Invalid or expired binding session.",
       bound_user_not_found: "Bound user not found after binding",
     },
   },
@@ -615,15 +612,14 @@ export const translations = {
       // Login/Register page
       login: "登录",
       register: "注册",
-      login_title: "登录",
+      login_title: "欢迎使用 Tentix Inc.",
       register_title: "注册",
-      login_subtitle: "请输入账号和密码以登录",
-      register_subtitle: "创建一个新账号以开始使用",
       field_name: "用户名",
       field_password: "密码",
       ph_name: "请输入用户名",
       ph_password: "请输入密码",
-      btn_login: "登录",
+      btn_login: "登陆",
+      or: "或",
       btn_register: "注册",
       btn_switch_to_register: "没有账号？去注册",
       btn_switch_to_login: "已有账号？去登录",
@@ -642,7 +638,6 @@ export const translations = {
 
       // Password reset
       reset_password_title: "重置密码",
-      reset_password_subtitle: "请重置您的密码以继续",
       reset_password_for_user: "为用户重置密码：{{name}}",
       field_current_password: "当前密码",
       field_new_password: "新密码",
@@ -760,7 +755,8 @@ export const translations = {
       binding_link_loading: "获取绑定链接...",
       bind: "绑定",
       feishu_bind_hint_desc: "您可以绑定第三方账户来方便登录系统",
-      feishu_bind_tip_fast_login: "绑定飞书账户后，您可以使用飞书账户快速登录系统",
+      feishu_bind_tip_fast_login:
+        "绑定飞书账户后，您可以使用飞书账户快速登录系统",
       feishu_bind_tip_one_to_one: "每个飞书账户只能绑定一个系统账户",
       feishu_unbound: "飞书账户解绑成功",
       failed_unbind_feishu: "解绑飞书账户失败",

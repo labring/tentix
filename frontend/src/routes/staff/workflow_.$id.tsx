@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import { NodeType, type HandleConfig } from "tentix-server/constants";
 import { cn } from "@lib/utils";
+import { useAiChatModal } from "@comp/react-flow/components/use-chat-modal";
+
 export const Route = createFileRoute("/staff/workflow_/$id")({
   head: ({ params }) => ({
     meta: [{ title: `工作流 #${params.id} | Tentix` }],
@@ -45,6 +47,8 @@ function RouteComponent() {
   const isSaved = useWorkflowStore((s) => s.isSaved);
   const setIsSaved = useWorkflowStore((s) => s.setIsSaved);
   const { toast } = useToast();
+
+  const { openUseChatModal, useChatModal } = useAiChatModal();
 
   const nodeItems = useMemo(
     () => [
@@ -325,7 +329,7 @@ function RouteComponent() {
                 <Button
                   variant="outline"
                   className="flex items-center justify-center h-10 rounded-r-none border-l-0 rounded-l-lg border-r border-zinc-200 hover:bg-zinc-50 text-sm font-normal text-zinc-700"
-                  onClick={() => () => {}}
+                  onClick={() => openUseChatModal()}
                 >
                   <MessageSquareDot className="h-4 w-4" strokeWidth={1.33} />
                 </Button>
@@ -379,6 +383,8 @@ function RouteComponent() {
           </div>
         </div>
       </div>
+      {/* modal */}
+      {useChatModal}
     </RouteTransition>
   );
 }

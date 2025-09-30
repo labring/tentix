@@ -55,8 +55,6 @@ function toReactFlow(
   sourceNodes: DomainNodeConfig[],
   sourceEdges: DomainWorkflowEdge[],
 ) {
-  console.log("sourceNodes", sourceNodes);
-  console.log("sourceEdges", sourceEdges);
   const nodes: Node<ExtendedNodeConfigData>[] = sourceNodes.map((n) => ({
     id: n.id,
     type: n.type,
@@ -186,29 +184,36 @@ const InnerWorkflow: React.FC = () => {
       const { idGenerator, addNode } = useWorkflowStore.getState();
 
       // 构造一个基础节点配置，handles 尽量通用
-      const createDefaultHandles = (nodeId: string, type: NodeType): HandleConfig[] => {
+      const createDefaultHandles = (
+        nodeId: string,
+        type: NodeType,
+      ): HandleConfig[] => {
         if (type === NodeType.START)
-          return [{
-            id: idGenerator.generateHandleId(nodeId, "out"),
-            type: "source",
-            position: "right"
-          } as HandleConfig];
+          return [
+            {
+              id: idGenerator.generateHandleId(nodeId, "out"),
+              type: "source",
+              position: "right",
+            } as HandleConfig,
+          ];
         if (type === NodeType.END)
-          return [{
-            id: idGenerator.generateHandleId(nodeId, "in"),
-            type: "target",
-            position: "left"
-          } as HandleConfig];
+          return [
+            {
+              id: idGenerator.generateHandleId(nodeId, "in"),
+              type: "target",
+              position: "left",
+            } as HandleConfig,
+          ];
         return [
           {
             id: idGenerator.generateHandleId(nodeId, "in"),
             type: "target",
-            position: "left"
+            position: "left",
           } as HandleConfig,
           {
             id: idGenerator.generateHandleId(nodeId, "out"),
             type: "source",
-            position: "right"
+            position: "right",
           } as HandleConfig,
         ];
       };

@@ -221,7 +221,7 @@ export function MessageList({
                     )}
                     <div className="flex-1 min-w-0">
                       <MessageItem
-                        // key={`${message.senderId}-msg-${message.id}`}
+                        // key={`${message.senderId}-msg-${message.id}`} // 上层div已经有key了
                         message={message}
                       />
                     </div>

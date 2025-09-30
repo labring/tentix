@@ -44,6 +44,7 @@ export function Tabs({ tabs, activeTab, onTabChange, className }: TabsProps) {
             activeTab === tab.key ? (
               <motion.div
                 key={`tab-${tab.key}`}
+                className="h-full"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}

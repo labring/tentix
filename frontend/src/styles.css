@@ -30,3 +30,17 @@ code {
   font-family:
     source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
+
+/* Typing indicator animation */
+@keyframes typing-dot-bounce {
+  0%, 40% {
+    transform: translateY(0);
+  }
+  20% {
+    transform: translateY(-0.25rem);
+  }
+}
+
+@utility animate-typing-dot-bounce {
+  animation: typing-dot-bounce 1.25s ease-out infinite;
+}

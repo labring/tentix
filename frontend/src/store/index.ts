@@ -251,5 +251,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
       return { selectedMessageIds: next } as any;
     }),
-  clearKbSelection: () => set({ selectedMessageIds: new Set(), kbSelectionMode: false }),
+  clearKbSelection: () =>
+    set({ selectedMessageIds: new Set(), kbSelectionMode: false }),
 }));

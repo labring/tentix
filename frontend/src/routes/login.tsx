@@ -10,11 +10,11 @@ import { type ApiErrorResponse } from "tentix-server/types";
 import { z } from "zod";
 import { useTranslation } from "i18n";
 import { useAuth } from "../hooks/use-local-user";
+import { GalleryVerticalEnd } from "lucide-react";
 import {
   Button,
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   Form,
@@ -220,44 +220,41 @@ function LoginComponent() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle>
+      <Card className="w-full max-w-md border-0 shadow-none bg-transparent">
+        <CardHeader className="text-center space-y-4">
+          {!isResetMode && <GalleryVerticalEnd className="mx-auto !h-6 !w-6" />}
+          <CardTitle className="text-xl font-bold normal-case">
             {isResetMode
               ? t("reset_password_title")
               : isRegisterMode
                 ? t("register_title")
                 : t("login_title")}
           </CardTitle>
-          <CardDescription>
-            {isResetMode
-              ? t("reset_password_subtitle")
-              : isRegisterMode
-                ? t("register_subtitle")
-                : t("login_subtitle")}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {isResetMode ? (
             <Form {...resetForm} key="reset-form">
               <form
                 onSubmit={resetForm.handleSubmit(onResetPassword)}
-                className="space-y-4"
+                className="flex flex-col gap-4"
               >
-                <div className="text-sm text-muted-foreground mb-4">
+                <div className="text-sm text-muted-foreground mb-3">
                   {t("reset_password_for_user", { name: resetUserData?.name })}
                 </div>
                 <FormField
                   control={resetForm.control}
                   name="currentPassword"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("field_current_password")}</FormLabel>
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="mb-3">
+                        {t("field_current_password")}
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="password"
                           placeholder={t("ph_current_password")}
                           {...field}
+                          className="rounded-lg"
                         />
                       </FormControl>
                       <FormMessage />
@@ -268,13 +265,16 @@ function LoginComponent() {
                   control={resetForm.control}
                   name="newPassword"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("field_new_password")}</FormLabel>
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="mb-3">
+                        {t("field_new_password")}
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="password"
                           placeholder={t("ph_new_password")}
                           {...field}
+                          className="rounded-lg"
                         />
                       </FormControl>
                       <FormMessage />
@@ -285,27 +285,34 @@ function LoginComponent() {
                   control={resetForm.control}
                   name="confirmPassword"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("field_confirm_password")}</FormLabel>
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="mb-3">
+                        {t("field_confirm_password")}
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="password"
                           placeholder={t("ph_confirm_password")}
                           {...field}
+                          className="rounded-lg"
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <div className="space-y-2">
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                <div className="flex flex-col gap-4 mt-3">
+                  <Button
+                    type="submit"
+                    className="w-full rounded-lg"
+                    disabled={isLoading}
+                  >
                     {isLoading ? t("loading") : t("btn_reset_password")}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full"
+                    className="w-full rounded-lg"
                     onClick={() => {
                       setIsResetMode(false);
                       setResetUserData(null);
@@ -327,16 +334,20 @@ function LoginComponent() {
                 onSubmit={form.handleSubmit(
                   isRegisterMode ? onRegister : onSubmit,
                 )}
-                className="space-y-4"
+                className="flex flex-col gap-4"
               >
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("field_name")}</FormLabel>
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="mb-3">{t("field_name")}</FormLabel>
                       <FormControl>
-                        <Input placeholder={t("ph_name")} {...field} />
+                        <Input
+                          placeholder={t("ph_name")}
+                          {...field}
+                          className="rounded-lg"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -346,31 +357,44 @@ function LoginComponent() {
                   control={form.control}
                   name="password"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("field_password")}</FormLabel>
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="mb-3">
+                        {t("field_password")}
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="password"
                           placeholder={t("ph_password")}
                           {...field}
+                          className="rounded-lg"
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <div className="space-y-2">
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                <div className="flex flex-col gap-4 mt-3">
+                  <Button
+                    type="submit"
+                    className="w-full rounded-lg"
+                    disabled={isLoading}
+                  >
                     {isLoading
                       ? t("loading")
                       : isRegisterMode
                         ? t("btn_register")
                         : t("btn_login")}
                   </Button>
+                  <div className="relative my-4">
+                    <div className="h-px w-full bg-border" />
+                    <span className="absolute left-1/2 -translate-x-1/2 -top-2 bg-background px-2 text-xs text-muted-foreground">
+                      {t("or")}
+                    </span>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full"
+                    className="w-full rounded-lg"
                     onClick={() => {
                       setIsRegisterMode(!isRegisterMode);
                       form.reset(); // 切换模式时重置表单
