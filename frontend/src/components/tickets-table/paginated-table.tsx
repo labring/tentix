@@ -862,7 +862,7 @@ export function PaginatedDataTable({
         });
       })}
 
-      {transferModal}
+      {character !== "user" && transferModal}
       {updatePriorityModal}
       {staffCloseConfirmationModal}
       {customerFeedbackModal}
