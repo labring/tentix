@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { staffListQueryOptions, useSuspenseQuery } from "@lib/query";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { staffListQueryOptions } from "@lib/query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBoolean } from "ahooks";
 import { useTranslation } from "i18n";
 import { useState } from "react";
@@ -82,8 +82,11 @@ export function useTransferModal() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  // Get staff list from API
-  const { data: staffList } = useSuspenseQuery(staffListQueryOptions());
+  // Get staff list from API - only fetch when modal is open
+  const { data: staffList, isLoading: isStaffListLoading } = useQuery({
+    ...staffListQueryOptions(),
+    enabled: state, // Only fetch when modal is open
+  });
 
   // Initialize form with React Hook Form
   const transferFormSchema = createTransferFormSchema(t);
@@ -193,18 +196,37 @@ export function useTransferModal() {
                           }}
                         />
                         <div className="flex flex-col min-h-0 max-h-72 overflow-y-auto border rounded-lg staff-list-scrollbar">
-                          {staffList
-                            .filter((staff) => staff.id !== user.id)
-                            .filter(
-                              (staff) =>
-                                staff.name
-                                  .toLowerCase()
-                                  .includes(searchQuery.toLowerCase()) ||
-                                staff.role
-                                  .toLowerCase()
-                                  .includes(searchQuery.toLowerCase()),
-                            )
-                            .map((staff, index, array) => (
+                          {isStaffListLoading ? (
+                            // Skeleton loading state
+                            Array.from({ length: 5 }).map((_, index) => (
+                              <div
+                                key={index}
+                                className={cn(
+                                  "h-12 flex items-center px-5 gap-2",
+                                  index !== 4 ? "border-b" : "",
+                                )}
+                              >
+                                <div className="h-4 w-4 rounded bg-gray-200 animate-pulse" />
+                                <div className="h-6 w-6 rounded-full bg-gray-200 animate-pulse" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
+                                </div>
+                                <div className="h-5 w-16 rounded-full bg-gray-200 animate-pulse" />
+                              </div>
+                            ))
+                          ) : (
+                            (staffList ?? [])
+                              .filter((staff) => staff.id !== user.id)
+                              .filter(
+                                (staff) =>
+                                  staff.name
+                                    .toLowerCase()
+                                    .includes(searchQuery.toLowerCase()) ||
+                                  staff.role
+                                    .toLowerCase()
+                                    .includes(searchQuery.toLowerCase()),
+                              )
+                              .map((staff, index, array) => (
                               <div
                                 key={staff.id}
                                 className={cn(
@@ -298,7 +320,8 @@ export function useTransferModal() {
                                   </Badge>
                                 </Label>
                               </div>
-                            ))}
+                            ))
+                          )}
                         </div>
                       </>
                     </div>
