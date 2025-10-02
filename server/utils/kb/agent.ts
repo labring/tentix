@@ -65,7 +65,7 @@ export async function createWorkflow(): Promise<
   return compiledWorkflow;
 }
 
-class WorkflowBuilder {
+export class WorkflowBuilder {
   private config: WorkflowConfig;
   private nodeMap: Map<
     string,

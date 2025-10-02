@@ -16,6 +16,7 @@ type ErrorMessage = {
   stack: string;
 };
 
+// 全局声明
 declare module "@tanstack/react-query" {
   interface Register {
     defaultError: ErrorMessage;

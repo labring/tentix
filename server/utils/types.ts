@@ -458,3 +458,61 @@ export const WorkflowPatchSchema = z
     edges: z.array(z.any()).optional(),
   })
   .strict();
+
+// workflow chat test
+export const workflowTestChatServerSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.enum(["ping", "pong"]),
+    timestamp: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal("server_message"),
+    messageId: z.number(),
+    ticketId: z.string(),
+    userId: z.number(),
+    role: z.enum(userRoleEnumArray),
+    content: JSONContentSchema,
+    timestamp: z.number(),
+  }),
+  // 告诉客服端消息成功接受
+  z.object({
+    type: z.literal("message_received"),
+    tempId: z.number(),
+    messageId: z.number(),
+    ticketId: z.string(),
+  }),
+  // 告诉客户端 ws 成功建立，http upgrade 到 ws 完成
+  z.object({
+    type: z.literal("connected"),
+    ticketId: z.string(),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.literal("error"),
+    error: z.string(),
+  }),
+]);
+
+export const workflowTestChatClientSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("client_message"),
+    content: JSONContentSchema,
+    timestamp: z.number().optional(),
+    tempId: z.number().optional(),
+  }),
+  z.object({
+    type: z.enum(["ping", "pong"]),
+    timestamp: z.number().optional(),
+  }),
+]);
+
+export type workflowTestChatServerType = z.infer<
+  typeof workflowTestChatServerSchema
+>;
+export type workflowTestChatClientType = z.infer<
+  typeof workflowTestChatClientSchema
+>;
+
+export type WorkflowTestChatMessage =
+  | workflowTestChatServerType
+  | workflowTestChatClientType;
