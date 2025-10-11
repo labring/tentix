@@ -24,6 +24,7 @@ import {
 
 // ===== 常量定义 =====
 const HEARTBEAT_INTERVAL = 30000; // 30秒
+const AI_PROCESSING_TIMEOUT = 3 * 60 * 1000; // 3分钟超时
 
 // ===== 类型定义 =====
 interface HeartbeatManager {
@@ -32,6 +33,16 @@ interface HeartbeatManager {
   start: (ws: WSContext, userId: string) => void;
   stop: () => void;
   markAlive: () => void;
+}
+
+// 🆕 AI 处理状态管理器
+interface AIProcessManager {
+  isProcessing: boolean;
+  lastProcessStartTime: number | null;
+  startProcessing: () => void;
+  finishProcessing: () => void;
+  canProcess: () => boolean;
+  isTimedOut: () => boolean;
 }
 
 const querySchema = z.object({
@@ -47,12 +58,14 @@ function sendWSMessage(
   try {
     // 检查 WebSocket 状态
     if (ws.readyState !== WebSocket.OPEN) {
-      logWarning("[WebSocket] Cannot send message: connection not open");
+      logWarning(
+        "[Workflow Chat WebSocket] Cannot send message: connection not open",
+      );
       return;
     }
     ws.send(JSON.stringify(message));
   } catch (error) {
-    logError("[WebSocket] Failed to send message:", error);
+    logError("[Workflow Chat WebSocket] Failed to send message:", error);
   }
 }
 
@@ -71,7 +84,9 @@ function createHeartbeatManager(): HeartbeatManager {
     start(ws: WSContext, userId: string) {
       interval = setInterval(() => {
         if (!isAlive) {
-          logWarning(`[WebSocket] Heartbeat timeout - User: ${userId}`);
+          logWarning(
+            `[Workflow Chat WebSocket] Heartbeat timeout - User: ${userId}`,
+          );
           this.stop();
           ws.close(WS_CLOSE_CODE.GOING_AWAY, "Heartbeat timeout");
           return;
@@ -90,6 +105,65 @@ function createHeartbeatManager(): HeartbeatManager {
 
     markAlive() {
       isAlive = true;
+    },
+  };
+}
+
+// 🆕 创建 AI 处理管理器
+function createAIProcessManager(): AIProcessManager {
+  let isProcessing = false;
+  let lastProcessStartTime: number | null = null;
+
+  return {
+    get isProcessing() {
+      return isProcessing;
+    },
+    get lastProcessStartTime() {
+      return lastProcessStartTime;
+    },
+
+    startProcessing() {
+      isProcessing = true;
+      lastProcessStartTime = Date.now();
+      logInfo(
+        `[AI Process Manager] AI processing started at ${new Date(lastProcessStartTime).toISOString()}`,
+      );
+    },
+
+    finishProcessing() {
+      const duration = lastProcessStartTime
+        ? Date.now() - lastProcessStartTime
+        : 0;
+      isProcessing = false;
+      logInfo(
+        `[AI Process Manager] AI processing finished. Duration: ${duration}ms`,
+      );
+    },
+
+    canProcess() {
+      // 如果没有在处理，可以处理
+      if (!isProcessing) {
+        return true;
+      }
+
+      // 如果正在处理，检查是否超时
+      return this.isTimedOut();
+    },
+
+    isTimedOut() {
+      if (!lastProcessStartTime) {
+        return false;
+      }
+      const elapsed = Date.now() - lastProcessStartTime;
+      const timedOut = elapsed > AI_PROCESSING_TIMEOUT;
+
+      if (timedOut) {
+        logWarning(
+          `[AI Process Manager] AI processing timeout detected. Elapsed: ${elapsed}ms, Timeout: ${AI_PROCESSING_TIMEOUT}ms`,
+        );
+      }
+
+      return timedOut;
     },
   };
 }
@@ -128,7 +202,7 @@ export async function saveMessageToDb(
 }
 
 // ===== 主路由 =====
-export const workflowRouter = new Hono<AuthEnv>().get(
+export const chatRouter = new Hono<AuthEnv>().get(
   "/chat",
   describeRoute({
     tags: ["Chat"],
@@ -157,7 +231,7 @@ export const workflowRouter = new Hono<AuthEnv>().get(
         };
       }
 
-      if (!role || role == "customer") {
+      if (!role || role === "customer") {
         logWarning(
           `[Workflow Chat WebSocket] Invalid role - User: ${userId}, Ticket: ${ticketId}`,
         );
@@ -181,6 +255,8 @@ export const workflowRouter = new Hono<AuthEnv>().get(
 
       // 创建心跳管理器
       const heartbeat = createHeartbeatManager();
+      // 🆕 创建 AI 处理管理器
+      const aiProcessManager = createAIProcessManager();
 
       return {
         async onOpen(_evt, ws) {
@@ -196,6 +272,7 @@ export const workflowRouter = new Hono<AuthEnv>().get(
         },
 
         async onMessage(evt, ws) {
+          heartbeat.markAlive();
           try {
             const data =
               typeof evt.data === "string" ? JSON.parse(evt.data) : evt.data;
@@ -229,8 +306,6 @@ export const workflowRouter = new Hono<AuthEnv>().get(
 
             switch (parsedMessage.type) {
               case "client_message": {
-                heartbeat.markAlive();
-
                 if (!parsedMessage.content) {
                   sendWSMessage(ws, {
                     type: "error",
@@ -239,6 +314,36 @@ export const workflowRouter = new Hono<AuthEnv>().get(
 
                   return;
                 }
+
+                // 🆕 检查 AI 是否可以处理
+                if (!aiProcessManager.canProcess()) {
+                  logInfo(
+                    `[Workflow Chat WebSocket] AI is still processing previous message, skipping new AI request - User: ${userId}, Ticket: ${ticketId}`,
+                  );
+
+                  // 保存用户消息但不触发 AI 响应
+                  const messageResult = await saveMessageToDb(
+                    ticketId,
+                    parseInt(userId),
+                    parsedMessage.content,
+                  );
+
+                  sendWSMessage(ws, {
+                    type: "message_received",
+                    tempId: parsedMessage.tempId!,
+                    messageId: messageResult.id,
+                    ticketId,
+                  });
+
+                  // 🆕 通知客户端 AI 正在处理中
+                  sendWSMessage(ws, {
+                    type: "info",
+                    message: "AI is processing your previous message",
+                  });
+
+                  return;
+                }
+
                 // save message to database
                 const messageResult = await saveMessageToDb(
                   ticketId,
@@ -253,15 +358,29 @@ export const workflowRouter = new Hono<AuthEnv>().get(
                   ticketId,
                 });
 
-                await aiHandler(ticketId);
+                // 🆕 标记 AI 处理开始
+                aiProcessManager.startProcessing();
+
+                try {
+                  await aiHandler(ticketId, ws);
+                  // 🆕 AI 处理成功完成
+                  aiProcessManager.finishProcessing();
+                } catch (error) {
+                  // 🆕 AI 处理失败也要重置状态
+                  aiProcessManager.finishProcessing();
+
+                  // 发送具体的 AI 处理失败消息
+                  sendWSMessage(ws, {
+                    type: "error",
+                    error: `AI response generation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+                  });
+                }
 
                 break;
               }
               default:
                 break;
             }
-
-            // TODO: 在这里处理你的业务逻辑
           } catch (error) {
             logError(
               `[Workflow Chat WebSocket] Message processing error - User: ${userId}:`,
@@ -287,6 +406,7 @@ export const workflowRouter = new Hono<AuthEnv>().get(
         },
 
         async onError(evt, _ws) {
+          heartbeat.stop();
           logError(
             `[Workflow Chat WebSocket] Error occurred - User: ${userId}, Ticket: ${ticketId}:`,
             evt,
@@ -307,7 +427,7 @@ export const workflowRouter = new Hono<AuthEnv>().get(
   }),
 );
 
-async function aiHandler(ticketId: string) {
+async function aiHandler(ticketId: string, ws: WSContext) {
   const db = connectDB();
   const ticket = await db.query.workflowTestTicket.findFirst({
     where: (t, { eq }) => eq(t.id, ticketId),
@@ -329,10 +449,17 @@ async function aiHandler(ticketId: string) {
     throw new Error("AI user not found");
   }
 
-  const result = await getAIResponse(ticket);
-  await saveMessageToDb(
+  const result = await getAIResponse(ticket, true);
+  const JSONContent = convertAIResponseToTipTapJSON(result);
+  const messageResult = await saveMessageToDb(ticketId, aiUserId, JSONContent);
+
+  sendWSMessage(ws, {
+    type: "server_message",
+    messageId: messageResult.id,
     ticketId,
-    aiUserId,
-    convertAIResponseToTipTapJSON(result),
-  );
+    userId: aiUserId,
+    role: "ai",
+    content: JSONContent,
+    timestamp: new Date(messageResult.createdAt).getTime(),
+  });
 }

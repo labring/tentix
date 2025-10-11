@@ -7,6 +7,8 @@ import { cn } from "@lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "tentix-ui";
 import { FilePreview } from "./file-preview";
 import { MarkdownRenderer } from "./markdown-renderer";
+import { RenderContent } from "../chat/content-renderer";
+import { type JSONContent } from "@tiptap/react";
 
 const chatBubbleVariants = cva(
   "group/message relative break-words rounded-lg p-3 text-sm sm:max-w-[70%]",
@@ -89,7 +91,7 @@ interface ToolInvocationPart {
 
 interface TextPart {
   type: "text";
-  text: string;
+  text: string | JSONContent;
 }
 
 // For compatibility with AI SDK types, not used
@@ -119,7 +121,7 @@ type MessagePart =
 export interface Message {
   id: string;
   role: "user" | "assistant" | (string & {});
-  content: string;
+  content: string | JSONContent;
   createdAt?: Date;
   experimental_attachments?: Attachment[];
   toolInvocations?: ToolInvocation[];
@@ -173,9 +175,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           </div>
         ) : null}
 
-        <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-          <MarkdownRenderer>{content}</MarkdownRenderer>
-        </div>
+        {typeof content === "string" ? (
+          <div className={cn(chatBubbleVariants({ isUser, animation }))}>
+            <MarkdownRenderer>{content}</MarkdownRenderer>
+          </div>
+        ) : (
+          <div className={cn(chatBubbleVariants({ isUser, animation }))}>
+            <RenderContent content={content} />
+          </div>
+        )}
 
         {showTimeStamp && createdAt ? (
           <time
@@ -204,7 +212,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             key={`text-${index}`}
           >
             <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-              <MarkdownRenderer>{part.text}</MarkdownRenderer>
+              {typeof part.text === "string" ? (
+                <MarkdownRenderer>{part.text}</MarkdownRenderer>
+              ) : (
+                <RenderContent content={part.text} />
+              )}
               {actions ? (
                 <div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
                   {actions}
@@ -246,7 +258,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   return (
     <div className={cn("flex flex-col", isUser ? "items-end" : "items-start")}>
       <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-        <MarkdownRenderer>{content}</MarkdownRenderer>
+        {typeof content === "string" ? (
+          <MarkdownRenderer>{content}</MarkdownRenderer>
+        ) : (
+          <RenderContent content={content} />
+        )}
         {actions ? (
           <div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
             {actions}
@@ -272,8 +288,16 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 function dataUrlToUint8Array(data: string) {
   const base64 = data.split(",")[1];
   if (!base64) return new Uint8Array();
-  const buf = Buffer.from(base64, "base64");
-  return new Uint8Array(buf);
+
+  // 使用浏览器原生 API
+  const binaryString = atob(base64); // Base64 解码
+  const bytes = new Uint8Array(binaryString.length);
+
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  return bytes;
 }
 
 const ReasoningBlock = ({ part }: { part: ReasoningPart }) => {

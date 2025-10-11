@@ -18,7 +18,7 @@ import i18next from "i18n";
 import {
   changeAgentTicket,
   incrementTodayTicketCount,
-  initGlobalVariables,
+  ensureGlobalVariables,
 } from "./initApp";
 import { aesDecryptFromString } from "@/utils/crypto";
 
@@ -183,7 +183,8 @@ export const factory = createFactory<MyEnv>({
     app.use(async (c, next) => {
       const db = connectDB();
       c.set("db", db);
-      await initGlobalVariables();
+      // Ensure global variables are initialized (fallback for lazy init)
+      await ensureGlobalVariables();
       c.set("origin", getOrigin(c));
       c.set("i18n", global.i18n!);
       // use a function to pass the variable, because sometimes it needs to refresh

@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { NodeType, type HandleConfig } from "tentix-server/constants";
 import { cn } from "@lib/utils";
-import { useAiChatModal } from "@comp/react-flow/components/use-chat-modal";
+import { useAiChatModal } from "@comp/react-flow/components/chat-modal/use-chat-modal";
 
 export const Route = createFileRoute("/staff/workflow_/$id")({
   head: ({ params }) => ({

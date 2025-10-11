@@ -18,6 +18,8 @@ import {
   staffOnlyMiddleware,
 } from "../middleware.ts";
 import { workflowRouter } from "./workflow.ts";
+import { testTicketRouter } from "./test-ticket.ts";
+import { chatRouter } from "./chat.ts";
 import { basicUserCols } from "../queryParams.ts";
 import { userRoleEnumArray } from "@/utils/const";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
@@ -283,5 +285,8 @@ const adminRouter = factory
     },
   )
   // 挂载工作流与 AI 角色配置相关路由
-  .route("/", workflowRouter);
+  .route("/", chatRouter)
+  .route("/", workflowRouter)
+  .route("/", testTicketRouter);
+
 export { adminRouter };

@@ -285,29 +285,58 @@ export class WorkflowCache {
  */
 export const workflowCache = new WorkflowCache();
 
+// 定义消息查询结果的类型（基于 schema 和查询配置）
+type MessageWithSender = Pick<
+  typeof schema.workflowTestMessage.$inferSelect | typeof schema.chatMessages.$inferSelect,
+  "id" | "senderId" | "content" | "createdAt"
+> & {
+  sender: Pick<
+    typeof schema.users.$inferSelect,
+    "id" | "name" | "nickname" | "avatar" | "role"
+  > | null;
+};
+
 export async function getAIResponse(
   ticket: Pick<
     typeof schema.tickets.$inferSelect,
     "id" | "title" | "description" | "module" | "category"
   >,
+  isWorkflowTest: boolean = false,
 ): Promise<string> {
   const db = connectDB();
 
   // 查询该工单的对话（带 sender 用户信息），按时间升序
-  const msgs = await db.query.chatMessages.findMany({
-    where: (m, { and, eq }) =>
-      and(eq(m.ticketId, ticket.id), eq(m.isInternal, false)),
-    orderBy: [asc(schema.chatMessages.createdAt)],
-    columns: {
-      id: true,
-      senderId: true,
-      content: true,
-      createdAt: true,
-    },
-    with: {
-      sender: basicUserCols,
-    },
-  });
+  let msgs: MessageWithSender[];
+  if (isWorkflowTest) {
+    msgs = await db.query.workflowTestMessage.findMany({
+      where: (m, { eq }) => eq(m.testTicketId, ticket.id),
+      orderBy: [asc(schema.workflowTestMessage.createdAt)],
+      columns: {
+        id: true,
+        senderId: true,
+        content: true,
+        createdAt: true,
+      },
+      with: {
+        sender: basicUserCols,
+      },
+    });
+  } else {
+    msgs = await db.query.chatMessages.findMany({
+      where: (m, { and, eq }) =>
+        and(eq(m.ticketId, ticket.id), eq(m.isInternal, false)),
+      orderBy: [asc(schema.chatMessages.createdAt)],
+      columns: {
+        id: true,
+        senderId: true,
+        content: true,
+        createdAt: true,
+      },
+      with: {
+        sender: basicUserCols,
+      },
+    });
+  }
 
   // 3) 组装到状态
   /*

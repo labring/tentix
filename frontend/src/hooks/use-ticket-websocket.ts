@@ -5,7 +5,6 @@ import {
   type wsMsgServerType,
   type wsMsgClientType,
 } from "tentix-server/types";
-import type { TicketType } from "tentix-server/rpc";
 import { useChatStore } from "../store";
 import { useToast } from "tentix-ui";
 
@@ -15,7 +14,7 @@ const WS_RECONNECT_INTERVAL = 3000; // 3 seconds
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 interface UseTicketWebSocketProps {
-  ticket: TicketType;
+  ticketId: string | null;
   token: string;
   userId: number;
   onUserTyping: (userId: number, status: "start" | "stop") => void;
@@ -37,13 +36,23 @@ interface UseTicketWebSocketReturn {
 }
 
 export function useTicketWebSocket({
-  ticket,
+  ticketId,
   token,
   userId,
   onUserTyping,
   onError,
 }: UseTicketWebSocketProps): UseTicketWebSocketReturn {
-  const pendingMessages = useRef<
+  // ==================== 状态管理 ====================
+  const [isLoading, setIsLoading] = useState(false);
+
+  // WebSocket 相关
+  const wsRef = useRef<WebSocket | null>(null);
+  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectCountRef = useRef(0);
+
+  // 业务相关
+  const pendingMessagesRef = useRef<
     Map<
       number,
       {
@@ -54,63 +63,38 @@ export function useTicketWebSocket({
     >
   >(new Map());
 
-  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
   const {
     addMessage,
     handleSentMessage,
     updateWithdrawMessage,
     sendNewMessage,
     readMessage,
+    setWithdrawMessageFunc,
   } = useChatStore();
 
-  // WebSocket related refs
-  const wsRef = useRef<WebSocket | null>(null);
-  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const isConnectingRef = useRef(false);
-  const lastConnectionParamsRef = useRef<{
-    ticketId: string;
-    token: string;
-    userId: number;
-  } | null>(null);
-
-  // 使用 ref 存储当前的 ticketId，避免闭包问题
-  const currentTicketIdRef = useRef(ticket.id);
-  const isUnmountedRef = useRef(false);
-
-  const { toast } = useToast();
-
-  // 更新当前 ticketId
-  useEffect(() => {
-    currentTicketIdRef.current = ticket.id;
-  }, [ticket.id]);
-
-  const { run: sendTyping } = useThrottleFn(
-    (ws: WebSocket, userId: number, ticketId: number) => {
-      ws.send(
-        JSON.stringify({
-          type: "typing",
-          userId,
-          roomId: ticketId,
-          timestamp: Date.now(),
-        }),
-      );
+  // ==================== 节流的输入状态发送 ====================
+  const { run: sendTypingThrottled } = useThrottleFn(
+    (ws: WebSocket, roomId: string) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "typing",
+            userId,
+            roomId,
+            timestamp: Date.now(),
+          }),
+        );
+      }
     },
-    {
-      wait: 1500,
-    },
+    { wait: 1500 },
   );
 
-  // Start heartbeat
+  // ==================== 心跳管理 ====================
   const startHeartbeat = useCallback(() => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-    }
-
-    // TODO: 缺少对心跳返回 heartbeat_ack 的处理
-    heartbeatIntervalRef.current = setInterval(() => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    stopHeartbeat();
+    heartbeatTimerRef.current = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({
             type: "heartbeat",
@@ -121,34 +105,31 @@ export function useTicketWebSocket({
     }, WS_HEARTBEAT_INTERVAL);
   }, []);
 
-  // Stop heartbeat
   const stopHeartbeat = useCallback(() => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-      heartbeatIntervalRef.current = null;
+    if (heartbeatTimerRef.current) {
+      clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
     }
   }, []);
 
-  // 立即关闭连接的函数
-  const forceCloseConnection = useCallback(() => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-      heartbeatIntervalRef.current = null;
+  // ==================== 清理函数 ====================
+  const cleanup = useCallback(() => {
+    // 停止心跳
+    stopHeartbeat();
+
+    // 停止重连
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
     }
 
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
+    // 关闭 WebSocket
     if (wsRef.current) {
-      // 移除所有事件监听器，防止继续处理消息
       wsRef.current.onopen = null;
       wsRef.current.onclose = null;
       wsRef.current.onerror = null;
       wsRef.current.onmessage = null;
 
-      // 强制关闭连接
       if (
         wsRef.current.readyState === WebSocket.OPEN ||
         wsRef.current.readyState === WebSocket.CONNECTING
@@ -158,254 +139,116 @@ export function useTicketWebSocket({
       wsRef.current = null;
     }
 
-    isConnectingRef.current = false;
-    lastConnectionParamsRef.current = null;
-    reconnectAttemptsRef.current = 0;
-
-    // 清理待处理的消息
-    pendingMessages.current.forEach(({ reject, timeoutId }) => {
+    // 清理待发送消息
+    pendingMessagesRef.current.forEach(({ reject, timeoutId }) => {
       clearTimeout(timeoutId);
       reject(new Error("连接已关闭"));
     });
-    pendingMessages.current.clear();
-  }, []);
+    pendingMessagesRef.current.clear();
 
-  // Handle reconnection
-  const handleReconnect = useCallback(() => {
-    // 如果组件已卸载，不再重连
-    if (isUnmountedRef.current) return;
+    // 重置状态
+    setIsLoading(false);
+  }, [stopHeartbeat]);
 
-    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-      console.info("Maximum reconnection attempts reached");
-      return;
-    }
+  // ==================== WebSocket 消息处理 ====================
+  const handleWebSocketMessage = useCallback(
+    (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data) as wsMsgServerType;
 
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-    }
+        switch (data.type) {
+          case "join_success":
+            setIsLoading(false);
+            break;
 
-    reconnectTimeoutRef.current = setTimeout(() => {
-      // 再次检查是否已卸载
-      if (isUnmountedRef.current) return;
-
-      console.info(
-        `Attempting to reconnect (${reconnectAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})`,
-      );
-      reconnectAttemptsRef.current += 1;
-      connectWebSocket(currentTicketIdRef.current);
-    }, WS_RECONNECT_INTERVAL);
-  }, []);
-
-  // Establish WebSocket connection
-  const connectWebSocket = useCallback(
-    (id: string) => {
-      if (
-        !token ||
-        reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS ||
-        isUnmountedRef.current
-      )
-        return;
-
-      // 防护：如果正在连接，直接返回
-      if (isConnectingRef.current) return;
-
-      // 检查关键参数是否发生变化
-      const currentParams = { ticketId: id, token, userId };
-      const paramsChanged =
-        !lastConnectionParamsRef.current ||
-        lastConnectionParamsRef.current.ticketId !== currentParams.ticketId ||
-        lastConnectionParamsRef.current.token !== currentParams.token ||
-        lastConnectionParamsRef.current.userId !== currentParams.userId;
-
-      // 如果已有连接且状态正常，且参数没有变化，直接返回
-      if (
-        wsRef.current &&
-        wsRef.current.readyState === WebSocket.OPEN &&
-        !paramsChanged
-      ) {
-        return;
-      }
-
-      // 如果参数变化了，强制关闭旧连接
-      if (paramsChanged && wsRef.current) {
-        forceCloseConnection();
-      }
-
-      // 设置连接状态
-      isConnectingRef.current = true;
-      setIsLoading(true);
-
-      // Create WebSocket connection
-      const wsOrigin = import.meta.env.DEV
-        ? "ws://localhost:3000"
-        : `wss://${window.location.host}`;
-      const url = new URL(`/api/chat/ws`, wsOrigin);
-
-      url.searchParams.set("ticketId", id.toString());
-      url.searchParams.set("token", token);
-
-      // 创建新的WebSocket连接
-      const ws = new WebSocket(url.toString());
-      wsRef.current = ws;
-
-      // 更新连接参数记录
-      lastConnectionParamsRef.current = currentParams;
-
-      // WebSocket event handling
-      ws.onopen = () => {
-        if (isUnmountedRef.current) {
-          ws.close();
-          return;
-        }
-
-        setIsLoading(false);
-        reconnectAttemptsRef.current = 0;
-        isConnectingRef.current = false;
-        startHeartbeat();
-      };
-
-      ws.onmessage = (event) => {
-        // 检查是否已卸载
-        if (isUnmountedRef.current) return;
-
-        try {
-          const data = JSON.parse(event.data) as wsMsgServerType;
-
-          switch (data.type) {
-            case "join_success":
-              setIsLoading(false);
-              break;
-
-            case "new_message":
-              // 验证消息是否属于当前 ticket
-              if (data.roomId !== currentTicketIdRef.current) {
-                console.warn(
-                  `Received message for wrong ticket: ${data.roomId}, current: ${currentTicketIdRef.current}`,
-                );
-                return;
-              }
-
-              if (data.userId !== userId) {
-                const newMessage = {
-                  id: Number(data.messageId),
-                  ticketId: data.roomId,
-                  senderId: data.userId,
-                  content: data.content,
-                  createdAt: new Date(data.timestamp).toUTCString(),
-                  readStatus: [],
-                  feedbacks: [],
-                  isInternal: data.isInternal,
-                  withdrawn: false,
-                };
-
-                // 再次检查 ticketId 是否匹配
-                if (newMessage.ticketId === currentTicketIdRef.current) {
-                  addMessage(newMessage);
-                  onUserTyping(data.userId, "stop");
-                }
-              }
-              break;
-
-            case "message_sent": {
-              const pendingMessage = pendingMessages.current.get(data.tempId);
-
-              if (pendingMessage) {
-                clearTimeout(pendingMessage.timeoutId);
-                pendingMessage.resolve();
-                pendingMessages.current.delete(data.tempId);
-              }
-              // Store the mapping between tempId and real messageId
-              handleSentMessage(data.tempId, data.messageId);
-              break;
+          case "new_message":
+            // 验证消息是否属于当前 ticket
+            if (data.roomId !== ticketId) {
+              console.warn(
+                `Received message for wrong ticket: ${data.roomId}, expected: ${ticketId}`,
+              );
+              return;
             }
 
-            case "message_withdrawn":
-              // 验证消息是否属于当前 ticket
-              if (data.roomId === currentTicketIdRef.current) {
-                updateWithdrawMessage(data.messageId);
-              }
-              break;
-
-            case "message_read_update":
-              readMessage(data.messageId, data.userId, data.readAt);
-              break;
-
-            case "user_typing":
-              // 验证是否属于当前 ticket
-              if (
-                data.roomId === currentTicketIdRef.current &&
-                data.userId !== userId
-              ) {
-                onUserTyping(data.userId, "start");
-              }
-              break;
-
-            case "heartbeat":
-              // Respond to server heartbeat
-              if (
-                wsRef.current &&
-                wsRef.current.readyState === WebSocket.OPEN
-              ) {
-                wsRef.current.send(
-                  JSON.stringify({
-                    type: "heartbeat_ack",
-                    timestamp: Date.now(),
-                  }),
-                );
-              }
-              break;
-
-            case "error":
-              console.error("WebSocket error:", data.error);
-              toast({
-                title: "WebSocket error",
-                description: data.error,
-                variant: "destructive",
+            // 只添加其他用户的消息
+            if (data.userId !== userId) {
+              addMessage({
+                id: Number(data.messageId),
+                ticketId: data.roomId,
+                senderId: data.userId,
+                content: data.content,
+                createdAt: new Date(data.timestamp).toISOString(),
+                readStatus: [],
+                feedbacks: [],
+                isInternal: data.isInternal,
+                withdrawn: false,
               });
-              if (onError) onError(data.error);
-              if (data.error === "Connection is not alive") {
-                handleReconnect();
-              }
-              break;
+              onUserTyping(data.userId, "stop");
+            }
+            break;
+
+          case "message_sent": {
+            const pending = pendingMessagesRef.current.get(data.tempId);
+            if (pending) {
+              clearTimeout(pending.timeoutId);
+              pending.resolve();
+              pendingMessagesRef.current.delete(data.tempId);
+            }
+            handleSentMessage(data.tempId, data.messageId);
+            break;
           }
-        } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
-          if (onError) onError(error);
+
+          case "message_withdrawn":
+            if (data.roomId === ticketId) {
+              updateWithdrawMessage(data.messageId);
+            }
+            break;
+
+          case "message_read_update":
+            readMessage(data.messageId, data.userId, data.readAt);
+            break;
+
+          case "user_typing":
+            if (data.roomId === ticketId && data.userId !== userId) {
+              onUserTyping(data.userId, "start");
+            }
+            break;
+
+          case "heartbeat":
+            // 响应服务器心跳
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(
+                JSON.stringify({
+                  type: "heartbeat_ack",
+                  timestamp: Date.now(),
+                }),
+              );
+            }
+            break;
+
+          case "error":
+            console.error("WebSocket error:", data.error);
+            toast({
+              title: "WebSocket error",
+              description: data.error,
+              variant: "destructive",
+            });
+            onError?.(data.error);
+
+            // 特殊错误处理：连接不活跃时触发重连
+            if (data.error === "Connection is not alive") {
+              attemptReconnect();
+            }
+            break;
         }
-      };
-
-      ws.onclose = () => {
-        if (isUnmountedRef.current) return;
-
-        // 清理所有待处理的消息
-        pendingMessages.current.forEach(({ reject, timeoutId }) => {
-          clearTimeout(timeoutId);
-          reject(new Error("连接已断开"));
-        });
-        pendingMessages.current.clear();
-
-        stopHeartbeat();
-        isConnectingRef.current = false;
-        handleReconnect();
-      };
-
-      ws.onerror = (event) => {
-        if (isUnmountedRef.current) return;
-
-        reconnectAttemptsRef.current += 1;
-        console.error("WebSocket error:", event);
-        if (onError) onError(event);
-        setIsLoading(false);
-        isConnectingRef.current = false;
-      };
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+        onError?.(error);
+      }
     },
     [
-      token,
+      ticketId,
       userId,
-      forceCloseConnection,
-      handleReconnect,
-      startHeartbeat,
-      stopHeartbeat,
       addMessage,
       handleSentMessage,
       updateWithdrawMessage,
@@ -416,21 +259,108 @@ export function useTicketWebSocket({
     ],
   );
 
-  // Initialize WebSocket connection - 只依赖 token 和 ticket.id
-  useEffect(() => {
-    if (!token) return;
+  // ==================== 重连逻辑 ====================
+  const attemptReconnect = useCallback(() => {
+    if (reconnectCountRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      console.info("达到最大重连次数");
+      return;
+    }
 
-    isUnmountedRef.current = false;
-    connectWebSocket(ticket.id);
+    // 清除之前的重连定时器
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+    }
 
-    // Cleanup function
-    return () => {
-      isUnmountedRef.current = true;
-      forceCloseConnection();
+    reconnectTimerRef.current = setTimeout(() => {
+      console.info(
+        `尝试重连 (${reconnectCountRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})`,
+      );
+      reconnectCountRef.current++;
+      connectWebSocket();
+    }, WS_RECONNECT_INTERVAL);
+  }, []);
+
+  // ==================== 建立 WebSocket 连接 ====================
+  const connectWebSocket = useCallback(() => {
+    if (!token || !ticketId) return;
+
+    // 先清理旧连接
+    cleanup();
+
+    setIsLoading(true);
+
+    // 构建 WebSocket URL
+    const wsOrigin = import.meta.env.DEV
+      ? "ws://localhost:3000"
+      : `wss://${window.location.host}`;
+    const url = new URL(`/api/chat/ws`, wsOrigin);
+    url.searchParams.set("ticketId", ticketId);
+    url.searchParams.set("token", token);
+
+    // 创建新连接
+    const ws = new WebSocket(url.toString());
+    wsRef.current = ws;
+
+    // onopen: 连接成功
+    ws.onopen = () => {
+      setIsLoading(false);
+      reconnectCountRef.current = 0; // 重置重连计数
+      startHeartbeat();
     };
-  }, [token, ticket.id]); // 注意这里只依赖 token 和 ticket.id，不依赖 connectWebSocket
 
-  // Send message
+    // onmessage: 处理消息
+    ws.onmessage = handleWebSocketMessage;
+
+    // onclose: 连接关闭，尝试重连
+    ws.onclose = () => {
+      stopHeartbeat();
+
+      // 清理待发送消息
+      pendingMessagesRef.current.forEach(({ reject, timeoutId }) => {
+        clearTimeout(timeoutId);
+        reject(new Error("连接已断开"));
+      });
+      pendingMessagesRef.current.clear();
+
+      attemptReconnect();
+    };
+
+    // onerror: 错误处理
+    ws.onerror = (event) => {
+      console.error("WebSocket error:", event);
+      onError?.(event);
+      setIsLoading(false);
+    };
+  }, [
+    ticketId,
+    token,
+    cleanup,
+    startHeartbeat,
+    stopHeartbeat,
+    handleWebSocketMessage,
+    attemptReconnect,
+    onError,
+  ]);
+
+  // ==================== 初始化连接 ====================
+  useEffect(() => {
+    if (!token || !ticketId) return;
+
+    // 重置重连计数
+    reconnectCountRef.current = 0;
+
+    // 建立新连接
+    connectWebSocket();
+
+    // 组件卸载或依赖变化时清理
+    return () => {
+      cleanup();
+    };
+  }, [token, ticketId]);
+
+  // ==================== 对外暴露的方法 ====================
+
+  // 发送消息
   const sendMessage = useCallback(
     (
       content: JSONContentZod,
@@ -438,24 +368,29 @@ export function useTicketWebSocket({
       isInternal: boolean = false,
     ): Promise<void> => {
       return new Promise((resolve, reject) => {
+        if (!ticketId) {
+          reject(new Error("ticketId 未设置"));
+          return;
+        }
+
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
           reject(new Error("WebSocket 连接未就绪"));
           return;
         }
 
-        // 设置发送超时
+        // 设置超时
         const timeoutId = setTimeout(() => {
-          pendingMessages.current.delete(tempId);
+          pendingMessagesRef.current.delete(tempId);
           reject(new Error("发送超时，请重试"));
-        }, 5000); // 5秒超时
+        }, 5000);
 
         // 存储 Promise 回调
-        pendingMessages.current.set(tempId, { resolve, reject, timeoutId });
+        pendingMessagesRef.current.set(tempId, { resolve, reject, timeoutId });
 
-        // 发送消息到本地状态 - 使用 ref 中的 ticketId
+        // 乐观更新：先添加到本地状态
         sendNewMessage({
           id: tempId,
-          ticketId: currentTicketIdRef.current,
+          ticketId,
           senderId: userId,
           content,
           createdAt: new Date().toISOString(),
@@ -465,36 +400,37 @@ export function useTicketWebSocket({
           feedbacks: [],
         });
 
-        // 发送到服务器 - 使用 ref 中的 ticketId
+        // 发送到服务器
         wsRef.current.send(
           JSON.stringify({
             type: "message",
             content,
             userId,
-            ticketId: currentTicketIdRef.current,
+            ticketId,
             tempId,
             isInternal,
           }),
         );
       });
     },
-    [userId, sendNewMessage],
+    [ticketId, userId, sendNewMessage],
   );
 
-  // Send typing indicator
+  // 发送输入状态
   const sendTypingIndicator = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      sendTyping(wsRef.current, userId, currentTicketIdRef.current);
+    if (wsRef.current) {
+      sendTypingThrottled(wsRef.current, ticketId);
     }
-  }, [userId, sendTyping]);
+  }, [ticketId, sendTypingThrottled]);
 
-  // Send read status
+  // 发送已读状态
   const sendReadStatus = useCallback(
     (messageId: number) => {
-      // 1. 立即更新本地状态 (乐观更新)
+      // 乐观更新
       readMessage(messageId, userId, new Date().toISOString());
-      // 只有自己发送的消息会出现有tempId的情况，但是自己发送的消息不会触发 sendReadStatus 所以不用考虑 tempId 处理
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+
+      // 发送到服务器
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({
             type: "message_read",
@@ -505,41 +441,47 @@ export function useTicketWebSocket({
         );
       }
     },
-    [userId],
+    [userId, readMessage],
   );
 
-  // Withdraw message
+  // 撤回消息
   const withdrawMessage = useCallback(
     (messageId: number) => {
-      // 1. 立即更新本地状态 (乐观更新)
+      // 乐观更新
       updateWithdrawMessage(messageId);
-      // 2. 发送撤回请求到服务器 (服务器会广播给其他用户，但不会广播给发送者)
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+
+      // 发送到服务器
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({
             type: "withdraw_message",
             userId,
             messageId,
-            roomId: currentTicketIdRef.current,
+            roomId: ticketId,
             timestamp: Date.now(),
           }),
         );
       }
     },
-    [userId],
+    [ticketId, userId, updateWithdrawMessage],
   );
 
-  // Close connection
-  const closeConnection = useCallback(() => {
-    isUnmountedRef.current = true;
-    forceCloseConnection();
-  }, [forceCloseConnection]);
-
-  function sendCustomMsg(props: wsMsgClientType) {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+  // 发送自定义消息
+  const sendCustomMsg = useCallback((props: wsMsgClientType) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(props));
     }
-  }
+  }, []);
+
+  // 关闭连接
+  const closeConnection = useCallback(() => {
+    cleanup();
+  }, [cleanup]);
+
+  // ==================== 注册撤回函数到 Store ====================
+  useEffect(() => {
+    setWithdrawMessageFunc(withdrawMessage);
+  }, [withdrawMessage, setWithdrawMessageFunc]);
 
   return {
     isLoading,

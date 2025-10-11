@@ -403,7 +403,7 @@ namespace aiHandler {
             roomId: ticketId,
             userId: aiUserId,
             content: savedAIMessage.content,
-            timestamp: Date.now(),
+            timestamp: new Date(savedAIMessage.createdAt).getTime(),
             isInternal: false,
           });
         } finally {
@@ -466,7 +466,7 @@ msgEmitter.on("new_message", function ({ ws, ctx, message }) {
       roomId: ctx.roomId,
       userId: ctx.userId,
       content: message.content,
-      timestamp: new Date(message.timestamp).getTime(),
+      timestamp: message.timestamp,
       isInternal: message.isInternal,
     },
     broadcastExclude,
@@ -476,7 +476,7 @@ msgEmitter.on("new_message", function ({ ws, ctx, message }) {
     tempId: message.tempId ?? 0,
     messageId: message.messageId,
     roomId: ctx.roomId,
-    timestamp: new Date(message.timestamp).getTime(),
+    timestamp: message.timestamp,
   });
 });
 
@@ -745,7 +745,7 @@ const chatRouter = factory
                         content: parsedMessage.content,
                         tempId: parsedMessage.tempId ?? 0,
                         messageId: messageResult.id,
-                        timestamp: Date.now(),
+                        timestamp: new Date(messageResult.createdAt).getTime(),
                         isInternal: parsedMessage.isInternal ?? false,
                       },
                     });

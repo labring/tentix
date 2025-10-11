@@ -1,5 +1,3 @@
-// 修复后的 MessageInput 组件
-
 import { type JSONContentZod } from "tentix-server/types";
 import { Loader2Icon, UploadIcon } from "lucide-react";
 import React, { useRef, useState, useCallback, useMemo } from "react";
@@ -12,20 +10,7 @@ import {
 } from "tentix-ui";
 import { processFilesAndUpload } from "../upload-utils";
 import { useTranslation } from "i18n";
-
-// 错误处理工具函数
-const getErrorMessage = (error: unknown, fallback: string): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  if (error && typeof error === "object" && "message" in error) {
-    return String(error.message);
-  }
-  return fallback;
-};
+import { getErrorMessage, hasNodeContent, isLocalFileNode } from "../utils.ts";
 
 // 上传进度接口
 interface UploadProgress {
@@ -48,69 +33,6 @@ interface FileStats {
 }
 
 // 检查内容节点是否为本地文件
-const isLocalFileNode = (node: any): boolean => {
-  return node.type === "image" && node.attrs?.isLocalFile;
-};
-
-// 检查内容节点是否有实际内容 - 支持所有TipTap节点类型
-const hasNodeContent = (node: any): boolean => {
-  if (!node || !node.type) return false;
-
-  // 段落：检查是否有内容
-  if (node.type === "paragraph" && node.content) {
-    return node.content.length > 0;
-  }
-
-  // 标题：有内容就算有效（支持h1-h6）
-  if (node.type === "heading" && node.content) {
-    return node.content.length > 0;
-  }
-
-  // 列表：有列表项就算有效
-  if (
-    (node.type === "orderedList" || node.type === "bulletList") &&
-    node.content
-  ) {
-    return node.content.length > 0;
-  }
-
-  // 列表项：有内容就算有效
-  if (node.type === "listItem" && node.content) {
-    return node.content.length > 0;
-  }
-
-  // 引用块：有内容就算有效
-  if (node.type === "blockquote" && node.content) {
-    return node.content.length > 0;
-  }
-
-  // 代码块：直接算作有内容（即使空的也可以发送）
-  if (node.type === "codeBlock") {
-    return true;
-  }
-
-  // 水平线：直接算作有内容
-  if (node.type === "horizontalRule") {
-    return true;
-  }
-
-  // 图片和媒体文件：直接算作有内容
-  if (node.type === "image") {
-    return true;
-  }
-
-  // 硬换行：直接算作有内容
-  if (node.type === "hardBreak") {
-    return true;
-  }
-
-  // 文本节点：检查是否有文本内容
-  if (node.type === "text" && node.text) {
-    return node.text.trim().length > 0;
-  }
-
-  return false;
-};
 
 export function MessageInput({
   onSendMessage,

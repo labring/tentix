@@ -491,6 +491,10 @@ export const workflowTestChatServerSchema = z.discriminatedUnion("type", [
     type: z.literal("error"),
     error: z.string(),
   }),
+  z.object({
+    type: z.literal("info"),
+    message: z.string(),
+  }),
 ]);
 
 export const workflowTestChatClientSchema = z.discriminatedUnion("type", [
@@ -516,3 +520,13 @@ export type workflowTestChatClientType = z.infer<
 export type WorkflowTestChatMessage =
   | workflowTestChatServerType
   | workflowTestChatClientType;
+
+export const testTicketInsertSchema = createInsertSchema(
+  schema.workflowTestTicket,
+).pick({
+  title: true,
+  description: true,
+  module: true,
+});
+
+export type testTicketInsertType = z.infer<typeof testTicketInsertSchema>;

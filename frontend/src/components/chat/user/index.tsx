@@ -30,9 +30,9 @@ export function UserChat({
   const {
     messages,
     setMessages,
-    setWithdrawMessageFunc,
     setCurrentTicketId,
     clearMessages,
+    currentTicketId,
   } = useChatStore();
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   const sentReadStatusRef = useRef<Set<number>>(new Set());
@@ -60,9 +60,8 @@ export function UserChat({
     sendTypingIndicator,
     sendReadStatus,
     closeConnection,
-    withdrawMessage,
   } = useTicketWebSocket({
-    ticket,
+    ticketId: currentTicketId,
     token,
     userId,
     onUserTyping: handleUserTyping,
@@ -71,8 +70,7 @@ export function UserChat({
 
   useEffect(() => {
     setIsLoading(wsLoading || isTicketLoading);
-    setWithdrawMessageFunc(withdrawMessage);
-  }, [wsLoading, isTicketLoading, withdrawMessage, setWithdrawMessageFunc]);
+  }, [wsLoading, isTicketLoading]);
 
   // 设置当前 ticketId 并在卸载时清理
   useEffect(() => {

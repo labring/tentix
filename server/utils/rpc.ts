@@ -37,10 +37,10 @@ export type GetTechnicianFeedbackResponseType = InferResponseType<
   ApiClient["feedback"]["technicians"][":ticketId"]["$get"]
 >["data"];
 
-export type AiUserWithRoleConfigResponseType = InferResponseType<
-  ApiClient["admin"]["ai-role-config"]["all"]["$get"]
->[number];
-
 export type WorkflowBasicResponseType = InferResponseType<
   ApiClient["admin"]["workflow"]["basic"]["$get"]
 >[number];
+
+export type WorkflowTestTicketInfoResponseType = InferResponseType<
+  ApiClient["admin"]["test-ticket"][":id"]["$get"]
+>;

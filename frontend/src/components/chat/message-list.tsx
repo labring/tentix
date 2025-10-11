@@ -21,66 +21,141 @@ export function MessageList({
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesListRef = useRef<HTMLDivElement>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const [initialRender, setInitialRender] = useState(true);
+  const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true); // 是否启用自动跟随
+  const isProgrammaticScroll = useRef(false); // 标记是否为程序化滚动
+  const scrollContainerRef = useRef<HTMLElement | null>(null); // 真正的滚动容器
   const { role, id: userId } = useLocalUser();
   const notCustomer = role !== "customer";
   const { kbSelectionMode, selectedMessageIds, toggleSelectMessage } =
     useChatStore();
 
-  // Use IntersectionObserver to detect if we're at the bottom
-  useEffect(() => {
-    if (!messagesEndRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry) {
-          setIsAtBottom(entry.isIntersecting);
-        }
-      },
-      {
-        threshold: [0.1],
-      },
-    );
-
-    observer.observe(messagesEndRef.current);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isLoading, messages]);
-
-  // Initial scroll to bottom on first render
+  // 查找真正的滚动容器（Radix ScrollArea 的 Viewport）
+  const [scrollContainerFound, setScrollContainerFound] = useState(false);
+  
   useLayoutEffect(() => {
-    if (!isLoading && initialRender && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView();
-      setInitialRender(false);
-    }
-  }, [isLoading, initialRender]);
+    const findScrollContainer = () => {
+      if (messagesListRef.current) {
+        // Radix ScrollArea 结构：
+        // Root (overflow-hidden) -> Viewport (真正滚动) -> 内容
+        // 我们需要找到 Viewport 元素
+        let parent = messagesListRef.current.parentElement;
+        while (parent) {
+          // 1. 检查是否是 Radix ScrollArea Viewport（通过 data 属性）
+          if (parent.hasAttribute("data-radix-scroll-area-viewport")) {
+            scrollContainerRef.current = parent;
+            setScrollContainerFound(true);
+            return true;
+          }
+          
+          // 2. 检查是否有 overflow 样式（兼容其他滚动容器）
+          const style = window.getComputedStyle(parent);
+          if (style.overflowY === "auto" || style.overflowY === "scroll") {
+            scrollContainerRef.current = parent;
+            setScrollContainerFound(true);
+            return true;
+          }
+          
+          parent = parent.parentElement;
+        }
+      }
+      return false;
+    };
 
-  // Scroll to bottom of messages when new messages are added, but only if already at bottom
-  useEffect(() => {
-    if (isLoading) return;
-
-    // Force scroll to bottom on first load
-    if (initialRender) {
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView();
-        setInitialRender(false);
+    // 先尝试立即查找
+    if (!findScrollContainer()) {
+      // 如果没找到，延迟后重试（DOM 可能还没完全渲染）
+      const timer = setTimeout(() => {
+        findScrollContainer();
       }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // 监听用户滚动：判断是否手动滚动到底部
+  useEffect(() => {
+    // 等待找到滚动容器后再添加监听器
+    if (!scrollContainerFound) {
       return;
     }
-    if (isAtBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, isLoading, isAtBottom, initialRender]);
 
-  // Scroll to bottom button handler
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const handleScroll = () => {
+      // 只处理用户的手动滚动，忽略程序化滚动
+      if (isProgrammaticScroll.current) {
+        return;
+      }
+
+      // 检查是否在底部
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (distanceFromBottom <= 50) {
+        // 用户滚动到底部 → 启用自动跟随（相当于点击按钮）
+        setAutoScrollEnabled(true);
+      } else {
+        // 用户滚动离开底部 → 禁用自动跟随
+        setAutoScrollEnabled(false);
+      }
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [scrollContainerFound]); // 依赖于 scrollContainerFound
+
+  // 初始加载完成后，立即滚动到底部（无动画）
+  useLayoutEffect(() => {
+    if (!isLoading && !hasInitialScrolled && messagesEndRef.current) {
+      isProgrammaticScroll.current = true;
+      messagesEndRef.current.scrollIntoView({ block: "end", behavior: "auto" });
+      setHasInitialScrolled(true);
+      setAutoScrollEnabled(true); // 初始加载后启用自动跟随
+      // 滚动完成后重置标记
+      setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 100);
+    }
+  }, [isLoading, hasInitialScrolled]);
+
+  // 新消息到来时：如果启用了自动跟随，则自动滚动到底部
+  useEffect(() => {
+    if (isLoading || !hasInitialScrolled) return;
+
+    if (autoScrollEnabled && messagesEndRef.current) {
+      isProgrammaticScroll.current = true;
+      messagesEndRef.current.scrollIntoView({
+        block: "end",
+        behavior: "smooth",
+      });
+      // 平滑滚动需要更长时间
+      setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 500);
+    }
+  }, [messages, typingUser, isLoading, hasInitialScrolled, autoScrollEnabled]);
+
+  // 点击按钮：滚动到底部并重新启用自动跟随
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    setIsAtBottom(true);
+    if (messagesEndRef.current) {
+      isProgrammaticScroll.current = true;
+      messagesEndRef.current.scrollIntoView({
+        block: "end",
+        behavior: "smooth",
+      });
+      setAutoScrollEnabled(true); // 重新启用自动跟随
+      // 平滑滚动需要更长时间
+      setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 500);
+    }
   };
 
   // Group messages by date
@@ -118,14 +193,15 @@ export function MessageList({
     [messages],
   );
 
-  // Create intersection observer for message visibility
+  // Observer: 检测消息是否进入视图
+  // 用于标记消息为已读（当消息可见时触发 onMessageInView 回调）
   useEffect(() => {
-    if (!messagesListRef.current || !onMessageInView) return;
+    if (!onMessageInView) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && onMessageInView) {
+          if (entry.isIntersecting) {
             const messageId = Number(
               entry.target.getAttribute("data-message-id"),
             );
@@ -136,13 +212,13 @@ export function MessageList({
         });
       },
       {
-        threshold: 0.5,
-        root: messagesListRef.current,
-        rootMargin: "0px 0px 100px 0px",
+        threshold: 0.5, // 消息 50% 可见时触发
+        // 不指定 root，使用默认的 viewport（ScrollArea 的滚动容器）
+        rootMargin: "0px 0px 100px 0px", // 提前 100px 触发
       },
     );
 
-    // Observe all message elements
+    // 观察所有未读消息元素, 避免观察所有消息元素
     messageRefs.current.forEach((element) => {
       observer.observe(element);
     });
@@ -151,8 +227,6 @@ export function MessageList({
       observer.disconnect();
     };
   }, [onMessageInView, messages, isLoading]);
-
-  // keep userId for read checks
 
   return (
     <>
@@ -185,48 +259,49 @@ export function MessageList({
                   <div className="grow border-t"></div>
                 </div>
 
-                {group.messages.map((message) => (
-                  <div
-                    key={`message-${message.id}`}
-                    data-message-id={message.id}
-                    className="flex w-full"
-                    ref={(el) => {
-                      if (el) {
-                        if (
-                          !(
-                            message.senderId === userId ||
-                            message.readStatus.some(
-                              (status) => status.userId === userId,
-                            )
-                          )
-                        ) {
+                {group.messages.map((message) => {
+                  // 只有未读消息需要被 Observer 观察（用于发送已读通知）
+                  const isUnreadMessage = !(
+                    message.senderId === userId ||
+                    message.readStatus.some(
+                      (status) => status.userId === userId,
+                    )
+                  );
+
+                  return (
+                    <div
+                      key={`message-${message.id}`}
+                      data-message-id={message.id}
+                      className="flex w-full"
+                      ref={(el) => {
+                        if (el && isUnreadMessage) {
                           messageRefs.current.set(message.id, el);
+                        } else {
+                          messageRefs.current.delete(message.id);
                         }
-                      } else {
-                        messageRefs.current.delete(message.id);
-                      }
-                    }}
-                  >
-                    {notCustomer && kbSelectionMode && (
-                      <div className="w-8 mr-3 flex items-center justify-center">
-                        <Checkbox
-                          checked={selectedMessageIds.has(message.id)}
-                          onCheckedChange={() =>
-                            toggleSelectMessage(message.id)
-                          }
-                          className="h-4 w-4"
-                          aria-label={`select-message-${message.id}`}
+                      }}
+                    >
+                      {notCustomer && kbSelectionMode && (
+                        <div className="w-8 mr-3 flex items-center justify-center">
+                          <Checkbox
+                            checked={selectedMessageIds.has(message.id)}
+                            onCheckedChange={() =>
+                              toggleSelectMessage(message.id)
+                            }
+                            className="h-4 w-4"
+                            aria-label={`select-message-${message.id}`}
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <MessageItem
+                          // key={`${message.senderId}-msg-${message.id}`} // 上层div已经有key了
+                          message={message}
                         />
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <MessageItem
-                        // key={`${message.senderId}-msg-${message.id}`} // 上层div已经有key了
-                        message={message}
-                      />
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
 
@@ -237,8 +312,8 @@ export function MessageList({
           </div>
         )}
       </div>
-      {/* Scroll to bottom button - only visible when not at bottom */}
-      {!isAtBottom && messages.length > 0 && (
+      {/* Scroll to bottom button - only visible when auto-scroll is disabled */}
+      {!autoScrollEnabled && messages.length > 0 && (
         <div className="sticky bottom-1 z-50">
           <button
             onClick={scrollToBottom}

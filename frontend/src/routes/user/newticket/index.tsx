@@ -38,6 +38,7 @@ import { processFilesAndUpload } from "@comp/chat/upload-utils";
 import { useSealos } from "src/_provider/sealos";
 import { RouteTransition } from "@comp/page-transition";
 import type { TFunction } from "i18next";
+import { isLocalFileNode } from "@comp/chat/utils";
 
 // Client-side validation schema - 只验证用户需要填写的字段
 const createTicketFormSchema = (t: TFunction) =>
@@ -260,11 +261,6 @@ function useTicketCreation() {
       });
     },
   });
-
-  // 检查内容节点是否为本地文件
-  const isLocalFileNode = (node: any): boolean => {
-    return node.type === "image" && node.attrs?.isLocalFile;
-  };
 
   // 检查是否有需要上传的文件
   const hasFilesToUpload = (content: JSONContentZod): boolean => {

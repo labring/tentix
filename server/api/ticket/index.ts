@@ -201,17 +201,15 @@ const ticketRouter = factory
         ticketId = data.id;
 
         // Assign ticket to agent with least in-progress tickets
-        if (staffMap.size > 0) {
-          c.var.incrementAgentTicket(assigneeId);
+        c.var.incrementAgentTicket(assigneeId);
 
-          // Update ticket status to in_progress
-          await tx.insert(schema.ticketHistory).values({
-            ticketId: data.id,
-            type: "create",
-            meta: assigneeId, // assignee
-            operatorId: userId,
-          });
-        }
+        // Update ticket status to in_progress
+        await tx.insert(schema.ticketHistory).values({
+          ticketId: data.id,
+          type: "create",
+          meta: assigneeId, // assignee
+          operatorId: userId,
+        });
       });
 
       if (!ticketId) {
