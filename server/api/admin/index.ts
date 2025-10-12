@@ -77,6 +77,10 @@ const updateRoleSchema = z.object({
 
 const adminRouter = factory
   .createApp()
+  // 先挂载不需要 authMiddleware 的 WebSocket 路由
+  .route("/", chatRouter)
+  .route("/", workflowRouter)
+  .route("/", testTicketRouter)
   .get(
     "/staffList",
     authMiddleware,

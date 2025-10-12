@@ -16,7 +16,7 @@ import {
 import { ChatOpenAI } from "@langchain/openai";
 import { VectorStore, type SearchHit } from "./types";
 import { knowledgeBuilderConfig } from "./const";
-import { tickets, handoffRecords } from "@/db/schema";
+import { tickets, handoffRecords, workflowTestTicket } from "@/db/schema";
 import { OPENAI_CONFIG } from "./config";
 import {
   quickHandoffHeuristic,
@@ -223,11 +223,27 @@ export async function handoffNode(
       throw new Error("No ticket ID in state");
     }
 
+    // 先从 workflowTestTicket 查找
+    const [testTicket] = await db
+      .select()
+      .from(workflowTestTicket)
+      .where(eq(workflowTestTicket.id, variables.currentTicket.id))
+      .limit(1);
+
+    // 再从 tickets 查找
     const [ticket] = await db
       .select()
       .from(tickets)
       .where(eq(tickets.id, variables.currentTicket.id))
       .limit(1);
+
+    // 如果从 workflowTestTicket 找到但 tickets 没找到，说明是测试工单，直接完成
+    if (testTicket && !ticket) {
+      logInfo(
+        `Test ticket ${variables.currentTicket.id} handoff completed (test workflow)`,
+      );
+      return { response: text };
+    }
 
     if (!ticket) {
       throw new Error(`Ticket ${variables.currentTicket.id} not found`);
@@ -848,6 +864,7 @@ function buildMultimodalUserContent(
     urls.push(...getTicketDescImages(state));
   }
   const lastCustomerMessage = getLastCustomerMessage(state);
+
   if (lastCustomerMessage && typeof lastCustomerMessage.content !== "string") {
     for (const it of lastCustomerMessage.content as MMItem[]) {
       if (it.type === "image_url" && it.image_url?.url) {

@@ -1,7 +1,7 @@
 import { KnowledgeBuilderConfig } from "./types";
 import { connectDB } from "@/utils/tools";
 import { ExternalHttpStore, PgVectorStore } from "./vectorStore";
-import { KnowledgeBuilderService } from "./builder";
+import { KnowledgeBuilderService } from "./kb-builder";
 import { OPENAI_CONFIG } from "./config";
 
 export const knowledgeBuilderConfig: KnowledgeBuilderConfig = {

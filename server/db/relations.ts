@@ -322,6 +322,8 @@ export const userIdentitiesRelations = relations(userIdentities, ({ one }) => ({
 export const workflowsRelation = relations(workflow, ({ many }) => ({
   // 关联的 AI 角色配置
   aiRoleConfig: many(aiRoleConfig),
+  // 关联的测试工单
+  testTickets: many(workflowTestTicket),
 }));
 
 // AI 角色配置表的关联关系
@@ -343,8 +345,12 @@ export const aiRoleConfigsRelation = relations(aiRoleConfig, ({ one }) => ({
 // Workflow Test Messages
 export const workflowTestTicketRelation = relations(
   workflowTestTicket,
-  ({ many }) => ({
+  ({ many, one }) => ({
     messages: many(workflowTestMessage), // 一个测试工单可以有多条测试消息
+    workflow: one(workflow, {
+      fields: [workflowTestTicket.workflowId],
+      references: [workflow.id],
+    }), // 一个测试工单关联一个工作流
   }),
 );
 

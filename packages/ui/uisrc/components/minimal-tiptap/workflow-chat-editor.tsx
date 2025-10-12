@@ -70,7 +70,7 @@ export const WorkflowChatEditor = forwardRef<
         as="div"
         name="editor"
         className={cn(
-          "border-input flex flex-col rounded-md border min-h-48 max-h-88 h-auto w-full cursor-text",
+          "border-input flex flex-col rounded-md border min-h-38 max-h-68 h-auto w-full cursor-text",
           className,
         )}
         onClick={handleContainerClick}

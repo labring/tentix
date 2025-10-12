@@ -24,7 +24,6 @@ interface UploadProgress {
 // 组件 Props 接口
 interface MessageInputProps {
   onSendMessage: (content: JSONContentZod) => Promise<void>;
-  isLoading: boolean;
 }
 
 interface FileStats {
@@ -32,7 +31,7 @@ interface FileStats {
   count: number;
 }
 
-export function MessageInput({ onSendMessage, isLoading }: MessageInputProps) {
+export function MessageInput({ onSendMessage }: MessageInputProps) {
   const { t } = useTranslation();
 
   const [newMessage, setNewMessage] = useState<JSONContentZod>({
@@ -112,8 +111,6 @@ export function MessageInput({ onSendMessage, isLoading }: MessageInputProps) {
     async (e?: React.FormEvent) => {
       e?.preventDefault();
 
-      if (isLoading) return;
-
       // 始终以编辑器中的最新 JSON 为准，避免因为 onUpdate 节流导致的旧值
       const latestContent =
         (editorRef.current?.getJSON?.() as JSONContentZod | undefined) ||
@@ -141,7 +138,6 @@ export function MessageInput({ onSendMessage, isLoading }: MessageInputProps) {
       }
     },
     [
-      isLoading,
       analyzeFileContent,
       handleFileUpload,
       onSendMessage,
@@ -182,8 +178,8 @@ export function MessageInput({ onSendMessage, isLoading }: MessageInputProps) {
       (editorRef.current?.getJSON?.() as JSONContentZod | undefined) ||
       newMessage;
     const hasContent = latestContent?.content?.some(hasNodeContent) || false;
-    return !isLoading && !uploadProgress && hasContent;
-  }, [isLoading, uploadProgress, newMessage]);
+    return !uploadProgress && hasContent;
+  }, [uploadProgress, newMessage]);
 
   // 计算上传进度条高度（用于动态调整布局）
   const progressBarHeight = uploadProgress ? 60 : 0; // 根据实际高度调整
@@ -217,9 +213,11 @@ export function MessageInput({ onSendMessage, isLoading }: MessageInputProps) {
       </div>
     );
   };
+
   // 渲染发送按钮内容
   const renderSendButtonContent = () => {
-    if (isLoading || uploadProgress) {
+    // 如果正在上传，显示加载图标
+    if (uploadProgress) {
       return <Loader2Icon className="!h-5 !w-5 animate-spin" />;
     }
 

@@ -527,6 +527,7 @@ export const testTicketInsertSchema = createInsertSchema(
   title: true,
   description: true,
   module: true,
+  workflowId: true,
 });
 
 export type testTicketInsertType = z.infer<typeof testTicketInsertSchema>;

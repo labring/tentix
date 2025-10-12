@@ -22,7 +22,6 @@ import {
   WorkflowEdgeType,
   type WorkflowEdge as DomainWorkflowEdge,
   type NodeConfig as DomainNodeConfig,
-  type HandleConfig,
 } from "tentix-server/constants";
 
 import EmotionDetector from "@comp/react-flow/nodes/emotion-detector";
@@ -33,6 +32,7 @@ import StartNode from "@comp/react-flow/nodes/start";
 import EndNode from "@comp/react-flow/nodes/end";
 import { ConditionEdge } from "@comp/react-flow/edgs/condition-edge";
 import { NormalEdge } from "@comp/react-flow/edgs/normal-edge";
+import { createAndAddNode } from "./tools";
 
 import "@xyflow/react/dist/style.css";
 import "./ui/workflow.css";
@@ -182,52 +182,8 @@ const InnerWorkflow: React.FC = () => {
       });
 
       const { idGenerator, addNode } = useWorkflowStore.getState();
-
-      // 构造一个基础节点配置，handles 尽量通用
-      const createDefaultHandles = (
-        nodeId: string,
-        type: NodeType,
-      ): HandleConfig[] => {
-        if (type === NodeType.START)
-          return [
-            {
-              id: idGenerator.generateHandleId(nodeId, "out"),
-              type: "source",
-              position: "right",
-            } as HandleConfig,
-          ];
-        if (type === NodeType.END)
-          return [
-            {
-              id: idGenerator.generateHandleId(nodeId, "in"),
-              type: "target",
-              position: "left",
-            } as HandleConfig,
-          ];
-        return [
-          {
-            id: idGenerator.generateHandleId(nodeId, "in"),
-            type: "target",
-            position: "left",
-          } as HandleConfig,
-          {
-            id: idGenerator.generateHandleId(nodeId, "out"),
-            type: "source",
-            position: "right",
-          } as HandleConfig,
-        ];
-      };
-
       const nodeType = droppedType as NodeType;
-      const nodeId = idGenerator.generateNodeId(nodeType);
-      addNode({
-        id: nodeId,
-        type: nodeType,
-        name: nodeId,
-        position,
-        handles: createDefaultHandles(nodeId, nodeType),
-        description: undefined,
-      });
+      createAndAddNode(nodeType, position, idGenerator, addNode);
     },
     [screenToFlowPosition],
   );

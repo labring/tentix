@@ -5,14 +5,14 @@ import {
 } from "@/db/schema";
 import { eq, asc, and, inArray } from "drizzle-orm";
 import { connectDB } from "@/utils/tools";
-import { VectorStore, KnowledgeBuilderConfig, KBChunk } from "./types";
+import { VectorStore, KnowledgeBuilderConfig, KBChunk } from "./types.ts";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { logWarning } from "@/utils/log";
-import { OPENAI_CONFIG } from "./config";
-import { getAbbreviatedText, type JSONContentZod } from "../types";
+import { OPENAI_CONFIG } from "./config.ts";
+import { getAbbreviatedText, type JSONContentZod } from "../types.ts";
 import { basicUserCols } from "../../api/queryParams.ts";
-import { getTextWithImageInfo, extractImageUrls } from "./tools";
+import { getTextWithImageInfo, extractImageUrls } from "./tools.ts";
 
 function truncateString(input: string, maxLen: number): string {
   if (!input) return "";

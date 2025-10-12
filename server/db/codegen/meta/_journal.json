@@ -78,6 +78,13 @@
       "when": 1759237242857,
       "tag": "0010_natural_adam_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1760238900123,
+      "tag": "0011_great_moondragon",
+      "breakpoints": true
     }
   ]
 }

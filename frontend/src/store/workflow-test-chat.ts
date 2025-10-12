@@ -21,7 +21,10 @@ interface WorkflowTestChatStore {
   messages: ChatMessage[];
   sendingMessageIds: Set<number>;
   currentTicketId: string | null;
+  currentWorkflowId: string | null;
+  isAiTyping: boolean;
   setCurrentTicketId: (ticketId: string | null) => void;
+  setCurrentWorkflowId: (workflowId: string | null) => void;
   addMessage: (message: ChatMessage) => void; // when receive new message add to store
 
   handleSentMessage: (tempId: number, realId: number) => void;
@@ -29,6 +32,7 @@ interface WorkflowTestChatStore {
   sendNewMessage: (message: ChatMessage) => void; // use for send new message
   isMessageSending: (id: number) => boolean;
   clearMessages: () => void;
+  setAiTyping: (isTyping: boolean) => void;
 
   // KB 选择模式
   kbSelectionMode: boolean;
@@ -43,10 +47,14 @@ export const useWorkflowTestChatStore = create<WorkflowTestChatStore>(
     messages: [],
     sendingMessageIds: new Set<number>(),
     currentTicketId: null,
+    currentWorkflowId: null,
+    isAiTyping: false,
     kbSelectionMode: false,
     selectedMessageIds: new Set<number>(),
 
     setCurrentTicketId: (ticketId) => set({ currentTicketId: ticketId }),
+    setCurrentWorkflowId: (workflowId) => set({ currentWorkflowId: workflowId }),
+    setAiTyping: (isTyping) => set({ isAiTyping: isTyping }),
 
     addMessage: (message) =>
       set((state) => {
@@ -159,7 +167,7 @@ export const useWorkflowTestChatStore = create<WorkflowTestChatStore>(
         } else {
           next.add(id);
         }
-        return { selectedMessageIds: next } as any;
+        return { selectedMessageIds: next };
       }),
     clearKbSelection: () =>
       set({ selectedMessageIds: new Set(), kbSelectionMode: false }),

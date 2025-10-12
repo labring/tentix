@@ -273,6 +273,8 @@ export const translations = {
       workflow_name_exists: "Workflow name already exists",
       active_ai_role_exists_in_scope:
         "An active AI role already exists in scope '{{scope}}'",
+      workflow_in_use_by_active_config:
+        "Workflow is in use by active AI role config",
       invalid_nodes: "Invalid nodes payload",
       duplicate_node_id: "Duplicate node id detected",
       invalid_node_type: "Invalid node type",
@@ -656,6 +658,7 @@ export const translations = {
       workflow_not_found: "未找到工作流",
       workflow_name_exists: "工作流名称已存在",
       active_ai_role_exists_in_scope: "scope '{{scope}}' 下已有激活的 AI 角色",
+      workflow_in_use_by_active_config: "工作流被激活的 AI 角色配置使用",
       invalid_nodes: "无效的节点数据",
       duplicate_node_id: "存在重复的节点 ID",
       invalid_node_type: "无效的节点类型",

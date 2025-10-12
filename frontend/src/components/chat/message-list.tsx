@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useLayoutEffect, useMemo } from "react";
-import { Checkbox } from "tentix-ui";
+import { Checkbox, ChevronDownIcon } from "tentix-ui";
 import MessageItem from "./message-item.tsx";
 import { TypingIndicator } from "./typing-indicator.tsx";
 import { type TicketType } from "tentix-server/rpc";
@@ -33,7 +33,7 @@ export function MessageList({
 
   // 查找真正的滚动容器（Radix ScrollArea 的 Viewport）
   const [scrollContainerFound, setScrollContainerFound] = useState(false);
-  
+
   useLayoutEffect(() => {
     const findScrollContainer = () => {
       if (messagesListRef.current) {
@@ -48,7 +48,7 @@ export function MessageList({
             setScrollContainerFound(true);
             return true;
           }
-          
+
           // 2. 检查是否有 overflow 样式（兼容其他滚动容器）
           const style = window.getComputedStyle(parent);
           if (style.overflowY === "auto" || style.overflowY === "scroll") {
@@ -56,7 +56,7 @@ export function MessageList({
             setScrollContainerFound(true);
             return true;
           }
-          
+
           parent = parent.parentElement;
         }
       }
@@ -320,20 +320,7 @@ export function MessageList({
             className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-md transition-all hover:bg-primary ml-auto mr-1"
             aria-label="Scroll to bottom"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
+            <ChevronDownIcon className="h-5 w-5" />
           </button>
         </div>
       )}

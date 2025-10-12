@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { RouteTransition } from "@comp/page-transition";
 import WorkflowEditor from "@comp/react-flow/workflow";
 import { useWorkflowStore } from "@store/workflow";
+import { useWorkflowTestChatStore } from "@store/workflow-test-chat";
 import { apiClient } from "@lib/api-client";
 import {
   Button,
@@ -29,9 +30,10 @@ import {
   Users,
   Square,
 } from "lucide-react";
-import { NodeType, type HandleConfig } from "tentix-server/constants";
+import { NodeType } from "tentix-server/constants";
 import { cn } from "@lib/utils";
 import { useAiChatModal } from "@comp/react-flow/components/chat-modal/use-chat-modal";
+import { createAndAddNode } from "@comp/react-flow/tools";
 
 export const Route = createFileRoute("/staff/workflow_/$id")({
   head: ({ params }) => ({
@@ -84,55 +86,9 @@ function RouteComponent() {
 
   const handleAddNode = useCallback((type: NodeType) => {
     const { idGenerator, addNode } = useWorkflowStore.getState();
-
-    // 构造一个基础节点配置，handles 尽量通用
-    const createDefaultHandles = (
-      nodeId: string,
-      type: NodeType,
-    ): HandleConfig[] => {
-      if (type === NodeType.START)
-        return [
-          {
-            id: idGenerator.generateHandleId(nodeId, "out"),
-            type: "source",
-            position: "right",
-          },
-        ];
-      if (type === NodeType.END)
-        return [
-          {
-            id: idGenerator.generateHandleId(nodeId, "in"),
-            type: "target",
-            position: "left",
-          },
-        ];
-      return [
-        {
-          id: idGenerator.generateHandleId(nodeId, "in"),
-          type: "target",
-          position: "left",
-        },
-        {
-          id: idGenerator.generateHandleId(nodeId, "out"),
-          type: "source",
-          position: "right",
-        },
-      ];
-    };
-
     // 在画布中心位置添加节点
     const position = { x: 250, y: 250 };
-
-    const nodeType = type;
-    const nodeId = idGenerator.generateNodeId(nodeType);
-    addNode({
-      id: nodeId,
-      type: nodeType,
-      name: nodeId,
-      position,
-      handles: createDefaultHandles(nodeId, nodeType),
-      description: undefined,
-    });
+    createAndAddNode(type, position, idGenerator, addNode);
   }, []);
 
   // 保存工作流的 mutation
@@ -187,10 +143,18 @@ function RouteComponent() {
     }
     return () => {
       // 离开页面时清空，防止状态泄漏到其他页面
-      useWorkflowStore.getState().setNodes([]);
-      useWorkflowStore.getState().setEdges([]);
+      useWorkflowStore.getState().clear();
     };
   }, [wf]);
+
+  // Set currentWorkflowId when component mounts
+  useEffect(() => {
+    useWorkflowTestChatStore.getState().setCurrentWorkflowId(id);
+    return () => {
+      // 离开页面时清空 workflowId
+      useWorkflowTestChatStore.getState().setCurrentWorkflowId(null);
+    };
+  }, [id]);
 
   if (isLoading) {
     return (

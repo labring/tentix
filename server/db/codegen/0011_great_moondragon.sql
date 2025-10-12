@@ -1,0 +1,2 @@
+ALTER TABLE "tentix"."workflow_test_ticket" ADD COLUMN "workflow_id" uuid;--> statement-breakpoint
+ALTER TABLE "tentix"."workflow_test_ticket" ADD CONSTRAINT "workflow_test_ticket_workflow_id_workflow_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "tentix"."workflow"("id") ON DELETE set null ON UPDATE no action;

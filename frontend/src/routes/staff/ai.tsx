@@ -79,13 +79,18 @@ const createWorkflowFormSchema = z.object({
 
 type CreateWorkflowFormData = z.infer<typeof createWorkflowFormSchema>;
 
-const aiRoleConfigsQueryOptions = queryOptions({
-  queryKey: ["admin-ai-role-configs-all"],
-  queryFn: async () => {
-    const res = await apiClient.admin["ai-role-config"]["all"].$get();
-    return await res.json();
-  },
-});
+const aiRoleConfigsQueryOptions = (keyword?: string) => {
+  const normalized = (keyword ?? "").trim();
+  return queryOptions({
+    queryKey: ["admin-ai-role-configs-all", normalized],
+    queryFn: async () => {
+      const res = await apiClient.admin["ai-role-config"]["all"].$get({
+        query: { keyword: normalized || undefined },
+      });
+      return await res.json();
+    },
+  });
+};
 
 const workflowsBasicQueryOptions = (keyword?: string) => {
   const normalized = (keyword ?? "").trim();
@@ -242,8 +247,34 @@ function AiRolesSkeleton() {
 
 // AI角色 Tab
 function AiRolesTab() {
+  const [keyword, setKeyword] = useState("");
+  const debouncedKeyword = useDebounce(keyword, 300);
+
+  return (
+    <div className="flex h-full flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Input
+            placeholder="搜索 AI 角色"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+
+      <Suspense fallback={<AiRolesSkeleton />}>
+        <AiRolesList keyword={debouncedKeyword} />
+      </Suspense>
+    </div>
+  );
+}
+
+// 子列表：局部 Suspense 内查询，避免输入框丢焦点
+function AiRolesList({ keyword }: { keyword: string }) {
   const queryClient = useQueryClient();
-  const { data: aiUsers } = useSuspenseQuery(aiRoleConfigsQueryOptions);
+  const { data: aiUsers } = useSuspenseQuery(aiRoleConfigsQueryOptions(keyword));
   const { data: allWorkflows } = useSuspenseQuery(workflowsBasicQueryOptions());
   const fileInputsRef = useRef<Record<number, HTMLInputElement | null>>({});
   const [nameDrafts, setNameDrafts] = useState<Record<number, string>>({});

@@ -94,7 +94,7 @@ const WorkflowTextarea = React.forwardRef<
               </DialogTitle>
             </DialogHeader>
 
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 mt-2 mb-2">
               <Textarea
                 value={tempValue}
                 onChange={(e) => setTempValue(e.target.value)}

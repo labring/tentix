@@ -876,6 +876,9 @@ export const workflowTestTicket = tentix.table(
       .$defaultFn(myNanoId(13))
       .notNull(),
     title: varchar("title", { length: 254 }).notNull(),
+    workflowId: uuid("workflow_id").references(() => workflow.id, {
+      onDelete: "set null",
+    }),
     description: jsonb().$type<JSONContentZod>().notNull(),
     module: varchar("module", { length: 50 }).default("").notNull(),
     area: varchar("area", { length: 50 }).default("").notNull(),

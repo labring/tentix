@@ -4,7 +4,7 @@ import * as schema from "@/db/schema.ts";
 import { connectDB } from "../tools";
 import { type WorkflowState, AgentMessage } from "./chat-node";
 import { logError, logInfo } from "@/utils/log.ts";
-import { WorkflowBuilder } from "./agent";
+import { WorkflowBuilder } from "./workflow-builder.ts";
 import { convertToMultimodalMessage, sleep } from "./tools";
 import { basicUserCols } from "../../api/queryParams.ts";
 import { type JSONContentZod } from "../types";
@@ -14,32 +14,43 @@ import { type JSONContent } from "@tiptap/core";
  * 工作流缓存管理类
  *
  * 根据 aiRoleConfig 表管理不同 scope 的工作流缓存
- * 缓存结构: scope -> { aiUserId, compiledWorkflow }
+ * 缓存结构（两层索引）:
+ * - 第一层：workflowId -> compiledWorkflow (避免重复编译)
+ * - 第二层：scope -> { aiUserId, workflowId } (快速查找)
  *
  * @example
  * ```typescript
  * // 初始化缓存
  * await workflowCache.initialize();
  *
- * // 获取工作流
+ * // 根据 scope 获取工作流
  * const workflow = workflowCache.getWorkflow("default_all");
  * if (workflow) {
  *   const result = await workflow.invoke(initialState);
  * }
+ *
+ * // 根据 workflowId 获取工作流
+ * const workflowById = workflowCache.getWorkflowById("wf-123");
  *
  * // 当配置变化时更新缓存
  * await workflowCache.refresh();
  * ```
  */
 export class WorkflowCache {
-  private cache: Map<
+  // 第一层缓存：workflowId -> 编译后的工作流
+  // 一个 workflow 只编译一次，避免重复编译和内存浪费
+  private workflowCache: Map<
+    string,
+    CompiledStateGraph<WorkflowState, Partial<WorkflowState>>
+  > = new Map();
+
+  // 第二层缓存：scope -> { aiUserId, workflowId }
+  // 用于快速根据 scope 查找对应的 AI 用户和工作流
+  private scopeCache: Map<
     string,
     {
       aiUserId: number;
-      compiledWorkflow: CompiledStateGraph<
-        WorkflowState,
-        Partial<WorkflowState>
-      >;
+      workflowId: string;
     }
   > = new Map();
 
@@ -50,8 +61,8 @@ export class WorkflowCache {
    *
    * 流程：
    * 1. 查询所有 isActive=true 的 aiRoleConfig 记录
-   * 2. 对每个配置，根据绑定的 workflow 构建编译后的工作流
-   * 3. 以 scope 为键存储到缓存中
+   * 2. 对每个唯一的 workflow，只构建编译一次并存入第一层缓存
+   * 3. 将 scope 与 { aiUserId, workflowId } 的映射存入第二层缓存
    *
    * @throws {Error} 如果工作流构建失败会记录错误日志，但不会中断整个初始化过程
    * @returns {Promise<void>}
@@ -60,7 +71,7 @@ export class WorkflowCache {
    * ```typescript
    * const cache = new WorkflowCache();
    * await cache.initialize();
-   * console.log(`Cached ${cache.size()} workflows`);
+   * console.log(`Cached ${cache.workflowSize()} unique workflows for ${cache.scopeSize()} scopes`);
    * ```
    */
   async initialize(): Promise<void> {
@@ -68,49 +79,83 @@ export class WorkflowCache {
 
     const db = connectDB();
 
+    // 第一步：查询所有工作流用于第一层缓存
+    const allWorkflows = await db.query.workflow.findMany();
+    logInfo(`[WorkflowCache] Found ${allWorkflows.length} total workflows`);
+
+    // 第二步：查询激活的 AI 角色配置用于第二层缓存
     const activeConfigs = await db.query.aiRoleConfig.findMany({
       where: eq(schema.aiRoleConfig.isActive, true),
       with: {
         workflow: true,
       },
     });
-
     logInfo(
       `[WorkflowCache] Found ${activeConfigs.length} active AI role configs`,
     );
 
-    this.cache.clear();
+    // 清空两层缓存
+    this.workflowCache.clear();
+    this.scopeCache.clear();
 
-    for (const config of activeConfigs) {
+    // 第一层缓存：编译所有工作流（不仅仅是激活的）
+    for (const workflow of allWorkflows) {
       try {
-        if (!config.workflow) {
+        if (!workflow.nodes || !workflow.edges) {
           logInfo(
-            `[WorkflowCache] Skipping config ${config.id} (scope: ${config.scope}) - no workflow bound`,
+            `[WorkflowCache] Skipping workflow ${workflow.id} (${workflow.name}) - invalid nodes or edges`,
           );
           continue;
         }
 
-        const builder = new WorkflowBuilder(config.workflow);
+        const builder = new WorkflowBuilder(workflow);
         const compiledWorkflow = builder.build();
-
-        this.cache.set(config.scope, {
-          aiUserId: config.aiUserId,
-          compiledWorkflow,
-        });
+        this.workflowCache.set(workflow.id, compiledWorkflow);
 
         logInfo(
-          `[WorkflowCache] Cached workflow for scope: ${config.scope} (aiUserId: ${config.aiUserId}, workflowId: ${config.workflowId})`,
+          `[WorkflowCache] Compiled workflow: ${workflow.id} (${workflow.name})`,
         );
       } catch (error) {
         logError(
-          `[WorkflowCache] Failed to build workflow for config ${config.id}`,
+          `[WorkflowCache] Failed to build workflow ${workflow.id}`,
+          error,
+        );
+      }
+    }
+
+    // 第二层缓存：只为激活的配置建立 scope -> { aiUserId, workflowId } 映射
+    for (const config of activeConfigs) {
+      try {
+        if (
+          !config.workflow ||
+          !config.workflowId ||
+          !config.workflow?.nodes ||
+          !config.workflow?.edges
+        ) {
+          logInfo(
+            `[WorkflowCache] Skipping config ${config.id} (scope: ${config.scope}) - no workflow bound or workflow is invalid`,
+          );
+          continue;
+        }
+
+        this.scopeCache.set(config.scope, {
+          aiUserId: config.aiUserId,
+          workflowId: config.workflowId,
+        });
+
+        logInfo(
+          `[WorkflowCache] Mapped scope: ${config.scope} -> workflowId: ${config.workflowId}, aiUserId: ${config.aiUserId}`,
+        );
+      } catch (error) {
+        logError(
+          `[WorkflowCache] Failed to map scope for config ${config.id}`,
           error,
         );
       }
     }
 
     logInfo(
-      `[WorkflowCache] Initialization complete. Cached ${this.cache.size} workflows`,
+      `[WorkflowCache] Initialization complete. Compiled ${this.workflowCache.size} unique workflows for ${this.scopeCache.size} active scopes`,
     );
   }
 
@@ -157,14 +202,60 @@ export class WorkflowCache {
   getWorkflow(
     scope: string,
   ): CompiledStateGraph<WorkflowState, Partial<WorkflowState>> | null {
-    const cached = this.cache.get(scope);
-    if (!cached) {
+    // 先从第二层缓存获取 workflowId
+    const scopeInfo = this.scopeCache.get(scope);
+    if (!scopeInfo) {
       logInfo(
-        `[WorkflowCache] No workflow found for scope: ${scope}. Available scopes: ${Array.from(this.cache.keys()).join(", ")}`,
+        `[WorkflowCache] No workflow found for scope: ${scope}. Available scopes: ${Array.from(this.scopeCache.keys()).join(", ")}`,
       );
       return null;
     }
-    return cached.compiledWorkflow;
+
+    // 再从第一层缓存获取编译后的工作流
+    const workflow = this.workflowCache.get(scopeInfo.workflowId);
+    if (!workflow) {
+      logError(
+        `[WorkflowCache] CRITICAL: Workflow ${scopeInfo.workflowId} not found in workflowCache for scope: ${scope}`,
+      );
+      return null;
+    }
+
+    return workflow;
+  }
+
+  /**
+   * 根据 workflow ID 获取编译后的工作流
+   *
+   * @param {string} workflowId - 工作流 ID
+   * @returns {CompiledStateGraph<WorkflowState, Partial<WorkflowState>> | null}
+   *          编译后的工作流，如果不存在则返回 null
+   *
+   * @example
+   * ```typescript
+   * const workflow = workflowCache.getWorkflowById("wf-123");
+   * if (workflow) {
+   *   const result = await workflow.invoke(initialState);
+   *   console.log(result.response);
+   * } else {
+   *   console.error("Workflow not found");
+   * }
+   * ```
+   */
+  getWorkflowById(
+    workflowId: string | undefined,
+  ): CompiledStateGraph<WorkflowState, Partial<WorkflowState>> | null {
+    if (!workflowId) {
+      logInfo(`[WorkflowCache] No workflowId provided`);
+      return null;
+    }
+    const workflow = this.workflowCache.get(workflowId);
+    if (!workflow) {
+      logInfo(
+        `[WorkflowCache] No workflow found for workflowId: ${workflowId}. Available workflowIds: ${Array.from(this.workflowCache.keys()).join(", ")}`,
+      );
+      return null;
+    }
+    return workflow;
   }
 
   getFallbackWorkflow(): CompiledStateGraph<
@@ -182,6 +273,32 @@ export class WorkflowCache {
   }
 
   /**
+   * 获取 default_all scope 对应的 AI 用户 ID
+   *
+   * @returns {number | null} AI 用户 ID，如果不存在则返回 null
+   *
+   * @example
+   * ```typescript
+   * const aiUserId = workflowCache.getFallbackAiUserId();
+   * if (aiUserId) {
+   *   console.log(`Fallback AI User ID: ${aiUserId}`);
+   * } else {
+   *   console.error("Fallback AI user ID not found");
+   * }
+   * ```
+   */
+  getFallbackAiUserId(): number | null {
+    const aiUserId = this.getAiUserId("default_all");
+    if (!aiUserId) {
+      logError(
+        `[WorkflowCache] CRITICAL: Fallback AI user ID (default_all) not found. ` +
+          `Available scopes: ${this.getScopes().join(", ") || "none"}`,
+      );
+    }
+    return aiUserId;
+  }
+
+  /**
    * 根据 scope 获取对应的 AI 用户 ID
    *
    * @param {string} scope - AI 角色回答范围
@@ -196,8 +313,27 @@ export class WorkflowCache {
    * ```
    */
   getAiUserId(scope: string): number | null {
-    const cached = this.cache.get(scope);
-    return cached?.aiUserId ?? null;
+    const scopeInfo = this.scopeCache.get(scope);
+    return scopeInfo?.aiUserId ?? null;
+  }
+
+  /**
+   * 根据 scope 获取对应的 workflow ID
+   *
+   * @param {string} scope - AI 角色回答范围
+   * @returns {string | null} workflow ID，如果不存在则返回 null
+   *
+   * @example
+   * ```typescript
+   * const workflowId = workflowCache.getWorkflowId("default_all");
+   * if (workflowId) {
+   *   console.log(`Workflow ID: ${workflowId}`);
+   * }
+   * ```
+   */
+  getWorkflowId(scope: string): string | null {
+    const scopeInfo = this.scopeCache.get(scope);
+    return scopeInfo?.workflowId ?? null;
   }
 
   /**
@@ -213,7 +349,44 @@ export class WorkflowCache {
    * ```
    */
   getScopes(): string[] {
-    return Array.from(this.cache.keys());
+    return Array.from(this.scopeCache.keys());
+  }
+
+  /**
+   * 获取所有已缓存的 workflow ID
+   *
+   * @returns {string[]} workflow ID 列表
+   *
+   * @example
+   * ```typescript
+   * const workflowIds = workflowCache.getWorkflowIds();
+   * console.log(`Available workflowIds: ${workflowIds.join(", ")}`);
+   * ```
+   */
+  getWorkflowIds(): string[] {
+    return Array.from(this.workflowCache.keys());
+  }
+
+  /**
+   * 根据 workflowId 获取所有使用该 workflow 的 scope
+   *
+   * @param {string} workflowId - 工作流 ID
+   * @returns {string[]} 使用该 workflow 的 scope 列表
+   *
+   * @example
+   * ```typescript
+   * const scopes = workflowCache.getScopesByWorkflowId("wf-123");
+   * console.log(`Scopes using workflow wf-123: ${scopes.join(", ")}`);
+   * ```
+   */
+  getScopesByWorkflowId(workflowId: string): string[] {
+    const scopes: string[] = [];
+    for (const [scope, info] of this.scopeCache.entries()) {
+      if (info.workflowId === workflowId) {
+        scopes.push(scope);
+      }
+    }
+    return scopes;
   }
 
   /**
@@ -232,21 +405,67 @@ export class WorkflowCache {
    * ```
    */
   has(scope: string): boolean {
-    return this.cache.has(scope);
+    return this.scopeCache.has(scope);
   }
 
   /**
-   * 获取缓存的大小
+   * 检查指定 workflow ID 是否有缓存
    *
-   * @returns {number} 缓存中的工作流数量
+   * @param {string} workflowId - 工作流 ID
+   * @returns {boolean} 是否存在缓存
    *
    * @example
    * ```typescript
-   * console.log(`Cached workflows: ${workflowCache.size()}`);
+   * if (workflowCache.hasWorkflow("wf-123")) {
+   *   const workflow = workflowCache.getWorkflowById("wf-123");
+   * }
+   * ```
+   */
+  hasWorkflow(workflowId: string): boolean {
+    return this.workflowCache.has(workflowId);
+  }
+
+  /**
+   * 获取 scope 缓存的大小
+   *
+   * @returns {number} 缓存中的 scope 数量
+   *
+   * @example
+   * ```typescript
+   * console.log(`Cached scopes: ${workflowCache.scopeSize()}`);
+   * ```
+   */
+  scopeSize(): number {
+    return this.scopeCache.size;
+  }
+
+  /**
+   * 获取 workflow 缓存的大小
+   *
+   * @returns {number} 缓存中的唯一 workflow 数量
+   *
+   * @example
+   * ```typescript
+   * console.log(`Cached unique workflows: ${workflowCache.workflowSize()}`);
+   * ```
+   */
+  workflowSize(): number {
+    return this.workflowCache.size;
+  }
+
+  /**
+   * 获取缓存的大小（兼容旧 API）
+   *
+   * @returns {number} 缓存中的 scope 数量
+   * @deprecated 使用 scopeSize() 或 workflowSize() 代替
+   *
+   * @example
+   * ```typescript
+   * console.log(`Cached scopes: ${workflowCache.size()}`);
    * ```
    */
   size(): number {
-    return this.cache.size;
+    return this.scopeCache.size;
   }
 
   /**
@@ -265,7 +484,8 @@ export class WorkflowCache {
    */
   clear(): void {
     logInfo("[WorkflowCache] Clearing all cached workflows");
-    this.cache.clear();
+    this.workflowCache.clear();
+    this.scopeCache.clear();
   }
 }
 
@@ -287,7 +507,8 @@ export const workflowCache = new WorkflowCache();
 
 // 定义消息查询结果的类型（基于 schema 和查询配置）
 type MessageWithSender = Pick<
-  typeof schema.workflowTestMessage.$inferSelect | typeof schema.chatMessages.$inferSelect,
+  | typeof schema.workflowTestMessage.$inferSelect
+  | typeof schema.chatMessages.$inferSelect,
   "id" | "senderId" | "content" | "createdAt"
 > & {
   sender: Pick<
@@ -302,6 +523,7 @@ export async function getAIResponse(
     "id" | "title" | "description" | "module" | "category"
   >,
   isWorkflowTest: boolean = false,
+  workflowId?: string,
 ): Promise<string> {
   const db = connectDB();
 
@@ -365,7 +587,11 @@ export async function getAIResponse(
   const history: AgentMessage[] = [];
   for (const m of msgs) {
     if (!m) continue;
-    const role = m.sender?.role ?? "user";
+    let role = m.sender?.role ?? "user";
+    // 当 isWorkflowTest 为 true 时，所有非 ai 的 role 都改成 customer
+    if (isWorkflowTest && role !== "ai") {
+      role = "customer";
+    }
     const multimodalContent = convertToMultimodalMessage(
       m.content as JSONContentZod,
     );
@@ -377,9 +603,14 @@ export async function getAIResponse(
     return at - bt;
   });
 
-  const workflow =
-    workflowCache.getWorkflow(ticket.module) ??
-    workflowCache.getFallbackWorkflow();
+  let workflow;
+  if (isWorkflowTest) {
+    workflow = workflowCache.getWorkflowById(workflowId);
+  } else {
+    workflow =
+      workflowCache.getWorkflow(ticket.module) ??
+      workflowCache.getFallbackWorkflow();
+  }
 
   if (!workflow) {
     const availableScopes = workflowCache.getScopes();
@@ -436,6 +667,135 @@ export async function getAIResponse(
   }
 
   return "";
+}
+
+// 流式响应支持
+export async function* streamAIResponse(
+  ticket: Pick<
+    typeof schema.tickets.$inferSelect,
+    "id" | "title" | "description" | "module" | "category"
+  >,
+  isWorkflowTest: boolean = false,
+  workflowId?: string,
+) {
+  const db = connectDB();
+  // 查询该工单的对话（带 sender 用户信息），按时间升序
+  let msgs: MessageWithSender[];
+  if (isWorkflowTest) {
+    msgs = await db.query.workflowTestMessage.findMany({
+      where: (m, { eq }) => eq(m.testTicketId, ticket.id),
+      orderBy: [asc(schema.workflowTestMessage.createdAt)],
+      columns: {
+        id: true,
+        senderId: true,
+        content: true,
+        createdAt: true,
+      },
+      with: {
+        sender: basicUserCols,
+      },
+    });
+  } else {
+    msgs = await db.query.chatMessages.findMany({
+      where: (m, { and, eq }) =>
+        and(eq(m.ticketId, ticket.id), eq(m.isInternal, false)),
+      orderBy: [asc(schema.chatMessages.createdAt)],
+      columns: {
+        id: true,
+        senderId: true,
+        content: true,
+        createdAt: true,
+      },
+      with: {
+        sender: basicUserCols,
+      },
+    });
+  }
+
+  const history: AgentMessage[] = [];
+  for (const m of msgs) {
+    if (!m) continue;
+    let role = m.sender?.role ?? "user";
+    // 当 isWorkflowTest 为 true 时，所有非 ai 的 role 都改成 customer
+    if (isWorkflowTest && role !== "ai") {
+      role = "customer";
+    }
+    const multimodalContent = convertToMultimodalMessage(
+      m.content as JSONContentZod,
+    );
+    history.push({ role, content: multimodalContent, createdAt: m.createdAt });
+  }
+  history.sort((a: AgentMessage, b: AgentMessage) => {
+    const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return at - bt;
+  });
+
+  let workflow;
+  if (isWorkflowTest) {
+    workflow = workflowCache.getWorkflowById(workflowId);
+  } else {
+    workflow =
+      workflowCache.getWorkflow(ticket.module) ??
+      workflowCache.getFallbackWorkflow();
+  }
+
+  if (!workflow) {
+    const availableScopes = workflowCache.getScopes();
+    throw new Error(
+      `No workflow available for scope: ${ticket.module}. ` +
+        `Fallback workflow (default_all) is also missing. ` +
+        `Available scopes: ${availableScopes.join(", ") || "none"}`,
+    );
+  }
+
+  // 准备初始状态
+  const initialState: WorkflowState = {
+    messages: history,
+    currentTicket: ticket
+      ? {
+          id: ticket.id,
+          title: ticket.title,
+          description: ticket.description as JSONContentZod | undefined,
+          module: ticket.module ?? undefined,
+          category: ticket.category ?? undefined,
+        }
+      : undefined,
+    userQuery: "",
+    sentimentLabel: "NEUTRAL",
+    handoffRequired: false,
+    handoffReason: "",
+    handoffPriority: "P2",
+    searchQueries: [],
+    retrievedContext: [],
+    response: "",
+    proposeEscalation: false,
+    escalationReason: "",
+    variables: {},
+  };
+
+  // 使用 stream 方法进行流式处理
+  const stream = await workflow.stream(initialState);
+
+  // BUG: 应该只拿 smart chat 的 response
+  for await (const chunk of stream) {
+    // 不关心具体是哪个节点，只要有response就输出
+    const updates = chunk as Record<string, any>;
+
+    for (const [nodeId, update] of Object.entries(updates)) {
+      if (update?.response) {
+        yield update.response;
+        break; // 假设每个chunk只有一个节点有response
+      }
+    }
+  }
+
+  // for await (const chunk of stream) {
+  //   // 每个 chunk 包含节点名称和状态更新
+  //   if (chunk.generateResponse?.response) {
+  //     yield chunk.generateResponse.response;
+  //   }
+  // }
 }
 
 /**

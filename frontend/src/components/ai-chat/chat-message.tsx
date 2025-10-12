@@ -132,6 +132,7 @@ export interface ChatMessageProps extends Message {
   showTimeStamp?: boolean;
   animation?: Animation;
   actions?: React.ReactNode;
+  isLoading?: boolean;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -141,6 +142,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   showTimeStamp = false,
   animation = "scale",
   actions,
+  isLoading = false,
   experimental_attachments,
   toolInvocations,
   parts,
@@ -176,12 +178,28 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         ) : null}
 
         {typeof content === "string" ? (
-          <div className={cn(chatBubbleVariants({ isUser, animation }))}>
+          <div
+            className={cn(
+              chatBubbleVariants({ isUser, animation }),
+              isLoading && "opacity-60",
+            )}
+          >
             <MarkdownRenderer>{content}</MarkdownRenderer>
+            {isLoading && (
+              <Loader2 className="ml-2 inline-block h-3 w-3 animate-spin" />
+            )}
           </div>
         ) : (
-          <div className={cn(chatBubbleVariants({ isUser, animation }))}>
+          <div
+            className={cn(
+              chatBubbleVariants({ isUser, animation }),
+              isLoading && "opacity-60",
+            )}
+          >
             <RenderContent content={content} />
+            {isLoading && (
+              <Loader2 className="ml-2 inline-block h-3 w-3 animate-spin" />
+            )}
           </div>
         )}
 

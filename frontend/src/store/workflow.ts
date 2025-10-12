@@ -90,6 +90,8 @@ export interface WorkflowState {
   };
   fromConfig: (config: WorkflowConfig) => void;
 
+  clear: () => void;
+
   // 验证功能
   validateWorkflow: () => ValidationResult;
   autoFixIssues: () => { success: boolean; fixedIssues: string[] };
@@ -403,6 +405,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => {
     fromConfig: (config) => {
       const { nodes, edges } = config;
       set({ nodes, edges, isSaved: true });
+    },
+
+    clear: () => {
+      set({ nodes: [], edges: [], isSaved: true });
     },
 
     // 验证功能

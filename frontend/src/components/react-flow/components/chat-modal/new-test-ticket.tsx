@@ -2,12 +2,6 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   useToast,
   Button,
   DescriptionEditor,
@@ -27,6 +21,7 @@ import type { testTicketInsertType, JSONContentZod } from "tentix-server/types";
 import { moduleEnumArray } from "tentix-server/constants";
 import { processFilesAndUpload } from "@comp/chat/upload-utils";
 import { isLocalFileNode } from "@comp/chat/utils";
+import { useWorkflowTestChatStore } from "@store/workflow-test-chat";
 
 interface UploadProgress {
   uploaded: number;
@@ -41,9 +36,19 @@ const getErrorMessage = (error: any, fallback: string): string => {
   return fallback;
 };
 
-export function NewTestTicket() {
+interface NewTestTicketProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
+export function NewTestTicket({
+  onSuccess,
+  onCancel,
+}: NewTestTicketProps = {}) {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { currentWorkflowId } = useWorkflowTestChatStore();
+
   const ticketFormSchema = z.object({
     title: z
       .string()
@@ -70,11 +75,15 @@ export function NewTestTicket() {
 
   const createTicketMutation = useMutation({
     mutationFn: async (data: TicketFormData) => {
-      // Transform form data to match server schema
+      if (!currentWorkflowId) {
+        throw new Error("no workflow Id");
+      }
+
       const serverData: testTicketInsertType = {
         title: data.title,
         module: data.module,
         description: data.description,
+        workflowId: currentWorkflowId,
       };
 
       const res = await apiClient.admin["test-ticket"].create.$post({
@@ -90,9 +99,11 @@ export function NewTestTicket() {
     },
     onSuccess: (_) => {
       queryClient.invalidateQueries({
-        queryKey: ["getTestTickets"],
+        queryKey: ["testTickets"],
       });
       toast({ title: t("ticket_created"), variant: "default" });
+      form.reset();
+      onSuccess?.();
     },
     onError: (error: Error) => {
       toast({
@@ -103,7 +114,6 @@ export function NewTestTicket() {
     },
   });
 
-  // 检查是否有需要上传的文件
   const hasFilesToUpload = (content: JSONContentZod): boolean => {
     let hasFiles = false;
 
@@ -121,7 +131,6 @@ export function NewTestTicket() {
     return hasFiles;
   };
 
-  // Submit handlers
   const submitTicket = async () => {
     const isValid = await form.trigger();
 
@@ -146,10 +155,8 @@ export function NewTestTicket() {
       const formData = form.getValues();
       let processedDescription = formData.description;
 
-      // 检查描述中是否有需要上传的文件
       if (formData.description && hasFilesToUpload(formData.description)) {
         try {
-          // 处理文件上传
           const { processedContent } = await processFilesAndUpload(
             formData.description,
             (progress) => setUploadProgress(progress),
@@ -173,7 +180,6 @@ export function NewTestTicket() {
         }
       }
 
-      // 使用处理后的描述内容
       const finalFormData = {
         ...formData,
         description: processedDescription,
@@ -209,140 +215,131 @@ export function NewTestTicket() {
   const isLoading = createTicketMutation.isPending || uploadProgress !== null;
 
   return (
-    <div className="w-230 p-8  bg-white rounded-2xl border border-zinc-200">
-      <DialogDescription>
-        {uploadProgress ? (
-          <div className="space-y-2">
-            <div>{t("are_you_sure_submit_ticket")}</div>
-            <div className="text-sm text-zinc-600">
-              {t("uploading_files", {
-                uploaded: uploadProgress.uploaded,
-                total: uploadProgress.total,
-              })}
-              {uploadProgress.currentFile && ` - ${uploadProgress.currentFile}`}
-            </div>
+    <div className="space-y-4">
+      {/* Upload progress indicator */}
+      {uploadProgress && (
+        <div className="p-3 bg-muted rounded-lg">
+          <div className="text-sm text-muted-foreground">
+            {t("uploading_files", {
+              uploaded: uploadProgress.uploaded,
+              total: uploadProgress.total,
+            })}
+            {uploadProgress.currentFile && ` - ${uploadProgress.currentFile}`}
           </div>
-        ) : (
-          t("are_you_sure_submit_ticket")
-        )}
-      </DialogDescription>
-      <form id="ticket-form" name="ticket-form" onSubmit={handleSubmit}>
-        <div className="flex flex-col gap-5 items-center justify-center">
-          <div className="flex flex-col gap-1 w-full">
-            <p className="text-black text-xl font-medium leading-7 normal-case">
-              {joinTrans([t("tkt"), t("info")])}
-            </p>
-            <p className="text-zinc-500 text-sm font-normal leading-5">
-              {t("plz_pvd_info")}
-            </p>
-          </div>
-          {/* form fields */}
-          <div className="space-y-2 w-full">
-            <Label htmlFor="title-input" className="normal-case">
-              <span className="text-red-600">*</span>
-              {t("title")}
-            </Label>
-            <Input
-              id="title-input"
-              {...register("title")}
-              placeholder={t("title_ph")}
-              className={
-                errors.title
-                  ? "border-red-500 focus:border-red-500 rounded-lg"
-                  : "rounded-lg"
-              }
-            />
-            {errors.title && (
-              <p className="text-red-600 text-sm">
-                {getErrorMessage(errors.title, t("field_required"))}
-              </p>
-            )}
-          </div>
-
-          {/* Module */}
-          <div className="space-y-2 w-full">
-            <Label htmlFor="module" className="normal-case">
-              <span className="text-red-600">*</span>
-              {t("module")}
-            </Label>
-            <Controller
-              control={control}
-              name="module"
-              render={({ field }) => (
-                <Select {...field} onValueChange={field.onChange}>
-                  <SelectTrigger
-                    id="module"
-                    className={
-                      errors.module
-                        ? "border-red-500 focus:border-red-500 rounded-lg"
-                        : "rounded-lg"
-                    }
-                  >
-                    <SelectValue
-                      placeholder={joinTrans([t("select"), t("module")])}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {moduleEnumArray
-                      .filter((m) => m !== "all")
-                      .map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {t(m)}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.module && (
-              <p className="text-red-600 text-sm">
-                {getErrorMessage(errors.module, t("field_required"))}
-              </p>
-            )}
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2 w-full">
-            <Label htmlFor="description" className="normal-case">
-              <span className="text-red-600">*</span>
-              {t("desc")}
-            </Label>
-            <Controller
-              control={control}
-              name="description"
-              render={({ field }) => (
-                <DescriptionEditor
-                  {...field}
-                  value={field.value}
-                  onChange={(v) => field.onChange(v as JSONContentZod)}
-                  editorContentClassName="overflow-auto h-full"
-                  placeholder={t("desc_ph")}
-                  output="json"
-                  autofocus
-                  editable
-                  editorClassName="focus:outline-none h-full px-3 py-2"
-                  className="border border-zinc-200 rounded-lg"
-                />
-              )}
+          <div className="mt-2 h-2 bg-background rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{
+                width: `${(uploadProgress.uploaded / uploadProgress.total) * 100}%`,
+              }}
             />
           </div>
         </div>
-      </form>
+      )}
 
-      <Button variant="outline" onClick={() => {}}>
-        {t("cancel")}
-      </Button>
-      <Button
-        onClick={handleSubmit}
-        className="w-20 h-10 px-4 py-2 bg-black"
-        disabled={isLoading}
-      >
-        {uploadProgress
-          ? `${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
-          : isLoading
-            ? "..."
-            : t("submit")}
-      </Button>
+      <form id="ticket-form" onSubmit={handleSubmit} className="space-y-4">
+        {/* Description text */}
+        <p className="text-sm text-muted-foreground">{t("plz_pvd_info")}</p>
+
+        {/* Title */}
+        <div className="space-y-2">
+          <Label htmlFor="title-input">
+            <span className="text-destructive">*</span> {t("title")}
+          </Label>
+          <Input
+            id="title-input"
+            {...register("title")}
+            placeholder={t("title_ph")}
+            className={errors.title ? "border-destructive" : ""}
+          />
+          {errors.title && (
+            <p className="text-sm text-destructive">
+              {getErrorMessage(errors.title, t("field_required"))}
+            </p>
+          )}
+        </div>
+
+        {/* Module */}
+        <div className="space-y-2">
+          <Label htmlFor="module">
+            <span className="text-destructive">*</span> {t("module")}
+          </Label>
+          <Controller
+            control={control}
+            name="module"
+            render={({ field }) => (
+              <Select {...field} onValueChange={field.onChange}>
+                <SelectTrigger
+                  id="module"
+                  className={errors.module ? "border-destructive" : ""}
+                >
+                  <SelectValue
+                    placeholder={joinTrans([t("select"), t("module")])}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {moduleEnumArray
+                    .filter((m) => m !== "all")
+                    .map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {t(m)}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {errors.module && (
+            <p className="text-sm text-destructive">
+              {getErrorMessage(errors.module, t("field_required"))}
+            </p>
+          )}
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2">
+          <Label htmlFor="description">
+            <span className="text-destructive">*</span> {t("desc")}
+          </Label>
+          <Controller
+            control={control}
+            name="description"
+            render={({ field }) => (
+              <DescriptionEditor
+                {...field}
+                value={field.value}
+                onChange={(v) => field.onChange(v as JSONContentZod)}
+                editorContentClassName="min-h-[200px] max-h-[300px] overflow-auto"
+                placeholder={t("desc_ph")}
+                output="json"
+                autofocus
+                editable
+                editorClassName="focus:outline-none px-3 py-2"
+                className="border rounded-lg"
+              />
+            )}
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex justify-end gap-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isLoading}
+          >
+            {t("cancel")}
+          </Button>
+          <Button type="submit" disabled={isLoading || !currentWorkflowId}>
+            {uploadProgress
+              ? `${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
+              : isLoading
+                ? "..."
+                : t("submit")}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

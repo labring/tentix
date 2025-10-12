@@ -11,7 +11,7 @@ import {
   saveMessageToDb,
   withdrawMessage,
 } from "@/utils/index.ts";
-import { getAIResponse } from "@/utils/kb/agent.ts";
+import { getAIResponse } from "@/utils/kb/workflow-cache.ts";
 import { runWithInterval } from "@/utils/runtime.ts";
 import { upgradeWebSocket, WS_CLOSE_CODE } from "@/utils/websocket.ts";
 import {
@@ -568,6 +568,7 @@ const chatRouter = factory
   )
   .get(
     "/onlineClients",
+    authMiddleware,
     describeRoute({
       tags: ["Chat"],
       description: "Get online clients",

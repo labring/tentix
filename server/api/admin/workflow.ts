@@ -28,6 +28,7 @@ import {
   WorkflowCreateSchema,
   WorkflowPatchSchema,
 } from "@/utils/types.ts";
+import { workflowCache } from "@/utils/kb/workflow-cache.ts";
 
 const aiRoleConfigResponseSchema = createSelectSchema(schema.aiRoleConfig).pick(
   {
@@ -77,6 +78,17 @@ const PageQuerySchema = z
   })
   .strict();
 
+// AI Role Config query schema with keyword search
+const AiRoleConfigQuerySchema = PageQuerySchema.extend({
+  keyword: z
+    .string()
+    .optional()
+    .openapi({
+      description:
+        "Keyword to search in workflow ID, workflow name, AI user name, or scope",
+    }),
+}).strict();
+
 export const workflowRouter = new Hono<AuthEnv>()
   .use(authMiddleware)
   .use(adminOnlyMiddleware())
@@ -84,7 +96,7 @@ export const workflowRouter = new Hono<AuthEnv>()
   .get(
     "/ai-role-config",
     describeRoute({
-      description: "Get AI role configs (paginated)",
+      description: "Get AI role configs (paginated) with keyword search",
       tags: ["Admin"],
       responses: {
         200: {
@@ -104,32 +116,74 @@ export const workflowRouter = new Hono<AuthEnv>()
         },
       },
     }),
-    zValidator("query", PageQuerySchema),
+    zValidator("query", AiRoleConfigQuerySchema),
     async (c) => {
       const db = c.get("db");
-      const { page, pageSize } = c.req.valid("query");
+      const { page, pageSize, keyword } = c.req.valid("query");
       const offset = (page - 1) * pageSize;
 
-      const totalCountResult = await db
-        .select({ count: count() })
-        .from(schema.users)
-        .where(eq(schema.users.role, "ai"));
-      const totalCount = totalCountResult[0]?.count || 0;
-
+      // 使用 query builder 的 findMany，但需要手动 join 来支持搜索
       const users = await db.query.users.findMany({
         where: eq(schema.users.role, "ai"),
         orderBy: [desc(schema.users.id)],
-        limit: pageSize,
-        offset,
-        with: { aiRoleConfig: true },
+        with: {
+          aiRoleConfig: {
+            with: {
+              workflow: true,
+            },
+          },
+        },
         columns: { id: true, name: true, avatar: true },
       });
 
-      const items = users.map((u) => ({
+      // 过滤关键词
+      let filteredUsers = users;
+      if (keyword && keyword.trim()) {
+        const trimmed = keyword.trim().toLowerCase();
+        filteredUsers = users.filter((u) => {
+          // 搜索 AI user name
+          if (u.name?.toLowerCase().includes(trimmed)) return true;
+
+          // 搜索 scope
+          if (u.aiRoleConfig?.scope?.toLowerCase().includes(trimmed))
+            return true;
+
+          // 搜索 workflow ID
+          if (u.aiRoleConfig?.workflowId?.toLowerCase().includes(trimmed))
+            return true;
+
+          // 搜索 workflow name
+          if (
+            u.aiRoleConfig?.workflow?.name?.toLowerCase().includes(trimmed)
+          )
+            return true;
+
+          return false;
+        });
+      }
+
+      const totalCount = filteredUsers.length;
+
+      // 分页
+      const paginatedUsers = filteredUsers.slice(offset, offset + pageSize);
+
+      const items = paginatedUsers.map((u) => ({
         id: u.id,
         name: u.name,
         avatar: u.avatar,
-        ...(u.aiRoleConfig ? { aiRoleConfig: u.aiRoleConfig } : {}),
+        ...(u.aiRoleConfig
+          ? {
+              aiRoleConfig: {
+                id: u.aiRoleConfig.id,
+                aiUserId: u.aiRoleConfig.aiUserId,
+                isActive: u.aiRoleConfig.isActive,
+                scope: u.aiRoleConfig.scope,
+                workflowId: u.aiRoleConfig.workflowId,
+                createdAt: u.aiRoleConfig.createdAt,
+                updatedAt: u.aiRoleConfig.updatedAt,
+              },
+            }
+          : {}),
       }));
 
       return c.json({
@@ -144,7 +198,8 @@ export const workflowRouter = new Hono<AuthEnv>()
   .get(
     "/ai-role-config/all",
     describeRoute({
-      description: "Get all AI role configs (non-paginated)",
+      description:
+        "Get all AI role configs (non-paginated) with keyword search",
       tags: ["Admin"],
       responses: {
         200: {
@@ -157,21 +212,80 @@ export const workflowRouter = new Hono<AuthEnv>()
         },
       },
     }),
+    zValidator(
+      "query",
+      z
+        .object({
+          keyword: z
+            .string()
+            .optional()
+            .openapi({
+              description:
+                "Keyword to search in workflow ID, workflow name, AI user name, or scope",
+            }),
+        })
+        .strict(),
+    ),
     async (c) => {
       const db = c.get("db");
+      const { keyword } = c.req.valid("query");
 
       const users = await db.query.users.findMany({
         where: eq(schema.users.role, "ai"),
         orderBy: [desc(schema.users.id)],
-        with: { aiRoleConfig: true },
+        with: {
+          aiRoleConfig: {
+            with: {
+              workflow: true,
+            },
+          },
+        },
         columns: { id: true, name: true, avatar: true },
       });
 
-      const items = users.map((u) => ({
+      // 过滤关键词
+      let filteredUsers = users;
+      if (keyword && keyword.trim()) {
+        const trimmed = keyword.trim().toLowerCase();
+        filteredUsers = users.filter((u) => {
+          // 搜索 AI user name
+          if (u.name?.toLowerCase().includes(trimmed)) return true;
+
+          // 搜索 scope
+          if (u.aiRoleConfig?.scope?.toLowerCase().includes(trimmed))
+            return true;
+
+          // 搜索 workflow ID
+          if (u.aiRoleConfig?.workflowId?.toLowerCase().includes(trimmed))
+            return true;
+
+          // 搜索 workflow name
+          if (
+            u.aiRoleConfig?.workflow?.name?.toLowerCase().includes(trimmed)
+          )
+            return true;
+
+          return false;
+        });
+      }
+
+      const items = filteredUsers.map((u) => ({
         id: u.id,
         name: u.name,
         avatar: u.avatar,
-        ...(u.aiRoleConfig ? { aiRoleConfig: u.aiRoleConfig } : {}),
+        ...(u.aiRoleConfig
+          ? {
+              aiRoleConfig: {
+                id: u.aiRoleConfig.id,
+                aiUserId: u.aiRoleConfig.aiUserId,
+                isActive: u.aiRoleConfig.isActive,
+                scope: u.aiRoleConfig.scope,
+                workflowId: u.aiRoleConfig.workflowId,
+                createdAt: u.aiRoleConfig.createdAt,
+                updatedAt: u.aiRoleConfig.updatedAt,
+              },
+            }
+          : {}),
       }));
 
       return c.json(items);
@@ -259,6 +373,10 @@ export const workflowRouter = new Hono<AuthEnv>()
           .set(updateData)
           .where(eq(schema.aiRoleConfig.id, existing.id))
           .returning();
+
+        // 刷新 workflow 缓存，因为 AI 角色配置发生了变化
+        await workflowCache.refresh();
+
         return c.json(updated);
       } else {
         const [created] = await db
@@ -270,6 +388,10 @@ export const workflowRouter = new Hono<AuthEnv>()
             workflowId: payload.workflowId ?? null,
           })
           .returning();
+
+        // 刷新 workflow 缓存，因为新增了 AI 角色配置
+        await workflowCache.refresh();
+
         return c.json(created);
       }
     },
@@ -505,6 +627,9 @@ export const workflowRouter = new Hono<AuthEnv>()
         .insert(schema.workflow)
         .values({ name, description, nodes, edges })
         .returning();
+
+      // 刷新 workflow 缓存，因为新增了 workflow
+      await workflowCache.refresh();
       return c.json(created);
     },
   )
@@ -543,6 +668,10 @@ export const workflowRouter = new Hono<AuthEnv>()
         })
         .where(eq(schema.workflow.id, id))
         .returning();
+
+      // 刷新 workflow 缓存，因为 workflow 定义发生了变化
+      await workflowCache.refresh();
+
       return c.json(updated);
     },
   )
@@ -564,12 +693,31 @@ export const workflowRouter = new Hono<AuthEnv>()
         throw new HTTPException(404, { message: t("workflow_not_found") });
       }
 
+      // 检查是否有激活的 aiRoleConfig 正在使用这个 workflow
+      const activeConfigsUsingWorkflow = await db
+        .select({ count: count() })
+        .from(schema.aiRoleConfig)
+        .where(
+          and(
+            eq(schema.aiRoleConfig.workflowId, id),
+            eq(schema.aiRoleConfig.isActive, true),
+          ),
+        );
+
+      if ((activeConfigsUsingWorkflow[0]?.count || 0) > 0) {
+        throw new HTTPException(409, {
+          message: t("workflow_in_use_by_active_config"),
+        });
+      }
+
       await db.delete(schema.workflow).where(eq(schema.workflow.id, id));
+
+      // 刷新 workflow 缓存
+      await workflowCache.refresh();
+
       return c.json({ success: true });
     },
   );
-
-// already exported above with export const
 
 function assertWorkflowNodesAndEdges(
   nodes: Array<

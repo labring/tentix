@@ -246,17 +246,7 @@ export function useTicketWebSocket({
         onError?.(error);
       }
     },
-    [
-      ticketId,
-      userId,
-      addMessage,
-      handleSentMessage,
-      updateWithdrawMessage,
-      readMessage,
-      onUserTyping,
-      onError,
-      toast,
-    ],
+    [ticketId, userId],
   );
 
   // ==================== 重连逻辑 ====================
@@ -331,16 +321,7 @@ export function useTicketWebSocket({
       onError?.(event);
       setIsLoading(false);
     };
-  }, [
-    ticketId,
-    token,
-    cleanup,
-    startHeartbeat,
-    stopHeartbeat,
-    handleWebSocketMessage,
-    attemptReconnect,
-    onError,
-  ]);
+  }, [ticketId, token]);
 
   // ==================== 初始化连接 ====================
   useEffect(() => {

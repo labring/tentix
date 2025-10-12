@@ -8,12 +8,13 @@ import { z } from "zod";
 import { upgradeWebSocket, WS_CLOSE_CODE } from "@/utils/websocket.ts";
 import { detectLocale } from "@/utils";
 import { connectDB } from "@/utils/tools";
-import { logInfo, logError, logWarning } from "@/utils/index.ts";
 import {
-  getAIResponse,
-  convertAIResponseToTipTapJSON,
-  workflowCache,
-} from "@/utils/kb/workflow-cache.ts";
+  logInfo,
+  logError,
+  logWarning,
+  markdownToTipTapJSON,
+} from "@/utils/index.ts";
+import { getAIResponse, workflowCache } from "@/utils/kb/workflow-cache.ts";
 import {
   workflowTestChatClientSchema,
   workflowTestChatServerType,
@@ -48,6 +49,7 @@ interface AIProcessManager {
 const querySchema = z.object({
   token: z.string().min(1, "Token cannot be empty"),
   ticketId: z.string().min(1, "TicketId cannot be empty"),
+  workflowId: z.string().min(1, "WorkflowId cannot be empty"),
 });
 
 // ===== 工具函数 =====
@@ -211,7 +213,7 @@ export const chatRouter = new Hono<AuthEnv>().get(
   zValidator("query", querySchema),
   upgradeWebSocket(async (c) => {
     const t = c.get("i18n").getFixedT(detectLocale(c));
-    const { token, ticketId } = c.req.query();
+    const { token, ticketId, workflowId } = c.req.query();
 
     try {
       const cryptoKey = c.get("cryptoKey")();
@@ -249,6 +251,16 @@ export const chatRouter = new Hono<AuthEnv>().get(
         return {
           onOpen(_evt, ws) {
             ws.close(WS_CLOSE_CODE.POLICY_VIOLATION, "Invalid ticketId");
+          },
+        };
+      }
+      if (!workflowId) {
+        logWarning(
+          `[Workflow Chat WebSocket] Invalid workflowId - User: ${userId}, Workflow: ${workflowId}`,
+        );
+        return {
+          onOpen(_evt, ws) {
+            ws.close(WS_CLOSE_CODE.POLICY_VIOLATION, "Invalid workflowId");
           },
         };
       }
@@ -357,12 +369,11 @@ export const chatRouter = new Hono<AuthEnv>().get(
                   messageId: messageResult.id,
                   ticketId,
                 });
-
                 // 🆕 标记 AI 处理开始
                 aiProcessManager.startProcessing();
 
                 try {
-                  await aiHandler(ticketId, ws);
+                  await aiHandler(ticketId, ws, workflowId);
                   // 🆕 AI 处理成功完成
                   aiProcessManager.finishProcessing();
                 } catch (error) {
@@ -427,7 +438,7 @@ export const chatRouter = new Hono<AuthEnv>().get(
   }),
 );
 
-async function aiHandler(ticketId: string, ws: WSContext) {
+async function aiHandler(ticketId: string, ws: WSContext, workflowId: string) {
   const db = connectDB();
   const ticket = await db.query.workflowTestTicket.findFirst({
     where: (t, { eq }) => eq(t.id, ticketId),
@@ -443,14 +454,16 @@ async function aiHandler(ticketId: string, ws: WSContext) {
     throw new Error("Ticket not found");
   }
 
-  const aiUserId = workflowCache.getAiUserId(ticket.module);
+  const aiUserId =
+    workflowCache.getAiUserId(ticket.module) ??
+    workflowCache.getFallbackAiUserId();
 
   if (!aiUserId) {
     throw new Error("AI user not found");
   }
 
-  const result = await getAIResponse(ticket, true);
-  const JSONContent = convertAIResponseToTipTapJSON(result);
+  const result = await getAIResponse(ticket, true, workflowId);
+  const JSONContent = markdownToTipTapJSON(result);
   const messageResult = await saveMessageToDb(ticketId, aiUserId, JSONContent);
 
   sendWSMessage(ws, {
