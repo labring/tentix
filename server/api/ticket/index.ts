@@ -8,6 +8,7 @@ import {
   validateJSONContent,
   zs,
   detectLocale,
+  logInfo,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq, and, desc, count, or, like, inArray, gte, lte } from "drizzle-orm";
@@ -790,6 +791,7 @@ const ticketRouter = factory
       });
 
       if (!isFeishuConfigured()) {
+        logInfo(`Feishu is not configured, skipping notification`);
         return c.json({
           success: true,
           message: `Ticket transferred successfully, but Feishu is not configured`,

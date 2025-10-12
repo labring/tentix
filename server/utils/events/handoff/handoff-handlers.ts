@@ -57,6 +57,7 @@ async function sendNotificationByChannel(
 // 飞书通知实现
 async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
   if (!isFeishuConfigured()) {
+    logInfo(`Feishu is not configured, skipping notification`);
     return;
   }
 
