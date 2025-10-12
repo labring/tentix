@@ -6,7 +6,7 @@ import {
   connectDB,
   logError,
   logInfo,
-  markdownToTipTapJSON,
+  textToTipTapJSON,
   saveMessageReadStatus,
   saveMessageToDb,
   withdrawMessage,
@@ -382,7 +382,7 @@ namespace aiHandler {
       2000,
       async (result) => {
         try {
-          const JSONContent = markdownToTipTapJSON(result);
+          const JSONContent = textToTipTapJSON(result);
           const savedAIMessage = await saveMessageToDb(
             ticketId,
             aiUserId,

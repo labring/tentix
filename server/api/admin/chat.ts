@@ -12,7 +12,7 @@ import {
   logInfo,
   logError,
   logWarning,
-  markdownToTipTapJSON,
+  textToTipTapJSON,
 } from "@/utils/index.ts";
 import { getAIResponse, workflowCache } from "@/utils/kb/workflow-cache.ts";
 import {
@@ -463,7 +463,7 @@ async function aiHandler(ticketId: string, ws: WSContext, workflowId: string) {
   }
 
   const result = await getAIResponse(ticket, true, workflowId);
-  const JSONContent = markdownToTipTapJSON(result);
+  const JSONContent = textToTipTapJSON(result);
   const messageResult = await saveMessageToDb(ticketId, aiUserId, JSONContent);
 
   sendWSMessage(ws, {
