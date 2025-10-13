@@ -19,7 +19,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  timeAgo,
+  dateTimeFmt,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -179,7 +179,7 @@ const OtherMessage = ({
               {messageSender?.name ?? "Unknown"}
             </span>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              {timeAgo(message.createdAt)}
+              {dateTimeFmt(message.createdAt)}
             </span>
             {notCustomer && (
               <>
@@ -294,7 +294,9 @@ const OtherMessage = ({
                   </PopoverTrigger>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-zinc-900 text-xs">{t("unhelpful_response")}</p>
+                  <p className="text-zinc-900 text-xs">
+                    {t("unhelpful_response")}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -435,8 +437,11 @@ const MyMessage = ({
   message: TicketType["messages"][number];
 }) => {
   const { sessionMembers } = useSessionMembersStore();
-  const { isMessageSending, withdrawMessageFunc: withdrawMessage, kbSelectionMode } =
-    useChatStore();
+  const {
+    isMessageSending,
+    withdrawMessageFunc: withdrawMessage,
+    kbSelectionMode,
+  } = useChatStore();
   const { t } = useTranslation();
 
   const messageSender = sessionMembers?.find(
@@ -472,7 +477,7 @@ const MyMessage = ({
                 {isMessageSending(message.id) && (
                   <Loader2Icon className="h-3 w-3 animate-spin" />
                 )}
-                {timeAgo(message.createdAt)}
+                {dateTimeFmt(message.createdAt)}
               </span>
             </div>
             {message.isInternal && (
@@ -509,32 +514,34 @@ const MyMessage = ({
         </div>
 
         {/* action buttons */}
-        {!message.withdrawn && !isMessageSending(message.id) && !kbSelectionMode && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="smIcon"
-                className="mt-auto h-9 w-9 py-2 px-3 rounded-lg"
-              >
-                <Ellipsis className="h-5 w-5 text-zinc-500" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-fit  p-2 rounded-xl" align="end">
-              <div
-                className="flex items-center gap-2 px-2 py-2.5 rounded-md cursor-pointer hover:bg-zinc-100 transition-colors"
-                onClick={() => {
-                  withdrawMessage(message.id);
-                }}
-              >
-                <Undo2 className="h-4 w-4 text-zinc-500" />
-                <span className="text-sm font-normal leading-5">
-                  {t("withdraw")}
-                </span>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
+        {!message.withdrawn &&
+          !isMessageSending(message.id) &&
+          !kbSelectionMode && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="smIcon"
+                  className="mt-auto h-9 w-9 py-2 px-3 rounded-lg"
+                >
+                  <Ellipsis className="h-5 w-5 text-zinc-500" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-fit  p-2 rounded-xl" align="end">
+                <div
+                  className="flex items-center gap-2 px-2 py-2.5 rounded-md cursor-pointer hover:bg-zinc-100 transition-colors"
+                  onClick={() => {
+                    withdrawMessage(message.id);
+                  }}
+                >
+                  <Undo2 className="h-4 w-4 text-zinc-500" />
+                  <span className="text-sm font-normal leading-5">
+                    {t("withdraw")}
+                  </span>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
       </div>
     </div>
   );
