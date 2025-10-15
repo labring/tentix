@@ -11,9 +11,6 @@ import {
 } from "lucide-react";
 import { type TicketType } from "tentix-server/rpc";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   Badge,
   Button,
   Popover,
@@ -34,6 +31,7 @@ import { memo, useState, useEffect } from "react";
 import { cn } from "@lib/utils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { submitMessageFeedback } from "../../lib/query.ts";
+import { CachedAvatar } from "../common/cached-avatar.tsx";
 
 interface MessageItemProps {
   message: TicketType["messages"][number];
@@ -158,15 +156,12 @@ const OtherMessage = ({
   return (
     <div className="flex  flex-col animate-fadeIn justify-start">
       <div className="flex max-w-[85%] gap-3 min-w-0">
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarImage
-            src={messageSender?.avatar}
-            alt={messageSender?.nickname ?? t("unknown")}
-          />
-          <AvatarFallback>
-            {messageSender?.nickname?.charAt(0) ?? "U"}
-          </AvatarFallback>
-        </Avatar>
+        <CachedAvatar
+          className="h-8 w-8 shrink-0"
+          src={messageSender?.avatar}
+          alt={messageSender?.nickname}
+          fallback={messageSender?.nickname?.charAt(0) ?? "U"}
+        />
         <div
           className={cn(
             "flex flex-col gap-2 min-w-0 flex-1",
@@ -451,15 +446,12 @@ const MyMessage = ({
   return (
     <div className="flex animate-fadeIn justify-end">
       <div className="flex max-w-[85%]  flex-row-reverse min-w-0">
-        <Avatar className="h-8 w-8 shrink-0 ml-3">
-          <AvatarImage
-            src={messageSender?.avatar}
-            alt={messageSender?.nickname ?? t("unknown")}
-          />
-          <AvatarFallback>
-            {messageSender?.nickname?.charAt(0) ?? "U"}
-          </AvatarFallback>
-        </Avatar>
+        <CachedAvatar
+          className="h-8 w-8 shrink-0 ml-3"
+          src={messageSender?.avatar}
+          alt={messageSender?.nickname}
+          fallback={messageSender?.nickname?.charAt(0) ?? "U"}
+        />
         <div
           className={cn(
             "flex flex-col gap-2 rounded-xl py-4 px-5 ml-1 min-w-0 flex-1",
@@ -563,4 +555,8 @@ const MessageItem = ({ message }: MessageItemProps) => {
   );
 };
 
+/* props (message) 没有变化时，不重新渲染组件，
+当 messagelist 重新渲染 messageItem 时，对于已经渲染的 messageItem 不重新渲染，
+只渲染新的 messageItem （新消息）。
+*/
 export default memo(MessageItem);

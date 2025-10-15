@@ -13,6 +13,7 @@ import { useTranslation } from "i18n";
 import { useMutation } from "@tanstack/react-query";
 import { joinTicketAsTechnician } from "@lib/query";
 import useLocalUser from "@hook/use-local-user.tsx";
+import { usePreloadAvatars } from "@comp/common/cached-avatar.tsx";
 
 interface StaffChatProps {
   ticket: TicketType;
@@ -42,6 +43,13 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
     clearMessages,
     currentTicketId,
   } = useChatStore();
+
+  // 预加载聊天列表头像
+  const avatarUrls = useMemo(
+    () => sessionMembers?.map((m) => m.avatar).filter(Boolean) || [],
+    [sessionMembers],
+  );
+  usePreloadAvatars(avatarUrls);
 
   const { toast } = useToast();
   // Check if current user is a member of this ticket

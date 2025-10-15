@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageInput } from "./message-input.js";
 import { MessageList } from "../message-list.tsx";
 import { TicketInfoBox } from "../ticket-info-box.tsx";
@@ -11,6 +11,7 @@ import "react-photo-view/dist/react-photo-view.css";
 import { PhotoProvider } from "react-photo-view";
 import { useToast, ScrollArea } from "tentix-ui";
 import { useTranslation } from "i18n";
+import { usePreloadAvatars } from "@comp/common/cached-avatar.tsx";
 
 export function UserChat({
   ticket,
@@ -37,6 +38,13 @@ export function UserChat({
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   const sentReadStatusRef = useRef<Set<number>>(new Set());
   const { toast } = useToast();
+
+  // 预加载聊天列表头像
+  const avatarUrls = useMemo(
+    () => sessionMembers?.map((m) => m.avatar).filter(Boolean) || [],
+    [sessionMembers],
+  );
+  usePreloadAvatars(avatarUrls);
 
   // Handle user typing
   const handleUserTyping = (typingUserId: number, status: "start" | "stop") => {
