@@ -27,7 +27,6 @@ import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
 import {
   getIndex,
-  moduleEnumArray,
   ticketCategoryEnumArray,
   ticketPriorityEnumArray,
   TicketStatus,
@@ -339,7 +338,7 @@ const ticketRouter = factory
             description:
               "Filter tickets created before this timestamp (inclusive)",
           }),
-        module: z.enum(moduleEnumArray).optional().openapi({
+        module: z.string().optional().openapi({
           description: "Filter tickets by module",
         }),
       }),

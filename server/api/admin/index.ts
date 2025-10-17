@@ -287,10 +287,10 @@ const adminRouter = factory
         user: updatedUser,
       });
     },
-  )
-  // 挂载工作流与 AI 角色配置相关路由
-  .route("/", chatRouter)
-  .route("/", workflowRouter)
-  .route("/", testTicketRouter);
+  );
+// 挂载工作流与 AI 角色配置相关路由
+// .route("/", chatRouter)
+// .route("/", workflowRouter)
+// .route("/", testTicketRouter);
 
 export { adminRouter };

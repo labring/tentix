@@ -19,27 +19,6 @@ export const areaRegionUuidMap = {
   test: "00000000-0000-0000-0000-000000000000",
 } as const;
 
-export const moduleEnumArray = [
-  "all",
-  "applaunchpad",
-  "costcenter",
-  "appmarket",
-  "db",
-  "account_center",
-  "aiproxy",
-  "devbox",
-  "task",
-  "cloudserver",
-  "objectstorage",
-  "laf",
-  "kubepanel",
-  "terminal",
-  "workorder",
-  "other",
-] as const;
-
-export type Module = (typeof moduleEnumArray)[number];
-
 export const ticketCategoryEnumArray = [
   "uncategorized",
   "bug",

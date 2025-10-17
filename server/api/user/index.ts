@@ -8,6 +8,7 @@ import { z } from "zod";
 import "zod-openapi/extend";
 import { authMiddleware, factory, S3Error } from "../middleware.ts";
 import { ticketsRouter } from "./tickets.ts";
+import { configRouter } from "./config.ts";
 
 const userRouter = factory
   .createApp()
@@ -239,6 +240,7 @@ const userRouter = factory
       });
     },
   )
-  .route("/", ticketsRouter);
+  .route("/", ticketsRouter)
+  .route("/", configRouter);
 
 export { userRouter };

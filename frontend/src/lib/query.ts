@@ -203,6 +203,19 @@ export const userInfoQueryOptions = () =>
     retry: false,
   });
 
+export const ticketModulesConfigQueryOptions = () =>
+  queryOptions({
+    queryKey: ["getTicketModulesConfig"],
+    queryFn: async () => {
+      const data = await apiClient.user["ticket-module"]
+        .$get()
+        .then((r) => r.json());
+      return data;
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour cache
+    gcTime: 24 * 60 * 60 * 1000,
+  });
+
 export const staffListQueryOptions = () =>
   queryOptions({
     queryKey: ["getStaffList"],

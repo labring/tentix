@@ -702,12 +702,12 @@ export function getVariables(state: WorkflowState): {
     ...state.variables,
     // 包含节点设置的特殊变量
     sentiment: state.sentimentLabel,
+    stylePrompt: getStylePrompt(state.sentimentLabel),
     handoffReason: state.handoffReason,
     handoffPriority: state.handoffPriority,
     handoffRequired: state.handoffRequired,
     proposeEscalation: state.proposeEscalation,
     escalationReason: state.escalationReason,
-    stylePrompt: getStylePrompt(state.sentimentLabel),
     retrievedContext: state.retrievedContext,
     retrievedContextCount: state.retrievedContext?.length ?? 0,
     retrievedContextString,

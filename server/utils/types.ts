@@ -531,3 +531,7 @@ export const testTicketInsertSchema = createInsertSchema(
 });
 
 export type testTicketInsertType = z.infer<typeof testTicketInsertSchema>;
+
+export const ticketModuleSchema = createSelectSchema(schema.ticketModule);
+
+export type ticketModule = z.infer<typeof ticketModuleSchema>;

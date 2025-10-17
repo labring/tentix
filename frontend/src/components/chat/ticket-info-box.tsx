@@ -3,6 +3,7 @@ import { useTranslation } from "i18n";
 import { type JSONContent } from "@tiptap/react";
 import { PhotoProvider, PhotoView } from "react-photo-view";
 import ContentRenderer from "./content-renderer.tsx";
+import { useTicketModules, getModuleTranslation } from "@store/app-config";
 
 function separateContent(content: JSONContent): {
   textContent: JSONContent;
@@ -46,7 +47,8 @@ function separateContent(content: JSONContent): {
 }
 
 export function TicketInfoBox({ ticket }: { ticket: TicketType }) {
-  const { t } = useTranslation();
+  const { i18n } = useTranslation();
+  const ticketModules = useTicketModules();
   const { textContent, images } = separateContent(ticket.description);
 
   return (
@@ -58,7 +60,14 @@ export function TicketInfoBox({ ticket }: { ticket: TicketType }) {
         </p>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="inline-flex items-center justify-center gap-1 py-1 px-3 rounded-md border border-gray-200 text-xs font-medium text-zinc-900 bg-gray-50">
-            {t(ticket.module)}
+            {(() => {
+              const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
+              return getModuleTranslation(
+                ticket.module,
+                currentLang,
+                ticketModules,
+              );
+            })()}
           </span>
         </div>
       </div>

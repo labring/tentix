@@ -89,7 +89,44 @@ export const authProvider = tentix.enum("auth_provider", [
   "third_party",
 ]);
 
-// Core tables with no dependencies
+export type TicketModuleTranslations = {
+  "zh-CN": string;
+  "en-US": string;
+  [key: string]: string; // 支持其他语言
+};
+
+export const ticketModule = tentix.table(
+  "ticket_module",
+  {
+    code: varchar("code", { length: 50 }).primaryKey(),
+    icon: text("icon"),
+    translations: jsonb("translations")
+      .notNull()
+      .$type<TicketModuleTranslations>(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idx_ticket_module_sort_order").on(table.sortOrder),
+    // 使用 GIN 索引
+    index("idx_ticket_module_translations").using("gin", table.translations), // 指定使用 GIN 索引
+  ],
+);
+
 export const users = tentix.table(
   "users",
   {

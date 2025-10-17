@@ -18,7 +18,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@lib/api-client";
 import type { testTicketInsertType, JSONContentZod } from "tentix-server/types";
-import { moduleEnumArray } from "tentix-server/constants";
+import { useTicketModules } from "@store/app-config";
 import { processFilesAndUpload } from "@comp/chat/upload-utils";
 import { isLocalFileNode } from "@comp/chat/utils";
 import { useWorkflowTestChatStore } from "@store/workflow-test-chat";
@@ -46,17 +46,21 @@ export function NewTestTicket({
   onCancel,
 }: NewTestTicketProps = {}) {
   const { toast } = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { currentWorkflowId } = useWorkflowTestChatStore();
+  const ticketModules = useTicketModules();
+
+  // Get current language (zh or en)
+  const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
 
   const ticketFormSchema = z.object({
     title: z
       .string()
       .min(1, t("field_required"))
       .min(3, t("title_min_length") || "Title must be at least 3 characters"),
-    module: z.enum(moduleEnumArray, {
-      required_error: t("please_select_module") || "Please select a module",
-    }),
+    module: z
+      .string()
+      .min(1, t("please_select_module") || "Please select a module"),
     description: z.any(),
   });
 
@@ -278,13 +282,11 @@ export function NewTestTicket({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {moduleEnumArray
-                    .filter((m) => m !== "all")
-                    .map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {t(m)}
-                      </SelectItem>
-                    ))}
+                  {ticketModules.map((module) => (
+                    <SelectItem key={module.code} value={module.code}>
+                      {module.translations[currentLang] || module.code}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}

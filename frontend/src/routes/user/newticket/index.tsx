@@ -29,10 +29,8 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@lib/api-client";
 import type { ticketInsertType, JSONContentZod } from "tentix-server/types";
-import {
-  ticketPriorityEnumArray,
-  moduleEnumArray,
-} from "tentix-server/constants";
+import { ticketPriorityEnumArray } from "tentix-server/constants";
+import { useTicketModules } from "@store/app-config";
 import { ArrowLeftIcon, TriangleAlertIcon } from "lucide-react";
 import { processFilesAndUpload } from "@comp/chat/upload-utils";
 import { useSealos } from "src/_provider/sealos";
@@ -47,9 +45,9 @@ const createTicketFormSchema = (t: TFunction) =>
       .string()
       .min(1, t("field_required"))
       .min(3, t("title_min_length") || "Title must be at least 3 characters"),
-    module: z.enum(moduleEnumArray, {
-      required_error: t("please_select_module") || "Please select a module",
-    }),
+    module: z
+      .string()
+      .min(1, t("please_select_module") || "Please select a module"),
     description: z.any(),
     area: z.string().optional(),
     sealosNamespace: z.string().optional(),
@@ -77,7 +75,11 @@ function TicketForm({
   control: ReturnType<typeof useForm<TicketFormData>>["control"];
   errors: ReturnType<typeof useForm<TicketFormData>>["formState"]["errors"];
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const ticketModules = useTicketModules();
+
+  // Get current language (zh or en)
+  const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,13 +144,11 @@ function TicketForm({
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {moduleEnumArray
-                      .filter((m) => m !== "all")
-                      .map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {t(m)}
-                        </SelectItem>
-                      ))}
+                    {ticketModules.map((module) => (
+                      <SelectItem key={module.code} value={module.code}>
+                        {module.translations[currentLang] || module.code}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               )}
