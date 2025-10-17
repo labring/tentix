@@ -37,7 +37,7 @@ import {
   useRef,
   useEffect,
 } from "react";
-import { motion } from "motion/react";
+import { useTranslation } from "i18n";
 import {
   useSuspenseQuery,
   useMutation,
@@ -63,6 +63,7 @@ import { CommonCombobox } from "@comp/common/combobox";
 import { Tabs } from "@comp/common/tabs";
 import useDebounce from "@hook/use-debounce";
 import { useSettingsModal } from "@modal/use-settings-modal";
+import { useTicketModules } from "@store/app-config";
 
 function getErrorMessage(err: unknown, fallback = "操作失败"): string {
   if (typeof err === "object" && err && "message" in err) {
@@ -276,6 +277,9 @@ function AiRolesList({ keyword }: { keyword: string }) {
   const queryClient = useQueryClient();
   const { data: aiUsers } = useSuspenseQuery(aiRoleConfigsQueryOptions(keyword));
   const { data: allWorkflows } = useSuspenseQuery(workflowsBasicQueryOptions());
+  const ticketModules = useTicketModules();
+  const { i18n } = useTranslation();
+  const currentLang: "zh-CN" | "en-US" = i18n.language === "zh" ? "zh-CN" : "en-US";
   const fileInputsRef = useRef<Record<number, HTMLInputElement | null>>({});
   const [nameDrafts, setNameDrafts] = useState<Record<number, string>>({});
   const [uploadingId, setUploadingId] = useState<number | null>(null);
@@ -291,7 +295,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
       data,
     }: {
       id: number;
-      data: { workflowId?: string | null; isActive?: boolean };
+      data: { workflowId?: string | null; isActive?: boolean; scope?: string };
     }) => {
       const res = await apiClient.admin["ai-role-config"][":id"].$patch({
         param: { id: String(id) },
@@ -406,28 +410,24 @@ function AiRolesList({ keyword }: { keyword: string }) {
   }
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {aiUsers.map((u) => (
         <Card
           key={u.id}
-          className="rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 border border-border/50 hover:border-border relative group"
+          className="rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 ease-out border border-border/50 hover:border-border/80 relative group bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60 transform-gpu hover:-translate-y-[1px]"
         >
-          <motion.div
-            whileHover={{ y: -2, scale: 1.005 }}
-            transition={{ type: "spring", stiffness: 350, damping: 28 }}
-            className="h-full"
-          >
-            <CardHeader className="pb-6">
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <Avatar className="h-10 w-10">
+          <div className="h-full">
+            <CardHeader className="pb-3 pt-4">
+              <div className="flex items-center gap-4">
+                <div className="relative shrink-0">
+                  <Avatar className="h-12 w-12 ring-1 ring-border/60">
                     <AvatarImage src={u.avatar || "/placeholder.svg"} />
                     <AvatarFallback>{u.name?.[0] || "A"}</AvatarFallback>
                   </Avatar>
                   <Button
                     variant="outline"
                     size="icon"
-                    className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full p-0"
+                    className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full p-0 bg-background/90"
                     onClick={() => handleTriggerUpload(u.id)}
                     disabled={
                       uploadingId === u.id || updateAiUserMutation.isPending
@@ -456,66 +456,101 @@ function AiRolesList({ keyword }: { keyword: string }) {
                     }
                     onBlur={() => handleNameBlur(u.id)}
                     placeholder="输入名称"
-                    className="h-9 bg-transparent px-0 rounded-none border-0 border-b border-border focus:border-foreground/80 focus-visible:ring-0 focus:ring-0 focus:outline-none shadow-none"
+                    className="h-10 bg-transparent px-0 rounded-none border-0 border-b border-border/70 focus:border-foreground/80 focus-visible:ring-0 focus:ring-0 focus:outline-none shadow-none"
                   />
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  回答范围
-                </span>
-                <span className="text-sm text-foreground">全部模块</span>
+            <CardContent className="space-y-5 pt-2 pb-5">
+              <div className="space-y-4">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">回答范围</div>
+                  <div className="flex-1 max-w-[260px]">
+                    <CommonCombobox<{ id: string; name: string; code: string }>
+                      options={[
+                        {
+                          id: "default_all",
+                          name: currentLang === "zh-CN" ? "全部范围" : "All modules",
+                          code: "default_all",
+                        },
+                        ...ticketModules.map((m) => ({
+                          id: m.code,
+                          name: m.translations?.[currentLang] || m.code,
+                          code: m.code,
+                        })),
+                      ]}
+                      value={u.aiRoleConfig?.scope ?? "default_all"}
+                      onChange={(scope) =>
+                        updateAiRoleConfigMutation.mutate(
+                          { id: u.id, data: { scope: scope || "default_all" } },
+                          { onSuccess: () => toast({ title: "已更新回答范围" }) },
+                        )
+                      }
+                      disabled={updateAiRoleConfigMutation.isPending}
+                      placeholder={currentLang === "zh-CN" ? "选择范围" : "Select scope"}
+                      searchPlaceholder="搜索范围..."
+                      noneLabel={undefined}
+                      showNoneOption={false}
+                      getOptionId={(o) => o.id}
+                      getOptionLabel={(o) => o.name}
+                      getOptionDescription={(o) => (o.id === "default_all" ? undefined : o.code)}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">工作流</div>
+                  <div className="flex-1 max-w-[260px]">
+                    <CommonCombobox<WorkflowBasicResponseType>
+                      options={allWorkflows}
+                      value={u.aiRoleConfig?.workflowId ?? null}
+                      onChange={(workflowId) => {
+                        updateAiRoleConfigMutation.mutate(
+                          { id: u.id, data: { workflowId } },
+                          {
+                            onSuccess: () => {
+                              toast({ title: "已更新工作流" });
+                            },
+                          },
+                        );
+                      }}
+                      disabled={updateAiRoleConfigMutation.isPending}
+                      placeholder={currentLang === "zh-CN" ? "选择工作流" : "Select workflow"}
+                      searchPlaceholder="搜索工作流..."
+                      noneLabel="不绑定工作流"
+                      showNoneOption
+                      getOptionId={(o) => o.id}
+                      getOptionLabel={(o) => o.name}
+                      getOptionDescription={(o) => o.description}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="text-sm font-medium text-muted-foreground">
-                  工作流
-                </div>
-                <CommonCombobox<WorkflowBasicResponseType>
-                  options={allWorkflows}
-                  value={u.aiRoleConfig?.workflowId ?? null}
-                  onChange={(workflowId) => {
-                    updateAiRoleConfigMutation.mutate(
-                      { id: u.id, data: { workflowId } },
-                      {
-                        onSuccess: () => {
-                          toast({ title: "已更新工作流" });
-                        },
-                      },
-                    );
-                  }}
-                  disabled={updateAiRoleConfigMutation.isPending}
-                  placeholder="选择工作流"
-                  searchPlaceholder="搜索工作流..."
-                  noneLabel="不绑定工作流"
-                  showNoneOption
-                  getOptionId={(o) => o.id}
-                  getOptionLabel={(o) => o.name}
-                  getOptionDescription={(o) => o.description}
-                />
-              </div>
+              <div className="border-t border-border/60" />
 
               {u.aiRoleConfig?.createdAt || u.aiRoleConfig?.updatedAt ? (
-                <div className="space-y-2 pb-0 pt-2 border-none">
-                  {u.aiRoleConfig?.createdAt && (
-                    <div className="text-xs text-muted-foreground">
-                      创建：{formatDateTime(u.aiRoleConfig.createdAt)}
-                    </div>
-                  )}
-                  {u.aiRoleConfig?.updatedAt && (
-                    <div className="text-xs text-muted-foreground">
-                      更新：{formatDateTime(u.aiRoleConfig.updatedAt)}
-                    </div>
-                  )}
+                <div className="flex items-center text-xs text-muted-foreground">
+                  {u.aiRoleConfig?.createdAt ? (
+                    <span>创建：{formatDateTime(u.aiRoleConfig.createdAt)}</span>
+                  ) : null}
+                  {u.aiRoleConfig?.createdAt && u.aiRoleConfig?.updatedAt ? (
+                    <span
+                      aria-hidden
+                      className="mx-4 h-[14px] w-px bg-border/60 inline-block"
+                    />
+                  ) : null}
+                  {u.aiRoleConfig?.updatedAt ? (
+                    <span>更新：{formatDateTime(u.aiRoleConfig.updatedAt)}</span>
+                  ) : null}
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-between pt-0">
-                <span className="text-sm font-medium text-muted-foreground">
-                  激活状态
-                </span>
+              <div className="flex items-center">
+                <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">激活状态</div>
+                <div className="flex-1" />
                 <Switch
                   checked={u.aiRoleConfig?.isActive ?? false}
                   disabled={updateAiRoleConfigMutation.isPending}
@@ -532,7 +567,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
                 />
               </div>
             </CardContent>
-          </motion.div>
+          </div>
         </Card>
       ))}
     </div>
