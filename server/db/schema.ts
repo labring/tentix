@@ -144,6 +144,7 @@ export const users = tentix.table(
     }).notNull(),
     level: smallint("level").default(0).notNull(),
     email: varchar("email", { length: 254 }).default("").notNull(),
+    forceRelogin: boolean("force_relogin").default(false).notNull(),
   },
   (table) => [
     // 角色索引，用于按角色过滤用户

@@ -231,6 +231,8 @@ export const translations = {
       unauthorized: "Unauthorized",
       token_expired: "Token expired",
       token_invalid: "Token invalid",
+      force_relogin_required:
+        "Your account permissions have changed. Please login again.",
       user_already_exists: "User already exists",
       failed_create_user: "Failed to create user",
       user_not_found: "User not found",
@@ -633,6 +635,7 @@ export const translations = {
       unauthorized: "未授权",
       token_expired: "Token 已过期",
       token_invalid: "Token 无效",
+      force_relogin_required: "您的账户权限已变更,请重新登录。",
       user_already_exists: "用户已存在",
       failed_create_user: "创建用户失败",
       user_not_found: "用户不存在",

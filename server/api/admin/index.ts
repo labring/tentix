@@ -271,10 +271,10 @@ const adminRouter = factory
         return c.json({ error: "User not found" }, 404);
       }
 
-      // Update user role
+      // Update user role and set forceRelogin to true
       const [updatedUser] = await db
         .update(schema.users)
-        .set({ role })
+        .set({ role, forceRelogin: true })
         .where(eq(schema.users.id, id))
         .returning({
           id: schema.users.id,
