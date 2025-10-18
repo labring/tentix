@@ -116,6 +116,7 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
     );
   }, [data.handles]);
 
+  // TODO: 审查代码 condition index 与 conditionHandles index 是否是同步状态，二者 index 是否对应一致
   // 同步条件状态（当 handles 变化时同步）
   useEffect(() => {
     const existingConditions = conditionHandles.map((h) => h.condition || "");
