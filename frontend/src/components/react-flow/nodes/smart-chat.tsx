@@ -206,6 +206,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                                 intentAnalysisSystemPrompt: value,
                               })
                             }
+                            nodeId={id}
                           />
                         </div>
                         <div className="grid gap-1">
@@ -222,6 +223,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                                 intentAnalysisUserPrompt: value,
                               })
                             }
+                            nodeId={id}
                           />
                         </div>
 
@@ -297,6 +299,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                               generateSearchQueriesSystemPrompt: value,
                             })
                           }
+                          nodeId={id}
                         />
                       </div>
                       <div className="grid gap-1">
@@ -314,6 +317,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                               generateSearchQueriesUserPrompt: value,
                             })
                           }
+                          nodeId={id}
                         />
                       </div>
 
@@ -385,6 +389,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                       onChange={(value) =>
                         patchConfig({ systemPrompt: value })
                       }
+                      nodeId={id}
                     />
                   </div>
                   <div className="grid gap-1">
@@ -395,6 +400,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                       onChange={(value) =>
                         patchConfig({ userPrompt: value })
                       }
+                      nodeId={id}
                     />
                   </div>
                   <div className="grid gap-1">

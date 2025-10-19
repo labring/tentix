@@ -210,6 +210,7 @@ const EscalationOffer: React.FC<NodeProps<Node<EscalationOfferNodeData>>> = ({
                         escalationOfferMessageTemplate: value,
                       })
                     }
+                    nodeId={id}
                   />
                 </div>
 
@@ -225,6 +226,7 @@ const EscalationOffer: React.FC<NodeProps<Node<EscalationOfferNodeData>>> = ({
                       onChange={(value) =>
                         patchConfig({ systemPrompt: value })
                       }
+                      nodeId={id}
                     />
                   </div>
                   <div className="grid gap-1">
@@ -235,6 +237,7 @@ const EscalationOffer: React.FC<NodeProps<Node<EscalationOfferNodeData>>> = ({
                       onChange={(value) =>
                         patchConfig({ userPrompt: value })
                       }
+                      nodeId={id}
                     />
                   </div>
                 </div>

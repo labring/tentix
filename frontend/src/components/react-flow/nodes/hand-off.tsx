@@ -105,8 +105,8 @@ const HandOff: React.FC<NodeProps<Node<HandoffNodeData>>> = ({ id, data }) => {
                     onChange={(value) =>
                       patchConfig({ messageTemplate: value })
                     }
-                    dialogTitle="Edit Message Template"
                     placeholder="输入消息模板..."
+                    nodeId={id}
                   />
                 </div>
 

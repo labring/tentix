@@ -220,6 +220,7 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
                       onChange={(value) =>
                         patchConfig({ systemPrompt: value })
                       }
+                      nodeId={id}
                     />
                   </div>
                   <div className="grid gap-1">
@@ -230,6 +231,7 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
                       onChange={(value) =>
                         patchConfig({ userPrompt: value })
                       }
+                      nodeId={id}
                     />
                   </div>
                 </div>

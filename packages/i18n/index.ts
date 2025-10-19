@@ -412,6 +412,59 @@ export const translations = {
       confirm_delete_ticket_module:
         "Are you sure you want to delete this ticket module?",
       update: "Update",
+      // react-flow i18n resources
+      rf: {
+        nodeType: {
+          emotionDetector: "Emotion Detection",
+          handoff: "Handoff",
+          smartChat: "Smart Chat",
+          escalationOffer: "Escalation Offer",
+          variableSetter: "Variable Setter",
+          start: "Start",
+          end: "End",
+        },
+        var: {
+          search_placeholder: "Search variables...",
+          not_found: "No variables found",
+          global_group: "Global Variables",
+          node_group: "Node Variables - {{name}}",
+          desc: {
+            ticketDescription: "Ticket description content",
+            ticketModule: "Ticket module",
+            ticketCategory: "Ticket category",
+            ticketTitle: "Ticket title",
+            lastCustomerMessage: "Most recent customer message",
+            historyMessages: "Conversation history messages",
+            userQuery: "User query content",
+            emotionDetector: {
+              sentiment:
+                "Detected sentiment label (NEUTRAL, FRUSTRATED, ANGRY, etc.)",
+              stylePrompt: "Style prompt generated based on sentiment",
+              handoffReason: "Reason for handoff",
+              handoffPriority: "Handoff priority (P1, P2, P3)",
+              handoffRequired: "Whether handoff is required (true/false)",
+            },
+            escalationOffer: {
+              proposeEscalation: "Whether escalation is proposed (true/false)",
+              escalationReason: "Reason for escalation proposal",
+              handoffPriority: "Handoff priority (P1, P2, P3)",
+            },
+            smartChat: {
+              retrievedContextString:
+                "Retrieved context content (formatted string)",
+              retrievedContextCount: "Number of retrieved context items",
+              hasRetrievedContext: "Whether context was retrieved (true/false)",
+            },
+          },
+        },
+        ui: {
+          dialog_title_edit_text: "Edit text content",
+          tip_press: "Press",
+          tip_insert_variable: "to insert variable",
+          available_count: "({{count}} available)",
+          finish_editing: "Finish Editing",
+        },
+      },
     },
   },
   zh: {
@@ -805,6 +858,57 @@ export const translations = {
       code_translations_required: "代码和翻译为必填项",
       confirm_delete_ticket_module: "确定要删除此工单模块吗？",
       update: "更新",
+      // react-flow i18n resources
+      rf: {
+        nodeType: {
+          emotionDetector: "情绪检测",
+          handoff: "转人工",
+          smartChat: "智能聊天",
+          escalationOffer: "升级询问",
+          variableSetter: "变量设置",
+          start: "开始",
+          end: "结束",
+        },
+        var: {
+          search_placeholder: "搜索变量...",
+          not_found: "未找到变量",
+          global_group: "全局变量",
+          node_group: "节点变量 - {{name}}",
+          desc: {
+            ticketDescription: "工单描述内容",
+            ticketModule: "工单所属模块",
+            ticketCategory: "工单分类",
+            ticketTitle: "工单标题",
+            lastCustomerMessage: "最近一条客户消息",
+            historyMessages: "历史对话消息",
+            userQuery: "用户查询内容",
+            emotionDetector: {
+              sentiment: "检测到的情绪标签 (NEUTRAL, FRUSTRATED, ANGRY等)",
+              stylePrompt: "根据情绪生成的风格提示",
+              handoffReason: "转人工原因",
+              handoffPriority: "转人工优先级 (P1, P2, P3)",
+              handoffRequired: "是否需要转人工 (true/false)",
+            },
+            escalationOffer: {
+              proposeEscalation: "是否建议升级 (true/false)",
+              escalationReason: "建议升级的原因",
+              handoffPriority: "转人工优先级 (P1, P2, P3)",
+            },
+            smartChat: {
+              retrievedContextString: "检索到的上下文内容（格式化字符串）",
+              retrievedContextCount: "检索到的上下文数量",
+              hasRetrievedContext: "是否有检索到的上下文 (true/false)",
+            },
+          },
+        },
+        ui: {
+          dialog_title_edit_text: "编辑文本内容",
+          tip_press: "按",
+          tip_insert_variable: "插入变量",
+          available_count: "（{{count}} 个可用）",
+          finish_editing: "完成编辑",
+        },
+      },
     },
   },
 };
