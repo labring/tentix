@@ -1,15 +1,10 @@
 import * as React from "react";
-import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { cn } from "@lib/utils";
 import { FileTextIcon } from "lucide-react";
 import {
   Textarea,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
   ExpandEditIcon,
   Kbd,
 } from "tentix-ui";
@@ -17,10 +12,11 @@ import {
   getAvailableVariables,
   type WorkflowVariable,
 } from "./workflow-variables";
-import { VariableInserter } from "./variable-inserter";
+import { VariableMenuPortal } from "./variable-inserter";
 import { useWorkflowStore } from "@store/workflow";
 import getCaretCoordinates from "textarea-caret";
 import { useTranslation } from "i18n";
+import { CustomDialog } from "@comp/common/custom-dialog";
 
 interface WorkflowTextareaProps {
   value: string;
@@ -34,6 +30,11 @@ interface WorkflowTextareaProps {
    * If not provided, only global variables will be shown
    */
   nodeId?: string;
+  /**
+   * 是否允许点击遮罩层关闭编辑对话框
+   * @default true - 允许点击外部关闭
+   */
+  closeOnOverlayClick?: boolean;
 }
 
 const WorkflowTextarea = React.forwardRef<
@@ -49,6 +50,7 @@ const WorkflowTextarea = React.forwardRef<
       dialogTitle,
       disabled,
       nodeId,
+      closeOnOverlayClick = true,
       ...props
     },
     ref,
@@ -63,7 +65,6 @@ const WorkflowTextarea = React.forwardRef<
       left: number;
     }>({ top: 0, left: 0 });
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const menuRef = useRef<HTMLDivElement>(null);
 
     // Get workflow data from store
     const nodes = useWorkflowStore((s) => s.nodes);
@@ -92,20 +93,6 @@ const WorkflowTextarea = React.forwardRef<
       setShowVariableMenu(false);
     };
 
-    // Handle dialog open/close state changes
-    // Prevent dialog from closing when variable menu is open
-    const handleDialogOpenChange = useCallback(
-      (open: boolean) => {
-        // If trying to close dialog but variable menu is open, ignore the close request
-        if (!open && showVariableMenu) {
-          setShowVariableMenu(false); // Close the menu instead
-          return;
-        }
-        setIsDialogOpen(open);
-      },
-      [showVariableMenu],
-    );
-
     // Handle keyboard events in textarea
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -114,38 +101,27 @@ const WorkflowTextarea = React.forwardRef<
           const textarea = e.currentTarget;
           const cursorPos = textarea.selectionStart;
 
-          // Allow "/" trigger in any position
-          // Remove the whitespace check to make it more flexible
-          const shouldTrigger = true; // Always trigger on "/"
+          e.preventDefault();
 
-          if (shouldTrigger) {
-            e.preventDefault();
+          // Get caret position in textarea
+          const caretCoords = getCaretCoordinates(textarea, cursorPos);
+          
+          // Get textarea's position in viewport
+          const textareaRect = textarea.getBoundingClientRect();
+          
+          // Calculate absolute position for portal
+          const top = textareaRect.top + caretCoords.top - textarea.scrollTop + caretCoords.height + 4;
+          const left = textareaRect.left + caretCoords.left - textarea.scrollLeft;
 
-            // Get caret position in pixels relative to textarea's top-left corner
-            // Note: getCaretCoordinates returns position including padding but not considering scroll
-            const caretCoords = getCaretCoordinates(textarea, cursorPos);
-
-            // Calculate position accounting for scroll offset
-            // Place menu 4px below the caret
-            const top =
-              caretCoords.top - textarea.scrollTop + caretCoords.height + 4;
-            const left = caretCoords.left - textarea.scrollLeft;
-
-            setMenuPosition({ top, left });
-            setCursorPosition(cursorPos);
-            setShowVariableMenu(true);
-          }
+          setMenuPosition({ top, left });
+          setCursorPosition(cursorPos);
+          setShowVariableMenu(true);
         }
 
-        // Close variable menu on Escape (but don't close dialog)
-        if (e.key === "Escape") {
-          if (showVariableMenu) {
-            e.preventDefault();
-            e.stopPropagation(); // Prevent event from bubbling up to Dialog
-            setShowVariableMenu(false);
-            return; // Important: exit early to prevent default behavior
-          }
-          // If menu is not open, let the event bubble up to close dialog
+        // 当变量菜单打开时，阻止 ESC 键关闭 Dialog（让菜单先处理）
+        if (e.key === "Escape" && showVariableMenu) {
+          e.preventDefault();
+          e.stopPropagation();
         }
       },
       [showVariableMenu],
@@ -157,21 +133,48 @@ const WorkflowTextarea = React.forwardRef<
         const textarea = textareaRef.current;
         if (!textarea) return;
 
-        const beforeCursor = tempValue.slice(0, cursorPosition);
-        const afterCursor = tempValue.slice(cursorPosition);
-
         // Insert variable in liquid template format
         const variableText = `{{ ${variable.name} }}`;
-        const newValue = beforeCursor + variableText + afterCursor;
-        const newCursorPos = cursorPosition + variableText.length;
-
-        setTempValue(newValue);
+        
+        // 关闭菜单
         setShowVariableMenu(false);
 
-        // Restore focus and cursor position
+        // 使用 setTimeout 确保菜单关闭后再操作
         setTimeout(() => {
+          // 聚焦 textarea
           textarea.focus();
-          textarea.setSelectionRange(newCursorPos, newCursorPos);
+          
+          // 设置正确的光标位置
+          textarea.setSelectionRange(cursorPosition, cursorPosition);
+
+          // 尝试使用 execCommand 插入文本（支持撤销）
+          // 虽然已废弃，但这是目前唯一能正确处理撤销栈的方法
+          let inserted = false;
+          try {
+            inserted = document.execCommand('insertText', false, variableText);
+          } catch {
+            // execCommand 可能在某些浏览器中失败
+            inserted = false;
+          }
+
+          if (!inserted) {
+            // 降级方案：手动插入（不支持撤销）
+            const beforeCursor = tempValue.slice(0, cursorPosition);
+            const afterCursor = tempValue.slice(cursorPosition);
+            const newValue = beforeCursor + variableText + afterCursor;
+            
+            textarea.value = newValue;
+            setTempValue(newValue);
+            
+            // 设置新的光标位置
+            const newCursorPos = cursorPosition + variableText.length;
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+            setCursorPosition(newCursorPos);
+          } else {
+            // execCommand 成功，更新状态
+            setTempValue(textarea.value);
+            setCursorPosition(textarea.selectionStart);
+          }
         }, 0);
       },
       [tempValue, cursorPosition],
@@ -185,26 +188,6 @@ const WorkflowTextarea = React.forwardRef<
       },
       [],
     );
-
-    // Close menu when clicking outside
-    useEffect(() => {
-      if (!showVariableMenu) return;
-
-      const handleClickOutside = (event: MouseEvent) => {
-        const target = event.target as Node;
-        const clickedInsideMenu = menuRef.current?.contains(target);
-
-        // Close if clicked outside the menu
-        if (!clickedInsideMenu) {
-          setShowVariableMenu(false);
-        }
-      };
-
-      document.addEventListener("mousedown", handleClickOutside, true);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside, true);
-      };
-    }, [showVariableMenu]);
 
     return (
       <>
@@ -235,14 +218,24 @@ const WorkflowTextarea = React.forwardRef<
           )}
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-          <DialogContent className="!w-[75vw] !max-w-[75vw] !h-[80vh] !max-h-[80vh] flex flex-col overflow-hidden">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-3">
+        {/* 自定义 Dialog */}
+        <CustomDialog 
+          open={isDialogOpen} 
+          onClose={handleCancel}
+          closeOnOverlayClick={closeOnOverlayClick}
+        >
+          <div
+            className="bg-background w-[75vw] max-w-[75vw] h-[80vh] max-h-[80vh] rounded-lg border shadow-lg p-6 flex flex-col overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex flex-col gap-2 mb-4">
+              <div className="flex items-center gap-3">
                 <FileTextIcon className="h-4 w-4" />
-                {dialogTitle ?? (t("rf.ui.dialog_title_edit_text") as string)}
-              </DialogTitle>
-              <div className="text-xs text-muted-foreground flex items-center gap-2 pt-1">
+                <h2 className="text-lg leading-none font-semibold">
+                  {dialogTitle ?? (t("rf.ui.dialog_title_edit_text") as string)}
+                </h2>
+              </div>
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
                 <span>{t("rf.ui.tip_press")}</span>
                 <Kbd>/</Kbd>
                 <span>{t("rf.ui.tip_insert_variable")}</span>
@@ -254,9 +247,10 @@ const WorkflowTextarea = React.forwardRef<
                   </span>
                 )}
               </div>
-            </DialogHeader>
+            </div>
 
-            <div className="flex-1 min-h-0 mt-2 mb-2 relative overflow-auto bg-background">
+            {/* Content */}
+            <div className="flex-1 min-h-0 mb-4 relative overflow-auto bg-background">
               <Textarea
                 ref={textareaRef}
                 value={tempValue}
@@ -265,35 +259,28 @@ const WorkflowTextarea = React.forwardRef<
                 className="h-full min-h-[300px] resize-none !bg-background shadow-none focus-visible:ring-0"
                 placeholder={placeholder}
               />
-
-              {/* Variable Inserter Menu */}
-              {showVariableMenu && (
-                <div
-                  ref={menuRef}
-                  style={{
-                    position: "absolute",
-                    top: `${menuPosition.top}px`,
-                    left: `${menuPosition.left}px`,
-                  }}
-                >
-                  <VariableInserter
-                    variables={availableVariables}
-                    onSelect={handleVariableSelect}
-                  />
-                </div>
-              )}
             </div>
 
-            <DialogFooter>
+            {/* Footer */}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" onClick={handleCancel}>
                 {t("cancel")}
               </Button>
               <Button onClick={handleFinishEditing}>
                 {t("rf.ui.finish_editing")}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          </div>
+        </CustomDialog>
+
+        {/* 变量菜单 Portal（独立的，不在 Dialog 内） */}
+        <VariableMenuPortal
+          isOpen={showVariableMenu}
+          position={menuPosition}
+          variables={availableVariables}
+          onSelect={handleVariableSelect}
+          onClose={() => setShowVariableMenu(false)}
+        />
       </>
     );
   },

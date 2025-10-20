@@ -6,11 +6,7 @@ import { z } from "zod";
 import "zod-openapi/extend";
 import { HTTPException } from "hono/http-exception";
 import { Hono } from "hono";
-import {
-  adminOnlyMiddleware,
-  authMiddleware,
-  type AuthEnv,
-} from "../middleware.ts";
+import { type AuthEnv } from "../middleware.ts";
 import { createSelectSchema } from "drizzle-zod";
 import { testTicketInsertSchema } from "@/utils/types.ts";
 import { validateJSONContent } from "@/utils/index.ts";
@@ -21,8 +17,6 @@ const testMessageResponseSchema = createSelectSchema(
 );
 
 export const testTicketRouter = new Hono<AuthEnv>()
-  .use(authMiddleware)
-  .use(adminOnlyMiddleware())
   .post(
     "/test-ticket/create",
     describeRoute({

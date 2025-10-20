@@ -80,13 +80,10 @@ const PageQuerySchema = z
 
 // AI Role Config query schema with keyword search
 const AiRoleConfigQuerySchema = PageQuerySchema.extend({
-  keyword: z
-    .string()
-    .optional()
-    .openapi({
-      description:
-        "Keyword to search in workflow ID, workflow name, AI user name, or scope",
-    }),
+  keyword: z.string().optional().openapi({
+    description:
+      "Keyword to search in workflow ID, workflow name, AI user name, or scope",
+  }),
 }).strict();
 
 export const workflowRouter = new Hono<AuthEnv>()
@@ -153,9 +150,7 @@ export const workflowRouter = new Hono<AuthEnv>()
             return true;
 
           // 搜索 workflow name
-          if (
-            u.aiRoleConfig?.workflow?.name?.toLowerCase().includes(trimmed)
-          )
+          if (u.aiRoleConfig?.workflow?.name?.toLowerCase().includes(trimmed))
             return true;
 
           return false;
@@ -216,13 +211,10 @@ export const workflowRouter = new Hono<AuthEnv>()
       "query",
       z
         .object({
-          keyword: z
-            .string()
-            .optional()
-            .openapi({
-              description:
-                "Keyword to search in workflow ID, workflow name, AI user name, or scope",
-            }),
+          keyword: z.string().optional().openapi({
+            description:
+              "Keyword to search in workflow ID, workflow name, AI user name, or scope",
+          }),
         })
         .strict(),
     ),
@@ -260,9 +252,7 @@ export const workflowRouter = new Hono<AuthEnv>()
             return true;
 
           // 搜索 workflow name
-          if (
-            u.aiRoleConfig?.workflow?.name?.toLowerCase().includes(trimmed)
-          )
+          if (u.aiRoleConfig?.workflow?.name?.toLowerCase().includes(trimmed))
             return true;
 
           return false;

@@ -14,7 +14,7 @@ export function useAiChatModal() {
 
   const useChatModal = (
     <Dialog open={state} onOpenChange={set}>
-      <DialogContent className="max-w-7xl h-[85vh] p-0 gap-0 flex flex-row overflow-hidden">
+      <DialogContent className="!max-w-[85vw] !w-[85vw] !h-[85vh] !max-h-[85vh] p-0 gap-0 !flex !flex-row overflow-hidden">
         <TestTicketSidebar onTicketsLoaded={setHasTickets} />
         <ChatArea hasTickets={hasTickets} />
       </DialogContent>

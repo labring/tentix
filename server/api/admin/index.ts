@@ -26,6 +26,7 @@ import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import "zod-openapi/extend";
 import { createSelectSchema } from "drizzle-zod";
+import { refreshStaffMap } from "../initApp.ts";
 
 // response schemas
 const userBasicResponseSchema = createSelectSchema(schema.users).pick({
@@ -79,8 +80,6 @@ const adminRouter = factory
   .createApp()
   // 先挂载不需要 authMiddleware 的 WebSocket 路由
   .route("/", chatRouter)
-  .route("/", workflowRouter)
-  .route("/", testTicketRouter)
   .get(
     "/staffList",
     authMiddleware,
@@ -282,15 +281,16 @@ const adminRouter = factory
           role: schema.users.role,
         });
 
+      // refresh staff map
+      await refreshStaffMap();
+
       return c.json({
         success: true,
         user: updatedUser,
       });
     },
-  );
-// 挂载工作流与 AI 角色配置相关路由
-// .route("/", chatRouter)
-// .route("/", workflowRouter)
-// .route("/", testTicketRouter);
+  )
+  .route("/", workflowRouter)
+  .route("/", testTicketRouter);
 
 export { adminRouter };

@@ -28,6 +28,13 @@ import {
   AvatarImage,
   AvatarFallback,
   EmptyStateIcon,
+  Item,
+  ItemMedia,
+  ItemContent,
+  ItemActions,
+  ItemGroup,
+  ItemTitle,
+  ItemDescription,
 } from "tentix-ui";
 import {
   useMemo,
@@ -461,7 +468,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-5 pt-2 pb-5">
+            <CardContent className="space-y-6 pt-2 pb-5">
               <div className="space-y-4">
                 <div className="flex items-center gap-6">
                   <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">回答范围</div>
@@ -745,13 +752,12 @@ function WorkflowsList({
     workflowsBasicQueryOptions(keyword),
   );
   return (
-    <div className="space-y-1">
+    <ItemGroup>
       {workflows.map((wf) => (
-        <div
+        <Item
           key={wf.id}
-          className="group relative flex items-center justify-between rounded-lg px-4 py-4 transition-all duration-200 hover:bg-accent/50 border border-transparent hover:border-border/50 cursor-pointer"
-          role="button"
-          tabIndex={0}
+          asChild
+          className="cursor-pointer border-transparent hover:border-border/50 hover:bg-accent/50"
           onClick={() =>
             navigate({ to: "/staff/workflow/$id", params: { id: wf.id } })
           }
@@ -762,75 +768,72 @@ function WorkflowsList({
             }
           }}
         >
-          <div className="min-w-0 flex items-center gap-4">
-            <div
-              className={`flex h-10 w-10 items-center justify-center rounded-lg ${getColorById(wf.id)}`}
-            >
+          <div role="button" tabIndex={0}>
+            <ItemMedia variant="icon" className={getColorById(wf.id)}>
               <GitBranch className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex items-center gap-6">
-              <div className="font-medium text-foreground truncate max-w-[50vw] sm:max-w-[30rem]">
-                {wf.name}
-              </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>{wf.name}</ItemTitle>
+              <ItemDescription>
                 最近编辑于 {formatRelativeFromNow(wf.updatedAt)}
-              </span>
-            </div>
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 transition-opacity"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      navigate({ to: "/staff/workflow/$id", params: { id: wf.id } })
+                    }
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    编辑
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => onDelete(wf.id)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    删除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </ItemActions>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 transition-opacity"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-36">
-              <DropdownMenuItem
-                onClick={() =>
-                  navigate({ to: "/staff/workflow/$id", params: { id: wf.id } })
-                }
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                编辑
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => onDelete(wf.id)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                删除
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        </Item>
       ))}
-    </div>
+    </ItemGroup>
   );
 }
 
 function WorkflowsListSkeleton() {
   return (
-    <div className="space-y-3">
+    <ItemGroup>
       {Array.from({ length: 6 }).map((_, idx) => (
-        <div
-          key={idx}
-          className="group relative flex items-center justify-between rounded-lg px-4 py-4 border border-border/50 animate-pulse"
-        >
-          <div className="min-w-0 flex items-center gap-4">
-            <div className="h-10 w-10 rounded-lg bg-muted" />
-            <div className="min-w-0 space-y-2">
-              <div className="h-4 w-40 bg-muted rounded" />
-              <div className="h-3 w-64 bg-muted rounded" />
-            </div>
-          </div>
-          <div className="h-8 w-8 bg-muted rounded" />
-        </div>
+        <Item key={idx} className="animate-pulse">
+          <ItemMedia variant="icon">
+            <div className="h-5 w-5 bg-muted rounded" />
+          </ItemMedia>
+          <ItemContent>
+            <div className="h-4 w-40 bg-muted rounded" />
+            <div className="h-3 w-64 bg-muted rounded mt-2" />
+          </ItemContent>
+          <ItemActions>
+            <div className="h-8 w-8 bg-muted rounded" />
+          </ItemActions>
+        </Item>
       ))}
-    </div>
+    </ItemGroup>
   );
 }
 
