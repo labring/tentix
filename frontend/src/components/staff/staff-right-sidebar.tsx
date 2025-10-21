@@ -17,8 +17,8 @@ import {
   DoneIcon,
   PriorityBadge,
 } from "tentix-ui";
-import { TruncateWithTooltip } from "@comp/common/truncate-with-tooltip";
 import { CopyableTruncate } from "@comp/common/copyable-truncate";
+import { UserInfoHoverCard } from "./user-info-hover-card";
 import type { TFunction } from "i18next";
 
 // Custom status display function
@@ -124,15 +124,16 @@ export function StaffRightSidebar({ ticket }: { ticket: TicketType }) {
             </p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               {/* Name */}
-              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                {t("name")}
-              </div>
-              <TruncateWithTooltip
-                className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5"
-                maxWidth={100}
-              >
-                {customer.name}
-              </TruncateWithTooltip>
+              <UserInfoHoverCard user={customer}>
+                <div className="col-span-2 grid grid-cols-2 gap-x-4 cursor-pointer">
+                  <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                    {t("name")}
+                  </div>
+                  <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5 truncate">
+                    {customer.name}
+                  </div>
+                </div>
+              </UserInfoHoverCard>
 
               {/* sealos ID */}
               {customer.sealosId && (

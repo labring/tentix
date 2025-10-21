@@ -42,11 +42,13 @@ const userRouter = factory
           name: schema.users.name,
           nickname: schema.users.nickname,
           realName: schema.users.realName,
+          phoneNum: schema.users.phoneNum,
           avatar: schema.users.avatar,
           role: schema.users.role,
           email: schema.users.email,
           registerTime: schema.users.registerTime,
           level: schema.users.level,
+          meta: schema.users.meta,
         })
         .from(schema.users)
         .where(eq(schema.users.id, userId));

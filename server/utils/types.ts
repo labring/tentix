@@ -5,6 +5,9 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { userRoleEnumArray } from "./const";
 
+export type RequireFields<T, K extends keyof T> = Required<Pick<T, K>> &
+  Partial<Omit<T, K>>;
+
 export class ValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -168,6 +171,28 @@ export const sealosJWT = z.object({
 });
 
 export type SealosJWT = z.infer<typeof sealosJWT>;
+
+// 第三方 JWT token schema（标准 JWT）
+export const thirdPartyJWT = z
+  .object({
+    sub: z.string(), // subject (user ID)
+    name: z.string(), // user name (required)
+    nickname: z.string().optional(),
+    realName: z.string().optional(),
+    phoneNum: z.string().optional(),
+    avatar: z.string().optional(), // avatar URL (optional)
+    email: z.string().email().optional(), // user email (optional)
+    level: z.number().default(1), // user level (default: 1)
+    meta: z.record(z.any()).optional(), // meta 字段，用于存储用户额外信息
+    exp: z.number(), // expiration time
+    iat: z.number(), // issued at time
+    iss: z.string().optional(), // issuer (optional)
+    aud: z.string().optional(), // audience (optional)
+    // 支持任意其他字段
+  })
+  .catchall(z.any());
+
+export type ThirdPartyJWT = z.infer<typeof thirdPartyJWT>;
 
 // openapi
 // ws

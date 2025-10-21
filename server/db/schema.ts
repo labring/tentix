@@ -145,10 +145,17 @@ export const users = tentix.table(
     level: smallint("level").default(0).notNull(),
     email: varchar("email", { length: 254 }).default("").notNull(),
     forceRelogin: boolean("force_relogin").default(false).notNull(),
+    // 新增 meta 字段
+    meta: jsonb("meta")
+      .$type<Record<string, unknown>>()
+      .default(sql`'{}'::jsonb`)
+      .notNull(),
   },
   (table) => [
     // 角色索引，用于按角色过滤用户
     index("idx_users_role").on(table.role),
+    // meta 字段的 GIN 索引,支持 JSON 查询
+    index("idx_users_meta").using("gin", table.meta),
   ],
 );
 

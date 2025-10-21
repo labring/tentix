@@ -41,6 +41,7 @@ const envSchema = z.object({
   APP_URL: z.string().url().trim().optional(),
   TARGET_PLATFORM: z.enum(["sealos", "fastgpt", "generic"]).default("generic"),
   THIRD_PARTY_API: z.string().url().trim().optional(),
+  THIRD_PARTY_TOKEN: z.string().trim().optional(),
 
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
