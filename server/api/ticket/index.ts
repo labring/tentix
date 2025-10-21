@@ -35,6 +35,7 @@ import {
 import { userTicketSchema } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
 import { isFeishuConfigured } from "@/utils/tools";
+import { workflowCache } from "@/utils/kb/workflow-cache.ts";
 
 const createResponseSchema = z.array(
   z.object({
@@ -104,14 +105,16 @@ const ticketInfoResponseSchema = zs.ticket.extend({
       tag: createSelectSchema(schema.tags),
     }),
   ),
-  // AI 用户信息
-  ai: z.object({
-    id: z.number(),
-    name: z.string(),
-    nickname: z.string(),
-    avatar: z.string(),
-    role: z.enum(userRoleEnumArray),
-  }),
+  // AI 用户信息 (可选)
+  ai: z
+    .object({
+      id: z.number(),
+      name: z.string(),
+      nickname: z.string(),
+      avatar: z.string(),
+      role: z.enum(userRoleEnumArray),
+    })
+    .optional(),
 });
 
 const ticketRouter = factory
@@ -532,7 +535,10 @@ const ticketRouter = factory
           });
         }
 
-        const aiRole: (typeof userRoleEnumArray)[number] = "ai";
+        const aiUserId =
+          workflowCache.getAiUserId(data.module) ??
+          workflowCache.getFallbackAiUserId();
+
         const [customerSealos, agentSealos] = await Promise.all([
           db.query.userIdentities.findFirst({
             where: (ui, { and, eq }) =>
@@ -568,8 +574,9 @@ const ticketRouter = factory
           },
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
-          ai: await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.role, aiRole),
+          // Add AI user - will be undefined if aiUserId doesn't exist
+          ai: aiUserId ? await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.id, aiUserId),
             columns: {
               id: true,
               name: true,
@@ -577,7 +584,7 @@ const ticketRouter = factory
               avatar: true,
               role: true,
             },
-          }),
+          }) : undefined,
         };
 
         return c.json<typeof response>(response);
@@ -608,7 +615,10 @@ const ticketRouter = factory
           });
         }
 
-        const aiRole: (typeof userRoleEnumArray)[number] = "ai";
+        const aiUserId =
+          workflowCache.getAiUserId(data.module) ??
+          workflowCache.getFallbackAiUserId();
+
         const [customerSealos, agentSealos] = await Promise.all([
           db.query.userIdentities.findFirst({
             where: (ui, { and, eq }) =>
@@ -650,8 +660,9 @@ const ticketRouter = factory
           },
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
-          ai: await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.role, aiRole),
+          // Add AI user - will be undefined if aiUserId doesn't exist
+          ai: aiUserId ? await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.id, aiUserId),
             columns: {
               id: true,
               name: true,
@@ -659,7 +670,7 @@ const ticketRouter = factory
               avatar: true,
               role: true,
             },
-          }),
+          }) : undefined,
         };
 
         return c.json<typeof response>(response);

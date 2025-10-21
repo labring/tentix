@@ -11,7 +11,7 @@ import {
   saveMessageToDb,
   withdrawMessage,
 } from "@/utils/index.ts";
-import { getAIResponse } from "@/utils/kb/workflow-cache.ts";
+import { getAIResponse, workflowCache } from "@/utils/kb/workflow-cache.ts";
 import { runWithInterval } from "@/utils/runtime.ts";
 import { upgradeWebSocket, WS_CLOSE_CODE } from "@/utils/websocket.ts";
 import {
@@ -221,12 +221,6 @@ namespace aiHandler {
     checkperiod: 60 * 60 * 12,
   });
 
-  // Cache AI user id to avoid frequent DB lookups
-  const aiUserIdCache = new NodeCache({
-    stdTTL: 24 * 60 * 60,
-    checkperiod: 60 * 60 * 12,
-  });
-
   export const MAX_AI_RESPONSES_PER_TICKET =
     global.customEnv.MAX_AI_RESPONSES_PER_TICKET;
 
@@ -274,30 +268,6 @@ namespace aiHandler {
     return currentCount;
   }
 
-  async function getAIUserId(): Promise<number | null> {
-    const cached = aiUserIdCache.get<number>("aiUserId");
-    if (cached !== undefined) return cached;
-
-    try {
-      const db = connectDB();
-      const aiUser = await db.query.users.findFirst({
-        where: (u, { eq }) => eq(u.role, "ai"),
-        columns: { id: true },
-      });
-      if (!aiUser?.id) {
-        logError(
-          "AI user not found. Please ensure an AI user exists in the database.",
-        );
-        return null;
-      }
-      aiUserIdCache.set("aiUserId", aiUser.id);
-      return aiUser.id;
-    } catch (error) {
-      logError("Error fetching AI user id:", error);
-      return null;
-    }
-  }
-
   export async function handleAIResponse(
     ws: wsInstance,
     ticketId: string,
@@ -314,27 +284,6 @@ namespace aiHandler {
       logInfo(`AI already responding for ticket ${ticketId}, skip trigger.`);
       return;
     }
-    aiProcessingSet.add(ticketId);
-
-    // Baseline count to ensure consistent increment
-    const beforeCount = aiResponseCountCache.get<number>(ticketId) ?? 0;
-    const aiUserId = await getAIUserId();
-    if (!aiUserId) {
-      aiProcessingSet.delete(ticketId);
-      sendWsMessage(ws, {
-        type: "error",
-        error: "Tentix Ai is not configured.",
-      });
-      return;
-    }
-
-    // Set timeout to auto-clear lock to avoid deadlocks
-    const timeoutId = setTimeout(() => {
-      aiProcessingSet.delete(ticketId);
-      aiProcessingTimeouts.delete(ticketId);
-      logError(`AI processing timeout for ticket ${ticketId}`);
-    }, AI_PROCESSING_TIMEOUT);
-    aiProcessingTimeouts.set(ticketId, timeoutId);
 
     // ai 不响应 closed 状态的工单 和 已经转人工的工单
     const ticket = await db.query.tickets.findFirst({
@@ -370,6 +319,33 @@ namespace aiHandler {
       return;
     }
 
+    aiProcessingSet.add(ticketId);
+
+    // Baseline count to ensure consistent increment
+    const beforeCount = aiResponseCountCache.get<number>(ticketId) ?? 0;
+
+    const aiUserId =
+      workflowCache.getAiUserId(ticket.module) ??
+      workflowCache.getFallbackAiUserId();
+
+    if (!aiUserId) {
+      aiProcessingSet.delete(ticketId);
+      sendWsMessage(ws, {
+        type: "error",
+        error: "Tentix Ai is not configured.",
+      });
+      return;
+    }
+
+    // Set timeout to auto-clear lock to avoid deadlocks
+    const timeoutId = setTimeout(() => {
+      aiProcessingSet.delete(ticketId);
+      aiProcessingTimeouts.delete(ticketId);
+      logError(`AI processing timeout for ticket ${ticketId}`);
+    }, AI_PROCESSING_TIMEOUT);
+
+    aiProcessingTimeouts.set(ticketId, timeoutId);
+
     runWithInterval(
       () => getAIResponse(ticket),
       () =>
@@ -397,6 +373,7 @@ namespace aiHandler {
           const latest =
             aiResponseCountCache.get<number>(ticketId) ?? beforeCount;
           aiResponseCountCache.set(ticketId, latest + 1);
+
           broadcastToRoom(ticketId, {
             type: "new_message",
             messageId: savedAIMessage.id,
