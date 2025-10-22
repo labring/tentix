@@ -94,10 +94,7 @@ const authRouter = factory
       const db = c.get("db");
       const payload = c.req.valid("json");
 
-      if (
-        global.customEnv.TARGET_PLATFORM === "sealos" ||
-        global.customEnv.TARGET_PLATFORM === "fastgpt"
-      ) {
+      if (global.customEnv.TARGET_PLATFORM === "sealos") {
         throw new HTTPException(401, {
           message: `Login is not allowed on this platform: ${global.customEnv.TARGET_PLATFORM}`,
         });
@@ -131,9 +128,8 @@ const authRouter = factory
         });
       }
 
-      // Check if admin user needs password reset
+      // Check if user needs password reset
       if (
-        userIdentity.user.role === "admin" &&
         userIdentity.metadata?.password?.needReset
       ) {
         return c.json({
@@ -196,12 +192,15 @@ const authRouter = factory
       const db = c.get("db");
       const payload = c.req.valid("json");
 
-      if (
-        global.customEnv.TARGET_PLATFORM === "sealos" ||
-        global.customEnv.TARGET_PLATFORM === "fastgpt"
-      ) {
+      if (global.customEnv.TARGET_PLATFORM === "sealos") {
         throw new HTTPException(401, {
           message: `Registration is not allowed on this platform: ${global.customEnv.TARGET_PLATFORM}`,
+        });
+      }
+
+      if (global.customEnv.DISABLE_REGISTER) {
+        throw new HTTPException(401, {
+          message: `Registration is disabled`,
         });
       }
 
@@ -222,35 +221,39 @@ const authRouter = factory
         });
       }
 
-      // Create new user
-      const [newUser] = await db
-        .insert(schema.users)
-        .values({
-          name,
-          nickname: "",
-          realName: "",
-          avatar: "",
-          registerTime: new Date().toISOString(),
-          level: 1,
-          role: "customer",
-          email: "",
-          phoneNum: "",
-        })
-        .returning();
+      // Create new user and identity in a transaction
+      const newUser = await db.transaction(async (tx) => {
+        const [createdUser] = await tx
+          .insert(schema.users)
+          .values({
+            name,
+            nickname: "",
+            realName: "",
+            avatar: "",
+            registerTime: new Date().toISOString(),
+            level: 1,
+            role: "customer",
+            email: "",
+            phoneNum: "",
+          })
+          .returning();
 
-      if (!newUser) {
-        const t = c.get("i18n").getFixedT(detectLocale(c));
-        throw new Error(t("failed_create_user"));
-      }
+        if (!createdUser) {
+          const t = c.get("i18n").getFixedT(detectLocale(c));
+          throw new Error(t("failed_create_user"));
+        }
 
-      // Create user identity with password
-      const passwordHash = await hashPassword(password);
-      await db.insert(schema.userIdentities).values({
-        userId: newUser.id,
-        provider: "password",
-        providerUserId: name,
-        metadata: { password: { passwordHash } },
-        isPrimary: true,
+        // Create user identity with password
+        const passwordHash = await hashPassword(password);
+        await tx.insert(schema.userIdentities).values({
+          userId: createdUser.id,
+          provider: "password",
+          providerUserId: name,
+          metadata: { password: { passwordHash } },
+          isPrimary: true,
+        });
+
+        return createdUser;
       });
 
       const tokenInfo = await signBearerToken(c, newUser.id, newUser.role);
@@ -656,10 +659,7 @@ const authRouter = factory
       const db = c.get("db");
       const payload = c.req.valid("json");
 
-      if (
-        global.customEnv.TARGET_PLATFORM === "sealos" ||
-        global.customEnv.TARGET_PLATFORM === "fastgpt"
-      ) {
+      if (global.customEnv.TARGET_PLATFORM === "sealos") {
         throw new HTTPException(401, {
           message: `Password reset is not allowed on this platform: ${global.customEnv.TARGET_PLATFORM}`,
         });

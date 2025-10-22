@@ -40,7 +40,8 @@ const envSchema = z.object({
   KB_SYNC_TZ: z.string().trim().default("Asia/Shanghai").optional(),
 
   APP_URL: z.string().url().trim().optional(),
-  TARGET_PLATFORM: z.enum(["sealos", "fastgpt", "generic"]).default("generic"),
+  TARGET_PLATFORM: z.enum(["sealos", "generic"]).default("generic"),
+  DISABLE_REGISTER: z.boolean().default(false).optional(),
   THIRD_PARTY_API: z.string().url().trim().optional(),
   THIRD_PARTY_TOKEN: z.string().trim().optional(),
 

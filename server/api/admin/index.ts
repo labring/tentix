@@ -17,6 +17,8 @@ import {
   factory,
   staffOnlyMiddleware,
 } from "../middleware.ts";
+import { hashPassword } from "@/utils/crypto.ts";
+import { HTTPException } from "hono/http-exception";
 import { workflowRouter } from "./workflow.ts";
 import { testTicketRouter } from "./test-ticket.ts";
 import { chatRouter } from "./chat.ts";
@@ -75,6 +77,46 @@ const updateRoleSchema = z.object({
     message: "system role is not assignable",
   }),
 });
+
+export const createUserSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, "用户名不能为空")
+      .min(3, "用户名至少3个字符")
+      .max(50, "用户名不能超过50个字符")
+      .regex(
+        /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/,
+        "用户名只能包含字母、数字、下划线和中文字符",
+      ),
+    password: z
+      .string()
+      .min(6, "密码至少6个字符")
+      .max(100, "密码不能超过100个字符"),
+    realName: z.string().trim().max(50, "真实姓名不能超过50个字符").optional(),
+    phoneNum: z
+      .string()
+      .trim()
+      .regex(/^1[3-9]\d{9}$/, "手机号格式不正确")
+      .optional()
+      .or(z.literal("")),
+    nickname: z.string().trim().max(30, "昵称不能超过30个字符").optional(),
+    role: z
+      .enum(userRoleEnumArray)
+      .refine((v) => v !== "system", {
+        message: "system role is not assignable",
+      })
+      .default("customer"),
+    level: z.number().int().min(0).max(100).default(1),
+    email: z
+      .string()
+      .trim()
+      .email("请输入有效的邮箱地址")
+      .optional()
+      .or(z.literal("")),
+    meta: z.record(z.any()).default({}),
+  });
 
 const adminRouter = factory
   .createApp()
@@ -287,6 +329,120 @@ const adminRouter = factory
       return c.json({
         success: true,
         user: updatedUser,
+      });
+    },
+  )
+  .post(
+    "/create-user",
+    authMiddleware,
+    adminOnlyMiddleware(),
+    describeRoute({
+      description: "Admin Create User",
+      tags: ["Admin"],
+      responses: {
+        200: {
+          description: "User created successfully",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  id: z.number(),
+                  name: z.string(),
+                  role: z.string(),
+                }),
+              ),
+            },
+          },
+        },
+        401: {
+          description: "Unauthorized - Admin access required",
+        },
+        409: {
+          description: "User already exists",
+        },
+      },
+    }),
+    zValidator("json", createUserSchema),
+    async (c) => {
+      const db = c.var.db;
+      const payload = c.req.valid("json");
+
+      if (global.customEnv.TARGET_PLATFORM === "sealos") {
+        throw new HTTPException(401, {
+          message: `User creation is not allowed on this platform: ${global.customEnv.TARGET_PLATFORM}`,
+        });
+      }
+
+      const {
+        name,
+        password,
+        realName = "",
+        phoneNum = "",
+        nickname = "",
+        role = "customer",
+        level = 1,
+        email = "",
+        meta = {},
+      } = payload;
+
+      // Check if user already exists
+      const existingIdentity = await db.query.userIdentities.findFirst({
+        where: and(
+          eq(schema.userIdentities.provider, "password"),
+          eq(schema.userIdentities.providerUserId, name),
+        ),
+      });
+
+      if (existingIdentity) {
+        throw new HTTPException(409, {
+          message: "User already exists",
+        });
+      }
+
+      // Create new user and identity in a transaction
+      const newUser = await db.transaction(async (tx) => {
+        const [createdUser] = await tx
+          .insert(schema.users)
+          .values({
+            name,
+            nickname,
+            realName,
+            avatar: "",
+            registerTime: new Date().toISOString(),
+            level,
+            role,
+            email,
+            phoneNum,
+            meta,
+          })
+          .returning();
+
+        if (!createdUser) {
+          throw new Error("Failed to create user");
+        }
+
+        // Create user identity with password (needReset: true for admin-created users)
+        const passwordHash = await hashPassword(password);
+        await tx.insert(schema.userIdentities).values({
+          userId: createdUser.id,
+          provider: "password",
+          providerUserId: name,
+          metadata: {
+            password: {
+              passwordHash,
+              needReset: true,
+            },
+          },
+          isPrimary: false,
+        });
+
+        return createdUser;
+      });
+
+      return c.json({
+        id: newUser.id,
+        name: newUser.name,
+        role: newUser.role,
       });
     },
   )

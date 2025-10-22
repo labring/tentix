@@ -1,9 +1,32 @@
-import { useMutation, useQuery, queryOptions, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  queryOptions,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useState } from "react";
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Avatar, AvatarFallback, AvatarImage } from "tentix-ui";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "tentix-ui";
+import { ChevronLeft, ChevronRight, Search, Plus } from "lucide-react";
 import { apiClient } from "@lib/api-client";
 import useDebounce from "@hook/use-debounce";
+import { CreateUserDialog } from "./CreateUserDialog";
 
 type AssignableUserRole = "customer" | "agent" | "technician" | "admin" | "ai";
 
@@ -43,7 +66,8 @@ export function UserManagementSection() {
   const usersQueryOptions = queryOptions<UsersResponse>({
     queryKey: ["admin-users", page, debouncedSearch, role],
     queryFn: async () => {
-      const roleQuery: Partial<{ role: AssignableUserRole }> = role !== "all" ? { role } : {};
+      const roleQuery: Partial<{ role: AssignableUserRole }> =
+        role !== "all" ? { role } : {};
       const res = await apiClient.admin.users.$get({
         query: {
           page: page.toString(),
@@ -61,7 +85,13 @@ export function UserManagementSection() {
   const { data: usersData } = useQuery(usersQueryOptions);
 
   const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: number; role: AssignableUserRole }) => {
+    mutationFn: async ({
+      id,
+      role,
+    }: {
+      id: number;
+      role: AssignableUserRole;
+    }) => {
       const res = await apiClient.admin.users[":id"]["role"].$patch({
         param: { id: id.toString() },
         json: { role },
@@ -84,7 +114,12 @@ export function UserManagementSection() {
       <div>
         <div className="flex gap-4 mb-6">
           <div className="relative flex-1 max-w-sm">
-            <Input placeholder="搜索用户（姓名、ID、真实姓名）" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input
+              placeholder="搜索用户（姓名、ID、真实姓名）"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           </div>
           <Select value={role} onValueChange={(v) => setRole(v as RoleFilter)}>
@@ -100,6 +135,12 @@ export function UserManagementSection() {
               <SelectItem value="ai">AI</SelectItem>
             </SelectContent>
           </Select>
+          <CreateUserDialog>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              创建用户
+            </Button>
+          </CreateUserDialog>
         </div>
 
         {usersData ? (
@@ -124,8 +165,12 @@ export function UserManagementSection() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Avatar className="w-6 h-6">
-                              <AvatarImage src={user.avatar || "/placeholder.svg"} />
-                              <AvatarFallback className="text-xs">{user.name?.charAt(0) || "U"}</AvatarFallback>
+                              <AvatarImage
+                                src={user.avatar || "/placeholder.svg"}
+                              />
+                              <AvatarFallback className="text-xs">
+                                {user.name?.charAt(0) || "U"}
+                              </AvatarFallback>
                             </Avatar>
                             <span className="font-medium">{user.name}</span>
                           </div>
@@ -134,9 +179,20 @@ export function UserManagementSection() {
                           <Select
                             value={user.role}
                             onValueChange={(newRole) => {
-                              const allowed: AssignableUserRole[] = ["customer", "agent", "technician", "admin", "ai"];
-                              if (allowed.includes(newRole as AssignableUserRole)) {
-                                updateUserRoleMutation.mutate({ id: user.id, role: newRole as AssignableUserRole });
+                              const allowed: AssignableUserRole[] = [
+                                "customer",
+                                "agent",
+                                "technician",
+                                "admin",
+                                "ai",
+                              ];
+                              if (
+                                allowed.includes(newRole as AssignableUserRole)
+                              ) {
+                                updateUserRoleMutation.mutate({
+                                  id: user.id,
+                                  role: newRole as AssignableUserRole,
+                                });
                               }
                             }}
                             disabled={user.role === "system"}
@@ -161,7 +217,9 @@ export function UserManagementSection() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatRegisterTime(user.registerTime)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatRegisterTime(user.registerTime)}
+                        </TableCell>
                       </TableRow>
                       {expandedUserId === user.id && (
                         <TableRow className="bg-zinc-50/50">
@@ -173,15 +231,23 @@ export function UserManagementSection() {
                                   <span className="font-mono">{user.id}</span>
                                 </div>
                                 <div>
-                                  <span className="text-zinc-500 mr-2">真实姓名</span>
+                                  <span className="text-zinc-500 mr-2">
+                                    真实姓名
+                                  </span>
                                   <span>{user.realName || "-"}</span>
                                 </div>
                                 <div>
-                                  <span className="text-zinc-500 mr-2">邮箱</span>
-                                  <span className="font-mono">{user.email || "-"}</span>
+                                  <span className="text-zinc-500 mr-2">
+                                    邮箱
+                                  </span>
+                                  <span className="font-mono">
+                                    {user.email || "-"}
+                                  </span>
                                 </div>
                                 <div>
-                                  <span className="text-zinc-500 mr-2">级别</span>
+                                  <span className="text-zinc-500 mr-2">
+                                    级别
+                                  </span>
                                   <span> {user.level}</span>
                                 </div>
                               </div>
@@ -197,14 +263,26 @@ export function UserManagementSection() {
 
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                显示 {(page - 1) * 10 + 1} - {Math.min(page * 10, usersData.pagination.total)} 条，共 {usersData.pagination.total} 条
+                显示 {(page - 1) * 10 + 1} -{" "}
+                {Math.min(page * 10, usersData.pagination.total)} 条，共{" "}
+                {usersData.pagination.total} 条
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  disabled={page <= 1}
+                >
                   <ChevronLeft className="w-4 h-4" />
                   上一页
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page >= usersData.pagination.totalPages}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page >= usersData.pagination.totalPages}
+                >
                   下一页
                   <ChevronRight className="w-4 h-4" />
                 </Button>
@@ -212,11 +290,11 @@ export function UserManagementSection() {
             </div>
           </div>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">加载中...</div>
+          <div className="text-center py-8 text-muted-foreground">
+            加载中...
+          </div>
         )}
       </div>
     </div>
   );
 }
-
-
