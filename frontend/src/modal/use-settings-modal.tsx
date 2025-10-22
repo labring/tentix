@@ -2,8 +2,12 @@ import { useBoolean } from "ahooks";
 import { useTranslation } from "i18n";
 import { useState, Suspense } from "react";
 import { Button, Dialog, DialogContent, cn, ScrollArea } from "tentix-ui";
-import { sectionsConfig } from "./settings-sections/config.tsx";
+import {
+  sectionsConfig,
+  getFirstVisibleSection,
+} from "./settings-sections/config.tsx";
 import { SettingsSkeleton } from "./settings-sections/SettingsSkeleton";
+import { useAuth } from "@hook/use-local-user.tsx";
 
 export function useSettingsModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false);
@@ -11,13 +15,16 @@ export function useSettingsModal() {
     "userInfo" | "accountBinding" | "userManagement" | "ticketModule"
   >("userInfo");
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   // Function to open the settings modal
   function openSettingsModal(
     section?: "userInfo" | "accountBinding" | "userManagement" | "ticketModule",
   ) {
     setTrue();
-    setActiveSection(section ?? "userInfo");
+    setActiveSection(
+      section ?? getFirstVisibleSection({ role: user?.role ?? "customer" }),
+    );
   }
 
   const modal = (
@@ -30,7 +37,9 @@ export function useSettingsModal() {
             <div className="w-full p-4">
               <div className="space-y-2">
                 {sectionsConfig
-                  .filter((s) => s.isVisible({ role: "any" }))
+                  .filter((s) =>
+                    s.isVisible({ role: user?.role ?? "customer" }),
+                  )
                   .map((s) => (
                     <Button
                       key={s.id}
@@ -68,7 +77,8 @@ export function useSettingsModal() {
                 {sectionsConfig
                   .filter(
                     (s) =>
-                      s.isVisible({ role: "any" }) && s.id === activeSection,
+                      s.isVisible({ role: user?.role ?? "customer" }) &&
+                      s.id === activeSection,
                   )
                   .map((s) => (
                     <div key={s.id}>{s.render(undefined as never)}</div>

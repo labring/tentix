@@ -5,7 +5,11 @@ import { UserInfoSection } from "./UserInfoSection";
 import { UserManagementSection } from "./UserManagementSection";
 import { TicketModuleSection } from "./TicketModuleSection";
 
-export type SectionId = "userInfo" | "accountBinding" | "userManagement" | "ticketModule";
+export type SectionId =
+  | "userInfo"
+  | "accountBinding"
+  | "userManagement"
+  | "ticketModule";
 
 export type SettingsContext = never;
 
@@ -29,14 +33,14 @@ export const sectionsConfig: SectionConfig[] = [
     id: "accountBinding",
     getSidebarLabel: (t) => t("account_binding"),
     getBreadcrumbLabel: (t) => t("account_binding_manage"),
-    isVisible: () => true,
+    isVisible: (userInfo) => userInfo.role !== "customer",
     render: () => <AccountBindingSection />,
   },
   {
     id: "userManagement",
     getSidebarLabel: () => "用户管理",
     getBreadcrumbLabel: () => "用户管理",
-    isVisible: () => true,
+    isVisible: (userInfo) => userInfo.role !== "customer",
     render: () => <UserManagementSection />,
   },
   {
@@ -48,11 +52,7 @@ export const sectionsConfig: SectionConfig[] = [
   },
 ];
 
-export function getFirstVisibleSection(
-  userInfo: { role: string },
-): SectionId {
+export function getFirstVisibleSection(userInfo: { role: string }): SectionId {
   const found = sectionsConfig.find((s) => s.isVisible(userInfo));
   return found ? found.id : "userInfo";
 }
-
-
