@@ -11,15 +11,12 @@ import {
 } from "lucide-react";
 import { type TicketType } from "tentix-server/rpc";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   Badge,
   Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  timeAgo,
+  dateTimeFmt,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -34,6 +31,7 @@ import { memo, useState, useEffect } from "react";
 import { cn } from "@lib/utils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { submitMessageFeedback } from "../../lib/query.ts";
+import { CachedAvatar } from "../common/cached-avatar.tsx";
 
 interface MessageItemProps {
   message: TicketType["messages"][number];
@@ -158,15 +156,12 @@ const OtherMessage = ({
   return (
     <div className="flex  flex-col animate-fadeIn justify-start">
       <div className="flex max-w-[85%] gap-3 min-w-0">
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarImage
-            src={messageSender?.avatar}
-            alt={messageSender?.nickname ?? t("unknown")}
-          />
-          <AvatarFallback>
-            {messageSender?.nickname?.charAt(0) ?? "U"}
-          </AvatarFallback>
-        </Avatar>
+        <CachedAvatar
+          className="h-8 w-8 shrink-0"
+          src={messageSender?.avatar}
+          alt={messageSender?.nickname}
+          fallback={messageSender?.nickname?.charAt(0) ?? "U"}
+        />
         <div
           className={cn(
             "flex flex-col gap-2 min-w-0 flex-1",
@@ -179,14 +174,14 @@ const OtherMessage = ({
               {messageSender?.name ?? "Unknown"}
             </span>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              {timeAgo(message.createdAt)}
+              {dateTimeFmt(message.createdAt)}
             </span>
             {notCustomer && (
               <>
                 <div className="w-px h-[18px] bg-zinc-200"></div>
                 <Badge
                   className={cn(
-                    "border-zinc-200 bg-zinc-50  gap-1 justify-center items-center rounded border",
+                    "border-zinc-200 bg-zinc-50  gap-1 justify-center items-center rounded border hover:bg-zinc-50",
                     message.isInternal ? "border-violet-200 bg-violet-100" : "",
                   )}
                 >
@@ -208,7 +203,7 @@ const OtherMessage = ({
                 {message.isInternal && (
                   <>
                     <div className="w-px h-[18px] bg-zinc-200"></div>
-                    <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5">
+                    <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5 hover:bg-violet-100">
                       <EyeOffIcon className="h-3 w-3 text-zinc-500" />
                       <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
                         {t("internal")}
@@ -294,7 +289,9 @@ const OtherMessage = ({
                   </PopoverTrigger>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-zinc-900 text-xs">{t("unhelpful_response")}</p>
+                  <p className="text-zinc-900 text-xs">
+                    {t("unhelpful_response")}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -435,8 +432,11 @@ const MyMessage = ({
   message: TicketType["messages"][number];
 }) => {
   const { sessionMembers } = useSessionMembersStore();
-  const { isMessageSending, withdrawMessageFunc: withdrawMessage, kbSelectionMode } =
-    useChatStore();
+  const {
+    isMessageSending,
+    withdrawMessageFunc: withdrawMessage,
+    kbSelectionMode,
+  } = useChatStore();
   const { t } = useTranslation();
 
   const messageSender = sessionMembers?.find(
@@ -446,15 +446,12 @@ const MyMessage = ({
   return (
     <div className="flex animate-fadeIn justify-end">
       <div className="flex max-w-[85%]  flex-row-reverse min-w-0">
-        <Avatar className="h-8 w-8 shrink-0 ml-3">
-          <AvatarImage
-            src={messageSender?.avatar}
-            alt={messageSender?.nickname ?? t("unknown")}
-          />
-          <AvatarFallback>
-            {messageSender?.nickname?.charAt(0) ?? "U"}
-          </AvatarFallback>
-        </Avatar>
+        <CachedAvatar
+          className="h-8 w-8 shrink-0 ml-3"
+          src={messageSender?.avatar}
+          alt={messageSender?.nickname}
+          fallback={messageSender?.nickname?.charAt(0) ?? "U"}
+        />
         <div
           className={cn(
             "flex flex-col gap-2 rounded-xl py-4 px-5 ml-1 min-w-0 flex-1",
@@ -472,13 +469,13 @@ const MyMessage = ({
                 {isMessageSending(message.id) && (
                   <Loader2Icon className="h-3 w-3 animate-spin" />
                 )}
-                {timeAgo(message.createdAt)}
+                {dateTimeFmt(message.createdAt)}
               </span>
             </div>
             {message.isInternal && (
               <>
                 <div className="w-px h-[18px] bg-zinc-200"></div>
-                <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5">
+                <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5 hover:bg-violet-100">
                   <EyeOffIcon className="h-3 w-3 text-zinc-500" />
                   <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
                     {"Internal"}
@@ -509,32 +506,34 @@ const MyMessage = ({
         </div>
 
         {/* action buttons */}
-        {!message.withdrawn && !isMessageSending(message.id) && !kbSelectionMode && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="smIcon"
-                className="mt-auto h-9 w-9 py-2 px-3 rounded-lg"
-              >
-                <Ellipsis className="h-5 w-5 text-zinc-500" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-fit  p-2 rounded-xl" align="end">
-              <div
-                className="flex items-center gap-2 px-2 py-2.5 rounded-md cursor-pointer hover:bg-zinc-100 transition-colors"
-                onClick={() => {
-                  withdrawMessage(message.id);
-                }}
-              >
-                <Undo2 className="h-4 w-4 text-zinc-500" />
-                <span className="text-sm font-normal leading-5">
-                  {t("withdraw")}
-                </span>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
+        {!message.withdrawn &&
+          !isMessageSending(message.id) &&
+          !kbSelectionMode && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="smIcon"
+                  className="mt-auto h-9 w-9 py-2 px-3 rounded-lg"
+                >
+                  <Ellipsis className="h-5 w-5 text-zinc-500" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-fit  p-2 rounded-xl" align="end">
+                <div
+                  className="flex items-center gap-2 px-2 py-2.5 rounded-md cursor-pointer hover:bg-zinc-100 transition-colors"
+                  onClick={() => {
+                    withdrawMessage(message.id);
+                  }}
+                >
+                  <Undo2 className="h-4 w-4 text-zinc-500" />
+                  <span className="text-sm font-normal leading-5">
+                    {t("withdraw")}
+                  </span>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
       </div>
     </div>
   );
@@ -556,4 +555,8 @@ const MessageItem = ({ message }: MessageItemProps) => {
   );
 };
 
+/* props (message) 没有变化时，不重新渲染组件，
+当 messagelist 重新渲染 messageItem 时，对于已经渲染的 messageItem 不重新渲染，
+只渲染新的 messageItem （新消息）。
+*/
 export default memo(MessageItem);

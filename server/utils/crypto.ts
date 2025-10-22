@@ -1,15 +1,19 @@
 import { logError } from "./log";
-import '../api/precede.ts'
+import "../api/precede.ts";
 const crypto = globalThis.crypto;
 
 /**
  * Generates an AES encryption key with specified bit length
  */
 async function generateAesKey(length = 256): Promise<CryptoKey> {
-  const key = await crypto.subtle.generateKey({
-    name: 'AES-CBC',
-    length,
-  }, true, ['encrypt', 'decrypt']);
+  const key = await crypto.subtle.generateKey(
+    {
+      name: "AES-CBC",
+      length,
+    },
+    true,
+    ["encrypt", "decrypt"],
+  );
   return key;
 }
 
@@ -17,7 +21,7 @@ async function generateAesKey(length = 256): Promise<CryptoKey> {
  * Exports a CryptoKey to base64 string format for storage
  */
 async function exportKeyToString(key: CryptoKey): Promise<string> {
-  const exported = await crypto.subtle.exportKey('raw', key);
+  const exported = await crypto.subtle.exportKey("raw", key);
   return arrayBufferToBase64(exported);
 }
 
@@ -27,9 +31,12 @@ async function exportKeyToString(key: CryptoKey): Promise<string> {
 async function importKeyFromString(keyStr: string): Promise<CryptoKey> {
   try {
     const keyBuffer = base64ToArrayBuffer(keyStr);
-    return crypto.subtle.importKey('raw', keyBuffer, 'AES-CBC', false, ['encrypt', 'decrypt']);
+    return crypto.subtle.importKey("raw", keyBuffer, "AES-CBC", false, [
+      "encrypt",
+      "decrypt",
+    ]);
   } catch (error) {
-    logError('Failed to import encryption key from base64 string:', error);
+    logError("Failed to import encryption key from base64 string:", error);
     throw error;
   }
 }
@@ -43,7 +50,10 @@ async function getEncryptionKey(): Promise<CryptoKey> {
     try {
       return await importKeyFromString(envKey);
     } catch (error) {
-      logError('Failed to import encryption key from environment variable:', error);
+      logError(
+        "Failed to import encryption key from environment variable:",
+        error,
+      );
     }
   }
   return generateAesKey();
@@ -52,17 +62,24 @@ async function getEncryptionKey(): Promise<CryptoKey> {
 /**
  * Encrypts plaintext using AES-CBC
  */
-async function aesEncrypt(plaintext: string, key: CryptoKey): Promise<{
+async function aesEncrypt(
+  plaintext: string,
+  key: CryptoKey,
+): Promise<{
   iv: Uint8Array;
   ciphertext: ArrayBuffer;
 }> {
   const ec = new TextEncoder();
   const iv = crypto.getRandomValues(new Uint8Array(16));
 
-  const ciphertext = await crypto.subtle.encrypt({
-    name: 'AES-CBC',
-    iv,
-  }, key, ec.encode(plaintext));
+  const ciphertext = await crypto.subtle.encrypt(
+    {
+      name: "AES-CBC",
+      iv,
+    },
+    key,
+    ec.encode(plaintext),
+  );
 
   return {
     iv,
@@ -73,34 +90,50 @@ async function aesEncrypt(plaintext: string, key: CryptoKey): Promise<{
 /**
  * Encrypts plaintext and returns everything as base64 strings
  */
-async function aesEncryptToString(plaintext: string, key: CryptoKey): Promise<{
+async function aesEncryptToString(
+  plaintext: string,
+  key: CryptoKey,
+): Promise<{
   iv: string;
   ciphertext: string;
 }> {
   const encrypted = await aesEncrypt(plaintext, key);
   return {
     iv: arrayBufferToBase64(encrypted.iv),
-    ciphertext: arrayBufferToBase64(encrypted.ciphertext)
+    ciphertext: arrayBufferToBase64(encrypted.ciphertext),
   };
 }
 
 /**
  * Decrypts ciphertext using AES-CBC
  */
-async function aesDecrypt(ciphertext: ArrayBuffer, key: CryptoKey, iv: Uint8Array): Promise<string> {
+async function aesDecrypt(
+  ciphertext: ArrayBuffer,
+  key: CryptoKey,
+  iv: Uint8Array,
+): Promise<string> {
   const dec = new TextDecoder();
-  const plaintext = await crypto.subtle.decrypt({
-    name: 'AES-CBC',
-    iv,
-  }, key, ciphertext);
+  const plaintext = await crypto.subtle.decrypt(
+    {
+      name: "AES-CBC",
+      iv: new Uint8Array(iv),
+    },
+    key,
+    ciphertext,
+  );
 
   return dec.decode(plaintext);
 }
 
+// BUG: 这是一个同步函数，不要用 async
 /**
  * Decrypts from string format (base64 encoded values)
  */
-async function aesDecryptFromString(ciphertextStr: string, ivStr: string, key: CryptoKey): Promise<string> {
+async function aesDecryptFromString(
+  ciphertextStr: string,
+  ivStr: string,
+  key: CryptoKey,
+): Promise<string> {
   const iv = base64ToArrayBuffer(ivStr);
   const ciphertext = base64ToArrayBuffer(ciphertextStr);
   return aesDecrypt(ciphertext, key, new Uint8Array(iv));
@@ -111,7 +144,7 @@ async function aesDecryptFromString(ciphertextStr: string, ivStr: string, key: C
  */
 function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = new Uint8Array(buffer);
-  let binary = '';
+  let binary = "";
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]!);
   }
@@ -124,15 +157,15 @@ function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   try {
     const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
   } catch (error) {
-    logError('Failed to convert base64 to ArrayBuffer:', base64);
+    logError("Failed to convert base64 to ArrayBuffer:", base64);
     throw error;
   }
 }
@@ -143,14 +176,17 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   return arrayBufferToBase64(hashBuffer);
 }
 
 /**
  * Verify a password against a hash
  */
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
+async function verifyPassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
   const passwordHash = await hashPassword(password);
   return passwordHash === hash;
 }
@@ -167,6 +203,5 @@ export {
   arrayBufferToBase64,
   base64ToArrayBuffer,
   hashPassword,
-  verifyPassword
+  verifyPassword,
 };
-

@@ -16,6 +16,7 @@ type ErrorMessage = {
   stack: string;
 };
 
+// 全局声明
 declare module "@tanstack/react-query" {
   interface Register {
     defaultError: ErrorMessage;
@@ -200,6 +201,19 @@ export const userInfoQueryOptions = () =>
     gcTime: 24 * 60 * 60 * 1000,
     throwOnError: false,
     retry: false,
+  });
+
+export const ticketModulesConfigQueryOptions = () =>
+  queryOptions({
+    queryKey: ["getTicketModulesConfig"],
+    queryFn: async () => {
+      const data = await apiClient.user["ticket-module"]
+        .$get()
+        .then((r) => r.json());
+      return data;
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour cache
+    gcTime: 24 * 60 * 60 * 1000,
   });
 
 export const staffListQueryOptions = () =>

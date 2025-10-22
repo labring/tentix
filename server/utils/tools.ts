@@ -68,5 +68,7 @@ export function isFeishuConfigured(): boolean {
   const appId = global.customEnv.FEISHU_APP_ID?.trim();
   const appSecret = global.customEnv.FEISHU_APP_SECRET?.trim();
   const chatId = global.customEnv.FEISHU_CHAT_ID?.trim();
-  return Boolean(appId && appSecret && chatId);
+  const transferCard = global.customEnv.FEISHU_TRANSFER_CARD?.trim();
+  const newTicketCard = global.customEnv.FEISHU_NEW_TICKET_CARD?.trim();
+  return Boolean(appId && appSecret && chatId && transferCard && newTicketCard);
 }

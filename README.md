@@ -135,7 +135,6 @@ OPENAI_API_KEY="<openai-api-key>"
 SUMMARY_MODEL="<model for summarization>"
 EMBEDDING_MODEL="<model for embeddings>"
 CHAT_MODEL="<model for chat>"
-FAST_MODEL="<model for fast responses>"
 MAX_AI_RESPONSES_PER_TICKET=3  # default 3
 ```
 

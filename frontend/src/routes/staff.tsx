@@ -1,7 +1,11 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { areaEnumArray } from "tentix-server/constants";
 import { useAuth } from "../hooks/use-local-user";
 import { z } from "zod";
+import { ticketModulesConfigQueryOptions } from "@lib/query";
+import { useAppConfigStore } from "@store/app-config";
+import { useQueryClient } from "@tanstack/react-query";
 
 // TODO: 如何处理多种 oauth 登录方式
 export const Route = createFileRoute("/staff")({
@@ -113,10 +117,32 @@ export const Route = createFileRoute("/staff")({
 });
 
 function StaffLayout() {
-  const { isLoading } = useAuth();
+  const queryClient = useQueryClient();
+  const setTicketModules = useAppConfigStore((state) => state.setTicketModules);
+  const { isLoading, isAuthenticated } = useAuth();
 
-  // 如果正在加载认证状态，显示加载页面而不是错误页面
-  if (isLoading) {
+  // 预加载 ticket modules 配置数据并设置到 store（使用 React Query）
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return;
+
+    let cancelled = false;
+    queryClient
+      .ensureQueryData(ticketModulesConfigQueryOptions())
+      .then((configData) => {
+        if (!cancelled && configData?.modules) {
+          setTicketModules(configData.modules);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to preload ticket modules:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, queryClient, setTicketModules, isAuthenticated]);
+
+  // 如果正在加载用户数据阶段，或者未认证阶段，显示加载页面而不是错误页面
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">

@@ -1,0 +1,22 @@
+{
+  "scopes": {
+    "tenant": [
+      "aily:message:read",
+      "aily:message:write",
+      "contact:contact.base:readonly",
+      "contact:department.base:readonly",
+      "contact:user.base:readonly",
+      "contact:user.employee_id:readonly",
+      "contact:user.id:readonly",
+      "im:message",
+      "im:message:send_as_bot"
+    ],
+    "user": [
+      "contact:contact.base:readonly",
+      "contact:department.base:readonly",
+      "contact:user.base:readonly",
+      "contact:user.employee_id:readonly",
+      "im:chat:readonly"
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import useLocalUser from "@hook/use-local-user";
 import { Link } from "@tanstack/react-router";
 import { joinTrans, useTranslation } from "i18n";
 import type { TFunction } from "i18next";
+import { useTicketModules, getModuleTranslation } from "@store/app-config";
 import {
   ArrowLeftIcon,
   SearchIcon,
@@ -96,8 +97,9 @@ export function StaffTicketSidebar({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id: userId } = useLocalUser();
+  const ticketModules = useTicketModules();
 
   // 使用 table-pagination store
   const {
@@ -522,7 +524,10 @@ export function StaffTicketSidebar({
                         width2="w-[34px]"
                       />
                       <span className="flex items-center justify-center gap-2.5 py-0.5 px-2.5 rounded-md border border-zinc-200 text-xs font-normal text-zinc-900 leading-4">
-                        {t(ticket.module)}
+                        {(() => {
+                          const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
+                          return getModuleTranslation(ticket.module, currentLang, ticketModules);
+                        })()}
                       </span>
                     </div>
                   </Link>

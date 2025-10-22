@@ -1,5 +1,10 @@
 import * as jsonwebtoken from "jsonwebtoken";
-import { sealosJWT, type SealosJWT } from "./types.ts";
+import {
+  sealosJWT,
+  thirdPartyJWT,
+  type SealosJWT,
+  type ThirdPartyJWT,
+} from "./types.ts";
 import { areaRegionUuidMap } from "./const.ts";
 /**
  * Parse and verify JWT token
@@ -7,14 +12,9 @@ import { areaRegionUuidMap } from "./const.ts";
  * @param secret JWT secret key
  * @returns Parsed JWT payload
  */
-export function parseJWT<T = any>(token: string, secret?: string): T {
+export function parseJWT<T = any>(token: string, secret: string): T {
   try {
-    const jwtSecret = secret || global.customEnv.SEALOS_APP_TOKEN;
-    if (!jwtSecret) {
-      throw new Error("JWT secret not configured");
-    }
-
-    const decoded = jsonwebtoken.verify(token, jwtSecret) as T;
+    const decoded = jsonwebtoken.verify(token, secret) as T;
     return decoded;
   } catch (error) {
     throw new Error(
@@ -28,9 +28,9 @@ export function parseJWT<T = any>(token: string, secret?: string): T {
  * @param token Sealos JWT token string
  * @returns Parsed and validated Sealos JWT payload
  */
-export function parseSealosJWT(token: string): SealosJWT {
+export function parseSealosJWT(token: string, secret: string): SealosJWT {
   try {
-    const decoded = parseJWT(token);
+    const decoded = parseJWT(token, secret);
     const validated = sealosJWT.parse(decoded);
     return validated;
   } catch (error) {
@@ -48,12 +48,11 @@ export function parseSealosJWT(token: string): SealosJWT {
  */
 export function verifyJWT(token: string, secret?: string): boolean {
   try {
-    const jwtSecret = secret || global.customEnv.SEALOS_APP_TOKEN;
-    if (!jwtSecret) {
+    if (!secret) {
       return false;
     }
 
-    jsonwebtoken.verify(token, jwtSecret);
+    jsonwebtoken.verify(token, secret);
     return true;
   } catch {
     return false;
@@ -127,3 +126,38 @@ export const extractAreaFromSealosToken = (
     return null;
   }
 };
+
+/**
+ * Parse and verify third party JWT token specifically
+ * @param token Third party JWT token string
+ * @param secret JWT secret key (optional, uses default if not provided)
+ * @returns Parsed and validated third party JWT payload
+ */
+export function parseThirdPartyJWT(
+  token: string,
+  secret: string,
+): ThirdPartyJWT {
+  try {
+    const decoded = parseJWT(token, secret);
+    const validated = thirdPartyJWT.parse(decoded);
+    return validated;
+  } catch (error) {
+    throw new Error(
+      `Third party JWT parsing failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
+}
+
+/**
+ * Detect if a token is a JWT format (has three parts separated by dots)
+ * @param token Token string to check
+ * @returns boolean indicating if token is JWT format
+ */
+export function isJWTFormat(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    return parts.length === 3 && parts.every((part) => part.length > 0);
+  } catch {
+    return false;
+  }
+}

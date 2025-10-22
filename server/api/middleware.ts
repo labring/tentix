@@ -18,9 +18,11 @@ import i18next from "i18n";
 import {
   changeAgentTicket,
   incrementTodayTicketCount,
-  initGlobalVariables,
+  ensureGlobalVariables,
 } from "./initApp";
 import { aesDecryptFromString } from "@/utils/crypto";
+import * as schema from "@db/schema.ts";
+import { eq } from "drizzle-orm";
 
 export class S3Error extends Error {
   constructor(message: string, cause?: Error) {
@@ -103,8 +105,9 @@ export interface AuthEnv extends MyEnv {
 
 export async function decryptToken(token: string, cryptoKey: CryptoKey) {
   if (token.startsWith("Bearer ")) {
-    token = token.slice(6);
+    token = token.slice(7);
   }
+  token = token.trim();
   const [ciphertext, iv] = token.split("+Tx*") as [string, string];
   const decrypted = await aesDecryptFromString(ciphertext, iv, cryptoKey);
   const [userId, role, expireTime] = decrypted.split("##") as [
@@ -132,6 +135,32 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
       const t = c.get("i18n").getFixedT(detectLocale(c));
       throw new HTTPException(401, { message: t("token_expired") });
     }
+
+    // Check if user is forced to relogin
+    const db = c.get("db");
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.id, parseInt(userId)),
+      columns: {
+        forceRelogin: true,
+      },
+    });
+
+    if (user?.forceRelogin) {
+      // Update forceRelogin to false
+      await db
+        .update(schema.users)
+        .set({ forceRelogin: false })
+        .where(eq(schema.users.id, parseInt(userId)));
+
+      const t = c.get("i18n").getFixedT(detectLocale(c));
+      const body: ApiErrorResponse = {
+        code: 401,
+        timeUTC: new Date().toUTCString(),
+        message: t("force_relogin_required"),
+      };
+      return c.json(body, { status: 401 });
+    }
+
     c.set("userId", parseInt(userId));
     c.set("role", role);
     await next();
@@ -155,12 +184,36 @@ export function staffOnlyMiddleware(
     await next();
   });
 }
+export function adminOnlyMiddleware(
+  message: string = "Forbidden. Only admin can access this resource.",
+) {
+  return createMiddleware<AuthEnv>(async (c, next) => {
+    const role = c.get("role");
+    if (role !== "admin") {
+      throw new HTTPException(403, { message });
+    }
+    await next();
+  });
+}
+
+export function customerOnlyMiddleware(
+  message: string = "Forbidden. Only customer can access this resource.",
+) {
+  return createMiddleware<AuthEnv>(async (c, next) => {
+    const role = c.get("role");
+    if (role !== "customer") {
+      throw new HTTPException(403, { message });
+    }
+    await next();
+  });
+}
 export const factory = createFactory<MyEnv>({
   initApp: (app) => {
     app.use(async (c, next) => {
       const db = connectDB();
       c.set("db", db);
-      await initGlobalVariables();
+      // Ensure global variables are initialized (fallback for lazy init)
+      await ensureGlobalVariables();
       c.set("origin", getOrigin(c));
       c.set("i18n", global.i18n!);
       // use a function to pass the variable, because sometimes it needs to refresh

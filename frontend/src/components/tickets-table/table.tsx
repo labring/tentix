@@ -8,6 +8,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { joinTrans, useTranslation } from "i18n";
+import { useTicketModules, getModuleTranslation } from "@store/app-config";
 import {
   Loader2Icon,
   SearchIcon,
@@ -42,8 +43,9 @@ interface PaginatedTableProps {
 }
 
 export function DataTable({ initialData }: PaginatedTableProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
+  const ticketModules = useTicketModules();
 
   // 使用 zustand store 管理分页状态
   const {
@@ -237,11 +239,17 @@ export function DataTable({ initialData }: PaginatedTableProps) {
       {
         accessorKey: "module",
         header: t("module"),
-        cell: ({ row }) => (
-          <p className="text-zinc-600 text-sm font-normal leading-normal">
-            {t(row.original.module)}
-          </p>
-        ),
+        cell: ({ row }) => {
+          const moduleCode = row.original.module;
+          const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
+          const moduleText = getModuleTranslation(moduleCode, currentLang, ticketModules);
+
+          return (
+            <p className="text-zinc-600 text-sm font-normal leading-normal">
+              {moduleText}
+            </p>
+          );
+        },
       },
       {
         accessorKey: "submittedBy",
@@ -254,7 +262,7 @@ export function DataTable({ initialData }: PaginatedTableProps) {
       },
     ];
     return baseColumns;
-  }, [t, isSmallScreen]);
+  }, [t, i18n.language, ticketModules, isSmallScreen]);
 
   const table = useReactTable({
     data: tickets,

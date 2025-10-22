@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     Boolean(window.localStorage.getItem("token")),
   );
 
-  // 如果有token但没有user，说明认证状态正在加载中
+  // 如果有token但没有user，说明认证状态正在加载中，isLoading 表示拿用户数据的这个阶段
   const [isLoading, setIsLoading] = React.useState<boolean>(() => {
     const hasToken = Boolean(window.localStorage.getItem("token"));
     const hasUser = Boolean(window.localStorage.getItem("user"));

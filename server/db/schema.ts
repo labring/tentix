@@ -33,6 +33,15 @@ import {
   sentimentLabelEnumArray,
 } from "../utils/const.ts";
 import { myNanoId } from "../utils/runtime.ts";
+import {
+  EmotionDetectionConfig,
+  HandoffConfig,
+  EscalationOfferConfig,
+  SmartChatConfig,
+  WorkflowEdge,
+  BaseNodeConfig,
+} from "@/utils/const";
+
 export const tentix = pgSchema("tentix");
 export const ticketCategory = tentix.enum(
   "ticket_category",
@@ -80,7 +89,44 @@ export const authProvider = tentix.enum("auth_provider", [
   "third_party",
 ]);
 
-// Core tables with no dependencies
+export type TicketModuleTranslations = {
+  "zh-CN": string;
+  "en-US": string;
+  [key: string]: string; // 支持其他语言
+};
+
+export const ticketModule = tentix.table(
+  "ticket_module",
+  {
+    code: varchar("code", { length: 50 }).primaryKey(),
+    icon: text("icon"),
+    translations: jsonb("translations")
+      .notNull()
+      .$type<TicketModuleTranslations>(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idx_ticket_module_sort_order").on(table.sortOrder),
+    // 使用 GIN 索引
+    index("idx_ticket_module_translations").using("gin", table.translations), // 指定使用 GIN 索引
+  ],
+);
+
 export const users = tentix.table(
   "users",
   {
@@ -98,10 +144,18 @@ export const users = tentix.table(
     }).notNull(),
     level: smallint("level").default(0).notNull(),
     email: varchar("email", { length: 254 }).default("").notNull(),
+    forceRelogin: boolean("force_relogin").default(false).notNull(),
+    // 新增 meta 字段
+    meta: jsonb("meta")
+      .$type<Record<string, unknown>>()
+      .default(sql`'{}'::jsonb`)
+      .notNull(),
   },
   (table) => [
     // 角色索引，用于按角色过滤用户
     index("idx_users_role").on(table.role),
+    // meta 字段的 GIN 索引,支持 JSON 查询
+    index("idx_users_meta").using("gin", table.meta),
   ],
 );
 
@@ -126,7 +180,7 @@ export const userIdentities = tentix.table(
       .$type<{
         feishu?: { unionId?: string; openId?: string };
         sealos?: { accountId?: string };
-        password?: { passwordHash?: string };
+        password?: { passwordHash?: string; needReset?: boolean };
         third_party?: { name?: string };
       }>()
       .default(sql`'{}'::jsonb`)
@@ -729,5 +783,177 @@ export const handoffRecords = tentix.table(
     index("idx_handoff_created").on(table.createdAt.desc()),
     // 客服查询
     index("idx_handoff_agent").on(table.assignedAgentId),
+  ],
+);
+
+// 1. 工作流配置表 - 严格按照 WorkflowConfig 接口
+export const workflow = tentix.table(
+  "workflow",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description").default("").notNull(),
+
+    // 工作流节点配置
+    nodes: jsonb("nodes")
+      .$type<
+        Array<
+          | EmotionDetectionConfig
+          | HandoffConfig
+          | EscalationOfferConfig
+          | SmartChatConfig
+          | BaseNodeConfig
+        >
+      >()
+      .notNull(),
+
+    // 工作流边配置
+    edges: jsonb("edges").$type<WorkflowEdge[]>().notNull(),
+
+    // 时间戳
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    // 名字唯一性
+    unique("workflow_unique_name").on(table.name),
+    // 更新时间排序索引
+    index("idx_workflows_updated_at").on(table.updatedAt.desc()),
+  ],
+);
+
+// 2. AI 角色配置表
+export const aiRoleConfig = tentix.table(
+  "ai_role_config",
+  {
+    id: serial("id").primaryKey().notNull(),
+
+    // AI 角色关联的用户ID
+    aiUserId: integer("ai_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    // 激活状态
+    isActive: boolean("is_active").default(true).notNull(),
+
+    // AI 角色回答范围
+    scope: text("scope").default("default_all").notNull(),
+
+    // 绑定的工作流ID
+    workflowId: uuid("workflow_id").references(() => workflow.id, {
+      onDelete: "set null",
+    }),
+
+    // 时间戳
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    // 每个 AI 用户只能有一个配置
+    unique("ai_role_configs_unique_user").on(table.aiUserId),
+    // 激活状态查询索引
+    index("idx_ai_role_configs_active").on(table.isActive),
+    // 工作流查询索引
+    index("idx_ai_role_configs_workflow").on(table.workflowId),
+  ],
+);
+
+// Workflow Test Messages
+export const workflowTestMessage = tentix.table(
+  "workflow_test_message",
+  {
+    id: serial("id").primaryKey().notNull(),
+    testTicketId: char("test_ticket_id", { length: 13 })
+      .notNull()
+      .references(() => workflowTestTicket.id),
+    senderId: integer("sender_id")
+      .notNull()
+      .references(() => users.id),
+    content: jsonb().$type<JSONContentZod>().notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    // 复合索引：按工单ID和创建时间倒序，用于获取工单的最新消息
+    index("idx_workflow_test_message_test_ticket_created").on(
+      table.testTicketId,
+      table.createdAt.desc(),
+    ),
+  ],
+);
+
+export const workflowTestTicket = tentix.table(
+  "workflow_test_ticket",
+  {
+    id: char("id", { length: 13 })
+      .primaryKey()
+      .$defaultFn(myNanoId(13))
+      .notNull(),
+    title: varchar("title", { length: 254 }).notNull(),
+    workflowId: uuid("workflow_id").references(() => workflow.id, {
+      onDelete: "set null",
+    }),
+    description: jsonb().$type<JSONContentZod>().notNull(),
+    module: varchar("module", { length: 50 }).default("").notNull(),
+    area: varchar("area", { length: 50 }).default("").notNull(),
+    occurrenceTime: timestamp("occurrence_time", {
+      precision: 6,
+      mode: "string",
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    category: ticketCategory("category").default("uncategorized").notNull(),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    // 更新时间排序索引（用于列表查询）
+    index("idx_workflow_test_tickets_updated_at").on(table.updatedAt.desc()),
   ],
 );

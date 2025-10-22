@@ -6,13 +6,14 @@ import {
   connectDB,
   logError,
   logInfo,
-  markdownToTipTapJSON,
+  textToTipTapJSON,
   saveMessageReadStatus,
   saveMessageToDb,
   withdrawMessage,
 } from "@/utils/index.ts";
-import { getAIResponse } from "@/utils/kb/agent.ts";
+import { getAIResponse, workflowCache } from "@/utils/kb/workflow-cache.ts";
 import { runWithInterval } from "@/utils/runtime.ts";
+import { upgradeWebSocket, WS_CLOSE_CODE } from "@/utils/websocket.ts";
 import {
   MessageEmitter,
   RoomEmitter,
@@ -25,13 +26,10 @@ import {
   wsMsgClientType,
 } from "@/utils/types.ts";
 import { zValidator } from "@hono/zod-validator";
-import { type ServerWebSocket } from "bun";
 import { UUID } from "crypto";
 import { and, count, eq, desc } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver } from "hono-openapi/zod";
-import { createBunWebSocket } from "hono/bun";
-import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
 import NodeCache from "node-cache";
 import { z } from "zod";
@@ -211,11 +209,9 @@ async function handleUserLeaveStatusUpdate(
     }
   } catch (error) {
     logError("Error updating ticket status on user leave:", error);
+    throw error;
   }
 }
-
-// WebSocket setup
-const { upgradeWebSocket, websocket } = createBunWebSocket<ServerWebSocket>();
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 namespace aiHandler {
@@ -225,18 +221,12 @@ namespace aiHandler {
     checkperiod: 60 * 60 * 12,
   });
 
-  // Cache AI user id to avoid frequent DB lookups
-  const aiUserIdCache = new NodeCache({
-    stdTTL: 24 * 60 * 60,
-    checkperiod: 60 * 60 * 12,
-  });
-
   export const MAX_AI_RESPONSES_PER_TICKET =
     global.customEnv.MAX_AI_RESPONSES_PER_TICKET;
 
   // In-flight lock set and timeout map to avoid concurrent AI runs per ticket
   const aiProcessingSet = new Set<string>();
-  const AI_PROCESSING_TIMEOUT = 60000;
+  const AI_PROCESSING_TIMEOUT = 180000; // 3 minute
   const aiProcessingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   export function isAIInFlight(ticketId: string) {
@@ -278,30 +268,6 @@ namespace aiHandler {
     return currentCount;
   }
 
-  async function getAIUserId(): Promise<number | null> {
-    const cached = aiUserIdCache.get<number>("aiUserId");
-    if (cached !== undefined) return cached;
-
-    try {
-      const db = connectDB();
-      const aiUser = await db.query.users.findFirst({
-        where: (u, { eq }) => eq(u.role, "ai"),
-        columns: { id: true },
-      });
-      if (!aiUser?.id) {
-        logError(
-          "AI user not found. Please ensure an AI user exists in the database.",
-        );
-        return null;
-      }
-      aiUserIdCache.set("aiUserId", aiUser.id);
-      return aiUser.id;
-    } catch (error) {
-      logError("Error fetching AI user id:", error);
-      return null;
-    }
-  }
-
   export async function handleAIResponse(
     ws: wsInstance,
     ticketId: string,
@@ -318,27 +284,6 @@ namespace aiHandler {
       logInfo(`AI already responding for ticket ${ticketId}, skip trigger.`);
       return;
     }
-    aiProcessingSet.add(ticketId);
-
-    // Baseline count to ensure consistent increment
-    const beforeCount = aiResponseCountCache.get<number>(ticketId) ?? 0;
-    const aiUserId = await getAIUserId();
-    if (!aiUserId) {
-      aiProcessingSet.delete(ticketId);
-      sendWsMessage(ws, {
-        type: "error",
-        error: "Tentix Ai is not configured.",
-      });
-      return;
-    }
-
-    // Set timeout to auto-clear lock to avoid deadlocks
-    const timeoutId = setTimeout(() => {
-      aiProcessingSet.delete(ticketId);
-      aiProcessingTimeouts.delete(ticketId);
-      logError(`AI processing timeout for ticket ${ticketId}`);
-    }, AI_PROCESSING_TIMEOUT);
-    aiProcessingTimeouts.set(ticketId, timeoutId);
 
     // ai 不响应 closed 状态的工单 和 已经转人工的工单
     const ticket = await db.query.tickets.findFirst({
@@ -374,6 +319,33 @@ namespace aiHandler {
       return;
     }
 
+    aiProcessingSet.add(ticketId);
+
+    // Baseline count to ensure consistent increment
+    const beforeCount = aiResponseCountCache.get<number>(ticketId) ?? 0;
+
+    const aiUserId =
+      workflowCache.getAiUserId(ticket.module) ??
+      workflowCache.getFallbackAiUserId();
+
+    if (!aiUserId) {
+      aiProcessingSet.delete(ticketId);
+      sendWsMessage(ws, {
+        type: "error",
+        error: "Tentix Ai is not configured.",
+      });
+      return;
+    }
+
+    // Set timeout to auto-clear lock to avoid deadlocks
+    const timeoutId = setTimeout(() => {
+      aiProcessingSet.delete(ticketId);
+      aiProcessingTimeouts.delete(ticketId);
+      logError(`AI processing timeout for ticket ${ticketId}`);
+    }, AI_PROCESSING_TIMEOUT);
+
+    aiProcessingTimeouts.set(ticketId, timeoutId);
+
     runWithInterval(
       () => getAIResponse(ticket),
       () =>
@@ -386,7 +358,7 @@ namespace aiHandler {
       2000,
       async (result) => {
         try {
-          const JSONContent = markdownToTipTapJSON(result);
+          const JSONContent = textToTipTapJSON(result);
           const savedAIMessage = await saveMessageToDb(
             ticketId,
             aiUserId,
@@ -401,13 +373,14 @@ namespace aiHandler {
           const latest =
             aiResponseCountCache.get<number>(ticketId) ?? beforeCount;
           aiResponseCountCache.set(ticketId, latest + 1);
+
           broadcastToRoom(ticketId, {
             type: "new_message",
             messageId: savedAIMessage.id,
             roomId: ticketId,
             userId: aiUserId,
             content: savedAIMessage.content,
-            timestamp: Date.now(),
+            timestamp: new Date(savedAIMessage.createdAt).getTime(),
             isInternal: false,
           });
         } finally {
@@ -470,7 +443,7 @@ msgEmitter.on("new_message", function ({ ws, ctx, message }) {
       roomId: ctx.roomId,
       userId: ctx.userId,
       content: message.content,
-      timestamp: new Date(message.timestamp).getTime(),
+      timestamp: message.timestamp,
       isInternal: message.isInternal,
     },
     broadcastExclude,
@@ -480,7 +453,7 @@ msgEmitter.on("new_message", function ({ ws, ctx, message }) {
     tempId: message.tempId ?? 0,
     messageId: message.messageId,
     roomId: ctx.roomId,
-    timestamp: new Date(message.timestamp).getTime(),
+    timestamp: message.timestamp,
   });
 });
 
@@ -572,6 +545,7 @@ const chatRouter = factory
   )
   .get(
     "/onlineClients",
+    authMiddleware,
     describeRoute({
       tags: ["Chat"],
       description: "Get online clients",
@@ -606,24 +580,35 @@ const chatRouter = factory
       const { token, ticketId } = c.req.query();
 
       if (!ticketId) {
-        throw new HTTPException(400, {
-          message: "Ticket ID is required",
-        });
+        return {
+          onOpen(_evt, ws) {
+            ws.close(WS_CLOSE_CODE.POLICY_VIOLATION, "Ticket ID is required");
+          },
+        };
       }
 
       if (ticketId.length !== 13) {
-        throw new HTTPException(400, {
-          message: "Invalid ticket ID",
-        });
+        return {
+          onOpen(_evt, ws) {
+            ws.close(WS_CLOSE_CODE.POLICY_VIOLATION, "Invalid ticket ID");
+          },
+        };
       }
 
       // Validate token
       const tokenData = validateToken(token!);
       if (!tokenData) {
-        logError(`WebSocket token validation failed - ticketId: ${ticketId}, token: ${token?.substring(0, 8)}..., clientId: ${clientId}`);
-        throw new HTTPException(401, {
-          message: "Invalid or expired WebSocket token.",
-        });
+        logError(
+          `WebSocket token validation failed - ticketId: ${ticketId}, token: ${token?.substring(0, 8)}..., clientId: ${clientId}`,
+        );
+        return {
+          onOpen(_evt, ws) {
+            ws.close(
+              WS_CLOSE_CODE.UNAUTHORIZED,
+              "Invalid or expired WebSocket token.",
+            );
+          },
+        };
       }
 
       const { userId, role } = tokenData;
@@ -633,263 +618,276 @@ const chatRouter = factory
 
       if (
         role === "customer" &&
-        !roomMembers.map((member) => member.id).includes(userId) &&
-        global.customEnv.NODE_ENV === "production"
+        !roomMembers.map((member) => member.id).includes(userId)
       ) {
-        throw new HTTPException(403, {
-          message: "You do not have permission to access this ticket.",
-        });
+        return {
+          onOpen(_evt, ws) {
+            ws.close(
+              WS_CLOSE_CODE.POLICY_VIOLATION,
+              "You do not have permission to access this ticket.",
+            );
+          },
+        };
       }
 
-      return {
-        async onOpen(_evt, ws) {
-          logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
-          roomEmitter.emit("user_join", {
-            clientId,
-            roomId: ticketId,
-            userId,
-            role,
-            ws,
-          });
-          sendWsMessage(ws, {
-            type: "join_success",
-            roomId: ticketId,
-            timestamp: Date.now(),
-          });
-        },
-
-        async onMessage(evt, ws) {
-          try {
-            // Check if connection is alive
-            const state = roomEmitter.connectionStates.get(clientId);
-            if (!state?.isAlive) {
-              sendWsMessage(ws, {
-                type: "error",
-                error: "Connection is not alive",
-              });
-              return;
-            }
-            // Parse the message
-            const messageData = evt.data.toString();
-            const data = JSON.parse(messageData);
-
-            // Validate message format
-            const validationResult = wsMsgClientSchema.safeParse(data);
-            if (!validationResult.success) {
-              sendWsMessage(ws, {
-                type: "error",
-                error: "Invalid message format",
-              });
-              logError(
-                "Invalid message format:",
-                validationResult.error.issues,
-              );
-              return;
-            }
-
-            const parsedMessage: wsMsgClientType = validationResult.data;
-            // Handle different message types
-            switch (parsedMessage.type) {
-              case "heartbeat":
-                sendWsMessage(ws, {
-                  type: "heartbeat_ack",
-                  timestamp: Date.now(),
-                });
-                break;
-              case "heartbeat_ack":
-                roomEmitter.emit("heartbeat_ack", {
-                  clientId,
-                });
-                break;
-
-              case "message": {
-                // User is sending a message to a room
-                if (!parsedMessage.content) {
-                  sendWsMessage(ws, {
-                    type: "error",
-                    error: "Message content is required",
-                  });
-                  return;
-                }
-
-                // Save message to database
-                const messageResult = await saveMessageToDb(
-                  ticketId,
-                  userId,
-                  parsedMessage.content,
-                  parsedMessage.isInternal ?? false,
-                );
-
-                if (messageResult) {
-                  msgEmitter.emit("new_message", {
-                    ws,
-                    ctx: {
-                      clientId,
-                      roomId: ticketId,
-                      userId,
-                      role,
-                    },
-                    message: {
-                      content: parsedMessage.content,
-                      tempId: parsedMessage.tempId ?? 0,
-                      messageId: messageResult.id,
-                      timestamp: Date.now(),
-                      isInternal: parsedMessage.isInternal ?? false,
-                    },
-                  });
-                } else {
-                  sendWsMessage(ws, {
-                    type: "error",
-                    error: "Failed to save message",
-                  });
-                }
-                break;
-              }
-              case "typing": {
-                // Broadcast typing status to room
-                broadcastToRoom(
-                  ticketId,
-                  {
-                    type: "user_typing",
-                    userId,
-                    roomId: ticketId,
-                    timestamp: Date.now(),
-                  },
-                  clientId, // Exclude sender
-                );
-                break;
-              }
-              case "message_read": {
-                if (!parsedMessage.messageId) {
-                  sendWsMessage(ws, {
-                    type: "error",
-                    error: "Something went wrong when sync read status",
-                  });
-                  return;
-                }
-
-                // Save read status to database
-                const readStatus = await saveMessageReadStatus(
-                  parsedMessage.messageId,
-                  userId,
-                );
-
-                if (readStatus) {
-                  // Broadcast read status to room
-                  broadcastToRoom(
-                    ticketId,
-                    {
-                      type: "message_read_update",
-                      messageId: parsedMessage.messageId,
-                      userId,
-                      readAt: readStatus.readAt,
-                    },
-                    [clientId],
-                  );
-                }
-                break;
-              }
-              case "agent_first_message": {
-                if (role === "agent") {
-                  const db = connectDB();
-                  db.transaction(async (tx) => {
-                    await tx
-                      .update(schema.tickets)
-                      .set({
-                        status: "in_progress",
-                      })
-                      .where(eq(schema.tickets.id, ticketId));
-                    await tx.insert(schema.ticketHistory).values({
-                      ticketId,
-                      type: "first_reply",
-                      meta: 0,
-                      operatorId: userId,
-                    });
-                  });
-                }
-                break;
-              }
-              case "withdraw_message": {
-                // Withdraw the message
-                const withdrawnMessage = await withdrawMessage(
-                  parsedMessage.messageId,
-                  userId,
-                );
-
-                if (withdrawnMessage) {
-                  let broadcastExclude = [clientId];
-                  //  这个逻辑也可以不加，因为 isInternal 消息 customer 不会收到，前端更新状态时更新不了这个消息的状态
-                  if (withdrawnMessage.isInternal) {
-                    broadcastExclude = [
-                      clientId,
-                      roomCustomerMap.get(ticketId)!,
-                    ];
-                  }
-                  broadcastToRoom(
-                    ticketId,
-                    {
-                      type: "message_withdrawn",
-                      messageId: withdrawnMessage.id,
-                      roomId: ticketId,
-                      userId,
-                      timestamp: Date.now(),
-                      isInternal: withdrawnMessage.isInternal,
-                    },
-                    broadcastExclude, // Exclude sender
-                  );
-                } else {
-                  sendWsMessage(ws, {
-                    type: "error",
-                    error: "Failed to withdraw message",
-                  });
-                }
-                break;
-              }
-            }
-          } catch (error) {
-            logError("Error handling WebSocket message:", error);
-            sendWsMessage(ws, {
-              type: "error",
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Internal server error",
+      try {
+        return {
+          async onOpen(_evt, ws) {
+            logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
+            roomEmitter.emit("user_join", {
+              clientId,
+              roomId: ticketId,
+              userId,
+              role,
+              ws,
             });
-          }
-        },
-        onClose(_evt, ws) {
-          // 如果是 customer 离开首先检查 房间是否有 agent，如果没有 agent 则将 ticket 状态变为 pending，如果有 检查ticket 最近一条消息是否是自己发的，如果是则 pending
-          // 如果不是 customer 离开，则检查 ticket 最近一条消息是否是自己发的，如果是自己发的 则状态改为 in progress
-          handleUserLeaveStatusUpdate(ticketId, userId, role);
+            sendWsMessage(ws, {
+              type: "join_success",
+              roomId: ticketId,
+              timestamp: Date.now(),
+            });
+          },
 
-          // Clear AI in-flight lock when user leaves the room
-          if (aiHandler.isAIInFlight(ticketId)) {
-            aiHandler.clearAIInFlight(ticketId);
-          }
+          async onMessage(evt, ws) {
+            try {
+              // Check if connection is alive
+              const state = roomEmitter.connectionStates.get(clientId);
+              if (!state?.isAlive) {
+                sendWsMessage(ws, {
+                  type: "error",
+                  error: "Connection is not alive",
+                });
+                return;
+              }
+              // Parse the message
+              const messageData = evt.data.toString();
+              const data = JSON.parse(messageData);
 
-          roomEmitter.emit("user_leave", {
-            clientId,
-            roomId: ticketId,
-            userId,
-            role,
-            ws,
-          });
-          logInfo(`Client disconnected: ${clientId}`);
-        },
+              // Validate message format
+              const validationResult = wsMsgClientSchema.safeParse(data);
+              if (!validationResult.success) {
+                sendWsMessage(ws, {
+                  type: "error",
+                  error: "Invalid message format",
+                });
+                logError(
+                  "Invalid message format:",
+                  validationResult.error.issues,
+                );
+                return;
+              }
 
-        onError(evt, ws) {
-          // Clear AI in-flight lock when error occurs
-          if (aiHandler.isAIInFlight(ticketId)) {
-            aiHandler.clearAIInFlight(ticketId);
-          }
+              const parsedMessage: wsMsgClientType = validationResult.data;
+              // Handle different message types
+              switch (parsedMessage.type) {
+                case "heartbeat":
+                  sendWsMessage(ws, {
+                    type: "heartbeat_ack",
+                    timestamp: Date.now(),
+                  });
+                  break;
+                case "heartbeat_ack":
+                  roomEmitter.emit("heartbeat_ack", {
+                    clientId,
+                  });
+                  break;
 
-          logError(
-            `Client ${clientId} UserId: ${userId} Error handling WebSocket message:`,
-            evt,
-          );
-          ws.close();
-        },
-      };
+                case "message": {
+                  // User is sending a message to a room
+                  if (!parsedMessage.content) {
+                    sendWsMessage(ws, {
+                      type: "error",
+                      error: "Message content is required",
+                    });
+                    return;
+                  }
+
+                  // Save message to database
+                  const messageResult = await saveMessageToDb(
+                    ticketId,
+                    userId,
+                    parsedMessage.content,
+                    parsedMessage.isInternal ?? false,
+                  );
+
+                  if (messageResult) {
+                    msgEmitter.emit("new_message", {
+                      ws,
+                      ctx: {
+                        clientId,
+                        roomId: ticketId,
+                        userId,
+                        role,
+                      },
+                      message: {
+                        content: parsedMessage.content,
+                        tempId: parsedMessage.tempId ?? 0,
+                        messageId: messageResult.id,
+                        timestamp: new Date(messageResult.createdAt).getTime(),
+                        isInternal: parsedMessage.isInternal ?? false,
+                      },
+                    });
+                  } else {
+                    sendWsMessage(ws, {
+                      type: "error",
+                      error: "Failed to save message",
+                    });
+                  }
+                  break;
+                }
+                case "typing": {
+                  // Broadcast typing status to room
+                  broadcastToRoom(
+                    ticketId,
+                    {
+                      type: "user_typing",
+                      userId,
+                      roomId: ticketId,
+                      timestamp: Date.now(),
+                    },
+                    clientId, // Exclude sender
+                  );
+                  break;
+                }
+                case "message_read": {
+                  if (!parsedMessage.messageId) {
+                    sendWsMessage(ws, {
+                      type: "error",
+                      error: "Something went wrong when sync read status",
+                    });
+                    return;
+                  }
+
+                  // Save read status to database
+                  const readStatus = await saveMessageReadStatus(
+                    parsedMessage.messageId,
+                    userId,
+                  );
+
+                  if (readStatus) {
+                    // Broadcast read status to room
+                    broadcastToRoom(
+                      ticketId,
+                      {
+                        type: "message_read_update",
+                        messageId: parsedMessage.messageId,
+                        userId,
+                        readAt: readStatus.readAt,
+                      },
+                      [clientId],
+                    );
+                  }
+                  break;
+                }
+                case "agent_first_message": {
+                  if (role === "agent") {
+                    const db = connectDB();
+                    db.transaction(async (tx) => {
+                      await tx
+                        .update(schema.tickets)
+                        .set({
+                          status: "in_progress",
+                        })
+                        .where(eq(schema.tickets.id, ticketId));
+                      await tx.insert(schema.ticketHistory).values({
+                        ticketId,
+                        type: "first_reply",
+                        meta: 0,
+                        operatorId: userId,
+                      });
+                    });
+                  }
+                  break;
+                }
+                case "withdraw_message": {
+                  // Withdraw the message
+                  const withdrawnMessage = await withdrawMessage(
+                    parsedMessage.messageId,
+                    userId,
+                  );
+
+                  if (withdrawnMessage) {
+                    let broadcastExclude = [clientId];
+                    //  这个逻辑也可以不加，因为 isInternal 消息 customer 不会收到，前端更新状态时更新不了这个消息的状态
+                    if (withdrawnMessage.isInternal) {
+                      broadcastExclude = [
+                        clientId,
+                        roomCustomerMap.get(ticketId)!,
+                      ];
+                    }
+                    broadcastToRoom(
+                      ticketId,
+                      {
+                        type: "message_withdrawn",
+                        messageId: withdrawnMessage.id,
+                        roomId: ticketId,
+                        userId,
+                        timestamp: Date.now(),
+                        isInternal: withdrawnMessage.isInternal,
+                      },
+                      broadcastExclude, // Exclude sender
+                    );
+                  } else {
+                    sendWsMessage(ws, {
+                      type: "error",
+                      error: "Failed to withdraw message",
+                    });
+                  }
+                  break;
+                }
+              }
+            } catch (error) {
+              logError("Error handling WebSocket message:", error);
+              sendWsMessage(ws, {
+                type: "error",
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Internal server error",
+              });
+            }
+          },
+          onClose(_evt, ws) {
+            // 如果是 customer 离开首先检查 房间是否有 agent，如果没有 agent 则将 ticket 状态变为 pending，如果有 检查ticket 最近一条消息是否是自己发的，如果是则 pending
+            // 如果不是 customer 离开，则检查 ticket 最近一条消息是否是自己发的，如果是自己发的 则状态改为 in progress
+            handleUserLeaveStatusUpdate(ticketId, userId, role);
+
+            // Clear AI in-flight lock when user leaves the room
+            if (aiHandler.isAIInFlight(ticketId)) {
+              aiHandler.clearAIInFlight(ticketId);
+            }
+
+            roomEmitter.emit("user_leave", {
+              clientId,
+              roomId: ticketId,
+              userId,
+              role,
+              ws,
+            });
+            logInfo(`Client disconnected: ${clientId}`);
+          },
+
+          onError(evt, ws) {
+            // Clear AI in-flight lock when error occurs
+            if (aiHandler.isAIInFlight(ticketId)) {
+              aiHandler.clearAIInFlight(ticketId);
+            }
+
+            logError(
+              `Client ${clientId} UserId: ${userId} Error handling WebSocket message:`,
+              evt,
+            );
+            ws.close();
+          },
+        };
+      } catch (error) {
+        logError("Error upgrading WebSocket:", error);
+        return {
+          onOpen(_evt, ws) {
+            ws.close(WS_CLOSE_CODE.SERVER_ERROR, "Internal server error");
+          },
+        };
+      }
     }),
   )
   .get(
@@ -963,4 +961,4 @@ const chatRouter = factory
     },
   );
 
-export { websocket, chatRouter };
+export { chatRouter };

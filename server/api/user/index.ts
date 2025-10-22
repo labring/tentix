@@ -8,6 +8,7 @@ import { z } from "zod";
 import "zod-openapi/extend";
 import { authMiddleware, factory, S3Error } from "../middleware.ts";
 import { ticketsRouter } from "./tickets.ts";
+import { configRouter } from "./config.ts";
 
 const userRouter = factory
   .createApp()
@@ -41,11 +42,13 @@ const userRouter = factory
           name: schema.users.name,
           nickname: schema.users.nickname,
           realName: schema.users.realName,
+          phoneNum: schema.users.phoneNum,
           avatar: schema.users.avatar,
           role: schema.users.role,
           email: schema.users.email,
           registerTime: schema.users.registerTime,
           level: schema.users.level,
+          meta: schema.users.meta,
         })
         .from(schema.users)
         .where(eq(schema.users.id, userId));
@@ -239,6 +242,7 @@ const userRouter = factory
       });
     },
   )
-  .route("/", ticketsRouter);
+  .route("/", ticketsRouter)
+  .route("/", configRouter);
 
 export { userRouter };

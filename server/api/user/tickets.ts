@@ -22,7 +22,7 @@ import "zod-openapi/extend";
 import { Hono } from "hono";
 import type { AuthEnv } from "../middleware.ts";
 
-import { TicketStatus, Module, moduleEnumArray } from "@/utils/const.ts";
+import { TicketStatus } from "@/utils/const.ts";
 import { userTicketSchema } from "@/utils/types.ts";
 
 const basicUserCols = {
@@ -187,7 +187,7 @@ function buildSearchConditions(
   statuses?: TicketStatus[],
   createdAt_start?: string,
   createdAt_end?: string,
-  module?: Module,
+  module?: string,
 ) {
   const conditions = [];
 
@@ -229,7 +229,7 @@ async function getTicketsWithPagination(
   readStatus?: "read" | "unread",
   createdAt_start?: string,
   createdAt_end?: string,
-  module?: Module,
+  module?: string,
 ) {
   const db = connectDB();
   const offset = (page - 1) * pageSize;
@@ -412,7 +412,7 @@ async function getTicketsForAgent(
   readStatus?: "read" | "unread",
   createdAt_start?: string,
   createdAt_end?: string,
-  module?: Module,
+  module?: string,
 ) {
   const db = connectDB();
 
@@ -633,7 +633,7 @@ async function getAllTickets(
   readStatus?: "read" | "unread",
   createdAt_start?: string,
   createdAt_end?: string,
-  module?: Module,
+  module?: string,
 ) {
   const db = connectDB();
   const offset = (page - 1) * pageSize;
@@ -914,7 +914,7 @@ const ticketsRouter = new Hono<AuthEnv>().get(
           description:
             "Filter tickets created before this timestamp (inclusive)",
         }),
-      module: z.enum(moduleEnumArray).optional().openapi({
+      module: z.string().optional().openapi({
         description: "Filter tickets by module",
       }),
       allTicket: z
@@ -954,7 +954,10 @@ const ticketsRouter = new Hono<AuthEnv>().get(
     let stats;
 
     // 如果是 allTicket 模式，且用户是 technician 或 agent
-    if (allTicket && (role === "technician" || role === "agent")) {
+    if (
+      allTicket &&
+      (role === "technician" || role === "agent" || role === "admin")
+    ) {
       // readStatus 参数优先级更高，如果提供了 readStatus，则使用它进行过滤
       const [ticketsData, statsData] = await Promise.all([
         getAllTickets(
@@ -998,6 +1001,7 @@ const ticketsRouter = new Hono<AuthEnv>().get(
                 createdAt_end,
                 module,
               );
+            case "admin":
             case "technician":
               return getTicketsWithPagination(
                 userId,

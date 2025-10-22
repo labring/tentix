@@ -12,7 +12,7 @@ import { refreshStaffMap } from "../initApp.ts";
 import { signBearerToken } from "../auth/index.ts";
 import { getAIResponse } from "@/utils/platform/ai.ts";
 import { runWithInterval } from "@/utils/runtime.ts";
-import { markdownToTipTapJSON } from "@/utils/md.ts";
+import { textToTipTapJSON } from "@/utils/md.ts";
 import { userRoleEnumArray } from "@/utils/const.ts";
 import { isFeishuConfigured } from "@/utils/tools.ts";
 import { HTTPException } from "hono/http-exception";
@@ -124,7 +124,7 @@ const playgroundRouter = factory
     ),
     async (c) => {
       const { md } = c.req.valid("form");
-      const json = markdownToTipTapJSON(md);
+      const json = textToTipTapJSON(md);
       return c.json(json);
     },
   )

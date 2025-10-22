@@ -324,6 +324,7 @@ export class RoomEmitter extends MyEventEmitter<RoomEventMap> {
       isAlive: true,
     });
 
+    // TODO: 参考 workflow test chat 的心跳设计，只需要一个 interval 即可，不需要再弄一个 setTimeout
     // Start heartbeat for this connection
     const heartbeatInterval = setInterval(() => {
       const state = this.connectionStates.get(clientId);

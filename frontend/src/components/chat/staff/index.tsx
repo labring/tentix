@@ -13,6 +13,7 @@ import { useTranslation } from "i18n";
 import { useMutation } from "@tanstack/react-query";
 import { joinTicketAsTechnician } from "@lib/query";
 import useLocalUser from "@hook/use-local-user.tsx";
+import { usePreloadAvatars } from "@comp/common/cached-avatar.tsx";
 
 interface StaffChatProps {
   ticket: TicketType;
@@ -38,10 +39,17 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
   const {
     messages,
     setMessages,
-    setWithdrawMessageFunc,
     setCurrentTicketId,
     clearMessages,
+    currentTicketId,
   } = useChatStore();
+
+  // 预加载聊天列表头像
+  const avatarUrls = useMemo(
+    () => sessionMembers?.map((m) => m.avatar).filter(Boolean) || [],
+    [sessionMembers],
+  );
+  usePreloadAvatars(avatarUrls);
 
   const { toast } = useToast();
   // Check if current user is a member of this ticket
@@ -93,9 +101,8 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
     sendReadStatus,
     sendCustomMsg,
     closeConnection,
-    withdrawMessage,
   } = useTicketWebSocket({
-    ticket,
+    ticketId: currentTicketId,
     token,
     userId,
     onUserTyping: handleUserTyping,
@@ -104,8 +111,7 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
 
   useEffect(() => {
     setIsLoading(wsLoading || isTicketLoading);
-    setWithdrawMessageFunc(withdrawMessage);
-  }, [wsLoading, isTicketLoading, withdrawMessage, setWithdrawMessageFunc]);
+  }, [wsLoading, isTicketLoading]);
 
   // 设置当前 ticketId 并在卸载时清理
   useEffect(() => {
@@ -235,12 +241,16 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
       {!isTicketMember ? (
         <div className="bg-white h-42 border-t  flex items-center justify-center">
           <div className="text-center">
-            <p className="text-sm text-gray-500 mb-2">{t("not_joined_cannot_send")}</p>
+            <p className="text-sm text-gray-500 mb-2">
+              {t("not_joined_cannot_send")}
+            </p>
             <Button
               onClick={handleJoinTicket}
               disabled={joinTicketMutation.isPending}
             >
-              {joinTicketMutation.isPending ? t("joining") : t("join_this_ticket")}
+              {joinTicketMutation.isPending
+                ? t("joining")
+                : t("join_this_ticket")}
             </Button>
           </div>
         </div>
