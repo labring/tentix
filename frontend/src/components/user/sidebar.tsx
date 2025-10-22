@@ -35,7 +35,7 @@ export function Sidebar() {
         <Button
           variant="ghost"
           className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"
-          onClick={openSettingsModal}
+          onClick={() => openSettingsModal()}
         >
           <Settings className="!w-6 !h-6" strokeWidth={1.33} />
           <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">

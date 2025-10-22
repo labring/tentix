@@ -1,0 +1,366 @@
+// ========== cached-avatar.tsx ==========
+// 智能缓存的 Avatar 包装组件，无需修改原有 Avatar 组件
+
+import * as React from "react";
+import { useState, useEffect, useRef, memo, forwardRef } from "react";
+import { cn } from "@lib/utils";
+
+// 导入您原有的 Avatar 组件
+import { Avatar, AvatarImage, AvatarFallback } from "tentix-ui";
+
+// ========== 核心：图片缓存管理器 ==========
+class ImageCacheManager {
+  private static instance: ImageCacheManager;
+  // 存储加载状态: 'loading' | 'success' | 'error'
+  private statusCache = new Map<string, 'loading' | 'success' | 'error'>();
+  // 存储加载中的 Promise
+  private loadingPromises = new Map<string, Promise<void>>();
+  // 存储监听器
+  private listeners = new Map<string, Set<() => void>>();
+  // 失败重试次数
+  private retryCount = new Map<string, number>();
+  private maxRetries = 3;
+
+  private constructor() {
+    // 单例模式
+  }
+
+  static getInstance(): ImageCacheManager {
+    if (!ImageCacheManager.instance) {
+      ImageCacheManager.instance = new ImageCacheManager();
+    }
+    return ImageCacheManager.instance;
+  }
+
+  // 获取图片状态
+  getStatus(url: string): 'loading' | 'success' | 'error' | 'unknown' {
+    return this.statusCache.get(url) || 'unknown';
+  }
+
+  // 加载图片
+  async loadImage(url: string): Promise<void> {
+    // 检查缓存状态
+    const status = this.statusCache.get(url);
+    
+    // 如果已经成功加载，直接返回
+    if (status === 'success') {
+      return Promise.resolve();
+    }
+
+    // 如果加载失败且超过重试次数，直接返回失败
+    const retries = this.retryCount.get(url) || 0;
+    if (status === 'error' && retries >= this.maxRetries) {
+      return Promise.reject(new Error('Max retries exceeded'));
+    }
+
+    // 如果正在加载中，返回现有的 Promise
+    const existingPromise = this.loadingPromises.get(url);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    // 创建新的加载 Promise
+    const loadPromise = new Promise<void>((resolve, reject) => {
+      const img = new Image();
+      
+      // 设置超时
+      const timeout = setTimeout(() => {
+        this.statusCache.set(url, 'error');
+        this.loadingPromises.delete(url);
+        this.retryCount.set(url, retries + 1);
+        this.notifyListeners(url);
+        reject(new Error('Load timeout'));
+      }, 10000); // 10秒超时
+
+      img.onload = () => {
+        clearTimeout(timeout);
+        this.statusCache.set(url, 'success');
+        this.loadingPromises.delete(url);
+        this.retryCount.delete(url); // 成功后重置重试计数
+        this.notifyListeners(url);
+        resolve();
+      };
+
+      img.onerror = () => {
+        clearTimeout(timeout);
+        this.statusCache.set(url, 'error');
+        this.loadingPromises.delete(url);
+        this.retryCount.set(url, retries + 1);
+        this.notifyListeners(url);
+        reject(new Error('Failed to load image'));
+      };
+
+      // 开始加载
+      this.statusCache.set(url, 'loading');
+      this.notifyListeners(url);
+      img.src = url;
+    });
+
+    this.loadingPromises.set(url, loadPromise);
+    return loadPromise;
+  }
+
+  // 添加监听器
+  addListener(url: string, callback: () => void) {
+    if (!this.listeners.has(url)) {
+      this.listeners.set(url, new Set());
+    }
+    this.listeners.get(url)!.add(callback);
+  }
+
+  // 移除监听器
+  removeListener(url: string, callback: () => void) {
+    const callbacks = this.listeners.get(url);
+    if (callbacks) {
+      callbacks.delete(callback);
+      if (callbacks.size === 0) {
+        this.listeners.delete(url);
+      }
+    }
+  }
+
+  // 通知监听器
+  private notifyListeners(url: string) {
+    const callbacks = this.listeners.get(url);
+    if (callbacks) {
+      callbacks.forEach(callback => callback());
+    }
+  }
+
+  // 清除特定URL的缓存
+  invalidate(url: string) {
+    this.statusCache.delete(url);
+    this.loadingPromises.delete(url);
+    this.retryCount.delete(url);
+    this.notifyListeners(url);
+  }
+
+  // 清除所有缓存
+  clear() {
+    this.statusCache.clear();
+    this.loadingPromises.clear();
+    this.retryCount.clear();
+    this.listeners.clear();
+  }
+
+  // 预加载多个图片
+  preload(urls: string[]) {
+    urls.forEach(url => {
+      if (url) this.loadImage(url).catch(() => {});
+    });
+  }
+}
+
+// ========== Hook: 使用缓存管理器 ==========
+function useImageCache(src?: string) {
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'unknown'>('unknown');
+  const manager = ImageCacheManager.getInstance();
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!src) {
+      setStatus('error');
+      return;
+    }
+
+    // 获取初始状态
+    const initialStatus = manager.getStatus(src);
+    setStatus(initialStatus);
+
+    // 如果状态未知或正在加载，开始加载
+    if (initialStatus === 'unknown' || initialStatus === 'loading') {
+      manager.loadImage(src)
+        .then(() => {
+          if (mountedRef.current) {
+            setStatus('success');
+          }
+        })
+        .catch(() => {
+          if (mountedRef.current) {
+            setStatus('error');
+          }
+        });
+    }
+
+    // 监听状态变化
+    const handleStatusChange = () => {
+      if (mountedRef.current) {
+        setStatus(manager.getStatus(src));
+      }
+    };
+
+    manager.addListener(src, handleStatusChange);
+
+    return () => {
+      manager.removeListener(src, handleStatusChange);
+    };
+  }, [src, manager]);
+
+  return status;
+}
+
+// ========== CachedAvatarImage 组件 ==========
+// 包装 AvatarImage，添加缓存功能
+export const CachedAvatarImage = memo(forwardRef<
+  React.ElementRef<typeof AvatarImage>,
+  React.ComponentPropsWithoutRef<typeof AvatarImage>
+>(({ src, alt, className, ...props }, ref) => {
+  const status = useImageCache(src);
+  const [showImage, setShowImage] = useState(false);
+
+  useEffect(() => {
+    // 只有成功加载后才显示图片
+    setShowImage(status === 'success');
+  }, [status]);
+
+  if (!src || !showImage) {
+    // 不渲染 AvatarImage，让 AvatarFallback 显示
+    return null;
+  }
+
+  return (
+    <AvatarImage
+      ref={ref}
+      src={src}
+      alt={alt}
+      className={className}
+      {...props}
+    />
+  );
+}), (prevProps, nextProps) => {
+  // 自定义比较函数，只在 src 真正改变时重新渲染
+  return prevProps.src === nextProps.src && 
+         prevProps.alt === nextProps.alt &&
+         prevProps.className === nextProps.className;
+});
+
+CachedAvatarImage.displayName = 'CachedAvatarImage';
+
+// ========== CachedAvatar 组件 ==========
+// 完整的 Avatar 包装组件，可以直接替换原有的 Avatar 使用
+interface CachedAvatarProps {
+  src?: string;
+  alt?: string;
+  fallback?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | number;
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export const CachedAvatar = memo(forwardRef<
+  HTMLSpanElement,
+  CachedAvatarProps
+>(({ src, alt, fallback, size = 'md', className, children, ...props }, ref) => {
+  const sizeClass = typeof size === 'number' 
+    ? `h-${size} w-${size}` 
+    : size === 'sm' ? 'h-8 w-8'
+    : size === 'lg' ? 'h-12 w-12'
+    : 'h-10 w-10';
+
+  return (
+    <Avatar 
+      ref={ref} 
+      className={cn(sizeClass, className)} 
+      {...props}
+    >
+      <CachedAvatarImage src={src} alt={alt} />
+      <AvatarFallback>
+        {fallback || children}
+      </AvatarFallback>
+    </Avatar>
+  );
+}));
+
+CachedAvatar.displayName = 'CachedAvatar';
+
+// ========== 导出简化使用的组件 ==========
+// 为了更方便地替换，提供与原组件相同的 API
+export const CachedAvatarComponents = {
+  Root: Avatar,
+  Image: CachedAvatarImage,
+  Fallback: AvatarFallback,
+};
+
+// ========== 预加载 Hook ==========
+export function usePreloadAvatars(urls: string[]) {
+  const manager = ImageCacheManager.getInstance();
+  
+  useEffect(() => {
+    const validUrls = urls.filter(Boolean);
+    if (validUrls.length > 0) {
+      manager.preload(validUrls);
+    }
+  }, [urls]);
+}
+
+// ========== 缓存管理 Hook ==========
+export function useAvatarCacheManager() {
+  const manager = ImageCacheManager.getInstance();
+  
+  return {
+    invalidate: (url: string) => manager.invalidate(url),
+    clear: () => manager.clear(),
+    preload: (urls: string[]) => manager.preload(urls),
+    getStatus: (url: string) => manager.getStatus(url),
+  };
+}
+
+// ========== 使用示例 ==========
+/*
+
+1. 最简单的替换方式（推荐）：
+
+// 原代码：
+<Avatar className="h-8 w-8 shrink-0">
+  <AvatarImage src={messageSender?.avatar} alt={messageSender?.nickname} />
+  <AvatarFallback>{messageSender?.nickname?.charAt(0)}</AvatarFallback>
+</Avatar>
+
+// 新代码（方式1 - 直接替换整个 Avatar）：
+<CachedAvatar 
+  className="h-8 w-8 shrink-0"
+  src={messageSender?.avatar}
+  alt={messageSender?.nickname}
+  fallback={messageSender?.nickname?.charAt(0)}
+/>
+
+// 新代码（方式2 - 只替换 AvatarImage）：
+<Avatar className="h-8 w-8 shrink-0">
+  <CachedAvatarImage src={messageSender?.avatar} alt={messageSender?.nickname} />
+  <AvatarFallback>{messageSender?.nickname?.charAt(0)}</AvatarFallback>
+</Avatar>
+
+2. 在聊天组件中预加载所有头像：
+
+function ChatContainer() {
+  const { sessionMembers } = useSessionMembersStore();
+  
+  // 预加载所有成员头像
+  const avatarUrls = sessionMembers?.map(m => m.avatar).filter(Boolean) || [];
+  usePreloadAvatars(avatarUrls);
+  
+  return <MessageList />;
+}
+
+3. 手动管理缓存：
+
+function ProfileSettings() {
+  const { invalidate, clear } = useAvatarCacheManager();
+  
+  const handleAvatarUpdate = async (newAvatar) => {
+    await updateUserAvatar(newAvatar);
+    // 清除旧头像缓存
+    invalidate(oldAvatarUrl);
+    // 清除所有缓存
+    clear();
+  };
+}
+
+*/

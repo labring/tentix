@@ -21,9 +21,9 @@ const createFavoritedResponseSchema = z.object({
 const kbRouter = factory
   .createApp()
   .use(authMiddleware)
+  .use(staffOnlyMiddleware())
   .post(
     "/favorited",
-    staffOnlyMiddleware(),
     describeRoute({
       tags: ["KB"],
       description:
@@ -33,7 +33,9 @@ const kbRouter = factory
         200: {
           description: "Favorited knowledge processed successfully",
           content: {
-            "application/json": { schema: resolver(createFavoritedResponseSchema) },
+            "application/json": {
+              schema: resolver(createFavoritedResponseSchema),
+            },
           },
         },
       },
@@ -99,5 +101,3 @@ const kbRouter = factory
   );
 
 export { kbRouter };
-
-

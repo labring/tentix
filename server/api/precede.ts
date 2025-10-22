@@ -8,6 +8,8 @@ const envSchema = z.object({
   FEISHU_APP_ID: z.string().trim().optional(),
   FEISHU_APP_SECRET: z.string().trim().optional(),
   FEISHU_CHAT_ID: z.string().trim().optional(),
+  FEISHU_TRANSFER_CARD: z.string().trim().optional(),
+  FEISHU_NEW_TICKET_CARD: z.string().trim().optional(),
 
   FASTGPT_API_URL: z.string().url().trim().optional(),
   FASTGPT_API_KEY: z.string().startsWith("fastgpt-").trim().optional(),
@@ -26,7 +28,6 @@ const envSchema = z.object({
   OPENAI_BASE_URL: z.string().url().trim().optional(),
   OPENAI_API_KEY: z.string().trim().optional(),
   SUMMARY_MODEL: z.string().trim().optional(),
-  FAST_MODEL: z.string().trim().optional(),
   EMBEDDING_MODEL: z.string().trim().optional(),
   CHAT_MODEL: z.string().trim().optional(),
   MAX_AI_RESPONSES_PER_TICKET: z.coerce.number().default(3),
@@ -39,8 +40,10 @@ const envSchema = z.object({
   KB_SYNC_TZ: z.string().trim().default("Asia/Shanghai").optional(),
 
   APP_URL: z.string().url().trim().optional(),
-  TARGET_PLATFORM: z.enum(["sealos", "fastgpt", "generic"]).default("generic"),
+  TARGET_PLATFORM: z.enum(["sealos", "generic"]).default("generic"),
+  DISABLE_REGISTER: z.coerce.boolean().default(false).optional(),
   THIRD_PARTY_API: z.string().url().trim().optional(),
+  THIRD_PARTY_TOKEN: z.string().trim().optional(),
 
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });

@@ -19,27 +19,6 @@ export const areaRegionUuidMap = {
   test: "00000000-0000-0000-0000-000000000000",
 } as const;
 
-export const moduleEnumArray = [
-  "all",
-  "applaunchpad",
-  "costcenter",
-  "appmarket",
-  "db",
-  "account_center",
-  "aiproxy",
-  "devbox",
-  "task",
-  "cloudserver",
-  "objectstorage",
-  "laf",
-  "kubepanel",
-  "terminal",
-  "workorder",
-  "other",
-] as const;
-
-export type Module = (typeof moduleEnumArray)[number];
-
 export const ticketCategoryEnumArray = [
   "uncategorized",
   "bug",
@@ -149,6 +128,8 @@ export const sentimentLabelEnumArray = [
 
 export type SentimentLabel = (typeof sentimentLabelEnumArray)[number];
 
+export type HandoffNotifyChannel = "feishu" | "email" | "wechat" | "sms";
+
 /**
  * WebSocket token expiry time
  *
@@ -171,4 +152,134 @@ export function getIndex<T extends readonly string[]>(arr: T, key: T[number]) {
 
 export function getEnumKey<T extends readonly string[]>(arr: T, index: number) {
   return arr[index];
+}
+
+// workflow node type enum array
+export enum NodeType {
+  EMOTION_DETECTOR = "emotionDetector", // 情绪检测
+  HANDOFF = "handoff", // 转人工
+  SMART_CHAT = "smartChat", // 智能聊天
+  ESCALATION_OFFER = "escalationOffer", // 升级询问
+  VARIABLE_SETTER = "variableSetter", // 变量设置
+  START = "start", // 哨兵节点
+  END = "end",
+}
+export enum WorkflowEdgeType {
+  CONDITION = "condition",
+  NORMAL = "normal",
+}
+
+// node config
+export interface BaseNodeConfig {
+  id: string;
+  type: NodeType;
+  name: string;
+  position?: { x: number; y: number };
+  handles?: HandleConfig[];
+  description?: string;
+}
+export interface EmotionDetectionConfig extends BaseNodeConfig {
+  type: NodeType.EMOTION_DETECTOR;
+  config: {
+    llm?: LLMConfig;
+    systemPrompt: string;
+    userPrompt: string;
+  };
+}
+
+export interface HandoffConfig extends BaseNodeConfig {
+  type: NodeType.HANDOFF;
+  config: {
+    messageTemplate: string;
+    notifyChannels?: HandoffNotifyChannel;
+  };
+}
+
+export interface EscalationOfferConfig extends BaseNodeConfig {
+  type: NodeType.ESCALATION_OFFER;
+  config: {
+    escalationOfferMessageTemplate: string;
+    llm?: LLMConfig;
+    systemPrompt: string;
+    userPrompt: string;
+  };
+}
+
+export interface SmartChatConfig extends BaseNodeConfig {
+  type: NodeType.SMART_CHAT;
+  config: {
+    enableRAG: boolean;
+    ragConfig?: {
+      enableIntentAnalysis: boolean;
+      intentAnalysisUserPrompt: string;
+      intentAnalysisSystemPrompt: string;
+      generateSearchQueriesUserPrompt: string;
+      generateSearchQueriesSystemPrompt: string;
+      intentAnalysisLLM?: LLMConfig;
+      generateSearchQueriesLLM?: LLMConfig;
+      // searchQueries: number;
+      // topK: number;
+    };
+    systemPrompt: string;
+    userPrompt: string;
+    enableVision: boolean;
+    llm?: LLMConfig;
+    visionConfig?: {
+      includeTicketDescriptionImages: boolean;
+    };
+  };
+}
+
+export type NodeConfig =
+  | EmotionDetectionConfig
+  | HandoffConfig
+  | EscalationOfferConfig
+  | SmartChatConfig
+  | BaseNodeConfig;
+
+export type NodeConfigData =
+  | EmotionDetectionConfig["config"]
+  | HandoffConfig["config"]
+  | EscalationOfferConfig["config"]
+  | SmartChatConfig["config"];
+
+export interface LLMConfig {
+  apiKey?: string; // 可不填 -> 用全局 OPENAI_CONFIG
+  baseURL?: string; // 可不填 -> 用全局 OPENAI_CONFIG
+  model: string; // 必填：模型名
+}
+
+export interface HandleConfig {
+  id: string;
+  position: "top" | "right" | "bottom" | "left";
+  type: "source" | "target";
+  // 仅用于前端（React Flow）展示与编辑时记录条件，
+  // 实际路由逻辑只读取 WorkflowEdge.condition
+  condition?: string;
+}
+
+export interface WorkflowEdge {
+  id: string;
+  type: WorkflowEdgeType;
+  source: string;
+  target: string;
+  condition?: string;
+  source_handle?: string; // 源节点连接点ID
+  target_handle?: string; // 目标节点连接点ID
+}
+
+export interface WorkflowConfig {
+  id?: string;
+  name: string;
+  description: string;
+  nodes: Array<
+    | EmotionDetectionConfig
+    | HandoffConfig
+    | EscalationOfferConfig
+    | SmartChatConfig
+    | BaseNodeConfig
+  >;
+  edges: WorkflowEdge[];
+  createdAt: string;
+  updatedAt: string;
 }

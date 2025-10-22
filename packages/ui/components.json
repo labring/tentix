@@ -11,10 +11,10 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "./components",
-    "utils": "tentix-ui/lib/utils",
+    "components": "uisrc/components",
+    "utils": "uisrc/lib/utils",
     "hooks": "uisrc/hooks",
-    "lib": "tentix-ui/lib",
-    "ui": "./components/ui"
+    "lib": "uisrc/lib",
+    "ui": "uisrc/components/ui"
   }
 }

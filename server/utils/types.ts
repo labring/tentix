@@ -5,6 +5,9 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { userRoleEnumArray } from "./const";
 
+export type RequireFields<T, K extends keyof T> = Required<Pick<T, K>> &
+  Partial<Omit<T, K>>;
+
 export class ValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -168,6 +171,28 @@ export const sealosJWT = z.object({
 });
 
 export type SealosJWT = z.infer<typeof sealosJWT>;
+
+// 第三方 JWT token schema（标准 JWT）
+export const thirdPartyJWT = z
+  .object({
+    sub: z.string(), // subject (user ID)
+    name: z.string(), // user name (required)
+    nickname: z.string().optional(),
+    realName: z.string().optional(),
+    phoneNum: z.string().optional(),
+    avatar: z.string().optional(), // avatar URL (optional)
+    email: z.string().email().optional(), // user email (optional)
+    level: z.number().default(1), // user level (default: 1)
+    meta: z.record(z.any()).optional(), // meta 字段，用于存储用户额外信息
+    exp: z.number(), // expiration time
+    iat: z.number(), // issued at time
+    iss: z.string().optional(), // issuer (optional)
+    aud: z.string().optional(), // audience (optional)
+    // 支持任意其他字段
+  })
+  .catchall(z.any());
+
+export type ThirdPartyJWT = z.infer<typeof thirdPartyJWT>;
 
 // openapi
 // ws
@@ -428,3 +453,110 @@ export const ticketFeedbackSchema = z
         "dislikeReasons, feedbackComment, and hasComplaint can only be provided when satisfactionRating is less than 3",
     },
   );
+
+// admin
+// workflow
+
+// AI Role Config update schema
+export const AiRoleConfigPatchSchema = z
+  .object({
+    isActive: z.boolean().optional(),
+    scope: z.string().optional(),
+    workflowId: z.string().uuid().nullable().optional(),
+  })
+  .strict();
+
+// Workflow schemas
+export const WorkflowCreateSchema = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().default(""),
+    nodes: z.array(z.any()).default([]),
+    edges: z.array(z.any()).default([]),
+  })
+  .strict();
+
+export const WorkflowPatchSchema = z
+  .object({
+    description: z.string().optional(),
+    nodes: z.array(z.any()).optional(),
+    edges: z.array(z.any()).optional(),
+  })
+  .strict();
+
+// workflow chat test
+export const workflowTestChatServerSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.enum(["ping", "pong"]),
+    timestamp: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal("server_message"),
+    messageId: z.number(),
+    ticketId: z.string(),
+    userId: z.number(),
+    role: z.enum(userRoleEnumArray),
+    content: JSONContentSchema,
+    timestamp: z.number(),
+  }),
+  // 告诉客服端消息成功接受
+  z.object({
+    type: z.literal("message_received"),
+    tempId: z.number(),
+    messageId: z.number(),
+    ticketId: z.string(),
+  }),
+  // 告诉客户端 ws 成功建立，http upgrade 到 ws 完成
+  z.object({
+    type: z.literal("connected"),
+    ticketId: z.string(),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.literal("error"),
+    error: z.string(),
+  }),
+  z.object({
+    type: z.literal("info"),
+    message: z.string(),
+  }),
+]);
+
+export const workflowTestChatClientSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("client_message"),
+    content: JSONContentSchema,
+    timestamp: z.number().optional(),
+    tempId: z.number().optional(),
+  }),
+  z.object({
+    type: z.enum(["ping", "pong"]),
+    timestamp: z.number().optional(),
+  }),
+]);
+
+export type workflowTestChatServerType = z.infer<
+  typeof workflowTestChatServerSchema
+>;
+export type workflowTestChatClientType = z.infer<
+  typeof workflowTestChatClientSchema
+>;
+
+export type WorkflowTestChatMessage =
+  | workflowTestChatServerType
+  | workflowTestChatClientType;
+
+export const testTicketInsertSchema = createInsertSchema(
+  schema.workflowTestTicket,
+).pick({
+  title: true,
+  description: true,
+  module: true,
+  workflowId: true,
+});
+
+export type testTicketInsertType = z.infer<typeof testTicketInsertSchema>;
+
+export const ticketModuleSchema = createSelectSchema(schema.ticketModule);
+
+export type ticketModule = z.infer<typeof ticketModuleSchema>;

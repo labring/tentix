@@ -19,6 +19,10 @@ import {
   favoritedConversationsKnowledge,
   historyConversationKnowledge,
   handoffRecords,
+  workflow,
+  aiRoleConfig,
+  workflowTestTicket,
+  workflowTestMessage,
 } from "./schema.ts";
 
 // Define relations for detailed tickets
@@ -64,7 +68,7 @@ export const ticketHistoryRelations = relations(ticketHistory, ({ one }) => ({
 }));
 
 // Define relations for users
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   // ticket: many(ticketMembers), // ref to ticketMembersRelations
   messages: many(chatMessages), // ref to chatMessagesRelations
   readStatus: many(messageReadStatus), // ref to messageReadStatusRelations
@@ -101,6 +105,16 @@ export const usersRelations = relations(users, ({ many }) => ({
 
   // User identities relation
   identities: many(userIdentities),
+
+  // 新增的 AI 角色配置关联
+  aiRoleConfig: one(aiRoleConfig, {
+    fields: [users.id],
+    references: [aiRoleConfig.aiUserId],
+    relationName: "ai_role_user",
+  }),
+
+  // 新增:测试消息关联
+  workflowTestMessages: many(workflowTestMessage),
 }));
 
 export const techniciansToTicketsRelations = relations(
@@ -303,3 +317,53 @@ export const userIdentitiesRelations = relations(userIdentities, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// 工作流表的关联关系
+export const workflowsRelation = relations(workflow, ({ many }) => ({
+  // 关联的 AI 角色配置
+  aiRoleConfig: many(aiRoleConfig),
+  // 关联的测试工单
+  testTickets: many(workflowTestTicket),
+}));
+
+// AI 角色配置表的关联关系
+export const aiRoleConfigsRelation = relations(aiRoleConfig, ({ one }) => ({
+  // AI 用户关联
+  aiUser: one(users, {
+    fields: [aiRoleConfig.aiUserId],
+    references: [users.id],
+    relationName: "ai_role_user",
+  }),
+
+  // 绑定的工作流关联
+  workflow: one(workflow, {
+    fields: [aiRoleConfig.workflowId],
+    references: [workflow.id],
+  }),
+}));
+
+// Workflow Test Messages
+export const workflowTestTicketRelation = relations(
+  workflowTestTicket,
+  ({ many, one }) => ({
+    messages: many(workflowTestMessage), // 一个测试工单可以有多条测试消息
+    workflow: one(workflow, {
+      fields: [workflowTestTicket.workflowId],
+      references: [workflow.id],
+    }), // 一个测试工单关联一个工作流
+  }),
+);
+
+export const workflowTestMessageRelation = relations(
+  workflowTestMessage,
+  ({ one }) => ({
+    testTicket: one(workflowTestTicket, {
+      fields: [workflowTestMessage.testTicketId],
+      references: [workflowTestTicket.id],
+    }),
+    sender: one(users, {
+      fields: [workflowTestMessage.senderId],
+      references: [users.id],
+    }),
+  }),
+);

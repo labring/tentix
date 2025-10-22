@@ -18,6 +18,7 @@ export const Toolbar = ({ editor }: { editor: Editor }) => (
         activeActions={["bold", "italic", "underline", "strikethrough", "code"]}
         mainActionCount={5}
         size="sm"
+        className="!w-9 !h-9"
       />
     </div>
   </div>
@@ -40,7 +41,8 @@ export const UserChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
       clearContent: () => {
         editor?.commands.clearContent();
       },
-      getJSON: () => (editor?.getJSON() ?? { type: "doc", content: [] }) as Content,
+      getJSON: () =>
+        (editor?.getJSON() ?? { type: "doc", content: [] }) as Content,
     }));
 
     if (!editor) {

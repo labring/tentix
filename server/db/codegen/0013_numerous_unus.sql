@@ -1,0 +1,1 @@
+ALTER TABLE "tentix"."users" ADD COLUMN "force_relogin" boolean DEFAULT false NOT NULL;

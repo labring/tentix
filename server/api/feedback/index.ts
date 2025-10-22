@@ -5,7 +5,11 @@ import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import "zod-openapi/extend";
 import { HTTPException } from "hono/http-exception";
-import { authMiddleware, factory } from "../middleware.ts";
+import {
+  authMiddleware,
+  factory,
+  customerOnlyMiddleware,
+} from "../middleware.ts";
 import { rateLimiter } from "hono-rate-limiter";
 import { getConnInfo } from "hono/bun";
 import { createSelectSchema } from "drizzle-zod";
@@ -16,8 +20,8 @@ import {
 } from "@/utils/types.ts";
 
 const feedbackRateLimiter = rateLimiter({
-  windowMs: 5 * 60 * 1000, // 15分钟
-  limit: 3, // 3次限制
+  windowMs: 5 * 60 * 1000, // 5分钟
+  limit: 300, // 300次限制
   standardHeaders: "draft-6",
   keyGenerator: (c) => {
     const connInfo = getConnInfo(c);
@@ -63,6 +67,7 @@ const technicianWithFeedbackResponseSchema = createSelectSchema(schema.users)
 const feedbackRouter = factory
   .createApp()
   .use(authMiddleware)
+  .use(customerOnlyMiddleware())
   .post(
     "/message",
     feedbackRateLimiter,

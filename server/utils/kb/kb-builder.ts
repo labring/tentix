@@ -5,14 +5,14 @@ import {
 } from "@/db/schema";
 import { eq, asc, and, inArray } from "drizzle-orm";
 import { connectDB } from "@/utils/tools";
-import { VectorStore, KnowledgeBuilderConfig, KBChunk } from "./types";
+import { VectorStore, KnowledgeBuilderConfig, KBChunk } from "./types.ts";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { logWarning } from "@/utils/log";
-import { OPENAI_CONFIG } from "./config";
-import { getAbbreviatedText, type JSONContentZod } from "../types";
+import { OPENAI_CONFIG } from "./config.ts";
+import { getAbbreviatedText, type JSONContentZod } from "../types.ts";
 import { basicUserCols } from "../../api/queryParams.ts";
-import { getTextWithImageInfo, extractImageUrls } from "./tools";
+import { getTextWithImageInfo, extractImageUrls } from "./tools.ts";
 
 function truncateString(input: string, maxLen: number): string {
   if (!input) return "";
@@ -248,7 +248,27 @@ export class KnowledgeBuilderService {
         }
       }
 
-      const promptText = `阅读以下客服工单的基本信息和对话内容，输出严格符合模式的 JSON（不要额外解释）：{ "problem_summary": string, "solution_steps": string[], "generated_queries": string[], "tags": string[] }\n\n工单信息：\n- 标题: ${safeTitle}\n- 描述: ${ticketDesc}\n- 分类: ${t.category}\n- 模块: ${t.module}\n\n对话记录（按时间排序）：\n${joined}`;
+      const promptText = [
+        "请阅读以下客服工单的基本信息与按时间排序的对话，仅基于这些已知事实生成严格有效的 JSON。禁止任何多余说明、前后缀或 Markdown。输出结构必须完全符合：",
+        '{ "problem_summary": string, "solution_steps": string[], "generated_queries": string[], "tags": string[] }',
+        "",
+        "生成规则（务必逐条遵守）：",
+        "1) problem_summary：用中文精准概括用户问题，不引入未在工单或对话中出现的推断。",
+        "2) solution_steps：严格依据“客服/技术”在对话中明确给出的处理方案与操作顺序整理；如无明确方案，只总结已尝试或已建议的步骤，不得自创步骤或扩展不存在的功能；AI 的建议若未被客服/技术确认，不得采纳。若有可复用的相似场景处理方式，可在步骤末尾附加 1-3 条，并以“（相似场景）”前缀标注。",
+        "3) generated_queries：用于检索知识库的高精度检索词，优先包含产品/模块名、分类、错误码/提示语、关键操作、环境信息等；避免泛化词（如“问题”“报错”“怎么解决”）；长度适中，避免重复。",
+        "4) tags：3-8 个高置信标签，优先选用领域词与工单中出现的关键实体（模块、分类、错误码、产品版本等）；去重；避免过于宽泛的词。",
+        "5) 若信息不足，对应字段置为空字符串或空数组，绝不臆测。",
+        "6) 不得引用本指令文本；不得输出解释；确保 JSON 可被 JSON.parse 正确解析。",
+        "",
+        "工单信息：",
+        `- 标题: ${safeTitle}`,
+        `- 描述: ${ticketDesc}`,
+        `- 分类: ${t.category}`,
+        `- 模块: ${t.module}`,
+        "",
+        "对话记录（按时间排序）：",
+        joined,
+      ].join("\n");
 
       // 收集所有图片
       const allImages = [...ticketDescImages, ...conversationImages];

@@ -1,12 +1,61 @@
 import * as schema from "@/db/schema";
-import { logInfo } from "@/utils";
+import { logInfo, logError } from "@/utils";
 import { importKeyFromString } from "@/utils/crypto";
 import { connectDB } from "@/utils/tools";
 import { and, count, eq, gte, lt } from "drizzle-orm";
 import i18next from "i18next";
 import { translations } from "i18n";
+import { workflowCache } from "@/utils/kb/workflow-cache.ts";
 
-export async function initGlobalVariables() {
+/**
+ * Initialize application-level singletons and global state
+ * This function is called once at application startup
+ */
+async function initializeApplication() {
+  logInfo("[App] Initializing application...");
+
+  // Initialize crypto key
+  if (!global.customEnv.ENCRYPTION_KEY) {
+    throw new Error("ENCRYPTION_KEY is not set");
+  }
+  global.cryptoKey = await importKeyFromString(global.customEnv.ENCRYPTION_KEY);
+  logInfo("[App] Crypto key initialized");
+
+  // Initialize staff map
+  await refreshStaffMap();
+  logInfo("[App] Staff map initialized");
+
+  // Initialize today's ticket count
+  await initTodayTicketCount();
+  logInfo("[App] Today's ticket count initialized");
+
+  // Initialize i18next
+  const serverI18n = i18next.createInstance();
+  await serverI18n.init({
+    debug: process.env.NODE_ENV !== "production",
+    fallbackLng: "zh",
+    lng: "zh",
+    interpolation: {
+      escapeValue: false,
+    },
+    resources: translations,
+  });
+  global.i18n = serverI18n;
+  logInfo("[App] i18next initialized");
+
+  // Initialize workflow cache
+  await workflowCache.initialize();
+  logInfo("[App] Workflow cache initialized");
+
+  logInfo("[App] Application initialization complete");
+}
+
+/**
+ * Ensure global variables are initialized (lazy initialization)
+ * This function can be called multiple times safely
+ * Used in request middleware to ensure globals are available
+ */
+export async function ensureGlobalVariables() {
   if (!global.cryptoKey) {
     if (!global.customEnv.ENCRYPTION_KEY) {
       throw new Error("ENCRYPTION_KEY is not set");
@@ -23,7 +72,6 @@ export async function initGlobalVariables() {
     await initTodayTicketCount();
   }
   if (!global.i18n) {
-    // 初始化服务端纯净的i18next实例
     const serverI18n = i18next.createInstance();
     await serverI18n.init({
       debug: process.env.NODE_ENV !== "production",
@@ -152,9 +200,10 @@ export async function refreshStaffMap(stale: boolean = false) {
       };
     });
 
-    const technicians = (
+    const techniciansAndAdmin = (
       await db.query.users.findMany({
-        where: (users) => eq(users.role, "technician"),
+        where: (users, { or, eq }) =>
+          or(eq(users.role, "technician"), eq(users.role, "admin")),
         with: {
           ticketTechnicians: {
             with: {
@@ -201,10 +250,16 @@ export async function refreshStaffMap(stale: boolean = false) {
       };
     });
 
-    const staffs = agents.concat(technicians);
+    const staffs = agents.concat(techniciansAndAdmin);
     global.staffMap = new Map(staffs.map((staff) => [staff.id, staff]));
   }
   return global.staffMap;
 }
 
+// Start application-level initialization and background tasks
 resetDailyCounterAtMidnight();
+
+initializeApplication().catch((error) => {
+  logError("[App] Failed to initialize application:", error);
+  process.exit(1);
+});

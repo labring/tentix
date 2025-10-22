@@ -8,6 +8,7 @@ import {
   validateJSONContent,
   zs,
   detectLocale,
+  logInfo,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import { eq, and, desc, count, or, like, inArray, gte, lte } from "drizzle-orm";
@@ -16,12 +17,16 @@ import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import "zod-openapi/extend";
 import { HTTPException } from "hono/http-exception";
-import { authMiddleware, factory, staffOnlyMiddleware } from "../middleware.ts";
+import {
+  authMiddleware,
+  factory,
+  staffOnlyMiddleware,
+  customerOnlyMiddleware,
+} from "../middleware.ts";
 import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
 import {
   getIndex,
-  moduleEnumArray,
   ticketCategoryEnumArray,
   ticketPriorityEnumArray,
   TicketStatus,
@@ -30,6 +35,7 @@ import {
 import { userTicketSchema } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
 import { isFeishuConfigured } from "@/utils/tools";
+import { workflowCache } from "@/utils/kb/workflow-cache.ts";
 
 const createResponseSchema = z.array(
   z.object({
@@ -99,14 +105,16 @@ const ticketInfoResponseSchema = zs.ticket.extend({
       tag: createSelectSchema(schema.tags),
     }),
   ),
-  // AI 用户信息
-  ai: z.object({
-    id: z.number(),
-    name: z.string(),
-    nickname: z.string(),
-    avatar: z.string(),
-    role: z.enum(userRoleEnumArray),
-  }),
+  // AI 用户信息 (可选)
+  ai: z
+    .object({
+      id: z.number(),
+      name: z.string(),
+      nickname: z.string(),
+      avatar: z.string(),
+      role: z.enum(userRoleEnumArray),
+    })
+    .optional(),
 });
 
 const ticketRouter = factory
@@ -114,6 +122,7 @@ const ticketRouter = factory
   .use(authMiddleware)
   .post(
     "/create",
+    customerOnlyMiddleware(),
     describeRoute({
       tags: ["Ticket"],
       description: "Create ticket",
@@ -194,64 +203,16 @@ const ticketRouter = factory
 
         ticketId = data.id;
 
-        const description = getAbbreviatedText(payload.description, 200);
-
         // Assign ticket to agent with least in-progress tickets
-        if (staffMap.size > 0) {
-          c.var.incrementAgentTicket(assigneeId);
+        c.var.incrementAgentTicket(assigneeId);
 
-          // Update ticket status to in_progress
-          await tx.insert(schema.ticketHistory).values({
-            ticketId: data.id,
-            type: "create",
-            meta: assigneeId, // assignee
-            operatorId: userId,
-          });
-
-          //   const theme = (() => {
-          //     switch (payload.priority) {
-          //       case "urgent":
-          //       case "high":
-          //         return "red";
-          //       case "medium":
-          //         return "orange";
-          //       case "low":
-          //         return "indigo";
-          //       default:
-          //         return "blue";
-          //     }
-          //   })();
-
-          //   const ticketUrl = `${c.var.origin}/staff/tickets/${data.id}`;
-
-          //   const config = await readConfig();
-
-          //   const card = getFeishuCard("new_ticket", {
-          //     title: payload.title,
-          //     description,
-          //     time: new Date().toLocaleString(),
-          //     assignee: assigneeFeishuId,
-          //     number: c.var.incrementTodayTicketCount(),
-          //     module: c.var.i18n.t(payload.module),
-          //     theme,
-          //     internal_url: {
-          //       url: `https://applink.feishu.cn/client/web_app/open?appId=${config.feishu_app_id}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
-          //     },
-          //     ticket_url: {
-          //       url: ticketUrl,
-          //     },
-          //   });
-
-          //   getFeishuAppAccessToken().then(({ tenant_access_token }) => {
-          //     sendFeishuMsg(
-          //       "chat_id",
-          //       config.feishu_chat_id,
-          //       "interactive",
-          //       JSON.stringify(card.card),
-          //       tenant_access_token,
-          //     );
-          //   });
-        }
+        // Update ticket status to in_progress
+        await tx.insert(schema.ticketHistory).values({
+          ticketId: data.id,
+          type: "create",
+          meta: assigneeId, // assignee
+          operatorId: userId,
+        });
       });
 
       if (!ticketId) {
@@ -269,6 +230,7 @@ const ticketRouter = factory
   )
   .get(
     "/all",
+    staffOnlyMiddleware(),
     describeRoute({
       description:
         "Get all tickets with customer info and last message. Supports page-based pagination and search by keyword (ID/title) and status filtering.",
@@ -379,7 +341,7 @@ const ticketRouter = factory
             description:
               "Filter tickets created before this timestamp (inclusive)",
           }),
-        module: z.enum(moduleEnumArray).optional().openapi({
+        module: z.string().optional().openapi({
           description: "Filter tickets by module",
         }),
       }),
@@ -573,7 +535,10 @@ const ticketRouter = factory
           });
         }
 
-        const aiRole: (typeof userRoleEnumArray)[number] = "ai";
+        const aiUserId =
+          workflowCache.getAiUserId(data.module) ??
+          workflowCache.getFallbackAiUserId();
+
         const [customerSealos, agentSealos] = await Promise.all([
           db.query.userIdentities.findFirst({
             where: (ui, { and, eq }) =>
@@ -609,21 +574,23 @@ const ticketRouter = factory
           },
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
-          ai: await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.role, aiRole),
-            columns: {
-              id: true,
-              name: true,
-              nickname: true,
-              avatar: true,
-              role: true,
-            },
-          }),
+          // Add AI user - will be undefined if aiUserId doesn't exist
+          ai: aiUserId
+            ? await db.query.users.findFirst({
+                where: (users, { eq }) => eq(users.id, aiUserId),
+                columns: {
+                  id: true,
+                  name: true,
+                  nickname: true,
+                  avatar: true,
+                  role: true,
+                },
+              })
+            : undefined,
         };
 
         return c.json<typeof response>(response);
       } else if (staffMap.get(userId) !== undefined) {
-        // 员工可以查看所有工单
         const data = await db.query.tickets.findFirst({
           where: (tickets, { eq }) => eq(tickets.id, id),
           with: {
@@ -650,7 +617,10 @@ const ticketRouter = factory
           });
         }
 
-        const aiRole: (typeof userRoleEnumArray)[number] = "ai";
+        const aiUserId =
+          workflowCache.getAiUserId(data.module) ??
+          workflowCache.getFallbackAiUserId();
+
         const [customerSealos, agentSealos] = await Promise.all([
           db.query.userIdentities.findFirst({
             where: (ui, { and, eq }) =>
@@ -692,16 +662,19 @@ const ticketRouter = factory
           },
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
-          ai: await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.role, aiRole),
-            columns: {
-              id: true,
-              name: true,
-              nickname: true,
-              avatar: true,
-              role: true,
-            },
-          }),
+          // Add AI user - will be undefined if aiUserId doesn't exist
+          ai: aiUserId
+            ? await db.query.users.findFirst({
+                where: (users, { eq }) => eq(users.id, aiUserId),
+                columns: {
+                  id: true,
+                  name: true,
+                  nickname: true,
+                  avatar: true,
+                  role: true,
+                },
+              })
+            : undefined,
         };
 
         return c.json<typeof response>(response);
@@ -802,12 +775,6 @@ const ticketRouter = factory
         assignees.push(assignee);
       }
 
-      if (!isFeishuConfigured()) {
-        throw new HTTPException(400, {
-          message: "Feishu is not configured",
-        });
-      }
-
       const ticketInfo = (await db.query.tickets.findFirst({
         where: (tickets, { eq }) => eq(tickets.id, ticketId),
       }))!;
@@ -837,6 +804,14 @@ const ticketRouter = factory
         }
       });
 
+      if (!isFeishuConfigured()) {
+        logInfo(`Feishu is not configured, skipping notification`);
+        return c.json({
+          success: true,
+          message: `Ticket transferred successfully, but Feishu is not configured`,
+        });
+      }
+
       const ticketUrl = `${c.var.origin}/staff/tickets/${ticketId}`;
       const appLink = `https://applink.feishu.cn/client/web_app/open?appId=${global.customEnv.FEISHU_APP_ID}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`;
 
@@ -847,6 +822,7 @@ const ticketRouter = factory
         const card = getFeishuCard("transfer", {
           title: ticketInfo.title,
           comment: description,
+          area: ticketInfo.area,
           assignee: agent.feishuOpenId,
           module: c.var.i18n.t(ticketInfo.module),
           transfer_to: assignee.feishuOpenId,

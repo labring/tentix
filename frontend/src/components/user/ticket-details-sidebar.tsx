@@ -14,7 +14,7 @@ import {
   AvatarFallback,
   AvatarImage,
   ScrollArea,
-  timeAgo,
+  dateTimeFmt,
   PendingIcon,
   ProgressIcon,
   DoneIcon,
@@ -118,7 +118,7 @@ export function TicketHistory({
         <div className="flex items-center gap-1 text-zinc-500 text-sm font-normal leading-5">
           <span>{operatorName}</span>
           <span>•</span>
-          <span>{timeAgo(history.createdAt)}</span>
+          <span>{dateTimeFmt(history.createdAt)}</span>
         </div>
       </div>
     </div>
@@ -464,19 +464,29 @@ export function TicketDetailsSidebar({ ticket }: { ticket: TicketType }) {
               </div>
 
               {/* Region */}
-              <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
-                {t("area")}
-              </div>
-              <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
-                {ticket.area}
-              </div>
+              {ticket.area && (
+                <>
+                  <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
+                    {t("area")}
+                  </div>
+                  <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
+                    {`${ticket.area}/${ticket.sealosNamespace}`}
+                  </div>
+                </>
+              )}
 
               {/* Last Updated */}
               <div className="text-zinc-500 text-sm font-normal leading-none flex items-center h-5">
                 {t("updated_at")}
               </div>
               <div className="text-zinc-900 text-sm font-normal leading-none flex items-center h-5">
-                {timeAgo(ticket.updatedAt)}
+                {new Date(ticket.updatedAt).toLocaleString("zh-CN", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </div>
             </div>
           </div>

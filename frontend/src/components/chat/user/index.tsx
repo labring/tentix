@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageInput } from "./message-input.js";
 import { MessageList } from "../message-list.tsx";
 import { TicketInfoBox } from "../ticket-info-box.tsx";
@@ -11,6 +11,7 @@ import "react-photo-view/dist/react-photo-view.css";
 import { PhotoProvider } from "react-photo-view";
 import { useToast, ScrollArea } from "tentix-ui";
 import { useTranslation } from "i18n";
+import { usePreloadAvatars } from "@comp/common/cached-avatar.tsx";
 
 export function UserChat({
   ticket,
@@ -30,13 +31,20 @@ export function UserChat({
   const {
     messages,
     setMessages,
-    setWithdrawMessageFunc,
     setCurrentTicketId,
     clearMessages,
+    currentTicketId,
   } = useChatStore();
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   const sentReadStatusRef = useRef<Set<number>>(new Set());
   const { toast } = useToast();
+
+  // 预加载聊天列表头像
+  const avatarUrls = useMemo(
+    () => sessionMembers?.map((m) => m.avatar).filter(Boolean) || [],
+    [sessionMembers],
+  );
+  usePreloadAvatars(avatarUrls);
 
   // Handle user typing
   const handleUserTyping = (typingUserId: number, status: "start" | "stop") => {
@@ -60,9 +68,8 @@ export function UserChat({
     sendTypingIndicator,
     sendReadStatus,
     closeConnection,
-    withdrawMessage,
   } = useTicketWebSocket({
-    ticket,
+    ticketId: currentTicketId,
     token,
     userId,
     onUserTyping: handleUserTyping,
@@ -71,8 +78,7 @@ export function UserChat({
 
   useEffect(() => {
     setIsLoading(wsLoading || isTicketLoading);
-    setWithdrawMessageFunc(withdrawMessage);
-  }, [wsLoading, isTicketLoading, withdrawMessage, setWithdrawMessageFunc]);
+  }, [wsLoading, isTicketLoading]);
 
   // 设置当前 ticketId 并在卸载时清理
   useEffect(() => {

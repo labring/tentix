@@ -56,6 +56,11 @@ async function sendNotificationByChannel(
 
 // 飞书通知实现
 async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
+  if (!isFeishuConfigured()) {
+    logInfo(`Feishu is not configured, skipping notification`);
+    return;
+  }
+
   const theme = (() => {
     switch (ticket.priority) {
       case "urgent":
@@ -75,20 +80,17 @@ async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
   const description = getAbbreviatedText(ticket.description, 200);
   const user = global.staffMap!.get(ticket.agentId)!;
 
-  if (!isFeishuConfigured()) {
-    throw new Error("Feishu is not configured");
-  }
-
   // 截止今天多少点，今日工单数
   // 今日通知数
   const card = getFeishuCard("new_ticket", {
     title: ticket.title,
     description,
     time: new Date().toLocaleString(),
+    module: global.i18n!.t(ticket.module),
     assignee: user.feishuUnionId,
     number: global.todayTicketCount!,
-    module: global.i18n!.t(ticket.module),
     theme,
+    area: ticket.area,
     internal_url: {
       url: `https://applink.feishu.cn/client/web_app/open?appId=${global.customEnv.FEISHU_APP_ID!}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
     },

@@ -42,6 +42,10 @@ export * from './checkbox.tsx';
 export * from './sheet.tsx';
 export * from './chart.tsx';
 export * from './separator.tsx';
+export * from './kbd.tsx';
+export * from './empty.tsx';
+export * from './item.tsx';
+export * from './field.tsx';
 // export * from './carousel.tsx';
 
 
