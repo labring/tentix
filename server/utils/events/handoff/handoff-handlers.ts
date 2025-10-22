@@ -86,10 +86,11 @@ async function sendFeishuNotification(ticket: typeof tickets.$inferSelect) {
     title: ticket.title,
     description,
     time: new Date().toLocaleString(),
+    module: global.i18n!.t(ticket.module),
     assignee: user.feishuUnionId,
     number: global.todayTicketCount!,
-    module: global.i18n!.t(ticket.module),
     theme,
+    area: ticket.area,
     internal_url: {
       url: `https://applink.feishu.cn/client/web_app/open?appId=${global.customEnv.FEISHU_APP_ID!}&mode=appCenter&reload=false&lk_target_url=${ticketUrl}`,
     },

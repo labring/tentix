@@ -21,12 +21,12 @@ export const Route = createFileRoute("/user")({
 function UserLayout() {
   const queryClient = useQueryClient();
   const setTicketModules = useAppConfigStore((state) => state.setTicketModules);
-  const { isLoading } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
 
   // 预加载 ticket modules 配置数据并设置到 store（使用 React Query）
   // global config
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !isAuthenticated) return;
     let cancelled = false;
     queryClient
       .ensureQueryData(ticketModulesConfigQueryOptions())
@@ -41,7 +41,7 @@ function UserLayout() {
     return () => {
       cancelled = true;
     };
-  }, [isLoading, queryClient, setTicketModules]);
+  }, [isLoading, queryClient, setTicketModules, isAuthenticated]);
 
   return (
     <RouteTransition>

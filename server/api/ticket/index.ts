@@ -575,16 +575,18 @@ const ticketRouter = factory
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
           // Add AI user - will be undefined if aiUserId doesn't exist
-          ai: aiUserId ? await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.id, aiUserId),
-            columns: {
-              id: true,
-              name: true,
-              nickname: true,
-              avatar: true,
-              role: true,
-            },
-          }) : undefined,
+          ai: aiUserId
+            ? await db.query.users.findFirst({
+                where: (users, { eq }) => eq(users.id, aiUserId),
+                columns: {
+                  id: true,
+                  name: true,
+                  nickname: true,
+                  avatar: true,
+                  role: true,
+                },
+              })
+            : undefined,
         };
 
         return c.json<typeof response>(response);
@@ -661,16 +663,18 @@ const ticketRouter = factory
           technicians: data.technicians.map((t) => t.user),
           tags: data.ticketsTags.map((t) => t.tag),
           // Add AI user - will be undefined if aiUserId doesn't exist
-          ai: aiUserId ? await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.id, aiUserId),
-            columns: {
-              id: true,
-              name: true,
-              nickname: true,
-              avatar: true,
-              role: true,
-            },
-          }) : undefined,
+          ai: aiUserId
+            ? await db.query.users.findFirst({
+                where: (users, { eq }) => eq(users.id, aiUserId),
+                columns: {
+                  id: true,
+                  name: true,
+                  nickname: true,
+                  avatar: true,
+                  role: true,
+                },
+              })
+            : undefined,
         };
 
         return c.json<typeof response>(response);
@@ -818,6 +822,7 @@ const ticketRouter = factory
         const card = getFeishuCard("transfer", {
           title: ticketInfo.title,
           comment: description,
+          area: ticketInfo.area,
           assignee: agent.feishuOpenId,
           module: c.var.i18n.t(ticketInfo.module),
           transfer_to: assignee.feishuOpenId,

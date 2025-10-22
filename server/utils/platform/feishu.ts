@@ -8,7 +8,7 @@ type cardType = {
     type: "template";
     data: {
       template_id: string;
-      template_version_name: string;
+      template_version_name?: string;
       template_variable?: Record<string, unknown>;
     };
   };
@@ -22,8 +22,7 @@ const cardMap: Record<cardName, cardType> = {
     card: {
       type: "template",
       data: {
-        template_id: "AAq4SPHXffwrs",
-        template_version_name: "1.0.5",
+        template_id: global.customEnv.FEISHU_NEW_TICKET_CARD!,
       },
     },
   },
@@ -32,8 +31,7 @@ const cardMap: Record<cardName, cardType> = {
     card: {
       type: "template",
       data: {
-        template_id: "AAq4v8XPOZOiI",
-        template_version_name: "1.0.4",
+        template_id: global.customEnv.FEISHU_TRANSFER_CARD!,
       },
     },
   },
@@ -61,6 +59,7 @@ type Card1Variable = {
   module: string;
   assignee: string;
   number: number;
+  area: string;
   theme: FeiShuTheme;
   internal_url: {
     url: string;
@@ -76,6 +75,7 @@ type Card2Variable = {
   module: string;
   assignee: string;
   transfer_to: string;
+  area: string;
   internal_url: {
     url: string;
   };
@@ -170,16 +170,35 @@ async function handleFetchError(
   res: Response,
   attemptNumber: number,
   maxRetries: number,
+  url?: string,
 ): Promise<never> {
   let errorDetails: unknown;
+  let errorMessage = "";
+  
   try {
     errorDetails = await res.json();
+    // 尝试从响应中提取错误信息
+    if (typeof errorDetails === 'object' && errorDetails !== null) {
+      const details = errorDetails as Record<string, unknown>;
+      errorMessage = (details.msg || details.message || details.error || 
+                     `HTTP ${res.status}: ${res.statusText}`) as string;
+    } else {
+      errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+    }
   } catch {
     errorDetails = { status: res.status, statusText: res.statusText };
+    errorMessage = `HTTP ${res.status}: ${res.statusText}`;
   }
 
-  logError(`Attempt ${attemptNumber}/${maxRetries + 1} failed:`, errorDetails);
-  throw new Error(`HTTP ${res.status}: ${res.statusText}`, {
+  // 格式化错误详情以便更好地显示
+  const formattedDetails = JSON.stringify(errorDetails, null, 2);
+  const urlInfo = url ? ` (URL: ${url})` : "";
+  
+  logError(`🚨 Feishu API 请求失败 - 第 ${attemptNumber}/${maxRetries + 1} 次尝试失败${urlInfo}:`);
+  logError(`错误信息: ${errorMessage}`);
+  logError(`响应详情: ${formattedDetails}`);
+  
+  throw new Error(`Feishu API 请求失败: ${errorMessage}`, {
     cause: errorDetails,
   });
 }
@@ -212,7 +231,7 @@ const proxyHandler: ProxyHandler<typeof fetch> = {
         );
 
         if (!res.ok) {
-          await handleFetchError(res, attempt + 1, config.maxRetries);
+          await handleFetchError(res, attempt + 1, config.maxRetries, url);
         }
 
         return res;
@@ -231,13 +250,15 @@ const proxyHandler: ProxyHandler<typeof fetch> = {
         // Exponential backoff for retries
         const delayMs = config.initialDelayMs * Math.pow(2, attempt);
         logError(
-          `Retrying in ${delayMs}ms... (Attempt ${attempt + 1}/${config.maxRetries})`,
+          `⏳ ${delayMs}ms 后进行第 ${attempt + 2}/${config.maxRetries + 1} 次重试...`,
         );
         await delay(delayMs);
       }
     }
 
-    throw lastError || new Error("Failed to fetch after all retries");
+    const finalError = lastError || new Error("请求失败：所有重试尝试都已用尽");
+    logError(`💥 Feishu API 请求最终失败: ${finalError.message}`);
+    throw finalError;
   },
 };
 

@@ -133,7 +133,6 @@ OPENAI_API_KEY="<openai-api-key>"
 SUMMARY_MODEL="<用于摘要的模型名>"
 EMBEDDING_MODEL="<用于向量化的模型名>"
 CHAT_MODEL="<用于对话的模型名>"
-FAST_MODEL="<用于快速响应的模型名>"
 MAX_AI_RESPONSES_PER_TICKET=3  # 单工单 AI 回复次数上限，默认 3
 ```
 
