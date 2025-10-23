@@ -323,7 +323,10 @@ const adminRouter = factory
         });
 
       // refresh staff map
-      await refreshStaffMap();
+      if (updatedUser?.role && !["customer", "ai"].includes(updatedUser.role)) {
+        // refresh staff map
+        await refreshStaffMap(true);
+      }
 
       return c.json({
         success: true,
@@ -440,7 +443,7 @@ const adminRouter = factory
 
       if (!["customer", "ai"].includes(newUser.role)) {
         // refresh staff map
-        await refreshStaffMap();
+        await refreshStaffMap(true);
       }
 
       return c.json({

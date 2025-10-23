@@ -5,15 +5,21 @@ import type { ticketModule } from "tentix-server/types";
 interface AppConfigStore {
   ticketModules: ticketModule[];
   setTicketModules: (modules: ticketModule[]) => void;
+  forumUrl: string | null;
+  setForumUrl: (url: string | null) => void;
 }
 
 export const useAppConfigStore = create<AppConfigStore>()((set) => ({
   ticketModules: [],
   setTicketModules: (modules) => set({ ticketModules: modules }),
+  forumUrl: null,
+  setForumUrl: (url) => set({ forumUrl: url }),
 }));
 
 export const useTicketModules = () =>
   useAppConfigStore((state) => state.ticketModules);
+
+export const useForumUrl = () => useAppConfigStore((state) => state.forumUrl);
 
 /**
  * 根据 module code 和语言获取翻译值

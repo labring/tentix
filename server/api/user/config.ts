@@ -33,6 +33,32 @@ const ticketModuleUpdateSchema = z.object({
 
 const configRouter = new Hono<AuthEnv>()
   .get(
+    "/app-config",
+    describeRoute({
+      description: "Get app config",
+      tags: ["User", "App Config"],
+      responses: {
+        200: {
+          description: "App config",
+          content: {
+            "application/json": {
+              schema: resolver(
+                z.object({
+                  forumUrl: z.string().nullable(),
+                }),
+              ),
+            },
+          },
+        },
+      },
+    }),
+    async (c) => {
+      const forumUrl = global.customEnv.FORUM_URL;
+
+      return c.json({ forumUrl });
+    },
+  )
+  .get(
     "/ticket-module",
     describeRoute({
       description: "Get ticket modules",

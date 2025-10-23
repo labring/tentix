@@ -1,0 +1,2 @@
+https://your-domain.com/api/feishu/callback
+https://your-domain.com/api/feishu/bind-callback

@@ -44,7 +44,12 @@ const envSchema = z.object({
   DISABLE_REGISTER: z.coerce.boolean().default(false).optional(),
   THIRD_PARTY_API: z.string().url().trim().optional(),
   THIRD_PARTY_TOKEN: z.string().trim().optional(),
-
+  FORUM_URL: z
+    .string()
+    .url()
+    .trim()
+    .default("https://forum.sealos.run")
+    .optional(),
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 
