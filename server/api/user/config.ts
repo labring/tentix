@@ -1,17 +1,14 @@
 // removed unused imports
- 
+
 import * as schema from "@db/schema.ts";
 import type { TicketModuleTranslations } from "@db/schema.ts";
-import {
-  eq,
-  asc,
-} from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z, type ZodType } from "zod";
 import "zod-openapi/extend";
 import { Hono } from "hono";
-import { type AuthEnv, staffOnlyMiddleware } from "../middleware.ts";
+import { type AuthEnv, adminOnlyMiddleware } from "../middleware.ts";
 import { ticketModuleSchema } from "@/utils/types.ts";
 
 const translationsSchema = z
@@ -67,10 +64,10 @@ const configRouter = new Hono<AuthEnv>()
   )
   .post(
     "/ticket-module",
-    staffOnlyMiddleware(),
+    adminOnlyMiddleware(),
     zValidator("json", ticketModuleCreateSchema),
     describeRoute({
-      description: "Create a new ticket module (staff only)",
+      description: "Create a new ticket module (admin only)",
       tags: ["User", "Ticket Module"],
       responses: {
         201: {
@@ -111,10 +108,10 @@ const configRouter = new Hono<AuthEnv>()
   )
   .patch(
     "/ticket-module/:code",
-    staffOnlyMiddleware(),
+    adminOnlyMiddleware(),
     zValidator("json", ticketModuleUpdateSchema),
     describeRoute({
-      description: "Update a ticket module (staff only)",
+      description: "Update a ticket module (admin only)",
       tags: ["User", "Ticket Module"],
       responses: {
         200: {
@@ -172,9 +169,9 @@ const configRouter = new Hono<AuthEnv>()
   .on(
     "DELETE",
     "/ticket-module/:code",
-    staffOnlyMiddleware(),
+    adminOnlyMiddleware(),
     describeRoute({
-      description: "Delete a ticket module (staff only)",
+      description: "Delete a ticket module (admin only)",
       tags: ["User", "Ticket Module"],
       responses: {
         200: {

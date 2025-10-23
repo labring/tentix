@@ -78,45 +78,44 @@ const updateRoleSchema = z.object({
   }),
 });
 
-export const createUserSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1, "用户名不能为空")
-      .min(3, "用户名至少3个字符")
-      .max(50, "用户名不能超过50个字符")
-      .regex(
-        /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/,
-        "用户名只能包含字母、数字、下划线和中文字符",
-      ),
-    password: z
-      .string()
-      .min(6, "密码至少6个字符")
-      .max(100, "密码不能超过100个字符"),
-    realName: z.string().trim().max(50, "真实姓名不能超过50个字符").optional(),
-    phoneNum: z
-      .string()
-      .trim()
-      .regex(/^1[3-9]\d{9}$/, "手机号格式不正确")
-      .optional()
-      .or(z.literal("")),
-    nickname: z.string().trim().max(30, "昵称不能超过30个字符").optional(),
-    role: z
-      .enum(userRoleEnumArray)
-      .refine((v) => v !== "system", {
-        message: "system role is not assignable",
-      })
-      .default("customer"),
-    level: z.number().int().min(0).max(100).default(1),
-    email: z
-      .string()
-      .trim()
-      .email("请输入有效的邮箱地址")
-      .optional()
-      .or(z.literal("")),
-    meta: z.record(z.any()).default({}),
-  });
+export const createUserSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "用户名不能为空")
+    .min(3, "用户名至少3个字符")
+    .max(50, "用户名不能超过50个字符")
+    .regex(
+      /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/,
+      "用户名只能包含字母、数字、下划线和中文字符",
+    ),
+  password: z
+    .string()
+    .min(6, "密码至少6个字符")
+    .max(100, "密码不能超过100个字符"),
+  realName: z.string().trim().max(50, "真实姓名不能超过50个字符").optional(),
+  phoneNum: z
+    .string()
+    .trim()
+    .regex(/^1[3-9]\d{9}$/, "手机号格式不正确")
+    .optional()
+    .or(z.literal("")),
+  nickname: z.string().trim().max(30, "昵称不能超过30个字符").optional(),
+  role: z
+    .enum(userRoleEnumArray)
+    .refine((v) => v !== "system", {
+      message: "system role is not assignable",
+    })
+    .default("customer"),
+  level: z.number().int().min(0).max(100).default(1),
+  email: z
+    .string()
+    .trim()
+    .email("请输入有效的邮箱地址")
+    .optional()
+    .or(z.literal("")),
+  meta: z.record(z.any()).default({}),
+});
 
 const adminRouter = factory
   .createApp()
@@ -438,6 +437,11 @@ const adminRouter = factory
 
         return createdUser;
       });
+
+      if (!["customer", "ai"].includes(newUser.role)) {
+        // refresh staff map
+        await refreshStaffMap();
+      }
 
       return c.json({
         id: newUser.id,
