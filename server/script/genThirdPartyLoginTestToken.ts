@@ -25,7 +25,6 @@ function generateTestToken() {
   const now = Math.floor(Date.now() / 1000);
 
   const payload = {
-    sub: "test_user_001",
     name: "Test User",
     nickname: "Tester",
     realName: "Zhang Test",
@@ -51,6 +50,7 @@ function generateTestToken() {
     exp: now + 7 * 24 * 60 * 60, // 7 days
     iss: "test-system",
     aud: "tentix",
+    sub: "test_user_001",
   };
 
   return jsonwebtoken.sign(payload, secret);
