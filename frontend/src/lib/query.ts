@@ -454,10 +454,9 @@ export async function collectFavoritedKnowledge({
   messageIds?: number[];
   favoritedBy: number;
 }) {
-  const res = await apiClient.kb.favorited
-    .$post({
-      json: { ticketId, messageIds, favoritedBy },
-    })
-    .then((r) => r.json());
+  const response = await apiClient.kb.favorited.$post({
+    json: { ticketId, messageIds, favoritedBy },
+  });
+  const res = await response.json();
   return res;
 }
