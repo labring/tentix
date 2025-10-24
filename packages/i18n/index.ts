@@ -60,6 +60,7 @@ export const translations = {
       failed_close_ticket: "Failed to close ticket",
 
       community: "Forum",
+      other: "Other",
 
       tkt: "Ticket",
       tkt_list: "Tickets",
@@ -527,6 +528,7 @@ export const translations = {
       failed_close_ticket: "关闭工单失败",
 
       community: "社区",
+      other: "其他",
 
       tkt: "工单",
       tkt_list: "$t(tkt)列表",
