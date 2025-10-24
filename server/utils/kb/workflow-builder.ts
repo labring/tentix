@@ -63,7 +63,7 @@ export class WorkflowBuilder {
     );
     if (unreachableNodes.length > 0) {
       logError(
-        `工作流中发现 ${unreachableNodes.length} 个孤岛节点（不可达节点）：${unreachableNodes.map((n) => n.id).join(", ")}`,
+        `工作流 ${this.config.name} 中发现 ${unreachableNodes.length} 个孤岛节点（不可达节点）：${unreachableNodes.map((n) => n.id).join(", ")}`,
       );
     }
 
