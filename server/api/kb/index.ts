@@ -5,6 +5,7 @@ import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
 import "zod-openapi/extend";
 import { factory, authMiddleware, staffOnlyMiddleware } from "../middleware.ts";
+import { emit, Events } from "@/utils/events/kb/bus";
 
 const createFavoritedSchema = z.object({
   ticketId: z.string(),
@@ -65,7 +66,21 @@ const kbRouter = factory
             syncedAt: null,
           })
           .returning();
-        recordId = created!.id;
+
+        if (!created) {
+          return c.json(
+            {
+              success: false,
+              message: "Failed to create favorited knowledge",
+              data: null,
+            },
+            500,
+          );
+        }
+
+        recordId = created.id;
+
+        emit(Events.KBFavoritesSync, created);
       } else {
         // 2') 已存在：先清理对应 KB，再更新记录
         await db
@@ -89,7 +104,20 @@ const kbRouter = factory
           .where(eq(schema.favoritedConversationsKnowledge.ticketId, ticketId))
           .returning();
 
-        recordId = updated!.id;
+        if (!updated) {
+          return c.json(
+            {
+              success: false,
+              message: "Failed to update favorited knowledge",
+              data: null,
+            },
+            500,
+          );
+        }
+
+        recordId = updated.id;
+
+        emit(Events.KBFavoritesSync, updated);
       }
 
       return c.json({

@@ -34,10 +34,10 @@ const envSchema = z.object({
   VECTOR_BACKEND: z.enum(["internal", "external"]).default("internal"),
   EXTERNAL_VECTOR_BASE_URL: z.string().url().trim().optional(),
 
-  KB_SYNC_INTERVAL_SEC: z.coerce.number().default(5),
-  KB_SYNC_MAX_PROCESSING: z.coerce.number().default(10),
-  KB_SYNC_BATCH_SIZE: z.coerce.number().default(10),
-  KB_SYNC_TZ: z.string().trim().default("Asia/Shanghai"),
+  // 工单自动关闭配置
+  TICKET_AUTO_CLOSE_DAY: z.coerce.number().min(0).max(6).default(1), // 每周几执行（0=周日，1=周一）
+  TICKET_AUTO_CLOSE_HOUR: z.coerce.number().min(0).max(23).default(10), // 每天几点执行
+  TICKET_AUTO_CLOSE_TZ: z.string().trim().default("Asia/Shanghai"), // 时区
 
   APP_URL: z.string().url().trim().optional(),
   TARGET_PLATFORM: z.enum(["sealos", "generic"]).default("generic"),
