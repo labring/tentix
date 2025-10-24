@@ -59,25 +59,13 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
     [id, updateNode],
   );
 
-  type PatchPath =
-    | "ragConfig"
-    | "ragConfig.intentAnalysisLLM"
-    | "ragConfig.generateSearchQueriesLLM"
-    | "llm"
-    | "visionConfig";
+  type PatchPath = "llm" | "visionConfig";
   type VisionCfg = NonNullable<SmartChatConfig["config"]["visionConfig"]>;
-  type RagCfg = NonNullable<SmartChatConfig["config"]["ragConfig"]>;
-  type PatchValue<P extends PatchPath> = P extends "ragConfig"
-    ? Partial<RagCfg>
-    : P extends "ragConfig.intentAnalysisLLM"
-      ? Partial<LLMConfig>
-      : P extends "ragConfig.generateSearchQueriesLLM"
-        ? Partial<LLMConfig>
-        : P extends "llm"
-          ? Partial<LLMConfig>
-          : P extends "visionConfig"
-            ? Partial<VisionCfg>
-            : never;
+  type PatchValue<P extends PatchPath> = P extends "llm"
+    ? Partial<LLMConfig>
+    : P extends "visionConfig"
+      ? Partial<VisionCfg>
+      : never;
 
   const patchNested = useCallback(
     <P extends PatchPath>(path: P, patch: PatchValue<P>) => {
@@ -100,31 +88,6 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
             ...(prevConfig.visionConfig ?? ({} as VisionCfg)),
             ...(patch as Partial<VisionCfg>),
           };
-        } else if (path === "ragConfig") {
-          next.ragConfig = {
-            ...(prevConfig.ragConfig ?? ({} as RagCfg)),
-            ...(patch as Partial<RagCfg>),
-          };
-        } else if (path === "ragConfig.intentAnalysisLLM") {
-          const raw: Partial<LLMConfig> = {
-            ...((prevConfig.ragConfig ?? {}).intentAnalysisLLM ?? {}),
-            ...(patch as Partial<LLMConfig>),
-          };
-          const empty = !raw.model && !raw.baseURL && !raw.apiKey;
-          next.ragConfig = {
-            ...(prevConfig.ragConfig ?? ({} as RagCfg)),
-            intentAnalysisLLM: empty ? undefined : (raw as LLMConfig),
-          };
-        } else if (path === "ragConfig.generateSearchQueriesLLM") {
-          const raw: Partial<LLMConfig> = {
-            ...((prevConfig.ragConfig ?? {}).generateSearchQueriesLLM ?? {}),
-            ...(patch as Partial<LLMConfig>),
-          };
-          const empty = !raw.model && !raw.baseURL && !raw.apiKey;
-          next.ragConfig = {
-            ...(prevConfig.ragConfig ?? ({} as RagCfg)),
-            generateSearchQueriesLLM: empty ? undefined : (raw as LLMConfig),
-          };
         }
 
         const result: SmartChatConfig = { ...smartPrev, config: next };
@@ -144,7 +107,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
 
   return (
     <div className="relative group">
-      <BaseNode className="w-[300px] h-[760px] bg-white border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-200 rounded-lg overflow-hidden flex flex-col pb-4">
+      <BaseNode className="w-[300px] h-[540px] bg-white border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-200 rounded-lg overflow-hidden flex flex-col pb-4">
         <BaseNodeHeader className="bg-zinc-300 text-white relative flex-shrink-0">
           <BaseNodeHeaderTitle className="flex items-center justify-between text-sm font-medium">
             <div className="flex items-center gap-2">
@@ -167,218 +130,6 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
               </div>
 
               <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium text-foreground">启用 RAG</div>
-                  <Switch
-                    className="nodrag"
-                    checked={!!safeData.enableRAG}
-                    onCheckedChange={(v) => patchConfig({ enableRAG: v })}
-                  />
-                </div>
-
-                {safeData.enableRAG ? (
-                  <div className="rounded-md border p-2 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-foreground">启用意图分析</div>
-                      <Switch
-                        className="nodrag"
-                        checked={!!safeData.ragConfig?.enableIntentAnalysis}
-                        onCheckedChange={(v) =>
-                          patchNested("ragConfig", { enableIntentAnalysis: v })
-                        }
-                      />
-                    </div>
-
-                    {safeData.ragConfig?.enableIntentAnalysis ? (
-                      <div className="space-y-2">
-                        <div className="grid gap-1">
-                          <Label className="text-xs">
-                            意图分析 System Prompt
-                          </Label>
-                          <WorkflowTextarea
-                            className="min-h-12"
-                            value={
-                              safeData.ragConfig?.intentAnalysisSystemPrompt ||
-                              ""
-                            }
-                            onChange={(value) =>
-                              patchNested("ragConfig", {
-                                intentAnalysisSystemPrompt: value,
-                              })
-                            }
-                            nodeId={id}
-                          />
-                        </div>
-                        <div className="grid gap-1">
-                          <Label className="text-xs">
-                            意图分析 User Prompt
-                          </Label>
-                          <WorkflowTextarea
-                            className="min-h-12"
-                            value={
-                              safeData.ragConfig?.intentAnalysisUserPrompt || ""
-                            }
-                            onChange={(value) =>
-                              patchNested("ragConfig", {
-                                intentAnalysisUserPrompt: value,
-                              })
-                            }
-                            nodeId={id}
-                          />
-                        </div>
-
-                        <div className="grid gap-1">
-                          <Label className="text-xs">
-                            意图分析 LLM - Model
-                          </Label>
-                          <Input
-                            className="nodrag"
-                            value={
-                              safeData.ragConfig?.intentAnalysisLLM?.model || ""
-                            }
-                            onChange={(e) =>
-                              patchNested("ragConfig.intentAnalysisLLM", {
-                                model: e.target.value.trim(),
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="grid gap-1">
-                          <Label className="text-xs">
-                            意图分析 LLM - Base URL
-                          </Label>
-                          <Input
-                            className="nodrag"
-                            value={
-                              safeData.ragConfig?.intentAnalysisLLM?.baseURL ||
-                              ""
-                            }
-                            onChange={(e) =>
-                              patchNested("ragConfig.intentAnalysisLLM", {
-                                baseURL: e.target.value.trim() || undefined,
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="grid gap-1">
-                          <Label className="text-xs">
-                            意图分析 LLM - API Key
-                          </Label>
-                          <Input
-                            type="password"
-                            className="nodrag"
-                            value={
-                              safeData.ragConfig?.intentAnalysisLLM?.apiKey ||
-                              ""
-                            }
-                            onChange={(e) =>
-                              patchNested("ragConfig.intentAnalysisLLM", {
-                                apiKey: e.target.value.trim() || undefined,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <Separator className="my-2" />
-
-                    <div className="space-y-2">
-                      <div className="grid gap-1">
-                        <Label className="text-xs">
-                          生成检索语 System Prompt
-                        </Label>
-                        <WorkflowTextarea
-                          className="min-h-12"
-                          value={
-                            safeData.ragConfig
-                              ?.generateSearchQueriesSystemPrompt || ""
-                          }
-                          onChange={(value) =>
-                            patchNested("ragConfig", {
-                              generateSearchQueriesSystemPrompt: value,
-                            })
-                          }
-                          nodeId={id}
-                        />
-                      </div>
-                      <div className="grid gap-1">
-                        <Label className="text-xs">
-                          生成检索语 User Prompt
-                        </Label>
-                        <WorkflowTextarea
-                          className="min-h-12"
-                          value={
-                            safeData.ragConfig
-                              ?.generateSearchQueriesUserPrompt || ""
-                          }
-                          onChange={(value) =>
-                            patchNested("ragConfig", {
-                              generateSearchQueriesUserPrompt: value,
-                            })
-                          }
-                          nodeId={id}
-                        />
-                      </div>
-
-                      <div className="grid gap-1">
-                        <Label className="text-xs">
-                          生成检索语 LLM - Model
-                        </Label>
-                        <Input
-                          className="nodrag"
-                          value={
-                            safeData.ragConfig?.generateSearchQueriesLLM
-                              ?.model || ""
-                          }
-                          onChange={(e) =>
-                            patchNested("ragConfig.generateSearchQueriesLLM", {
-                              model: e.target.value.trim(),
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="grid gap-1">
-                        <Label className="text-xs">
-                          生成检索语 LLM - Base URL
-                        </Label>
-                        <Input
-                          className="nodrag"
-                          value={
-                            safeData.ragConfig?.generateSearchQueriesLLM
-                              ?.baseURL || ""
-                          }
-                          onChange={(e) =>
-                            patchNested("ragConfig.generateSearchQueriesLLM", {
-                              baseURL: e.target.value.trim() || undefined,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="grid gap-1">
-                        <Label className="text-xs">
-                          生成检索语 LLM - API Key
-                        </Label>
-                        <Input
-                          type="password"
-                          className="nodrag"
-                          value={
-                            safeData.ragConfig?.generateSearchQueriesLLM
-                              ?.apiKey || ""
-                          }
-                          onChange={(e) =>
-                            patchNested("ragConfig.generateSearchQueriesLLM", {
-                              apiKey: e.target.value.trim() || undefined,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <Separator className="my-1" />
-
                 <div className="space-y-2">
                   <div className="font-medium text-foreground">对话设置</div>
                   <div className="grid gap-1">

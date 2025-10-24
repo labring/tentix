@@ -38,12 +38,14 @@ const createTransferFormSchema = (t: (key: string) => string) =>
       message: t("please_select_staff"),
     }),
     reason: z
-      .string({
-        required_error: t("please_provide_reason"),
-      })
-      .min(3, {
-        message: t("reason_min_length"),
-      }),
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || val.length >= 3,
+        {
+          message: t("reason_min_length"),
+        }
+      ),
     remarks: z.string().optional(),
   });
 
@@ -57,7 +59,7 @@ async function transferTicket({
 }: {
   ticketId: string;
   targetStaffId: number[];
-  description: string;
+  description?: string;
 }) {
   const res = await (
     await apiClient.ticket.transfer.$post({

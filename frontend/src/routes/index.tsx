@@ -8,7 +8,6 @@ import { useAuth } from "../hooks/use-local-user";
 import { useEffect, useState, useCallback } from "react";
 import { useSealos, waitForSealosInit } from "../_provider/sealos";
 import { useTranslation } from "i18n";
- 
 
 // beforeLoad: 检查 url 是否有 token 信息，如果有则走第三方登录
 export const Route = createFileRoute("/")({
@@ -24,7 +23,6 @@ function AuthGuard() {
   const routeContext = useRouteContext({ from: "/" });
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
 
   // 根据角色导航到对应页面
   const navigateByRole = useCallback(
@@ -103,13 +101,7 @@ function AuthGuard() {
 
     // 导航
     navigateByRole(res.role);
-  }, [
-    router,
-    routeContext.apiClient,
-    sealosUser,
-    authContext,
-    navigateByRole,
-  ]);
+  }, [router, routeContext.apiClient, sealosUser, authContext, navigateByRole]);
 
   useEffect(() => {
     const initializeAndAuthenticate = async () => {
@@ -124,10 +116,7 @@ function AuthGuard() {
         const url = new URL(window.location.href);
         const thirdPartyToken = url.searchParams.get("token");
 
-        if (
-          thirdPartyToken &&
-          (!authContext.isAuthenticated || !authContext.user)
-        ) {
+        if (thirdPartyToken) {
           await handleThirdPartyLogin(thirdPartyToken);
           return;
         }

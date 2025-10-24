@@ -29,6 +29,7 @@ import {
   HelpCircle,
   Users,
   Square,
+  Database,
 } from "lucide-react";
 import { NodeType } from "tentix-server/constants";
 import { cn } from "@lib/utils";
@@ -60,6 +61,12 @@ function RouteComponent() {
         label: "智能聊天",
         desc: "AI 对话",
         icon: Bot,
+      },
+      {
+        id: NodeType.RAG,
+        label: "检索增强生成",
+        desc: "RAG 检索",
+        icon: Database,
       },
       {
         id: NodeType.EMOTION_DETECTOR,

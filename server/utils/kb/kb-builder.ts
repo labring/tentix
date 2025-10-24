@@ -59,6 +59,8 @@ function formatMessagesForAI(
   let idx = 0;
   const roleLabel = (role?: string, senderId?: string | number | null) => {
     const r = (role || "").toLowerCase();
+    if (r === "system") return "系统";
+    if (r === "admin") return "管理员";
     if (r === "ai") return "AI";
     if (r === "agent") return "客服";
     if (r === "technician") return "技术";

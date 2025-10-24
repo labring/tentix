@@ -86,10 +86,12 @@ export class PgVectorStore implements VectorStore {
     query,
     k,
     filters,
+    updateStats = true,
   }: {
     query: string;
     k: number;
     filters?: KBFilter;
+    updateStats?: boolean;
   }): Promise<SearchHit[]> {
     return await this.db.transaction(async (tx) => {
       const qEmbArr = await embed(query);
@@ -148,7 +150,8 @@ export class PgVectorStore implements VectorStore {
         .sort((a, b) => b.final - a.final)
         .slice(0, k);
 
-      if (ranked.length > 0) {
+      // 只有在 updateStats = true 时才自动更新访问统计
+      if (updateStats && ranked.length > 0) {
         const ids = ranked.map((r) => r.id);
         await tx
           .update(knowledgeBase)
@@ -280,6 +283,25 @@ export class PgVectorStore implements VectorStore {
       metadata: r.metadata,
     }));
   }
+
+  /**
+   * 批量更新访问次数（用于去重后的统一统计）
+   * 确保同一次对话中，每个 chunk 只被计数一次
+   */
+  async updateAccessCount(chunkIds: string[]): Promise<void> {
+    if (chunkIds.length === 0) return;
+
+    // 转换为数字 ID（假设 ID 是 uuid，我们需要按原样处理）
+    const ids = chunkIds.map((id) => id);
+
+    await this.db
+      .update(knowledgeBase)
+      .set({
+        accessCount: sql`COALESCE(${knowledgeBase.accessCount}, 0) + 1`,
+        updatedAt: sql`NOW()`,
+      })
+      .where(inArray(knowledgeBase.id, ids));
+  }
 }
 
 export class ExternalHttpStore implements VectorStore {
@@ -300,15 +322,17 @@ export class ExternalHttpStore implements VectorStore {
     query,
     k,
     filters,
+    updateStats = true,
   }: {
     query: string;
     k: number;
     filters?: KBFilter;
+    updateStats?: boolean;
   }): Promise<SearchHit[]> {
     const res = await fetch(`${this.base}/search`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query, k, filters }),
+      body: JSON.stringify({ query, k, filters, updateStats }),
     });
     if (!res.ok) throw new Error(`external search failed: ${await res.text()}`);
     const data = await res.json();
@@ -373,5 +397,18 @@ export class ExternalHttpStore implements VectorStore {
   async health() {
     const res = await fetch(`${this.base}/health`);
     return { ok: res.ok, info: await res.text() };
+  }
+
+  /**
+   * 批量更新访问次数（用于去重后的统一统计）
+   */
+  async updateAccessCount(chunkIds: string[]): Promise<void> {
+    if (chunkIds.length === 0) return;
+
+    await fetch(`${this.base}/updateAccessCount`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chunkIds }),
+    });
   }
 }

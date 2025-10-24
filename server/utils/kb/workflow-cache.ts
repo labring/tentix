@@ -2,7 +2,7 @@ import { type CompiledStateGraph } from "@langchain/langgraph";
 import { eq, asc } from "drizzle-orm";
 import * as schema from "@/db/schema.ts";
 import { connectDB } from "../tools";
-import { type WorkflowState, AgentMessage } from "./chat-node";
+import { type WorkflowState, AgentMessage } from "./workflow-node/workflow-tools.ts";
 import { logError, logInfo } from "@/utils/log.ts";
 import { WorkflowBuilder } from "./workflow-builder.ts";
 import { convertToMultimodalMessage, sleep } from "./tools";

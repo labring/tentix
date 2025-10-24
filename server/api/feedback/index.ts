@@ -256,11 +256,11 @@ const feedbackRouter = factory
         });
       }
 
-      // 只能对 agent、technician、ai 角色进行评价
-      if (!["agent", "technician", "ai"].includes(evaluatedUser.role)) {
+      // 只能对 agent、technician、ai、admin 角色进行评价
+      if (!["agent", "technician", "ai", "admin"].includes(evaluatedUser.role)) {
         throw new HTTPException(400, {
           message:
-            "You can only provide feedback for agent, technician, or ai users",
+            "You can only provide feedback for agent, technician, admin, or ai users",
         });
       }
 
