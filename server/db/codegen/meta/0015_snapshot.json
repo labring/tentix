@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "id": "f16099f0-d2e5-4d6c-bcb7-073dc2c5a7a0",
+=======
+  "id": "c343a882-5361-40ce-823c-aba0b03eb9e5",
+>>>>>>> fc90b59 (fix(add):analytics)
   "prevId": "dadd0856-7c00-4c07-bcf2-99dd93de96b8",
   "version": "7",
   "dialect": "postgresql",
@@ -727,12 +731,18 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+<<<<<<< HEAD
     "tentix.knowledge_access_log": {
       "name": "knowledge_access_log",
+=======
+    "tentix.hot_issues": {
+      "name": "hot_issues",
+>>>>>>> fc90b59 (fix(add):analytics)
       "schema": "tentix",
       "columns": {
         "id": {
           "name": "id",
+<<<<<<< HEAD
           "type": "uuid",
           "primaryKey": true,
           "notNull": true,
@@ -755,12 +765,17 @@
           "name": "knowledge_base_id",
           "type": "uuid",
           "primaryKey": false,
+=======
+          "type": "serial",
+          "primaryKey": true,
+>>>>>>> fc90b59 (fix(add):analytics)
           "notNull": true
         },
         "ticket_id": {
           "name": "ticket_id",
           "type": "char(13)",
           "primaryKey": false,
+<<<<<<< HEAD
           "notNull": false
         },
         "ticket_module": {
@@ -774,6 +789,35 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
+=======
+          "notNull": true
+        },
+        "issue_category": {
+          "name": "issue_category",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issue_tag": {
+          "name": "issue_tag",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "is_ai_generated": {
+          "name": "is_ai_generated",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+>>>>>>> fc90b59 (fix(add):analytics)
         },
         "created_at": {
           "name": "created_at",
@@ -782,6 +826,7 @@
           "notNull": true,
           "default": "now()"
         },
+<<<<<<< HEAD
         "date_day": {
           "name": "date_day",
           "type": "date",
@@ -831,6 +876,52 @@
           "columns": [
             {
               "expression": "date_day",
+=======
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_hot_issues_category": {
+          "name": "idx_hot_issues_category",
+          "columns": [
+            {
+              "expression": "issue_category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_hot_issues_tag": {
+          "name": "idx_hot_issues_tag",
+          "columns": [
+            {
+              "expression": "issue_tag",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_hot_issues_created": {
+          "name": "idx_hot_issues_created",
+          "columns": [
+            {
+              "expression": "created_at",
+>>>>>>> fc90b59 (fix(add):analytics)
               "isExpression": false,
               "asc": false,
               "nulls": "last"
@@ -841,11 +932,25 @@
           "method": "btree",
           "with": {}
         },
+<<<<<<< HEAD
         "idx_access_log_date_hour": {
           "name": "idx_access_log_date_hour",
           "columns": [
             {
               "expression": "date_hour",
+=======
+        "idx_hot_issues_category_created": {
+          "name": "idx_hot_issues_category_created",
+          "columns": [
+            {
+              "expression": "issue_category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+>>>>>>> fc90b59 (fix(add):analytics)
               "isExpression": false,
               "asc": false,
               "nulls": "last"
@@ -856,6 +961,7 @@
           "method": "btree",
           "with": {}
         },
+<<<<<<< HEAD
         "idx_access_log_year_month": {
           "name": "idx_access_log_year_month",
           "columns": [
@@ -876,11 +982,19 @@
           "columns": [
             {
               "expression": "knowledge_base_id",
+=======
+        "idx_hot_issues_tag_created": {
+          "name": "idx_hot_issues_tag_created",
+          "columns": [
+            {
+              "expression": "issue_tag",
+>>>>>>> fc90b59 (fix(add):analytics)
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
+<<<<<<< HEAD
               "expression": "date_day",
               "isExpression": false,
               "asc": true,
@@ -1010,6 +1124,11 @@
               "expression": "rag_duration",
               "isExpression": false,
               "asc": true,
+=======
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+>>>>>>> fc90b59 (fix(add):analytics)
               "nulls": "last"
             }
           ],
@@ -1020,6 +1139,7 @@
         }
       },
       "foreignKeys": {
+<<<<<<< HEAD
         "knowledge_access_log_knowledge_base_id_knowledge_base_id_fk": {
           "name": "knowledge_access_log_knowledge_base_id_knowledge_base_id_fk",
           "tableFrom": "knowledge_access_log",
@@ -1037,6 +1157,11 @@
         "knowledge_access_log_ticket_id_tickets_id_fk": {
           "name": "knowledge_access_log_ticket_id_tickets_id_fk",
           "tableFrom": "knowledge_access_log",
+=======
+        "hot_issues_ticket_id_tickets_id_fk": {
+          "name": "hot_issues_ticket_id_tickets_id_fk",
+          "tableFrom": "hot_issues",
+>>>>>>> fc90b59 (fix(add):analytics)
           "tableTo": "tickets",
           "schemaTo": "tentix",
           "columnsFrom": [
@@ -1045,12 +1170,28 @@
           "columnsTo": [
             "id"
           ],
+<<<<<<< HEAD
           "onDelete": "set null",
+=======
+          "onDelete": "cascade",
+>>>>>>> fc90b59 (fix(add):analytics)
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
+<<<<<<< HEAD
       "uniqueConstraints": {},
+=======
+      "uniqueConstraints": {
+        "hot_issues_ticket_unique": {
+          "name": "hot_issues_ticket_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "ticket_id"
+          ]
+        }
+      },
+>>>>>>> fc90b59 (fix(add):analytics)
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

@@ -1045,3 +1045,45 @@ export const workflowTestTicket = tentix.table(
     index("idx_workflow_test_tickets_updated_at").on(table.updatedAt.desc()),
   ],
 );
+
+
+export const hotIssues = tentix.table(
+  "hot_issues",
+  {
+    id: serial("id").primaryKey().notNull(),
+    ticketId: char("ticket_id", { length: 13 })
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    
+    issueCategory: varchar("issue_category", { length: 100 }).notNull(),
+    issueTag: varchar("issue_tag", { length: 100 }).notNull(),
+    
+    confidence: real("confidence").default(0).notNull(),
+    
+    isAiGenerated: boolean("is_ai_generated").default(true).notNull(),
+    
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    unique("hot_issues_ticket_unique").on(table.ticketId),
+    index("idx_hot_issues_category").on(table.issueCategory),
+    index("idx_hot_issues_tag").on(table.issueTag),
+    index("idx_hot_issues_created").on(table.createdAt.desc()),
+    index("idx_hot_issues_category_created").on(table.issueCategory, table.createdAt.desc()),
+    index("idx_hot_issues_tag_created").on(table.issueTag, table.createdAt.desc()),
+  ],
+);

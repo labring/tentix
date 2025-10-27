@@ -412,6 +412,93 @@ export const translations = {
       confirm_delete_ticket_module:
         "Are you sure you want to delete this ticket module?",
       update: "Update",
+      // Data Analytics
+      analytics: "Data Analytics",
+      analytics_filter: "Analytics Filter",
+      all_staff:'All Staff',
+      // Ticket status analysis module translation keys
+      ticket_status_analysis: "Ticket Status Analysis",
+      key_metrics: "Key Metrics",
+      backlog_rate: "Backlog Rate",
+      pending_tickets: "Pending Tickets",
+      in_progress_tickets: "In Progress Tickets",
+      completion_rate: "Completion Rate",
+      suggestions: "Suggestions",
+      percentage: "Percentage",
+
+      // Ticket volume trends module translation keys
+      ticket_volume_trends: "Ticket Volume Trends",
+      daily: "Daily",
+      weekly: "Weekly",
+      monthly: "Monthly",
+      yearly: "Yearly",
+      ticket_count: "Ticket Count",
+      ticket_response_time_analysis: "Ticket Response Time Analysis",
+      average_first_response_time: "Average First Response Time",
+      average_resolution_time: "Average Resolution Time",
+      range: "Range",
+      hours: "Hours",
+
+      // Module analysis module
+      module_analysis: "Module Analysis",
+
+      // Rating module
+      rating_distribution_analysis: "Rating Distribution Analysis",
+      total_rating_count: "Total Rating Count",
+      unrated: "Unrated",
+      star: "Star",
+      times: "Times",
+      manual_transfer_distribution: "Manual Transfer Distribution",
+      transferred_to_agent_tickets: "Transferred to Agent Tickets",
+      not_transferred_to_agent_tickets: "Not Transferred to Agent Tickets",
+
+      // Knowledge base hit distribution module
+      knowledge_base_hit_distribution: "Knowledge Base Hit Distribution",
+      hit_rate: "Hit Rate",
+      access_count: "Access Count",
+      potential_zone: "Potential Zone",
+      recommend_adding_guidance: "Recommend adding relevant guidance and recommendations",
+      high_efficiency_zone: "High Efficiency Zone",
+      maintain_and_promote_content: "Maintain and promote this content",
+      low_efficiency_zone: "Low Efficiency Zone",
+      recommend_updating_content: "Recommend updating or removing content",
+      needs_optimization: "Needs Optimization",
+      recommend_improving_accuracy: "Recommend improving content accuracy",
+      questions: "Questions",
+
+      // Popular issues analysis
+      top_popular_issues: "Top Popular Issues",
+      category_issue_count: "Category Issue Count",
+
+      // Intelligent analysis insights module
+      intelligent_analysis_insights: "Intelligent Analysis Insights",
+
+      // Additional keys for ticket status analysis
+      current: "Current",
+      exceed_normal_level: "exceeds normal level",
+      increase_manpower: "increase processing manpower",
+
+      // Additional keys for ticket trend chart
+      hourly: "Hourly",
+      no_data: "No Data",
+
+      // Additional keys for rating analysis
+      count: "Count",
+      total_tickets: "Total Tickets",
+
+      // Additional keys for knowledge base hits
+      previous_page: "Previous Page",
+      next_page: "Next Page",
+
+      // Additional keys for hot issues analysis
+      key_findings: "Key Findings",
+      improvement_suggestions: "Improvement Suggestions",
+      data_driven_strategy: "Data-Driven Strategy",
+      analyzing_data: "Analyzing data...",
+
+      // Additional keys for module analysis
+      uncategorized: "Uncategorized",
+
       // react-flow i18n resources
       rf: {
         nodeType: {
@@ -859,6 +946,94 @@ export const translations = {
       code_translations_required: "代码和翻译为必填项",
       confirm_delete_ticket_module: "确定要删除此工单模块吗？",
       update: "更新",
+      // 数据分析
+      analytics: "数据分析",
+      analytics_filter: "筛选",
+      today: "今天",
+      all_staff: "全部员工",
+      // 工单分析状态模块翻译键
+      ticket_status_analysis: "工单状态分析",
+      key_metrics: "关键指标",
+      backlog_rate: "积压率",
+      pending_tickets: "待处理工单",
+      in_progress_tickets: "处理中工单",
+      completion_rate: "完成率",
+      suggestions: "建议",
+      percentage: "占比",
+
+      // 工单数量趋势模块翻译键
+      ticket_volume_trends: "工单数量趋势",
+      daily: "按日",
+      weekly: "按周",
+      monthly: "按月",
+      yearly: "按年",
+      ticket_count: "工单数量",
+      ticket_response_time_analysis: "工单响应时长分析",
+      average_first_response_time: "平均首次响应时长",
+      average_resolution_time: "平均解决时长",
+      range: "范围",
+      hours: "小时",
+
+      // 模块分析模块
+      module_analysis: "模块分析",
+
+      // 评分模块
+      rating_distribution_analysis: "评分占比分析分布",
+      total_rating_count: "总评分次数",
+      unrated: "未评分",
+      star: "星",
+      times: "次",
+      manual_transfer_distribution: "转人工情况分布",
+      transferred_to_agent_tickets: "转人工工单",
+      not_transferred_to_agent_tickets: "未转人工工单",
+
+      // 知识库命中分布模块
+      knowledge_base_hit_distribution: "知识库命中分布",
+      hit_rate: "命中率",
+      access_count: "访问数",
+      potential_zone: "潜力区",
+      recommend_adding_guidance: "建议增加相关引导和推荐",
+      high_efficiency_zone: "高效区",
+      maintain_and_promote_content: "保持并推广该部分内容",
+      low_efficiency_zone: "低效区",
+      recommend_updating_content: "建议更新或移除内容",
+      needs_optimization: "需优化",
+      recommend_improving_accuracy: "建议提高内容准确性",
+      questions: "问题",
+
+      // 热门问题分析
+      top_popular_issues: "热门问题TOP榜单",
+      category_issue_count: "分类问题数量",
+
+      // 智能分析洞察模块
+      intelligent_analysis_insights: "智能分析洞察",
+
+      // 工单状态分析额外键
+      current: "当前",
+      exceed_normal_level: "超过正常水平",
+      increase_manpower: "增加处理人力",
+
+      // 工单趋势图表额外键
+      hourly: "按小时",
+      no_data: "无数据",
+
+      // 评分分析额外键
+      count: "数量",
+      total_tickets: "总工单数",
+
+      // 知识库命中分析额外键
+      previous_page: "上一页",
+      next_page: "下一页",
+
+      // 热门问题分析额外键
+      key_findings: "关键发现",
+      improvement_suggestions: "改进建议",
+      data_driven_strategy: "数据驱动策略",
+      analyzing_data: "正在分析数据...",
+
+      // 模块分析额外键
+      uncategorized: "未分类",
+
       // react-flow i18n resources
       rf: {
         nodeType: {
