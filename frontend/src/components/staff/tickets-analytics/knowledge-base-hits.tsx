@@ -405,7 +405,7 @@ export function KnowledgeBaseHits({
 
             <TabsContent value={selectedZone} className="mt-4">
                <div className="border rounded-lg">
-                <div className="overflow-hidden" style={{ minHeight: '360px' }}>
+                <div className="overflow-hidden min-h-[360px]">
                   <Table>
                     <TableHeader className="bg-white border-b border-zinc-200">
                       <TableRow>

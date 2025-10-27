@@ -29,14 +29,24 @@ export async function generateAIInsights(
   try {
     const model = new ChatOpenAI({
       apiKey: OPENAI_CONFIG.apiKey,
-      model: "gpt-4o-mini",
+      model: OPENAI_CONFIG.summaryModel,
       temperature: 0.3,
       configuration: {
         baseURL: OPENAI_CONFIG.baseURL,
       },
     });
 
-    const prompt = `你是一个专业的工单数据分析师。请基于以下热门问题数据，生成专业的分析洞察报告。
+    const prompt = `你是 Sealos 工单系统的数据分析师，**只分析**工单数据并生成洞察报告。**只输出 JSON**。
+
+## 输出协议（严格）
+- 只输出**不带 Markdown**的 JSON 字符串，可被 JSON.parse 成功解析。
+- 结构与字段：
+  {
+    "keyFindings": string[],    // 4个关键发现，每条 ≤100 字
+    "improvements": string[],   // 4个改进建议，每条 ≤100 字  
+    "strategy": string          // 综合策略建议，80-150字
+  }
+- 不要输出额外字段；不要包含注释或解释文本。
 
 ## 数据概况
 总问题数: ${totalIssues}
@@ -51,29 +61,12 @@ ${categoryStats.slice(0, 5).map((cat) =>
   `- ${cat.category}: ${cat.count}次 (${cat.percentage}%)`
 ).join('\n')}
 
-## 请按以下JSON格式输出分析报告：
-{
-  "keyFindings": [
-    "关键发现1",
-    "关键发现2",
-    "关键发现3",
-    "关键发现4"
-  ],
-  "improvements": [
-    "改进建议1",
-    "改进建议2",
-    "改进建议3",
-    "改进建议4"
-  ],
-  "strategy": "综合性的数据驱动策略建议（一段话）"
-}
+## 分析要求
+- keyFindings: 基于数据趋势、优先级分布、分类占比等提取4个最重要的发现
+- improvements: 针对高频问题、处理效率、用户体验等提供4个具体可行的改进建议
+- strategy: 综合数据洞察给出战略建议，聚焦问题预防、流程优化、资源配置
 
-要求：
-1. keyFindings: 提取4个最重要的数据发现，要具体、准确
-2. improvements: 提供4个切实可行的改进建议
-3. strategy: 给出一段综合性的战略建议（80-150字）
-4. 语言要专业但易懂
-5. 只输出JSON，不要有其他内容`;
+只输出 { "keyFindings": [...], "improvements": [...], "strategy": "..." } 的 JSON。`;
 
     const response = await model.invoke(prompt);
     const content = response.content.toString();
@@ -92,21 +85,6 @@ ${categoryStats.slice(0, 5).map((cat) =>
     return result;
   } catch (error) {
     console.error("AI洞察分析失败:", error);
-    
-    return {
-      keyFindings: [
-        "数据收集中，暂无足够信息生成洞察",
-        "请确保有充足的工单数据用于分析",
-        "建议持续跟踪问题趋势变化",
-        "关注高优先级问题的处理进度"
-      ],
-      improvements: [
-        "建立问题分类和标签的标准流程",
-        "加强团队对常见问题的培训",
-        "优化工单处理和响应机制",
-        "定期review和更新解决方案"
-      ],
-      strategy: "当前数据量不足，建议收集更多工单数据后再进行深入分析。同时建立完善的问题分类体系，为后续数据分析奠定基础。"
-    };
+    throw error;
   }
 }

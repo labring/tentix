@@ -5,9 +5,9 @@ import { extractText } from "../types.ts";
 import { eq, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { OPENAI_CONFIG } from "../kb/config.ts";
+import { convertToMultimodalMessage } from "../kb/tools.ts";
 
 async function getExistingCategoriesAndTags(db: any) {
-  // 获取现有分类（按频次排序）
   const categories = await db
     .select({
       category: schema.hotIssues.issueCategory,
@@ -18,7 +18,6 @@ async function getExistingCategoriesAndTags(db: any) {
     .orderBy(sql`count(*) DESC`)
     .limit(20);
 
-  // 获取现有标签（按频次排序）
   const tags = await db
     .select({
       tag: schema.hotIssues.issueTag,
@@ -44,44 +43,73 @@ interface AIAnalysisResult {
 
 async function analyzeWithAI(
   title: string,
-  descriptionText: string,
+  description: JSONContentZod,
   existingCategories: string[],
   existingTags: string[]
 ): Promise<AIAnalysisResult> {
   const model = new ChatOpenAI({
     apiKey: OPENAI_CONFIG.apiKey,
-    model: "gpt-4o-mini",
+    model: OPENAI_CONFIG.summaryModel,
     temperature: 0.3,
     configuration: {
       baseURL: OPENAI_CONFIG.baseURL,
     },
   });
 
-  const prompt = `你是一个工单分类助手。请分析以下工单内容，并从现有分类中选择最匹配的，或建议新分类。
+  // 使用多模态消息转换
+  const multimodalContent = convertToMultimodalMessage(description);
+  const descriptionText = extractText(description);
 
-工单标题: "${title}"
-工单描述: "${descriptionText}"
+  const promptText = `你是 Sealos 工单系统的分类助手，**只分析**工单内容并生成分类标签。**只输出 JSON**。
 
-现有问题分类: ${existingCategories.length > 0 ? existingCategories.join(", ") : "暂无"}
-现有问题标签: ${existingTags.length > 0 ? existingTags.join(", ") : "暂无"}
+## 输出协议（严格）
+- 只输出**不带 Markdown**的 JSON 字符串，可被 JSON.parse 成功解析。
+- 结构与字段：
+  {
+    "category": string,      // 问题分类，优先使用现有分类
+    "tag": string,          // 具体问题标签，描述问题细节
+    "confidence": number,   // 分析置信度，0-1之间
+    "reasoning": string     // 分析理由，≤50字
+  }
+- 不要输出额外字段；不要包含注释或解释文本。
 
-请返回JSON格式（不要使用markdown代码块）：
-{
-  "category": "选择的分类或新建分类",
-  "tag": "选择的标签或新建标签",
-  "confidence": 0.85,
-  "reasoning": "分析理由"
-}
+## 工单内容
+标题: "${title}"
+描述: "${descriptionText}"
 
-分类规则：
-1. 优先使用现有分类，如果现有分类中有相似的（相似度>70%）就使用现有的
-2. 分类要简洁明确，常见分类如：技术问题、账户问题、支付问题、性能问题、界面问题、服务问题、系统问题
-3. 标签要具体描述问题，如：用户无法正常登录系统、支付流程中断或失败、应用页面加载速度缓慢
-4. confidence表示分析的置信度(0-1)，如果不确定请降低置信度
-5. 只返回JSON，不要添加任何其他文字`;
+## 现有分类标签
+分类: ${existingCategories.length > 0 ? existingCategories.join(", ") : "暂无"}
+标签: ${existingTags.length > 0 ? existingTags.join(", ") : "暂无"}
+
+## 分析要求
+- 优先使用现有分类（相似度>70%）
+- 分类简洁明确：技术问题、账户问题、支付问题、性能问题、界面问题、服务问题、系统问题
+- 标签具体描述：用户无法正常登录系统、支付流程中断或失败、应用页面加载速度缓慢
+- **如果包含图片，请结合图片内容进行分析**，图片可能包含错误截图、界面问题、配置信息等
+- confidence: 不确定时降低置信度
+
+只输出 { "category": "...", "tag": "...", "confidence": 0.85, "reasoning": "..." } 的 JSON。`;
 
   try {
-    const response = await model.invoke(prompt);
+    let response;
+    
+    if (typeof multimodalContent === 'string') {
+      // 纯文本消息
+      response = await model.invoke(promptText);
+    } else {
+      // 多模态消息（包含图片）
+      const messages = [
+        {
+          role: "user" as const,
+          content: [
+            { type: "text" as const, text: promptText },
+            ...multimodalContent.filter(item => item.type === "image_url")
+          ]
+        }
+      ];
+      response = await model.invoke(messages);
+    }
+    
     const content = response.content.toString().trim();
     
     const jsonStr = content
@@ -99,12 +127,8 @@ async function analyzeWithAI(
       reasoning: result.reasoning,
     };
   } catch (error) {
-    return {
-      category: "未分类",
-      tag: "待分析",
-      confidence: 0.3,
-      reasoning: "AI分析失败，使用默认分类",
-    };
+    console.error("AI分类分析失败:", error);
+    throw error;
   }
 }
 
@@ -115,13 +139,11 @@ export async function analyzeAndSaveHotIssue(
   description: JSONContentZod
 ): Promise<void> {
   try {
-    const descriptionText = extractText(description);
-    
     const { categories, tags } = await getExistingCategoriesAndTags(db);
     
     const analysis = await analyzeWithAI(
       title,
-      descriptionText,
+      description,
       categories,
       tags
     );

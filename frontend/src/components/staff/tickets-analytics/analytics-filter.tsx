@@ -20,12 +20,21 @@ export function AnalyticsFilter({
   onEmployeeChange,
   onRefresh,
   onTodayToggle,
-  lastUpdated = "17:08",
+  lastUpdated,
 }: AnalyticsFilterProps) {
   const { t } = useTranslation();
   const [dateRange, setDateRange] = React.useState<{ from: Date; to: Date } | undefined>();
   const [isTodayChecked, setIsTodayChecked] = React.useState(false);
   const [selectedEmployee, setSelectedEmployee] = React.useState("all_staff");
+  
+  const [initialTime] = React.useState(() => 
+    new Date().toLocaleTimeString("zh-CN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  );
+  
+  const displayTime = lastUpdated || initialTime;
 
   const authContext = useAuth();
   const currentUser = authContext.user;
@@ -130,7 +139,6 @@ export function AnalyticsFilter({
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
-              initialFocus
               mode="range"
               defaultMonth={dateRange?.from}
               selected={dateRange}
@@ -140,7 +148,6 @@ export function AnalyticsFilter({
           </PopoverContent>
         </Popover>
 
-        {/* 员工下拉选择器 */}
         <Select value={selectedEmployee} onValueChange={handleEmployeeChange}>
           <SelectTrigger className="w-[180px] h-10">
             <SelectValue placeholder={t("select_employee")} />
@@ -161,7 +168,7 @@ export function AnalyticsFilter({
           <RefreshCcw className="mr-2 h-4 w-4" />
           {t("reload")}
         </Button>
-        <span className="text-sm text-zinc-500">{t("updated_at")} {lastUpdated}</span>
+        <span className="text-sm text-zinc-500">{t("updated_at")} {displayTime}</span>
       </div>
     </div>
   );

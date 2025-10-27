@@ -229,7 +229,6 @@ const ticketRouter = factory
           payload.title,
           payload.description
         );
-        logInfo(`热门问题分析完成: ticketId=${ticketId}`);
       } catch (error) {
         logInfo(`热门问题分析失败: ticketId=${ticketId}, error=${error}`);
       }

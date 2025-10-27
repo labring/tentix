@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AnalyticsFilter } from "@comp/tickets-analytics/analytics-filter";
-import { PriorityAnalyticsWrapper } from "@comp/tickets-analytics/lazy-analytics-wrapper";
+import { AnalyticsFilter } from "@comp/staff/tickets-analytics/analytics-filter";
+import { PriorityAnalyticsWrapper } from "@comp/staff/tickets-analytics/lazy-analytics-wrapper";
 import { StaffSidebar } from "@comp/staff/sidebar";
 import { RouteTransition } from "@comp/page-transition";
 import { Suspense, useState, useCallback, useEffect } from "react";
@@ -30,7 +30,12 @@ function AnalyticsSkeleton() {
 
 function AnalyticsDashboard() {
   const queryClient = useQueryClient();
-  const [lastUpdated, setLastUpdated] = useState("17:08");
+  const [lastUpdated, setLastUpdated] = useState(() => 
+    new Date().toLocaleTimeString("zh-CN", { 
+      hour: "2-digit", 
+      minute: "2-digit" 
+    })
+  );
   const [filterParams, setFilterParams] = useState<FilterParams>({
     isToday: false,
   });

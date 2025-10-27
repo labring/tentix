@@ -239,6 +239,8 @@ export const staffListQueryOptions = () =>
     staleTime: 60 * 60 * 1000,
   });
 
+
+// analytics query options
 const buildAnalyticsParams = (filterParams?: {
   startDate?: string;
   endDate?: string;
@@ -376,11 +378,9 @@ export const ratingAnalysisQueryOptions = (filterParams?: {
     queryFn: async () => {
       const searchParams = buildAnalyticsParams(filterParams);
       
-      console.log('[Frontend] Fetching rating analysis with params:', filterParams);
       const data = await apiClient.analytics["rating-analysis"]
         .$get({ query: Object.fromEntries(searchParams) })
         .then((r) => r.json());
-      console.log('[Frontend] Rating analysis data received:', data);
       return data;
     },
     ...analyticsQueryConfig,

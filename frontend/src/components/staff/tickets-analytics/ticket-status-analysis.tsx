@@ -223,7 +223,7 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
           {data.backlogWarning && (
             <div>
               <h3 className="text-lg font-semibold text-zinc-900 mb-3">{t("suggestions")}</h3>
-              <Alert variant="destructive" className="border-1 border-dashed border-black p-4" style={{ backgroundColor: '#FAFAFA' }}>
+              <Alert variant="destructive" className="border-1 border-dashed border-black p-4 bg-gray-50">
                 
                  <AlertTitle className="text-black flex items-center gap-2"><TriangleAlert className="h-4 w-4 text-red-600" />{t("tkt")} {t("backlog_rate")} {t("error")}</AlertTitle>
                 <AlertDescription className="text-black">

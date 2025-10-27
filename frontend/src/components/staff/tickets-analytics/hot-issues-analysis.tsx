@@ -242,8 +242,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                    return (
                      <div
                        key={stat.category}
-                       className="flex-1 flex flex-col items-center justify-end group"
-                       style={{ maxWidth: '80px' }}
+                       className="flex-1 flex flex-col items-center justify-end group max-w-[80px]"
                      >
                        <div className="relative w-full flex flex-col items-center">
                          <div className="text-sm font-semibold text-zinc-700 mb-1">
@@ -275,8 +274,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                {data.categoryStats.map((stat) => (
                  <div
                    key={stat.category}
-                   className="text-xs text-zinc-600 text-center leading-tight max-w-full px-1"
-                   style={{ maxWidth: '80px' }}
+                   className="text-xs text-zinc-600 text-center leading-tight px-1 max-w-[80px]"
                  >
                    {stat.category}
                  </div>

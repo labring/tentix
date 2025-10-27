@@ -186,7 +186,6 @@ export function TicketTrendChart({
     }
     
     formattedTrendsData = fixedHours;
-    console.log('[Frontend] Hour mode - fixed 24 hours with data:', formattedTrendsData.slice(0, 5));
   } else {
     formattedTrendsData = data?.trends?.map(item => ({
       ...item,
@@ -233,7 +232,6 @@ export function TicketTrendChart({
     }
     
     formattedResponseData = fixedHoursResponse;
-    console.log('[Frontend] Hour mode - response data:', formattedResponseData.slice(0, 5));
   } else {
     if (formattedTrendsData.length > 0) {
       const responseDataMap = new Map();
@@ -256,8 +254,6 @@ export function TicketTrendChart({
           resolution: responseData?.resolution || 0,
         };
       });
-      
-      console.log('[Frontend] Day mode - aligned response data:', formattedResponseData.slice(0, 3));
     } else {
       formattedResponseData = data?.responseTimeTrends?.map(item => ({
         ...item,
@@ -350,10 +346,10 @@ export function TicketTrendChart({
                               </div>
                               <div className="border-t border-zinc-300 w-full"></div>
                               <div className="flex items-center space-x-2">
-                                <div 
-                                  className="w-3 h-3" 
-                                  style={{ backgroundColor: payload[0]?.color || '#2563EB' }}
-                                ></div>
+                        <div 
+                          className="w-3 h-3"
+                          style={{ backgroundColor: payload[0]?.color || '#2563EB' }}
+                        ></div>
                                 <span className="text-sm text-zinc-600">
                                   {t("ticket_count")}：<span className="font-semibold text-zinc-900">{data.count}</span>
                                 </span>
@@ -474,7 +470,7 @@ export function TicketTrendChart({
                                     {payload.map((entry, index) => (
                                       <div key={index} className="flex items-center space-x-2">
                                         <div 
-                                          className="w-3 h-3" 
+                                          className="w-3 h-3"
                                           style={{ backgroundColor: entry.color || '#2563EB' }}
                                         ></div>
                                         <span className="text-sm text-zinc-600">

@@ -4,7 +4,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer} from "recharts";
 import { ratingAnalysisQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
 
-// 定义评分图表配置 - 将在组件内部使用翻译
 const getRatingChartConfig = (t: any) => ({
   "1星": {
     label: `1${t("star")}`,

@@ -1,67 +1,171 @@
-import * as schema from "@db/schema.ts";
+import * as schema from "@/db/schema.ts";
 import { and, count, eq, gte, lte, sql, desc, asc } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
-import { factory, authMiddleware, staffOnlyMiddleware } from "../middleware.ts";
+import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
-import { alias } from "drizzle-orm/pg-core";
+import "zod-openapi/extend";
+import { HTTPException } from "hono/http-exception";
+import { factory, authMiddleware, staffOnlyMiddleware } from "../middleware.ts";
 import { generateAIInsights } from "../../utils/analytics/index.ts";
+import type { SQL } from "drizzle-orm";
 
-const analyticsRouter = factory.createApp()
+const dateRangeSchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  agentId: z.string().optional(),
+});
+
+const trendsQuerySchema = dateRangeSchema.extend({
+  granularity: z.enum(["hour", "day", "month"]).default("day"),
+});
+
+const hotIssuesQuerySchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  limit: z.string().regex(/^\d+$/).optional(),
+});
+
+const overviewResponseSchema = z.object({
+  totalTickets: z.number(),
+  statusCounts: z.object({
+    pending: z.number(),
+    in_progress: z.number(),
+    resolved: z.number(),
+    scheduled: z.number(),
+  }),
+  backlogRate: z.number(),
+  completionRate: z.number(),
+  backlogWarning: z.boolean(),
+});
+
+function buildDateConditions(
+  startDate?: string,
+  endDate?: string,
+): SQL<unknown>[] {
+  const conditions: SQL<unknown>[] = [];
+  if (startDate) {
+    conditions.push(gte(schema.tickets.createdAt, startDate));
+  }
+  if (endDate) {
+    conditions.push(lte(schema.tickets.createdAt, endDate));
+  }
+  return conditions;
+}
+
+function buildAgentCondition(
+  userRole: string,
+  userId: number,
+  agentId?: string,
+): SQL<unknown> | undefined {
+  if (userRole === "technician") {
+    if (!agentId || agentId === "all") {
+      return undefined;
+    }
+    return eq(schema.tickets.agentId, userId);
+  }
+
+  if (userRole === "admin" && agentId && agentId !== "all") {
+    const parsedAgentId = parseInt(agentId, 10);
+    if (isNaN(parsedAgentId) || parsedAgentId <= 0) {
+      throw new HTTPException(400, {
+        message: "Invalid agentId parameter",
+      });
+    }
+    return eq(schema.tickets.agentId, parsedAgentId);
+  }
+
+  return undefined;
+}
+
+function buildTicketConditions(
+  startDate: string | undefined,
+  endDate: string | undefined,
+  userRole: string,
+  userId: number,
+  agentId?: string,
+): SQL<unknown>[] {
+  const conditions = buildDateConditions(startDate, endDate);
+  const agentCondition = buildAgentCondition(userRole, userId, agentId);
+  
+  if (agentCondition) {
+    conditions.push(agentCondition);
+  }
+  
+  return conditions;
+}
+
+function getDateFormatSql(
+  granularity: "hour" | "day" | "month",
+  dateColumn: SQL<unknown> | typeof schema.tickets.createdAt,
+): SQL<unknown> {
+  switch (granularity) {
+    case "hour":
+      return sql`DATE_TRUNC('hour', ${dateColumn})`;
+    case "month":
+      return sql`DATE_TRUNC('month', ${dateColumn})`;
+    case "day":
+    default:
+      return sql`DATE(${dateColumn})`;
+  }
+}
+
+function getCategoryColor(category: string): string {
+  const colorMap: Record<string, string> = {
+    技术问题: "#3B82F6",
+    账户问题: "#10B981",
+    支付问题: "#F59E0B",
+    性能问题: "#EF4444",
+    界面问题: "#8B5CF6",
+    服务问题: "#06B6D4",
+    系统问题: "#EC4899",
+    未分类: "#6B7280",
+  };
+  return colorMap[category] || "#6B7280";
+}
+
+const analyticsRouter = factory
+  .createApp()
   .use("*", authMiddleware)
   .use("*", staffOnlyMiddleware())
+  
   .get(
     "/overview",
     describeRoute({
       description: "Get analytics overview",
       tags: ["Analytics"],
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Analytics overview data",
+          content: {
+            "application/json": {
+              schema: resolver(overviewResponseSchema),
+            },
+          },
         },
       },
     }),
-    zValidator(
-      "query",
-      z.object({
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        agentId: z.string().optional(),
-      }),
-    ),
+    zValidator("query", dateRangeSchema),
     async (c) => {
       const db = c.var.db;
       const { startDate, endDate, agentId } = c.req.valid("query");
       const userId = c.var.userId;
       const userRole = c.var.role;
-      const dateConditions = [];
-      if (startDate) {
-        dateConditions.push(gte(schema.tickets.createdAt, startDate));
-      }
-      if (endDate) {
-        dateConditions.push(lte(schema.tickets.createdAt, endDate));
-      }
 
-      let agentCondition = undefined;
-      if (userRole === "technician") {
-        if (agentId === "all" || !agentId) {
-          agentCondition = undefined;
-        } else if (agentId && agentId !== "all") {
-          agentCondition = eq(schema.tickets.agentId, userId);
-        }
-      } else if (agentId && userRole === "admin") {
-        if (agentId !== "all") {
-          agentCondition = eq(schema.tickets.agentId, parseInt(agentId));
-        }
-      }
-
-      const conditions = [...dateConditions];
-      if (agentCondition) conditions.push(agentCondition);
+      const conditions = buildTicketConditions(
+        startDate,
+        endDate,
+        userRole,
+        userId,
+        agentId,
+      );
 
       const [totalResult] = await db
         .select({ total: count() })
         .from(schema.tickets)
         .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      const totalTickets = totalResult?.total || 0;
 
       const statusCounts = await db
         .select({
@@ -83,68 +187,49 @@ const analyticsRouter = factory.createApp()
         statusMap[item.status] = item.count;
       });
 
-      const totalTickets = totalResult?.total || 0;
-      const backlogRate = totalTickets > 0 
-        ? ((statusMap.pending + statusMap.in_progress) / totalTickets) * 100 
-        : 0;
-      const completionRate = totalTickets > 0 
-        ? (statusMap.resolved / totalTickets) * 100 
-        : 0;
+      const backlogRate =
+        totalTickets > 0
+          ? ((statusMap.pending + statusMap.in_progress) / totalTickets) * 100
+          : 0;
+      const completionRate =
+        totalTickets > 0 ? (statusMap.resolved / totalTickets) * 100 : 0;
 
-      const responseData = {
+      return c.json({
         totalTickets,
         statusCounts: statusMap,
         backlogRate: Number(backlogRate.toFixed(2)),
         completionRate: Number(completionRate.toFixed(2)),
         backlogWarning: backlogRate > 20,
-      };
-
-      return c.json(responseData);
+      });
     },
   )
+
   .get(
     "/ticket-status",
     describeRoute({
       description: "Get ticket status analysis",
       tags: ["Analytics"],
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Ticket status analysis data",
         },
       },
     }),
-    zValidator(
-      "query",
-      z.object({
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        agentId: z.string().optional(),
-      }),
-    ),
+    zValidator("query", dateRangeSchema),
     async (c) => {
       const db = c.var.db;
       const { startDate, endDate, agentId } = c.req.valid("query");
       const userId = c.var.userId;
       const userRole = c.var.role;
 
-      const conditions = [];
-      if (startDate) {
-        conditions.push(gte(schema.tickets.createdAt, startDate));
-      }
-      if (endDate) {
-        conditions.push(lte(schema.tickets.createdAt, endDate));
-      }
-
-      if (userRole === "technician") {
-        if (agentId === "all" || !agentId) {
-        } else if (agentId && agentId !== "all") {
-          conditions.push(eq(schema.tickets.agentId, userId));
-        }
-      } else if (agentId && userRole === "admin") {
-        if (agentId !== "all") {
-          conditions.push(eq(schema.tickets.agentId, parseInt(agentId)));
-        }
-      }
+      const conditions = buildTicketConditions(
+        startDate,
+        endDate,
+        userRole,
+        userId,
+        agentId,
+      );
 
       const statusDistribution = await db
         .select({
@@ -161,7 +246,7 @@ const analyticsRouter = factory.createApp()
         .where(conditions.length > 0 ? and(...conditions) : undefined);
 
       const totalTickets = totalResult?.total || 0;
-      
+
       const metrics = {
         pending: 0,
         in_progress: 0,
@@ -173,15 +258,15 @@ const analyticsRouter = factory.createApp()
         metrics[item.status] = item.count;
       });
 
-      const backlogRate = totalTickets > 0
-        ? ((metrics.pending + metrics.in_progress) / totalTickets) * 100
-        : 0;
-      
-      const completionRate = totalTickets > 0
-        ? (metrics.resolved / totalTickets) * 100
-        : 0;
+      const backlogRate =
+        totalTickets > 0
+          ? ((metrics.pending + metrics.in_progress) / totalTickets) * 100
+          : 0;
 
-      const responseData = {
+      const completionRate =
+        totalTickets > 0 ? (metrics.resolved / totalTickets) * 100 : 0;
+
+      return c.json({
         pieChart: [
           { name: "待处理", value: metrics.pending, color: "#9CA3AF" },
           { name: "处理中", value: metrics.in_progress, color: "#FCD34D" },
@@ -195,107 +280,52 @@ const analyticsRouter = factory.createApp()
           completionRate: Number(completionRate.toFixed(2)),
           backlogWarning: backlogRate > 20,
         },
-      };
-      return c.json(responseData);
+      });
     },
   )
+
   .get(
     "/ticket-trends",
     describeRoute({
       description: "Get ticket trends analysis",
       tags: ["Analytics"],
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Ticket trends analysis data",
         },
       },
     }),
-    zValidator(
-      "query",
-      z.object({
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        agentId: z.string().optional(),
-        granularity: z.enum(["hour", "day", "month"]).default("day"),
-      }),
-    ),
+    zValidator("query", trendsQuerySchema),
     async (c) => {
       const db = c.var.db;
       const { startDate, endDate, agentId, granularity } = c.req.valid("query");
       const userId = c.var.userId;
       const userRole = c.var.role;
 
-      const t = alias(schema.tickets, "t");
+      const conditions = buildTicketConditions(
+        startDate,
+        endDate,
+        userRole,
+        userId,
+        agentId,
+      );
 
-      const conditions = [];
-      if (startDate) {
-        conditions.push(gte(t.createdAt, startDate));
-      }
-      if (endDate) {
-        conditions.push(lte(t.createdAt, endDate));
-      }
+      const dateFormat = getDateFormatSql(granularity, schema.tickets.createdAt);
 
-      if (userRole === "technician") {
-        if (agentId === "all") {
-        } else if (agentId && agentId !== "all") {
-          conditions.push(eq(t.agentId, userId));
-          conditions.push(eq(t.agentId, userId));
-        }
-      } else if (agentId && userRole === "admin") {
-        if (agentId !== "all") {
-          conditions.push(eq(t.agentId, parseInt(agentId)));
-        }
-      }
-
-      const originalConditions = [];
-      if (startDate) {
-        originalConditions.push(gte(schema.tickets.createdAt, startDate));
-      }
-      if (endDate) {
-        originalConditions.push(lte(schema.tickets.createdAt, endDate));
-      }
-
-      if (userRole === "technician") {
-        if (agentId === "all" || !agentId) {
-        } else if (agentId && agentId !== "all") {
-          originalConditions.push(eq(schema.tickets.agentId, userId));
-        }
-      } else if (agentId && userRole === "admin") {
-        if (agentId !== "all") {
-          originalConditions.push(eq(schema.tickets.agentId, parseInt(agentId)));
-        }
-      }
-
-      let dateFormat;
-      switch (granularity) {
-        case "hour":
-          dateFormat = sql`DATE_TRUNC('hour', ${schema.tickets.createdAt})`;
-          break;
-        case "day":
-          dateFormat = sql`DATE(${schema.tickets.createdAt})`;
-          break;
-        case "month":
-          dateFormat = sql`DATE_TRUNC('month', ${schema.tickets.createdAt})`;
-          break;
-        default:
-          dateFormat = sql`DATE(${schema.tickets.createdAt})`;
-      }
-
-      const trendsDataRaw = await db
+      const trendsData = await db
         .select({
           date: dateFormat,
           count: count(),
         })
         .from(schema.tickets)
-        .where(originalConditions.length > 0 ? and(...originalConditions) : undefined)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
         .groupBy(dateFormat)
         .orderBy(asc(dateFormat));
 
-      const trendsData = trendsDataRaw;
-
       const firstResponseConditions = [
         eq(schema.ticketHistory.type, "first_reply"),
-        ...originalConditions
+        ...conditions,
       ];
 
       const firstResponseData = await db
@@ -303,16 +333,16 @@ const analyticsRouter = factory.createApp()
           ticketId: schema.ticketHistory.ticketId,
           responseTime: sql<number>`
             EXTRACT(EPOCH FROM (${schema.ticketHistory.createdAt} - ${schema.tickets.createdAt})) / 60
-          `.as('response_time'),
+          `.as("response_time"),
         })
         .from(schema.ticketHistory)
-        .innerJoin(schema.tickets, eq(schema.ticketHistory.ticketId, schema.tickets.id))
-        .where(and(...firstResponseConditions));
+        .innerJoin(
+          schema.tickets,
+          eq(schema.ticketHistory.ticketId, schema.tickets.id),
+        )
+        .where(firstResponseConditions.length > 0 ? and(...firstResponseConditions) : undefined);
 
-      const resolvedConditions = [
-        eq(schema.tickets.status, "resolved"),
-        ...originalConditions
-      ];
+      const resolvedConditions = [eq(schema.tickets.status, "resolved"), ...conditions];
 
       const resolvedTickets = await db
         .select({
@@ -321,91 +351,74 @@ const analyticsRouter = factory.createApp()
           updatedAt: schema.tickets.updatedAt,
         })
         .from(schema.tickets)
-        .where(and(...resolvedConditions));
+        .where(resolvedConditions.length > 0 ? and(...resolvedConditions) : undefined);
 
       const validResponseTimes = firstResponseData
-        .map(item => Number(item.responseTime))
-        .filter(time => time >= 0);
-      
-      const avgFirstResponseTime = validResponseTimes.length > 0
-        ? validResponseTimes.reduce((sum, time) => sum + time, 0) / validResponseTimes.length
-        : 0;
+        .map((item) => Number(item.responseTime))
+        .filter((time) => time >= 0);
 
-      const avgResolutionTime = resolvedTickets.length > 0
-        ? resolvedTickets.reduce((sum, ticket) => {
-            const created = new Date(ticket.createdAt).getTime();
-            const resolved = new Date(ticket.updatedAt).getTime();
-            return sum + (resolved - created) / (1000 * 60);
-          }, 0) / resolvedTickets.length
-        : 0;
-      let trendDateFormat;
-      switch (granularity) {
-        case "hour":
-          trendDateFormat = sql`DATE_TRUNC('hour', ${schema.tickets.createdAt})`;
-          break;
-        case "day":
-          trendDateFormat = sql`DATE(${schema.tickets.createdAt})`;
-          break;
-        case "month":
-          trendDateFormat = sql`DATE_TRUNC('month', ${schema.tickets.createdAt})`;
-          break;
-        default:
-          trendDateFormat = sql`DATE(${schema.tickets.createdAt})`;
-      }
+      const avgFirstResponseTime =
+        validResponseTimes.length > 0
+          ? validResponseTimes.reduce((sum, time) => sum + time, 0) /
+            validResponseTimes.length
+          : 0;
 
+      const avgResolutionTime =
+        resolvedTickets.length > 0
+          ? resolvedTickets.reduce((sum, ticket) => {
+              const created = new Date(ticket.createdAt).getTime();
+              const resolved = new Date(ticket.updatedAt).getTime();
+              return sum + (resolved - created) / (1000 * 60);
+            }, 0) / resolvedTickets.length
+          : 0;
+
+      // Get response time trends
       const firstResponseTrends = await db
         .select({
-          date: trendDateFormat,
+          date: dateFormat,
           avgFirstResponse: sql<number>`
             AVG(CASE 
               WHEN EXTRACT(EPOCH FROM (${schema.ticketHistory.createdAt} - ${schema.tickets.createdAt})) >= 0 
               THEN EXTRACT(EPOCH FROM (${schema.ticketHistory.createdAt} - ${schema.tickets.createdAt})) / 60
               ELSE NULL 
             END)
-          `.as('avg_first_response'),
+          `.as("avg_first_response"),
         })
         .from(schema.tickets)
-        .innerJoin(schema.ticketHistory, and(
-          eq(schema.ticketHistory.ticketId, schema.tickets.id),
-          eq(schema.ticketHistory.type, "first_reply")
-        ))
-        .where(originalConditions.length > 0 ? and(...originalConditions) : undefined)
-        .groupBy(trendDateFormat)
-        .orderBy(asc(trendDateFormat));
-
-      let resolutionDateFormat;
-      switch (granularity) {
-        case "hour":
-          resolutionDateFormat = sql`DATE_TRUNC('hour', ${schema.tickets.createdAt})`;
-          break;
-        case "day":
-          resolutionDateFormat = sql`DATE(${schema.tickets.createdAt})`;
-          break;
-        case "month":
-          resolutionDateFormat = sql`DATE_TRUNC('month', ${schema.tickets.createdAt})`;
-          break;
-        default:
-          resolutionDateFormat = sql`DATE(${schema.tickets.createdAt})`;
-      }
+        .innerJoin(
+          schema.ticketHistory,
+          and(
+            eq(schema.ticketHistory.ticketId, schema.tickets.id),
+            eq(schema.ticketHistory.type, "first_reply"),
+          ),
+        )
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .groupBy(dateFormat)
+        .orderBy(asc(dateFormat));
 
       const resolutionTrends = await db
         .select({
-          date: resolutionDateFormat,
+          date: dateFormat,
           avgResolution: sql<number>`
             AVG(EXTRACT(EPOCH FROM (${schema.tickets.updatedAt} - ${schema.tickets.createdAt})) / 60)
-          `.as('avg_resolution'),
+          `.as("avg_resolution"),
         })
         .from(schema.tickets)
-        .where(and(
-          eq(schema.tickets.status, "resolved"),
-          ...(originalConditions.length > 0 ? originalConditions : [])
-        ))
-        .groupBy(resolutionDateFormat)
-        .orderBy(asc(resolutionDateFormat));
+        .where(
+          conditions.length > 0
+            ? and(eq(schema.tickets.status, "resolved"), ...conditions)
+            : eq(schema.tickets.status, "resolved")
+        )
+        .groupBy(dateFormat)
+        .orderBy(asc(dateFormat));
 
-      const responseTimeTrendsMap = new Map();
-      
-      firstResponseTrends.forEach(item => {
+      // Merge response time trends
+      const responseTimeTrendsMap = new Map<
+        string,
+        { date: string; firstResponse: number; resolution: number }
+      >();
+
+      firstResponseTrends.forEach((item) => {
         const dateStr = (item.date as string).toString();
         responseTimeTrendsMap.set(dateStr, {
           date: item.date as string,
@@ -414,10 +427,11 @@ const analyticsRouter = factory.createApp()
         });
       });
 
-      resolutionTrends.forEach(item => {
+      resolutionTrends.forEach((item) => {
         const dateStr = (item.date as string).toString();
         if (responseTimeTrendsMap.has(dateStr)) {
-          responseTimeTrendsMap.get(dateStr).resolution = Number(item.avgResolution) || 0;
+          responseTimeTrendsMap.get(dateStr)!.resolution =
+            Number(item.avgResolution) || 0;
         } else {
           responseTimeTrendsMap.set(dateStr, {
             date: item.date as string,
@@ -427,11 +441,12 @@ const analyticsRouter = factory.createApp()
         }
       });
 
-      const formattedResponseTimeTrends = Array.from(responseTimeTrendsMap.values())
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const formattedResponseTimeTrends = Array.from(
+        responseTimeTrendsMap.values(),
+      ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      const responseData = {
-        trends: trendsData.map(item => ({
+      return c.json({
+        trends: trendsData.map((item) => ({
           date: item.date,
           count: item.count,
         })),
@@ -440,53 +455,36 @@ const analyticsRouter = factory.createApp()
           avgResolutionTime: Number(avgResolutionTime.toFixed(2)),
         },
         responseTimeTrends: formattedResponseTimeTrends,
-      };
-      return c.json(responseData);
+      });
     },
   )
+
   .get(
     "/module-analysis",
     describeRoute({
       description: "Get module analysis",
       tags: ["Analytics"],
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Module analysis data",
         },
       },
     }),
-    zValidator(
-      "query",
-      z.object({
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        agentId: z.string().optional(),
-      }),
-    ),
+    zValidator("query", dateRangeSchema),
     async (c) => {
       const db = c.var.db;
       const { startDate, endDate, agentId } = c.req.valid("query");
       const userId = c.var.userId;
       const userRole = c.var.role;
 
-      const conditions = [];
-      if (startDate) {
-        conditions.push(gte(schema.tickets.createdAt, startDate));
-      }
-      if (endDate) {
-        conditions.push(lte(schema.tickets.createdAt, endDate));
-      }
-
-      if (userRole === "technician") {
-        if (agentId === "all" || !agentId) {
-        } else if (agentId && agentId !== "all") {
-          conditions.push(eq(schema.tickets.agentId, userId));
-        }
-      } else if (agentId && userRole === "admin") {
-        if (agentId !== "all") {
-          conditions.push(eq(schema.tickets.agentId, parseInt(agentId)));
-        }
-      }
+      const conditions = buildTicketConditions(
+        startDate,
+        endDate,
+        userRole,
+        userId,
+        agentId,
+      );
 
       const moduleDistribution = await db
         .select({
@@ -508,82 +506,59 @@ const analyticsRouter = factory.createApp()
         .groupBy(schema.tickets.category)
         .orderBy(desc(count()));
 
-      const responseData = {
-        moduleDistribution: moduleDistribution.map(item => ({
+      return c.json({
+        moduleDistribution: moduleDistribution.map((item) => ({
           name: item.module || "其他",
           value: item.count,
         })),
-        categoryDistribution: categoryDistribution.map(item => ({
+        categoryDistribution: categoryDistribution.map((item) => ({
           name: item.category,
           value: item.count,
         })),
-      };
-      return c.json(responseData);
+      });
     },
   )
+
   .get(
     "/knowledge-hits",
     describeRoute({
       description: "Get knowledge base hits analysis",
       tags: ["Analytics"],
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Knowledge base hits analysis data",
         },
       },
     }),
-    zValidator(
-      "query",
-      z.object({
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        agentId: z.string().optional(),
-      }),
-    ),
+    zValidator("query", dateRangeSchema),
     async (c) => {
       const db = c.var.db;
       const { startDate, endDate, agentId } = c.req.valid("query");
       const userId = c.var.userId;
       const userRole = c.var.role;
 
-      const dateConditions = [];
-      if (startDate) {
-        dateConditions.push(gte(schema.tickets.createdAt, startDate));
-      }
-      if (endDate) {
-        dateConditions.push(lte(schema.tickets.createdAt, endDate));
-      }
+      const conditions = buildTicketConditions(
+        startDate,
+        endDate,
+        userRole,
+        userId,
+        agentId,
+      );
 
-        let agentCondition = undefined;
-        if (userRole === "technician") {
-          if (agentId === "all" || !agentId) {
-            agentCondition = undefined;
-          } else if (agentId && agentId !== "all") {
-            agentCondition = eq(schema.tickets.agentId, userId);
-          }
-        } else if (agentId && userRole === "admin") {
-          if (agentId !== "all") {
-            agentCondition = eq(schema.tickets.agentId, parseInt(agentId));
-          }
-        }
-
-        const ticketConditions = [...dateConditions];
-        if (agentCondition) ticketConditions.push(agentCondition);
-
-      // 统计用户发送的总对话次数（customer角色的用户消息）
+      const messageConditions = [
+        eq(schema.users.role, "customer"),
+        eq(schema.chatMessages.isInternal, false),
+        eq(schema.chatMessages.withdrawn, false),
+        ...conditions,
+      ];
+      
       const [totalUserMessagesResult] = await db
         .select({ count: count() })
         .from(schema.chatMessages)
         .innerJoin(schema.users, eq(schema.chatMessages.senderId, schema.users.id))
         .innerJoin(schema.tickets, eq(schema.chatMessages.ticketId, schema.tickets.id))
-        .where(
-          and(
-            eq(schema.users.role, "customer"), // 只统计用户（customer）发送的消息
-            eq(schema.chatMessages.isInternal, false), // 排除内部消息
-            eq(schema.chatMessages.withdrawn, false), // 排除已撤回的消息
-            ...(ticketConditions.length > 0 ? ticketConditions : [])
-          )
-        );
+        .where(messageConditions.length > 0 ? and(...messageConditions) : undefined);
 
       const totalUserMessages = totalUserMessagesResult?.count || 0;
 
@@ -596,12 +571,17 @@ const analyticsRouter = factory.createApp()
         .from(schema.knowledgeBase)
         .where(eq(schema.knowledgeBase.isDeleted, false));
 
-      const totalAccessCount = knowledgeItems.reduce((sum, kb) => sum + (kb.accessCount || 0), 0);
+      const totalAccessCount = knowledgeItems.reduce(
+        (sum, kb) => sum + (kb.accessCount || 0),
+        0,
+      );
 
       const knowledgeHitsData = knowledgeItems.map((kb) => {
         const accessCount = kb.accessCount || 0;
-        // 修正命中率计算：知识库访问次数 / 用户总对话次数
-        const hitRate = totalUserMessages > 0 ? (accessCount / totalUserMessages) * 100 : 0;
+        const hitRate =
+          totalUserMessages > 0
+            ? (accessCount / totalUserMessages) * 100
+            : 0;
 
         return {
           id: kb.id,
@@ -611,29 +591,32 @@ const analyticsRouter = factory.createApp()
         };
       });
 
-      const avgAccessCount = knowledgeHitsData.length > 0
-        ? knowledgeHitsData.reduce((sum, item) => sum + item.accessCount, 0) / knowledgeHitsData.length
-        : 0;
+      const avgAccessCount =
+        knowledgeHitsData.length > 0
+          ? knowledgeHitsData.reduce((sum, item) => sum + item.accessCount, 0) /
+            knowledgeHitsData.length
+          : 0;
 
       const hitRateThreshold = 50;
 
-      // 6. 为每个条目分配区域 - 命中率用50%，访问数用平均值
-      const zonesData = knowledgeHitsData.map(item => {
-        let zone: "high_efficiency" | "potential" | "need_optimization" | "low_efficiency";
-        
-        // 命中率高于50%视为高命中率
+      const zonesData = knowledgeHitsData.map((item) => {
+        let zone:
+          | "high_efficiency"
+          | "potential"
+          | "need_optimization"
+          | "low_efficiency";
+
         const isHighHitRate = item.hitRate > hitRateThreshold;
-        // 访问次数高于平均值视为高访问
         const isHighAccess = item.accessCount > avgAccessCount;
 
         if (isHighHitRate && isHighAccess) {
-          zone = "high_efficiency"; // 高效区：高命中率 + 高访问次数
+          zone = "high_efficiency";
         } else if (isHighHitRate && !isHighAccess) {
-          zone = "potential"; // 潜力区：高命中率 + 低访问次数（有潜力被更多使用）
+          zone = "potential";
         } else if (!isHighHitRate && isHighAccess) {
-          zone = "need_optimization"; // 需优化：低命中率 + 高访问次数（需优化内容）
+          zone = "need_optimization";
         } else {
-          zone = "low_efficiency"; // 低效区：低命中率 + 低访问次数
+          zone = "low_efficiency";
         }
 
         return {
@@ -642,26 +625,26 @@ const analyticsRouter = factory.createApp()
         };
       });
 
-      // 7. 按区域分组
       const groupedByZone = {
-        high_efficiency: zonesData.filter(item => item.zone === "high_efficiency"),
-        potential: zonesData.filter(item => item.zone === "potential"),
-        need_optimization: zonesData.filter(item => item.zone === "need_optimization"),
-        low_efficiency: zonesData.filter(item => item.zone === "low_efficiency"),
+        high_efficiency: zonesData.filter((item) => item.zone === "high_efficiency"),
+        potential: zonesData.filter((item) => item.zone === "potential"),
+        need_optimization: zonesData.filter((item) => item.zone === "need_optimization"),
+        low_efficiency: zonesData.filter((item) => item.zone === "low_efficiency"),
       };
 
-      const responseData = {
+      return c.json({
         bubbleData: zonesData,
         zoneGroups: groupedByZone,
         metrics: {
-          totalUserMessages, // 用户总对话次数
-          totalAccessCount, // 知识库总访问数
-          knowledgeCount: knowledgeItems.length, // 知识库条目总数
-          hitRateThreshold: hitRateThreshold, // 命中率阈值（固定50%）
-          avgAccessCount: Number(avgAccessCount.toFixed(2)), // 平均访问数（访问数的划分标准）
-          avgAccessPerMessage: totalUserMessages > 0 
-            ? Number((totalAccessCount / totalUserMessages).toFixed(2)) 
-            : 0, // 平均每次用户对话的知识库访问次数
+          totalUserMessages,
+          totalAccessCount,
+          knowledgeCount: knowledgeItems.length,
+          hitRateThreshold: hitRateThreshold,
+          avgAccessCount: Number(avgAccessCount.toFixed(2)),
+          avgAccessPerMessage:
+            totalUserMessages > 0
+              ? Number((totalAccessCount / totalUserMessages).toFixed(2))
+              : 0,
         },
         summary: {
           highEfficiencyCount: groupedByZone.high_efficiency.length,
@@ -669,79 +652,63 @@ const analyticsRouter = factory.createApp()
           needOptimizationCount: groupedByZone.need_optimization.length,
           lowEfficiencyCount: groupedByZone.low_efficiency.length,
         },
-      };
-
-      return c.json(responseData);
+      });
     },
   )
-  // 评分分析
   .get(
     "/rating-analysis",
     describeRoute({
       description: "Get rating analysis",
       tags: ["Analytics"],
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Rating analysis data",
         },
       },
     }),
-    zValidator(
-      "query",
-      z.object({
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        agentId: z.string().optional(),
-      }),
-    ),
+    zValidator("query", dateRangeSchema),
     async (c) => {
       const db = c.var.db;
       const { startDate, endDate, agentId } = c.req.valid("query");
       const userId = c.var.userId;
       const userRole = c.var.role;
-      const feedbackConditions = [];
+
+      const ticketConditions = buildTicketConditions(
+        startDate,
+        endDate,
+        userRole,
+        userId,
+        agentId,
+      );
+
+      const feedbackDateConditions: SQL<unknown>[] = [];
       if (startDate) {
-        feedbackConditions.push(gte(schema.ticketFeedback.createdAt, startDate));
+        feedbackDateConditions.push(gte(schema.ticketFeedback.createdAt, startDate));
       }
       if (endDate) {
-        feedbackConditions.push(lte(schema.ticketFeedback.createdAt, endDate));
+        feedbackDateConditions.push(lte(schema.ticketFeedback.createdAt, endDate));
       }
 
-      const ticketConditions = [];
-      if (startDate) {
-        ticketConditions.push(gte(schema.tickets.createdAt, startDate));
-      }
-      if (endDate) {
-        ticketConditions.push(lte(schema.tickets.createdAt, endDate));
-      }
-
-        let agentTicketConditions = [];
-        if (userRole === "technician") {
-          if (agentId === "all" || !agentId) {
-          } else if (agentId && agentId !== "all") {
-            agentTicketConditions.push(eq(schema.tickets.agentId, userId));
-          }
-        } else if (agentId && userRole === "admin") {
-          if (agentId !== "all") {
-            agentTicketConditions.push(eq(schema.tickets.agentId, parseInt(agentId)));
-          }
-        }
+      const allRatingConditions = [
+        ...feedbackDateConditions,
+        ...ticketConditions,
+      ];
+      
       const ratingDistribution = await db
         .select({
           rating: schema.ticketFeedback.satisfactionRating,
           count: count(),
         })
         .from(schema.ticketFeedback)
-        .innerJoin(schema.tickets, eq(schema.ticketFeedback.ticketId, schema.tickets.id))
-        .where(
-          and(
-            feedbackConditions.length > 0 ? and(...feedbackConditions) : undefined,
-            agentTicketConditions.length > 0 ? and(...agentTicketConditions) : undefined
-          )
+        .innerJoin(
+          schema.tickets,
+          eq(schema.ticketFeedback.ticketId, schema.tickets.id),
         )
+        .where(allRatingConditions.length > 0 ? and(...allRatingConditions) : undefined)
         .groupBy(schema.ticketFeedback.satisfactionRating);
 
-      const ratingMap = {
+      const ratingMap: Record<1 | 2 | 3 | 4 | 5, number> = {
         1: 0,
         2: 0,
         3: 0,
@@ -751,54 +718,48 @@ const analyticsRouter = factory.createApp()
 
       ratingDistribution.forEach((item) => {
         if (item.rating >= 1 && item.rating <= 5) {
-          ratingMap[item.rating as keyof typeof ratingMap] = item.count;
+          ratingMap[item.rating as 1 | 2 | 3 | 4 | 5] = item.count;
         }
       });
 
       const [totalTicketsResult] = await db
         .select({ count: count() })
         .from(schema.tickets)
-        .where(
-          and(
-            ticketConditions.length > 0 ? and(...ticketConditions) : undefined,
-            agentTicketConditions.length > 0 ? and(...agentTicketConditions) : undefined
-          )
-        );
+        .where(ticketConditions.length > 0 ? and(...ticketConditions) : undefined);
 
       const totalTickets = totalTicketsResult?.count || 0;
-
       const totalRatedTickets = Object.values(ratingMap).reduce((a, b) => a + b, 0);
       const unratedTickets = totalTickets - totalRatedTickets;
 
       const [handoffTicketsResult] = await db
         .select({ count: count() })
         .from(schema.handoffRecords)
-        .innerJoin(schema.tickets, eq(schema.handoffRecords.ticketId, schema.tickets.id))
-        .where(
-          and(
-            ticketConditions.length > 0 ? and(...ticketConditions) : undefined,
-            agentTicketConditions.length > 0 ? and(...agentTicketConditions) : undefined
-          )
-        );
+        .innerJoin(
+          schema.tickets,
+          eq(schema.handoffRecords.ticketId, schema.tickets.id),
+        )
+        .where(ticketConditions.length > 0 ? and(...ticketConditions) : undefined);
 
       const handoffTickets = handoffTicketsResult?.count || 0;
       const nonHandoffTickets = totalTickets - handoffTickets;
 
+      const complaintsConditions = [
+        eq(schema.ticketFeedback.hasComplaint, true),
+        ...ticketConditions,
+      ];
+      
       const [complaintsResult] = await db
         .select({ count: count() })
         .from(schema.ticketFeedback)
-        .innerJoin(schema.tickets, eq(schema.ticketFeedback.ticketId, schema.tickets.id))
-        .where(
-          and(
-            eq(schema.ticketFeedback.hasComplaint, true),
-            feedbackConditions.length > 0 ? and(...feedbackConditions) : undefined,
-            agentTicketConditions.length > 0 ? and(...agentTicketConditions) : undefined
-          )
-        );
+        .innerJoin(
+          schema.tickets,
+          eq(schema.ticketFeedback.ticketId, schema.tickets.id),
+        )
+        .where(complaintsConditions.length > 0 ? and(...complaintsConditions) : undefined);
 
       const complaintsCount = complaintsResult?.count || 0;
 
-      const responseData = {
+      return c.json({
         ratingDistribution: [
           { name: "未评分", value: unratedTickets, percentage: 0 },
           { name: "1星", value: ratingMap[1], percentage: 0 },
@@ -806,63 +767,70 @@ const analyticsRouter = factory.createApp()
           { name: "3星", value: ratingMap[3], percentage: 0 },
           { name: "4星", value: ratingMap[4], percentage: 0 },
           { name: "5星", value: ratingMap[5], percentage: 0 },
-        ].map(item => {
-          const total = totalTickets;
-          return {
-            ...item,
-            percentage: total > 0 ? Number(((item.value / total) * 100).toFixed(2)) : 0,
-          };
-        }),
+        ].map((item) => ({
+          ...item,
+          percentage:
+            totalTickets > 0
+              ? Number(((item.value / totalTickets) * 100).toFixed(2))
+              : 0,
+        })),
         handoffDistribution: {
           handoffTickets,
           nonHandoffTickets,
           totalTickets,
-          handoffRate: totalTickets > 0 ? Number(((handoffTickets / totalTickets) * 100).toFixed(2)) : 0,
+          handoffRate:
+            totalTickets > 0
+              ? Number(((handoffTickets / totalTickets) * 100).toFixed(2))
+              : 0,
         },
         complaints: {
           count: complaintsCount,
           rate: (() => {
-            const totalFeedbacks = Object.values(ratingMap).reduce((a, b) => a + b, 0);
-            return totalFeedbacks > 0 
-              ? Number(((complaintsCount / totalFeedbacks) * 100).toFixed(2)) 
+            const totalFeedbacks = Object.values(ratingMap).reduce(
+              (a, b) => a + b,
+              0,
+            );
+            return totalFeedbacks > 0
+              ? Number(((complaintsCount / totalFeedbacks) * 100).toFixed(2))
               : 0;
           })(),
         },
-      };
-      return c.json(responseData);
+      });
     },
   )
-  // 热点问题分析
+
   .get(
     "/hot-issues",
     describeRoute({
       description: "Get hot issues statistics",
       tags: ["Analytics"],
+      security: [{ bearerAuth: [] }],
       responses: {
         200: {
           description: "Hot issues analysis data",
         },
       },
     }),
-    zValidator(
-      "query",
-      z.object({
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        limit: z.string().optional(),
-      })
-    ),
+    zValidator("query", hotIssuesQuerySchema),
     async (c) => {
       const db = c.var.db;
       const { startDate, endDate, limit } = c.req.valid("query");
-      
-      const end = endDate ? new Date(endDate) : new Date();
-      const start = startDate 
-        ? new Date(startDate) 
-        : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      
-      const limitNum = limit ? parseInt(limit) : 10;
 
+      const end = endDate ? new Date(endDate) : new Date();
+      const start = startDate
+        ? new Date(startDate)
+        : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const limitNum = limit ? parseInt(limit, 10) : 10;
+
+      // Validate limit
+      if (isNaN(limitNum) || limitNum <= 0 || limitNum > 100) {
+        throw new HTTPException(400, {
+          message: "Invalid limit parameter. Must be between 1 and 100.",
+        });
+      }
+
+      // Get category statistics
       const categoryStats = await db
         .select({
           category: schema.hotIssues.issueCategory,
@@ -873,14 +841,18 @@ const analyticsRouter = factory.createApp()
         .where(
           and(
             gte(schema.hotIssues.createdAt, start.toISOString()),
-            lte(schema.hotIssues.createdAt, end.toISOString())
-          )
+            lte(schema.hotIssues.createdAt, end.toISOString()),
+          ),
         )
         .groupBy(schema.hotIssues.issueCategory)
         .orderBy(sql`count(*) DESC`);
 
-      const totalIssues = categoryStats.reduce((sum, item) => sum + Number(item.count), 0);
+      const totalIssues = categoryStats.reduce(
+        (sum, item) => sum + Number(item.count),
+        0,
+      );
 
+      // Get tag statistics
       const tagStats = await db
         .select({
           category: schema.hotIssues.issueCategory,
@@ -892,14 +864,17 @@ const analyticsRouter = factory.createApp()
         .where(
           and(
             gte(schema.hotIssues.createdAt, start.toISOString()),
-            lte(schema.hotIssues.createdAt, end.toISOString())
-          )
+            lte(schema.hotIssues.createdAt, end.toISOString()),
+          ),
         )
         .groupBy(schema.hotIssues.issueCategory, schema.hotIssues.issueTag)
         .orderBy(sql`count(*) DESC`)
         .limit(limitNum);
 
-      const previousStart = new Date(start.getTime() - (end.getTime() - start.getTime()));
+      // Get previous period stats for trend calculation
+      const previousStart = new Date(
+        start.getTime() - (end.getTime() - start.getTime()),
+      );
       const previousCategoryStats = await db
         .select({
           category: schema.hotIssues.issueCategory,
@@ -909,29 +884,35 @@ const analyticsRouter = factory.createApp()
         .where(
           and(
             gte(schema.hotIssues.createdAt, previousStart.toISOString()),
-            lte(schema.hotIssues.createdAt, start.toISOString())
-          )
+            lte(schema.hotIssues.createdAt, start.toISOString()),
+          ),
         )
         .groupBy(schema.hotIssues.issueCategory);
 
       const previousMap = new Map(
-        previousCategoryStats.map((item) => [item.category, Number(item.count)])
+        previousCategoryStats.map((item) => [item.category, Number(item.count)]),
       );
 
+      // Build top issues with trend and priority
       const topIssues = tagStats.map((item, index) => {
         const currentCount = Number(item.count);
         const previousCount = previousMap.get(item.category) || 0;
-        
-        let trend: 'up' | 'down' | 'stable' = 'stable';
+
+        let trend: "up" | "down" | "stable" = "stable";
         if (currentCount > previousCount * 1.1) {
-          trend = 'up';
+          trend = "up";
         } else if (currentCount < previousCount * 0.9) {
-          trend = 'down';
+          trend = "down";
         }
 
-        const priority: 'P0' | 'P1' | 'P2' | 'P3' = currentCount > totalIssues * 0.1 ? 'P0' : 
-                   currentCount > totalIssues * 0.05 ? 'P1' : 
-                   currentCount > totalIssues * 0.02 ? 'P2' : 'P3';
+        const priority: "P0" | "P1" | "P2" | "P3" =
+          currentCount > totalIssues * 0.1
+            ? "P0"
+            : currentCount > totalIssues * 0.05
+              ? "P1"
+              : currentCount > totalIssues * 0.02
+                ? "P2"
+                : "P3";
 
         return {
           id: index + 1,
@@ -944,17 +925,27 @@ const analyticsRouter = factory.createApp()
         };
       });
 
+      // Build category distribution
       const categoryDistribution = categoryStats.map((item) => ({
         category: item.category,
         count: Number(item.count),
-        percentage: totalIssues > 0 ? Number(((Number(item.count) / totalIssues) * 100).toFixed(1)) : 0,
+        percentage:
+          totalIssues > 0
+            ? Number(((Number(item.count) / totalIssues) * 100).toFixed(1))
+            : 0,
         color: getCategoryColor(item.category),
       }));
 
+      // Generate AI insights
       let aiInsights;
       try {
-        aiInsights = await generateAIInsights(topIssues, categoryDistribution, totalIssues);
+        aiInsights = await generateAIInsights(
+          topIssues,
+          categoryDistribution,
+          totalIssues,
+        );
       } catch (error) {
+        console.error("Failed to generate AI insights:", error);
         aiInsights = undefined;
       }
 
@@ -968,20 +959,7 @@ const analyticsRouter = factory.createApp()
         },
         aiInsights,
       });
-    }
+    },
   );
-function getCategoryColor(category: string): string {
-  const colorMap: Record<string, string> = {
-    '技术问题': '#3B82F6',
-    '账户问题': '#10B981',
-    '支付问题': '#F59E0B',
-    '性能问题': '#EF4444',
-    '界面问题': '#8B5CF6',
-    '服务问题': '#06B6D4',
-    '系统问题': '#EC4899',
-    '未分类': '#6B7280',
-  };
-  return colorMap[category] || '#6B7280';
-}
 
 export { analyticsRouter };
