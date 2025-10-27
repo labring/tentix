@@ -1,28 +1,10 @@
 import { ChatOpenAI } from "@langchain/openai";
 import * as schema from "@db/schema.ts";
 import type { JSONContentZod } from "../types.ts";
+import { extractText } from "../types.ts";
 import { eq, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { OPENAI_CONFIG } from "../kb/config.ts";
-
-/**
- * 从JSONContent中提取纯文本
- */
-function extractTextFromJSON(content: JSONContentZod): string {
-  let text = "";
-  
-  const traverse = (node: any): void => {
-    if (node.type === "text" && node.text) {
-      text += node.text + " ";
-    }
-    if (node.content) {
-      node.content.forEach(traverse);
-    }
-  };
-  
-  content.content?.forEach(traverse);
-  return text.trim();
-}
 
 async function getExistingCategoriesAndTags(db: any) {
   // 获取现有分类（按频次排序）
@@ -117,8 +99,6 @@ async function analyzeWithAI(
       reasoning: result.reasoning,
     };
   } catch (error) {
-    console.error("AI分析失败:", error);
-    
     return {
       category: "未分类",
       tag: "待分析",
@@ -135,7 +115,7 @@ export async function analyzeAndSaveHotIssue(
   description: JSONContentZod
 ): Promise<void> {
   try {
-    const descriptionText = extractTextFromJSON(description);
+    const descriptionText = extractText(description);
     
     const { categories, tags } = await getExistingCategoriesAndTags(db);
     
@@ -146,13 +126,6 @@ export async function analyzeAndSaveHotIssue(
       tags
     );
     
-    console.log("AI分析结果:", {
-      ticketId,
-      category: analysis.category,
-      tag: analysis.tag,
-      confidence: analysis.confidence,
-    });
-    
     await db.insert(schema.hotIssues).values({
       ticketId,
       issueCategory: analysis.category,
@@ -161,7 +134,6 @@ export async function analyzeAndSaveHotIssue(
       isAiGenerated: true,
     });
   } catch (error) {
-    console.error("分析并保存热门问题失败:", error);
     throw error;
   }
 }

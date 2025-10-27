@@ -34,8 +34,6 @@ const analyticsRouter = factory.createApp()
       const { startDate, endDate, agentId } = c.req.valid("query");
       const userId = c.var.userId;
       const userRole = c.var.role;
-
-      console.log('[Analytics Overview] Query params:', { startDate, endDate, agentId, userId, userRole });
       const dateConditions = [];
       if (startDate) {
         dateConditions.push(gte(schema.tickets.createdAt, startDate));
@@ -59,12 +57,6 @@ const analyticsRouter = factory.createApp()
 
       const conditions = [...dateConditions];
       if (agentCondition) conditions.push(agentCondition);
-
-      console.log('[Analytics Overview] Conditions:', { 
-        dateConditionsCount: dateConditions.length, 
-        hasAgentCondition: !!agentCondition,
-        totalConditions: conditions.length 
-      });
 
       const [totalResult] = await db
         .select({ total: count() })
@@ -106,8 +98,6 @@ const analyticsRouter = factory.createApp()
         completionRate: Number(completionRate.toFixed(2)),
         backlogWarning: backlogRate > 20,
       };
-
-      console.log('[Analytics Overview] totalTickets:', totalTickets, 'statusCounts:', statusMap);
 
       return c.json(responseData);
     },
@@ -206,9 +196,6 @@ const analyticsRouter = factory.createApp()
           backlogWarning: backlogRate > 20,
         },
       };
-
-      console.log('[Ticket Status] metrics:', responseData.metrics);
-
       return c.json(responseData);
     },
   )
@@ -454,14 +441,6 @@ const analyticsRouter = factory.createApp()
         },
         responseTimeTrends: formattedResponseTimeTrends,
       };
-
-      console.log('[Ticket Trends] trends count:', responseData.trends.length, 'responseMetrics:', responseData.responseMetrics);
-      if (granularity === "hour" && responseData.trends.length > 0) {
-        console.log('[Ticket Trends] Hour mode - sample data:', responseData.trends.slice(0, 5));
-        console.log('[Ticket Trends] Hour mode - response trends count:', responseData.responseTimeTrends.length);
-        console.log('[Ticket Trends] Hour mode - response trends sample:', responseData.responseTimeTrends.slice(0, 3));
-      }
-
       return c.json(responseData);
     },
   )
@@ -539,9 +518,6 @@ const analyticsRouter = factory.createApp()
           value: item.count,
         })),
       };
-
-      console.log('[Module Analysis] moduleDistribution count:', responseData.moduleDistribution.length, 'categoryDistribution count:', responseData.categoryDistribution.length);
-
       return c.json(responseData);
     },
   )
@@ -694,13 +670,6 @@ const analyticsRouter = factory.createApp()
           lowEfficiencyCount: groupedByZone.low_efficiency.length,
         },
       };
-
-      console.log('[Knowledge Hits] bubbleData count:', responseData.bubbleData.length, 
-        'total user messages:', totalUserMessages,
-        'total access:', totalAccessCount,
-        'hit rate threshold:', hitRateThreshold + '%',
-        'avg access count (threshold):', avgAccessCount.toFixed(2),
-        'summary:', responseData.summary);
 
       return c.json(responseData);
     },
@@ -860,9 +829,6 @@ const analyticsRouter = factory.createApp()
           })(),
         },
       };
-
-      console.log('[Rating Analysis] handoffDistribution:', responseData.handoffDistribution, 'complaints:', responseData.complaints);
-
       return c.json(responseData);
     },
   )
@@ -989,7 +955,6 @@ const analyticsRouter = factory.createApp()
       try {
         aiInsights = await generateAIInsights(topIssues, categoryDistribution, totalIssues);
       } catch (error) {
-        console.error("AI洞察生成失败:", error);
         aiInsights = undefined;
       }
 

@@ -36,6 +36,7 @@ import { userTicketSchema } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
 import { isFeishuConfigured } from "@/utils/tools";
 import { workflowCache } from "@/utils/kb/workflow-cache.ts";
+import { analyzeAndSaveHotIssue } from "@/utils/analytics/index.ts";
 
 const createResponseSchema = z.array(
   z.object({
@@ -219,6 +220,18 @@ const ticketRouter = factory
         throw new HTTPException(500, {
           message: "Failed to create ticket",
         });
+      }
+
+      try {
+        await analyzeAndSaveHotIssue(
+          db,
+          ticketId,
+          payload.title,
+          payload.description
+        );
+        logInfo(`热门问题分析完成: ticketId=${ticketId}`);
+      } catch (error) {
+        logInfo(`热门问题分析失败: ticketId=${ticketId}, error=${error}`);
       }
 
       return c.json({
