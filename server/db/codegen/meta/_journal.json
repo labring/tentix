@@ -106,6 +106,13 @@
       "when": 1760957976741,
       "tag": "0014_nebulous_pestilence",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1761636873890,
+      "tag": "0015_red_mandroid",
+      "breakpoints": true
     }
   ]
 }

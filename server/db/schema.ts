@@ -10,6 +10,7 @@ import {
   primaryKey,
   serial,
   smallint,
+  date,
   text,
   timestamp,
   unique,
@@ -598,6 +599,93 @@ export const knowledgeBase = tentix.table(
     index("idx_kb_metadata").using("gin", t.metadata),
     // tsv 索引在 SQL 迁移里创建 drizzle-orm 不一定支持
     // CREATE INDEX IF NOT EXISTS idx_kb_tsv ON tentix.knowledge_base USING GIN (tsv);
+  ],
+);
+
+// 知识库访问记录表
+export const knowledgeAccessLog = tentix.table(
+  "knowledge_access_log",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+
+    // ===== 基础字段 =====
+    userQuery: text("user_query").notNull(),
+    aiGenerateQueries: jsonb("ai_generate_queries")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<string[]>(),
+
+    // ===== 关联字段（添加外键） =====
+    knowledgeBaseId: uuid("knowledge_base_id")
+      .notNull()
+      .references(() => knowledgeBase.id, {
+        onDelete: "cascade", // 当知识库条目删除时，同步删除访问记录
+      }),
+
+    ticketId: char("ticket_id", { length: 13 }).references(() => tickets.id, {
+      onDelete: "set null", // 当工单删除时，保留访问记录但清空关联
+    }),
+
+    ticketModule: varchar("ticket_module", { length: 50 }),
+
+    // ===== 性能字段 =====
+    ragDuration: integer("rag_duration"), // 毫秒
+
+    // ===== 时间字段 =====
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    // ===== ✨ 预计算的时间维度字段 - 提升聚合查询性能 =====
+    dateDay: date("date_day").notNull(), // 格式: 2025-01-15
+
+    dateHour: timestamp("date_hour", {
+      withTimezone: true,
+      precision: 3,
+      mode: "string",
+    }).notNull(), // 格式: 2025-01-15 14:00:00
+
+    hourOfDay: integer("hour_of_day").notNull(), // 0-23
+    dayOfWeek: integer("day_of_week").notNull(), // 1-7 (周一到周日)
+    weekOfYear: integer("week_of_year").notNull(), // 1-53
+    monthOfYear: integer("month_of_year").notNull(), // 1-12
+    yearMonth: varchar("year_month", { length: 7 }).notNull(), // 格式: 2025-01
+  },
+  (table) => [
+    // ===== 核心索引 - 按时间维度聚合 =====
+    index("idx_access_log_date_day").on(table.dateDay.desc()),
+    index("idx_access_log_date_hour").on(table.dateHour.desc()),
+    index("idx_access_log_year_month").on(table.yearMonth),
+
+    // ===== 组合索引 - 多维度分析 =====
+    index("idx_access_log_kb_date").on(table.knowledgeBaseId, table.dateDay),
+    index("idx_access_log_ticket_date").on(table.ticketId, table.dateDay),
+    index("idx_access_log_module_date").on(table.ticketModule, table.dateDay),
+
+    // ===== 复合索引 - 优化常见查询模式 =====
+    // 用于查询某天某小时的知识库访问情况
+    index("idx_access_log_day_hour_kb").on(
+      table.dateDay,
+      table.hourOfDay,
+      table.knowledgeBaseId,
+    ),
+
+    // 用于按模块和时间段统计
+    index("idx_access_log_module_day_kb").on(
+      table.ticketModule,
+      table.dateDay,
+      table.knowledgeBaseId,
+    ),
+
+    // ===== GIN 索引 - 支持 AI 生成查询的检索 =====
+    index("idx_access_log_ai_queries").using("gin", table.aiGenerateQueries),
+
+    // ===== 性能索引 =====
+    index("idx_access_log_duration").on(table.ragDuration),
   ],
 );
 

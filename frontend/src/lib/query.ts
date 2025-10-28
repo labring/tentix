@@ -216,6 +216,19 @@ export const ticketModulesConfigQueryOptions = () =>
     gcTime: 24 * 60 * 60 * 1000,
   });
 
+export const appConfigQueryOptions = () =>
+  queryOptions({
+    queryKey: ["getAppConfig"],
+    queryFn: async () => {
+      const data = await apiClient.user["app-config"]
+        .$get()
+        .then((r) => r.json());
+      return data;
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour cache
+    gcTime: 24 * 60 * 60 * 1000,
+  });
+
 export const staffListQueryOptions = () =>
   queryOptions({
     queryKey: ["getStaffList"],
@@ -441,10 +454,9 @@ export async function collectFavoritedKnowledge({
   messageIds?: number[];
   favoritedBy: number;
 }) {
-  const res = await apiClient.kb.favorited
-    .$post({
-      json: { ticketId, messageIds, favoritedBy },
-    })
-    .then((r) => r.json());
+  const response = await apiClient.kb.favorited.$post({
+    json: { ticketId, messageIds, favoritedBy },
+  });
+  const res = await response.json();
   return res;
 }

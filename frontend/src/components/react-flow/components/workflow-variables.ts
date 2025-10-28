@@ -124,26 +124,26 @@ export const NODE_VARIABLES: Record<NodeType, WorkflowVariable[]> = {
       example: "{{ handoffPriority }}",
     },
   ],
-  [NodeType.SMART_CHAT]: [
+  [NodeType.RAG]: [
     {
       name: "retrievedContextString",
-      description: "rf.var.desc.smartChat.retrievedContextString",
+      description: "rf.var.desc.rag.retrievedContextString",
       category: "node",
-      nodeType: NodeType.SMART_CHAT,
+      nodeType: NodeType.RAG,
       example: "{{ retrievedContextString }}",
     },
     {
       name: "retrievedContextCount",
-      description: "rf.var.desc.smartChat.retrievedContextCount",
+      description: "rf.var.desc.rag.retrievedContextCount",
       category: "node",
-      nodeType: NodeType.SMART_CHAT,
+      nodeType: NodeType.RAG,
       example: "{{ retrievedContextCount }}",
     },
     {
       name: "hasRetrievedContext",
-      description: "rf.var.desc.smartChat.hasRetrievedContext",
+      description: "rf.var.desc.rag.hasRetrievedContext",
       category: "node",
-      nodeType: NodeType.SMART_CHAT,
+      nodeType: NodeType.RAG,
       example: "{{ hasRetrievedContext }}",
     },
   ],
@@ -152,6 +152,7 @@ export const NODE_VARIABLES: Record<NodeType, WorkflowVariable[]> = {
   [NodeType.VARIABLE_SETTER]: [],
   [NodeType.START]: [],
   [NodeType.END]: [],
+  [NodeType.SMART_CHAT]: [],
 };
 
 /**

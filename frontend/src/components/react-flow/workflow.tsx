@@ -28,6 +28,7 @@ import EmotionDetector from "@comp/react-flow/nodes/emotion-detector";
 import HandOff from "@comp/react-flow/nodes/hand-off";
 import SmartChat from "@comp/react-flow/nodes/smart-chat";
 import EscalationOffer from "@comp/react-flow/nodes/escalation-offer";
+import Rag from "@comp/react-flow/nodes/rag";
 import StartNode from "@comp/react-flow/nodes/start";
 import EndNode from "@comp/react-flow/nodes/end";
 import { ConditionEdge } from "@comp/react-flow/edgs/condition-edge";
@@ -43,6 +44,7 @@ const nodeTypes = {
   [NodeType.HANDOFF]: HandOff,
   [NodeType.SMART_CHAT]: SmartChat,
   [NodeType.ESCALATION_OFFER]: EscalationOffer,
+  [NodeType.RAG]: Rag,
   [NodeType.END]: EndNode,
 };
 

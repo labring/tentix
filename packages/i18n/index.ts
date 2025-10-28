@@ -60,6 +60,7 @@ export const translations = {
       failed_close_ticket: "Failed to close ticket",
 
       community: "Forum",
+      other: "Other",
 
       tkt: "Ticket",
       tkt_list: "Tickets",
@@ -102,7 +103,6 @@ export const translations = {
       transferring: "Transferring...",
       tickets_count: "tickets",
       please_select_staff: "Please select at least one staff member",
-      please_provide_reason: "Please provide a reason for transfer",
       reason_min_length: "Reason must be at least 3 characters",
 
       // Raise Requirement Modal
@@ -420,6 +420,7 @@ export const translations = {
           smartChat: "Smart Chat",
           escalationOffer: "Escalation Offer",
           variableSetter: "Variable Setter",
+          rag: "RAG",
           start: "Start",
           end: "End",
         },
@@ -449,7 +450,7 @@ export const translations = {
               escalationReason: "Reason for escalation proposal",
               handoffPriority: "Handoff priority (P1, P2, P3)",
             },
-            smartChat: {
+            rag: {
               retrievedContextString:
                 "Retrieved context content (formatted string)",
               retrievedContextCount: "Number of retrieved context items",
@@ -527,6 +528,7 @@ export const translations = {
       failed_close_ticket: "关闭工单失败",
 
       community: "社区",
+      other: "其他",
 
       tkt: "工单",
       tkt_list: "$t(tkt)列表",
@@ -564,7 +566,6 @@ export const translations = {
       transferring: "转移中...",
       tickets_count: "个工单",
       please_select_staff: "请至少选择一位员工",
-      please_provide_reason: "请提供转移原因",
       reason_min_length: "原因至少需要3个字符",
 
       // Raise Requirement Modal
@@ -676,7 +677,7 @@ export const translations = {
       field_password: "密码",
       ph_name: "请输入用户名",
       ph_password: "请输入密码",
-      btn_login: "登陆",
+      btn_login: "登录",
       or: "或",
       btn_register: "注册",
       btn_switch_to_register: "没有账号？去注册",
@@ -866,6 +867,7 @@ export const translations = {
           smartChat: "智能聊天",
           escalationOffer: "升级询问",
           variableSetter: "变量设置",
+          rag: "检索增强生成",
           start: "开始",
           end: "结束",
         },
@@ -894,7 +896,7 @@ export const translations = {
               escalationReason: "建议升级的原因",
               handoffPriority: "转人工优先级 (P1, P2, P3)",
             },
-            smartChat: {
+            rag: {
               retrievedContextString: "检索到的上下文内容（格式化字符串）",
               retrievedContextCount: "检索到的上下文数量",
               hasRetrievedContext: "是否有检索到的上下文 (true/false)",
