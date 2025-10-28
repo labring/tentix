@@ -111,7 +111,7 @@ export function UserTicketSidebar({
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // 🔥 将数据查询移到组件内部 - 这样状态变化只影响当前组件
+  // 将数据查询移到组件内部 - 这样状态变化只影响当前组件
   const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
     userTicketsQueryOptions(
       pageSize,
