@@ -139,7 +139,7 @@ export async function ragNode(
     const perQueryK = Math.max(BASE_K, Math.ceil((BASE_K * 2) / numQ));
 
     // 超时包装器：避免慢查询阻塞整个流程
-    const SEARCH_TIMEOUT = 5000; // 5秒超时
+    const SEARCH_TIMEOUT = 20000; // 20秒超时
     const searchWithTimeout = (
       query: string,
       k: number,
@@ -289,7 +289,7 @@ export async function ragNode(
     const finalChunkIds = Array.from(
       new Set(trimmedTop.map((hit) => hit.id)),
     ).filter(Boolean);
-    
+
     if (finalChunkIds.length > 0) {
       try {
         const ragDuration = Date.now() - ragStartTime; // 计算 RAG 耗时
