@@ -35,7 +35,6 @@ export interface VectorStore {
     query: string;
     k: number;
     filters?: KBFilter;
-    updateStats?: boolean; // 是否自动更新访问统计，默认 true
   }): Promise<SearchHit[]>;
   deleteBySource(source: {
     source_type: string;
@@ -44,7 +43,17 @@ export interface VectorStore {
   health(): Promise<{ ok: boolean; info?: unknown }>;
 
   // 批量更新访问次数（用于去重后的统一统计）
-  updateAccessCount(chunkIds: string[]): Promise<void>;
+  // 同时记录知识库访问日志
+  updateAccessCount(
+    chunkIds: string[],
+    options: {
+      userQuery: string;
+      aiGenerateQueries?: string[];
+      ticketId?: string;
+      ticketModule?: string;
+      ragDuration?: number;
+    },
+  ): Promise<void>;
 
   // 可选：按来源获取所有分片或邻接分片（用于上下文扩展）
   getBySource?(args: {

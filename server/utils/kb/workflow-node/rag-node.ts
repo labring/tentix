@@ -85,6 +85,7 @@ export async function ragNode(
     }
   }
   if (shouldSearch) {
+    const ragStartTime = Date.now(); // 记录 RAG 开始时间
     let queries: string[] = [];
     const moduleFilter = variables.currentTicket?.module;
     const chat = new ChatOpenAI({
@@ -150,7 +151,6 @@ export async function ragNode(
         query,
         k,
         filters,
-        updateStats: false,
       });
 
       const timeoutPromise = new Promise<SearchHit[]>((resolve) => {
@@ -285,12 +285,21 @@ export async function ragNode(
     retrievedContext = expandedTop;
 
     // 在合并去重后，统一更新访问次数，确保每个 chunk 在一次对话中只计数一次
+    // 使用 trimmedTop（去重后的最终结果）而非 expandedTop
     const finalChunkIds = Array.from(
-      new Set(retrievedContext.map((hit) => hit.id)),
+      new Set(trimmedTop.map((hit) => hit.id)),
     ).filter(Boolean);
+    
     if (finalChunkIds.length > 0) {
       try {
-        await store.updateAccessCount(finalChunkIds);
+        const ragDuration = Date.now() - ragStartTime; // 计算 RAG 耗时
+        await store.updateAccessCount(finalChunkIds, {
+          userQuery: variables.lastCustomerMessage,
+          aiGenerateQueries: queries,
+          ticketId: state.currentTicket?.id,
+          ticketModule: state.currentTicket?.module,
+          ragDuration,
+        });
       } catch (error) {
         logError("ragNode updateAccessCount: ", error);
         // 统计失败不影响主流程
