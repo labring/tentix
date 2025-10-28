@@ -2,35 +2,35 @@ import { ChatOpenAI } from "@langchain/openai";
 import * as schema from "@db/schema.ts";
 import type { JSONContentZod } from "../types.ts";
 import { extractText } from "../types.ts";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, count, avg, gte, lte, desc, and } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { OPENAI_CONFIG } from "../kb/config.ts";
 import { convertToMultimodalMessage } from "../kb/tools.ts";
 
-async function getExistingCategoriesAndTags(db: any) {
+async function getExistingCategoriesAndTags(db: PostgresJsDatabase<typeof schema>) {
   const categories = await db
     .select({
       category: schema.hotIssues.issueCategory,
-      count: sql<number>`count(*)`,
+      count: count(),
     })
     .from(schema.hotIssues)
     .groupBy(schema.hotIssues.issueCategory)
-    .orderBy(sql`count(*) DESC`)
+    .orderBy(desc(count()))
     .limit(20);
 
   const tags = await db
     .select({
       tag: schema.hotIssues.issueTag,
-      count: sql<number>`count(*)`,
+      count: count(),
     })
     .from(schema.hotIssues)
     .groupBy(schema.hotIssues.issueTag)
-    .orderBy(sql`count(*) DESC`)
+    .orderBy(desc(count()))
     .limit(30);
 
   return {
-    categories: categories.map((c: any) => c.category),
-    tags: tags.map((t: any) => t.tag),
+    categories: categories.map((c) => c.category),
+    tags: tags.map((t) => t.tag),
   };
 }
 
@@ -133,7 +133,7 @@ async function analyzeWithAI(
 }
 
 export async function analyzeAndSaveHotIssue(
-  db: any,
+  db: PostgresJsDatabase<typeof schema>,
   ticketId: string,
   title: string,
   description: JSONContentZod
@@ -167,31 +167,35 @@ export async function getHotIssuesStats(
   const categoryStats = await db
     .select({
       category: schema.hotIssues.issueCategory,
-      count: sql<number>`count(*)`,
-      avgConfidence: sql<number>`avg(${schema.hotIssues.confidence})`,
+      count: count(),
+      avgConfidence: avg(schema.hotIssues.confidence),
     })
     .from(schema.hotIssues)
     .where(
-      sql`${schema.hotIssues.createdAt} >= ${timeRange.start.toISOString()} 
-          AND ${schema.hotIssues.createdAt} <= ${timeRange.end.toISOString()}`
+      and(
+        gte(schema.hotIssues.createdAt, timeRange.start.toISOString()),
+        lte(schema.hotIssues.createdAt, timeRange.end.toISOString())
+      )
     )
     .groupBy(schema.hotIssues.issueCategory)
-    .orderBy(sql`count(*) DESC`);
+    .orderBy(desc(count()));
 
   const tagStats = await db
     .select({
       category: schema.hotIssues.issueCategory,
       tag: schema.hotIssues.issueTag,
-      count: sql<number>`count(*)`,
-      avgConfidence: sql<number>`avg(${schema.hotIssues.confidence})`,
+      count: count(),
+      avgConfidence: avg(schema.hotIssues.confidence),
     })
     .from(schema.hotIssues)
     .where(
-      sql`${schema.hotIssues.createdAt} >= ${timeRange.start.toISOString()} 
-          AND ${schema.hotIssues.createdAt} <= ${timeRange.end.toISOString()}`
+      and(
+        gte(schema.hotIssues.createdAt, timeRange.start.toISOString()),
+        lte(schema.hotIssues.createdAt, timeRange.end.toISOString())
+      )
     )
     .groupBy(schema.hotIssues.issueCategory, schema.hotIssues.issueTag)
-    .orderBy(sql`count(*) DESC`)
+    .orderBy(desc(count()))
     .limit(10);
 
   return {
