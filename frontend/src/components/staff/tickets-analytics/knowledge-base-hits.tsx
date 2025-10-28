@@ -27,6 +27,12 @@ import {
 } from "recharts";
 import { knowledgeHitsQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
+} from "lucide-react";
 
 // 定义区域颜色
 const ZONE_COLORS = {
@@ -138,16 +144,24 @@ export function KnowledgeBaseHits({
   };
   
   // 翻页函数
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
+  const goToFirstPage = () => {
+    setCurrentPage(1);
   };
   
   const goToPrevPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
     }
+  };
+  
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  const goToLastPage = () => {
+    setCurrentPage(totalPages);
   };
 
   const chartConfig = getChartConfig(t);
@@ -169,12 +183,12 @@ export function KnowledgeBaseHits({
             </div>
             <div className="space-y-1 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-zinc-600 font-semibold">{t("access_count")}：</span>
-                <span className="font-semibold">{data.accessCount}</span>
+                <span className="text-zinc-600 ">{t("access_count")}：</span>
+                <span className="">{data.accessCount}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-zinc-600 font-semibold">{t("hit_rate")}：</span>
-                <span className="font-semibold">{data.hitRate}%</span>
+                <span className="text-zinc-600 ">{t("hit_rate")}：</span>
+                <span className="">{data.hitRate}%</span>
               </div>
             </div>
           </div>
@@ -187,12 +201,12 @@ export function KnowledgeBaseHits({
   return (
     <div className="w-full">
       {/* 标题 */}
-      <div className="bg-white border border-zinc-200 rounded-t-lg p-4 shadow-sm">
-        <h2 className="text-xl font-semibold text-zinc-900">{t("knowledge_base_hit_distribution")}</h2>
+      <div className="bg-white border border-zinc-200 rounded-t-lg flex w-full h-16 p-6 justify-between items-center flex-shrink-0 shadow-sm">
+        <h2 className="text-xl  text-zinc-900">{t("knowledge_base_hit_distribution")}</h2>
       </div>
 
       {/* 主体内容 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white border-l border-r border-b border-zinc-200 rounded-b-lg p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white border-l border-r border-b border-zinc-200 rounded-b-lg p-8">
         {/* 左侧：气泡图 */}
         <div className=" border-zinc-200 rounded-lg p-4">
 
@@ -372,33 +386,33 @@ export function KnowledgeBaseHits({
 
           {/* 选项卡 */}
           <Tabs value={selectedZone} onValueChange={handleZoneChange} defaultValue="all">
-            <TabsList className="grid w-full grid-cols-4 bg-white rounded-lg p-1 gap-1">
+            <TabsList className="flex w-full bg-white rounded-lg gap-2">
               <TabsTrigger 
                 value="high_efficiency" 
-                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 last:border-r-0 flex items-center gap-2"
+                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 py-1 px-3 flex items-center justify-center gap-2 flex-1 self-stretch"
               >
-                <div className="w-3 h-3 bg-green-500"></div>
+                <div className="w-2 h-2 bg-green-500"></div>
                 {t("high_efficiency_zone")}
               </TabsTrigger>
               <TabsTrigger 
                 value="potential" 
-                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 last:border-r-0 flex items-center gap-2"
+                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 py-1 px-3 flex items-center justify-center gap-2 flex-1 self-stretch"
               >
-                <div className="w-3 h-3 bg-blue-500"></div>
+                <div className="w-2 h-2 bg-blue-500"></div>
                 {t("potential_zone")}
               </TabsTrigger>
               <TabsTrigger 
                 value="need_optimization" 
-                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 last:border-r-0 flex items-center gap-2"
+                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 py-1 px-3 flex items-center justify-center gap-2 flex-1 self-stretch"
               >
-                <div className="w-3 h-3 bg-yellow-500"></div>
+                <div className="w-2 h-2 bg-yellow-500"></div>
                 {t("needs_optimization")}
               </TabsTrigger>
               <TabsTrigger 
                 value="low_efficiency" 
-                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 last:border-r-0 flex items-center gap-2"
+                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 py-1 px-3 flex items-center justify-center gap-2 flex-1 self-stretch"
               >
-                <div className="w-3 h-3 bg-gray-500"></div>
+                <div className="w-2 h-2 bg-gray-500"></div>
                 {t("low_efficiency_zone")}
               </TabsTrigger>
             </TabsList>
@@ -409,9 +423,9 @@ export function KnowledgeBaseHits({
                   <Table>
                     <TableHeader className="bg-white border-b border-zinc-200">
                       <TableRow>
-                        <TableHead className="font-semibold">{t("questions")}</TableHead>
-                        <TableHead className="text-right font-semibold">{t("access_count")}</TableHead>
-                        <TableHead className="text-right font-semibold">{t("hit_rate")}</TableHead>
+                        <TableHead className="w-[300px] min-w-[85px] p-4 text-muted-foreground">{t("questions")}</TableHead>
+                        <TableHead className="min-w-[85px] p-4 flex-1 text-muted-foreground">{t("access_count")}</TableHead>
+                        <TableHead className="min-w-[85px] p-4 flex-1 text-muted-foreground">{t("hit_rate")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -419,19 +433,19 @@ export function KnowledgeBaseHits({
                         <>
                           {tableData.map((item) => (
                             <TableRow key={item.id} className="border-b border-zinc-200">
-                              <TableCell className="max-w-[200px] truncate h-[60px]" title={item.title}>
+                              <TableCell className="w-[300px] min-w-[85px] p-4 truncate" title={item.title}>
                                 {item.title}
                               </TableCell>
-                              <TableCell className="text-right h-[60px]">{item.accessCount}</TableCell>
-                              <TableCell className="text-right h-[60px]">{item.hitRate}%</TableCell>
+                              <TableCell className="min-w-[85px] p-4 flex-1">{item.accessCount}</TableCell>
+                              <TableCell className="min-w-[85px] p-4 flex-1">{item.hitRate}%</TableCell>
                             </TableRow>
                           ))}
                           {/* 填充空行以保持表格高度固定 */}
                           {Array.from({ length: itemsPerPage - tableData.length }).map((_, index) => (
                             <TableRow key={`empty-${index}`} className="border-b border-zinc-200">
-                              <TableCell className="h-[60px]">&nbsp;</TableCell>
-                              <TableCell className="h-[60px]">&nbsp;</TableCell>
-                              <TableCell className="h-[60px]">&nbsp;</TableCell>
+                              <TableCell className="w-[300px] min-w-[85px] p-4">&nbsp;</TableCell>
+                              <TableCell className="min-w-[85px] p-4 flex-1">&nbsp;</TableCell>
+                              <TableCell className="min-w-[85px] p-4 flex-1">&nbsp;</TableCell>
                             </TableRow>
                           ))}
                         </>
@@ -445,9 +459,9 @@ export function KnowledgeBaseHits({
                           {/* 填充空行 */}
                           {Array.from({ length: itemsPerPage - 1 }).map((_, index) => (
                             <TableRow key={`empty-${index}`} className="border-b border-zinc-200">
-                              <TableCell className="h-[60px]">&nbsp;</TableCell>
-                              <TableCell className="h-[60px]">&nbsp;</TableCell>
-                              <TableCell className="h-[60px]">&nbsp;</TableCell>
+                              <TableCell className="w-[300px] min-w-[85px] p-4">&nbsp;</TableCell>
+                              <TableCell className="min-w-[85px] p-4 flex-1">&nbsp;</TableCell>
+                              <TableCell className="min-w-[85px] p-4 flex-1">&nbsp;</TableCell>
                             </TableRow>
                           ))}
                         </>
@@ -463,17 +477,28 @@ export function KnowledgeBaseHits({
                       <div className="text-sm text-zinc-500">
                         {t("total")}：{allTableData.length}
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={goToFirstPage}
+                          disabled={currentPage === 1}
+                          className={`p-1 rounded transition-colors ${
+                            currentPage === 1 
+                              ? 'text-zinc-300 cursor-not-allowed' 
+                              : 'text-zinc-700 hover:bg-zinc-50'
+                          }`}
+                        >
+                          <ChevronsLeftIcon className="h-4 w-4" />
+                        </button>
                         <button 
                           onClick={goToPrevPage}
                           disabled={currentPage === 1}
-                          className={`px-3 py-1 border rounded text-sm transition-colors ${
+                          className={`p-1 rounded transition-colors ${
                             currentPage === 1 
-                              ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' 
-                              : 'bg-white text-zinc-700 hover:bg-zinc-50'
+                              ? 'text-zinc-300 cursor-not-allowed' 
+                              : 'text-zinc-700 hover:bg-zinc-50'
                           }`}
                         >
-                          {t("previous_page")}
+                          <ChevronLeftIcon className="h-4 w-4" />
                         </button>
                         <span className="px-3 py-1 text-sm text-zinc-600">
                           {currentPage} / {totalPages || 1}
@@ -481,14 +506,28 @@ export function KnowledgeBaseHits({
                         <button 
                           onClick={goToNextPage}
                           disabled={currentPage >= totalPages}
-                          className={`px-3 py-1 border rounded text-sm transition-colors ${
+                          className={`p-1 rounded transition-colors ${
                             currentPage >= totalPages 
-                              ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' 
-                              : 'bg-white text-zinc-700 hover:bg-zinc-50'
+                              ? 'text-zinc-300 cursor-not-allowed' 
+                              : 'text-zinc-700 hover:bg-zinc-50'
                           }`}
                         >
-                          {t("next_page")}
+                          <ChevronRightIcon className="h-4 w-4" />
                         </button>
+                        <button 
+                          onClick={goToLastPage}
+                          disabled={currentPage >= totalPages}
+                          className={`p-1 rounded transition-colors ${
+                            currentPage >= totalPages 
+                              ? 'text-zinc-300 cursor-not-allowed' 
+                              : 'text-zinc-700 hover:bg-zinc-50'
+                          }`}
+                        >
+                          <ChevronsRightIcon className="h-4 w-4" />
+                        </button>
+                        <span className="text-sm text-zinc-600 ml-2">
+                          {itemsPerPage}/页
+                        </span>
                       </div>
                     </div>
                   </div>

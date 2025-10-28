@@ -5,7 +5,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } fro
 import { ticketTrendsQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
 
-// 定义图表配置 - 将在组件内部使用翻译
 const getTrendChartConfig = (t: any) => ({
   count: {
     label: t("ticket_count"),
@@ -282,35 +281,33 @@ export function TicketTrendChart({
       {/* 左侧：工单数量趋势（带时间粒度显示器） */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm">
         {/* 左侧标题和粒度显示器 */}
-        <div className="p-4 border-b border-zinc-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-zinc-900">
+        <div className="flex h-16 p-6 justify-between items-center flex-shrink-0 self-stretch border-b border-zinc-200">
+            <h2 className="text-xl  text-zinc-900">
               {t("ticket_volume_trends")}
             </h2>
             {/* 时间粒度显示器（非按钮） */}
-            <div className="flex items-center space-x-1 bg-white rounded-lg p-1">
+            <div className="flex items-center gap-2 bg-white rounded-lg py-1 px-3">
               {granularityOptions.map((option) => (
                 <div
                   key={option.value}
-                  className={`px-5 py-3 text-lg font-medium rounded-md transition-colors border ${
+                  className={`px-3 py-1 text-lg rounded-md transition-colors border ${
                     granularity === option.value
-                      ? "bg-zinc-200 text-zinc-900 border-zinc-300"
-                      : "bg-white text-zinc-600 border-zinc-200"
+                      ? "bg-zinc-200 text-foreground border-zinc-300 font-medium"
+                      : "bg-white text-zinc-900 border-zinc-200 font-normal"
                   }`}
                 >
                   {option.label}
                 </div>
               ))}
             </div>
-          </div>
         </div>
 
         {/* 左侧图表内容 */}
-        <div className="px-6 py-4">
-          <div className="h-120">
+        <div className="p-8">
+          <div className="h-120 flex items-center justify-center">
             <ChartContainer config={trendChartConfig} className="h-full w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={formattedTrendsData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
+                <LineChart data={formattedTrendsData} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
                   <CartesianGrid 
                     strokeDasharray="3 3" 
                     stroke="#E4E4E7"
@@ -339,21 +336,22 @@ export function TicketTrendChart({
                       if (active && payload && payload.length && payload[0]?.payload) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-white border border-zinc-200 rounded-lg shadow-lg p-4 min-w-[200px]">
-                            <div className="space-y-2">
-                              <div className="text-sm font-medium text-zinc-900">
-                                {data.fullDate}
-                              </div>
-                              <div className="border-t border-zinc-300 w-full"></div>
-                              <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-3 h-3"
-                          style={{ backgroundColor: payload[0]?.color || '#2563EB' }}
-                        ></div>
+                          <div className="bg-white border border-zinc-200 rounded-lg shadow-lg w-[200px] p-4 flex flex-col justify-center items-start gap-2">
+                            <div className="text-sm font-medium text-zinc-900">
+                              {data.fullDate}
+                            </div>
+                            <div className="border-t border-zinc-300 w-full"></div>
+                            <div className="flex items-center justify-between gap-2 w-full">
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="w-2 h-2"
+                                  style={{ backgroundColor: payload[0]?.color || '#2563EB' }}
+                                ></div>
                                 <span className="text-sm text-zinc-600">
-                                  {t("ticket_count")}：<span className="font-semibold text-zinc-900">{data.count}</span>
+                                  {t("ticket_count")}
                                 </span>
                               </div>
+                              <span className="font-semibold text-zinc-900">{data.count}</span>
                             </div>
                           </div>
                         );
@@ -379,27 +377,25 @@ export function TicketTrendChart({
       {/* 右侧：工单响应时长分析（独立容器） */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm">
         {/* 右侧标题 */}
-        <div className="px-4 py-8 border-b border-zinc-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-zinc-900">
-              {t("ticket_response_time_analysis")}
-            </h2>
-          </div>
+        <div className="flex h-16 p-6 justify-between items-center flex-shrink-0 self-stretch border-b border-zinc-200">
+          <h2 className="text-xl  text-zinc-900">
+            {t("ticket_response_time_analysis")}
+          </h2>
         </div>
 
         {/* 右侧内容 */}
-        <div className="px-6 py-4">
+        <div className="p-8">
           <div className="space-y-4">
             {/* 响应时长统计指标 */}
             <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden mb-4">
               <div className="grid grid-cols-2">
                 <div className="p-4 relative">
                   <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-3 h-3 bg-green-500"></div>
-                    <span className="text-sm text-black font-medium">{t("average_first_response_time")}</span>
+                    <div className="w-2 h-2 bg-green-500"></div>
+                    <span className="text-sm text-zinc-600">{t("average_first_response_time")}</span>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-2xl font-bold text-black">
+                  <div className="flex flex-col gap-3">
+                    <p className="text-2xl text-black">
                       {data?.responseMetrics ? minutesToHours(data.responseMetrics.avgFirstResponseTime) : 0} {t("hours")}
                     </p>
                     <p className="text-xs text-zinc-600">
@@ -410,11 +406,11 @@ export function TicketTrendChart({
 
                 <div className="p-4 border-l border-dashed border-zinc-300">
                   <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-3 h-3 bg-blue-500"></div>
-                    <span className="text-sm text-black font-medium">{t("average_resolution_time")}</span>
+                    <div className="w-2 h-2 bg-blue-500"></div>
+                    <span className="text-sm text-zinc-600">{t("average_resolution_time")}</span>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-2xl font-bold text-black">
+                  <div className="flex flex-col gap-3">
+                    <p className="text-2xl text-black">
                       {data?.responseMetrics ? minutesToHours(data.responseMetrics.avgResolutionTime) : 0} {t("hours")}
                     </p>
                     <p className="text-xs text-zinc-600">
@@ -426,11 +422,11 @@ export function TicketTrendChart({
             </div>
 
             {/* 响应时长趋势图表 */}
-            <div className="h-90">
+            <div className="h-90 flex items-center justify-center">
               {(formattedResponseData.length > 0 || granularity === "hour") ? (
                 <ChartContainer config={responseChartConfig} className="h-full w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={formattedResponseData} margin={{ top: 20, right: 20, left: 20, bottom: 10 }}>
+                    <LineChart data={formattedResponseData} margin={{ top: 20, right: 10, left: -30, bottom: 10 }}>
                       <CartesianGrid 
                         strokeDasharray="3 3" 
                         stroke="#E4E4E7"
@@ -452,7 +448,6 @@ export function TicketTrendChart({
                         fontSize={12}
                         axisLine={false}
                         tickLine={false}
-                        label={{ value: t("hours"), angle: -90, position: 'insideLeft' }}
                       />
                       <ChartTooltip
                         cursor={{ stroke: "#E4E4E7", strokeWidth: 1 }}
@@ -460,28 +455,28 @@ export function TicketTrendChart({
                           if (active && payload && payload.length && payload[0]?.payload) {
                             const data = payload[0].payload;
                             return (
-                              <div className="bg-white border border-zinc-200 rounded-lg shadow-lg p-4 min-w-[200px]">
-                                <div className="space-y-2">
-                                  <div className="text-sm font-medium text-zinc-900">
-                                    {data.fullDate}
-                                  </div>
-                                  <div className="border-t border-zinc-300 w-full"></div>
-                                  <div className="space-y-1">
-                                    {payload.map((entry, index) => (
-                                      <div key={index} className="flex items-center space-x-2">
+                              <div className="bg-white border border-zinc-200 rounded-lg shadow-lg w-[240px] p-4 flex flex-col justify-center items-start gap-2">
+                                <div className="text-sm font-medium text-zinc-900">
+                                  {data.fullDate}
+                                </div>
+                                <div className="border-t border-zinc-300 w-full"></div>
+                                <div className="flex flex-col gap-2 w-full">
+                                  {payload.map((entry, index) => (
+                                    <div key={index} className="flex items-center justify-between gap-2 w-full">
+                                      <div className="flex items-center gap-2">
                                         <div 
-                                          className="w-3 h-3"
+                                          className="w-2 h-2"
                                           style={{ backgroundColor: entry.color || '#2563EB' }}
                                         ></div>
                                         <span className="text-sm text-zinc-600">
-                                          {entry.dataKey === 'firstResponse' ? t("average_first_response_time") : t("average_resolution_time")}：
-                                          <span className="font-semibold text-zinc-900">
-                                            {entry.value} {t("hours")}
-                                          </span>
+                                          {entry.dataKey === 'firstResponse' ? t("average_first_response_time") : t("average_resolution_time")}
                                         </span>
                                       </div>
-                                    ))}
-                                  </div>
+                                      <span className="font-semibold text-zinc-900">
+                                        {entry.value} {t("hours")}
+                                      </span>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             );

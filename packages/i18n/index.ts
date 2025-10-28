@@ -1,4 +1,4 @@
-import i18nBase from "i18next";
+import i18nBase, { t } from "i18next";
 import { initReactI18next, useTranslation } from "react-i18next";
 export const translations = {
   en: {
@@ -417,6 +417,8 @@ export const translations = {
       analytics_filter: "Analytics Filter",
       all_staff:'All Staff',
       // Ticket status analysis module translation keys
+      hot_issues_analysis: "Hot Issues Analysis",
+      tkt_backlog_rate_error:"Ticket Backlog Rate Error",
       ticket_status_analysis: "Ticket Status Analysis",
       key_metrics: "Key Metrics",
       backlog_rate: "Backlog Rate",
@@ -819,7 +821,7 @@ export const translations = {
       joining: "加入中...",
 
       // Table pagination and empty states
-      total: "总计",
+      total: "总共",
       page: "页",
       no_tickets_found: "未找到工单",
       no_tickets_received: "暂未收到任何用户工单。",
@@ -1002,6 +1004,7 @@ export const translations = {
       questions: "问题",
 
       // 热门问题分析
+      hot_issues_analysis: "热门问题分析",
       top_popular_issues: "热门问题TOP榜单",
       category_issue_count: "分类问题数量",
 
@@ -1009,6 +1012,7 @@ export const translations = {
       intelligent_analysis_insights: "智能分析洞察",
 
       // 工单状态分析额外键
+      tkt_backlog_rate_error:"工单积压率警告",
       current: "当前",
       exceed_normal_level: "超过正常水平",
       increase_manpower: "增加处理人力",

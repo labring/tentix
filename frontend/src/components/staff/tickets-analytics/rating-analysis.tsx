@@ -7,27 +7,27 @@ import { useTranslation } from "i18n";
 const getRatingChartConfig = (t: any) => ({
   "1星": {
     label: `1${t("star")}`,
-    color: "#EF4444",
+    color: "#F87171",
   },
   "2星": {
     label: `2${t("star")}`, 
-    color: "#F97316",
+    color: "#FB923C",
   },
   "3星": {
     label: `3${t("star")}`,
-    color: "#FCD34D",
+    color: "#FACC15",
   },
   "4星": {
     label: `4${t("star")}`,
-    color: "#60A5FA",
+    color: "#3B82F6",
   },
   "5星": {
     label: `5${t("star")}`,
-    color: "#3B82F6",
+    color: "#2563EB",
   },
   "未评分": {
     label: t("unrated"),
-    color: "#9CA3AF",
+    color: "#E4E4E7",
   },
 }) satisfies ChartConfig;
 
@@ -102,18 +102,18 @@ export function RatingAnalysis({
       {/* 左侧：评分点比分布 */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm">
         {/* 标题 */}
-        <div className="p-4 border-b border-zinc-200">
+        <div className="p-6 h-16 flex items-center border-b border-zinc-200">
           <h2 className="text-xl font-semibold text-zinc-900">
             {t("rating_distribution_analysis")}
           </h2>
         </div>
         {/* 内容区域 */}
-        <div className="p-6 pt-14">
+        <div className="p-8 flex items-center justify-center">
           <div className="space-y-6 items-center">
             {/* 环形图和图例 */}
-            <div className="flex items-center justify-center space-x-15">
+            <div className="flex items-center gap-6">
               {/* 环形图 */}
-              <div className="h-[200px] w-[200px]">
+              <div className="h-[180px] w-[180px]">
                 <ChartContainer config={ratingChartConfig} className="h-full w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -182,23 +182,25 @@ export function RatingAnalysis({
               </div>
 
               {/* 图例列表 */}
-              <div className="space-y-1">
-                {data.ratingDistribution.map((item, index) => (
-                  <div key={index} className="flex items-center border-b border-zinc-200 pb-2">
-                    <span className="flex items-center space-x-2 w-30 h-9">
-                      <span
-                        className="w-3 h-3 rounded-sm"
-                        style={{ backgroundColor: ratingChartConfig[item.name as keyof typeof ratingChartConfig].color }}
-                      ></span>
-                      <span className="text-sm text-zinc-700">{item.name}</span>
-                    </span>
-                    <span className="flex items-center space-x-10 text-sm text-zinc-600">
-                      <span className="w-20 text-left">{t("percentage")}{item.percentage}%</span>
-                      <span className="w-12 text-left font-medium">{item.value}{t("times")}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <table className="border-collapse min-w-[85px]">
+                <tbody>
+                  {data.ratingDistribution.map((item, index) => (
+                    <tr key={index} className="border-b border-zinc-200">
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2"
+                            style={{ backgroundColor: ratingChartConfig[item.name as keyof typeof ratingChartConfig].color }}
+                          ></span>
+                          <span className="text-sm text-zinc-700">{item.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-sm text-zinc-600">{t("percentage")}{item.percentage}%</td>
+                      <td className="p-4 text-sm text-zinc-600 font-medium">{item.value}{t("times")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -207,20 +209,20 @@ export function RatingAnalysis({
       {/* 右侧：转人工情况分布 */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm">
         {/* 标题 */}
-        <div className="p-4 border-b border-zinc-200">
+        <div className="p-6 h-16 flex items-center border-b border-zinc-200">
           <h2 className="text-xl font-semibold text-zinc-900">
             {t("manual_transfer_distribution")}
           </h2>
         </div>
 
         {/* 内容区域 */}
-        <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="pt-[57px] pr-[31px] pb-[57px] pl-[32.5px] flex items-center justify-center min-h-[400px]">
           <div className="space-y-6">
             {/* 环形图和图例 */}
             {totalTickets > 0 ? (
-              <div className="flex items-center justify-center space-x-15">
+              <div className="flex items-center gap-6">
                 {/* 环形图 */}
-                <div className="h-[200px] w-[200px]">
+                <div className="h-[180px] w-[180px]">
                   <ChartContainer config={handoffChartConfig} className="h-full w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -289,23 +291,25 @@ export function RatingAnalysis({
                 </div>
 
                 {/* 图例列表 */}
-                <div className="space-y-1">
-                  {handoffData.map((item, index) => (
-                    <div key={index} className="flex items-center border-b border-zinc-200 pb-2">
-                      <span className="flex items-center space-x-2 w-33 h-9">
-                        <span
-                          className="w-3 h-3 rounded-sm"
-                          style={{ backgroundColor: handoffChartConfig[item.type as keyof typeof handoffChartConfig]?.color || '#E4E4E7' }}
-                        ></span>
-                        <span className="text-sm text-zinc-700">{item.name}</span>
-                      </span>
-                      <span className="flex items-center space-x-15 text-sm text-zinc-600">
-                        <span className="w-20 text-left">{t("percentage")}{item.percentage}%</span>
-                        <span className="w-12 text-left font-medium">{item.value}{t("times")}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <table className="border-collapse min-w-[85px]">
+                  <tbody>
+                    {handoffData.map((item, index) => (
+                      <tr key={index} className="border-b border-zinc-200">
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2 h-2"
+                              style={{ backgroundColor: handoffChartConfig[item.type as keyof typeof handoffChartConfig]?.color || '#E4E4E7' }}
+                            ></span>
+                            <span className="text-sm text-zinc-700">{item.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-sm text-zinc-600">{t("percentage")}{item.percentage}%</td>
+                        <td className="p-4 text-sm text-zinc-600 font-medium">{item.value}{t("times")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-zinc-500">

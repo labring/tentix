@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Button, Checkbox, Label, Popover, PopoverContent, PopoverTrigger, Calendar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "tentix-ui";
-import { CalendarIcon, RefreshCcw } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { cn } from "@lib/utils";
 import { staffListQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useAuth } from "@hook/use-local-user.tsx";
@@ -99,7 +99,7 @@ export function AnalyticsFilter({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between p-4 bg-white rounded-lg border border-zinc-200 mb-6 gap-4">
+    <div className="flex flex-wrap items-center justify-between py-5 px-6 bg-white rounded-lg border border-zinc-200 gap-4">
       <div className="flex flex-wrap items-center space-x-4 gap-2">
         <span className="text-sm font-medium text-zinc-700">{t("analytics_filter")}</span>
 
@@ -165,7 +165,6 @@ export function AnalyticsFilter({
       {/* 右侧刷新和更新时间区域 */}
       <div className="flex items-center space-x-4">
         <Button variant="outline" size="sm" onClick={onRefresh}>
-          <RefreshCcw className="mr-2 h-4 w-4" />
           {t("reload")}
         </Button>
         <span className="text-sm text-zinc-500">{t("updated_at")} {displayTime}</span>

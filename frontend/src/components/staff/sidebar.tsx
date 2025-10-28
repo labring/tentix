@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { joinTrans, useTranslation } from "i18n";
-import { LayersIcon, Settings, LogOut, Bot,BarChart3 } from "lucide-react";
+import { LayersIcon, Settings, LogOut, Bot,LineChart } from "lucide-react";
 import { Button } from "tentix-ui";
 import { useSettingsModal } from "@modal/use-settings-modal";
 import { useSealos } from "src/_provider/sealos";
@@ -59,7 +59,7 @@ export function StaffSidebar() {
               to="/staff/analytics"
               className="flex flex-col items-center justify-center gap-1 text-center"
             >
-              <BarChart3 className="!w-6 !h-6" strokeWidth={1.33} />
+              <LineChart className="!w-6 !h-6" strokeWidth={1.33} />
               <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
                 {t("analytics")}
               </span>

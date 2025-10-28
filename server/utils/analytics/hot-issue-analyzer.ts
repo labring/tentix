@@ -63,30 +63,46 @@ async function analyzeWithAI(
   const promptText = `你是 Sealos 工单系统的分类助手，**只分析**工单内容并生成分类标签。**只输出 JSON**。
 
 ## 输出协议（严格）
-- 只输出**不带 Markdown**的 JSON 字符串，可被 JSON.parse 成功解析。
+- 只输出不带 Markdown 的 JSON 字符串，可被 JSON.parse 成功解析。
 - 结构与字段：
   {
     "category": string,      // 问题分类，优先使用现有分类
-    "tag": string,          // 具体问题标签，描述问题细节
-    "confidence": number,   // 分析置信度，0-1之间
-    "reasoning": string     // 分析理由，≤50字
+    "tag": string,           // 具体问题标签，描述问题细节
+    "confidence": number,    // 0-1 之间，保留 2 位小数为宜
+    "reasoning": string      // ≤50 字，简述依据
   }
-- 不要输出额外字段；不要包含注释或解释文本。
+- 不要输出额外字段；不要包含注释或解释文本；不得输出自然语言段落。
+
+## 判定要点
+- 优先复用“现有分类/标签”（提供于上下文）；相似度 ≥70% 时应归入现有项。
+- 分类需简洁稳健（如：技术问题/账户问题/支付问题/性能问题/界面问题/服务问题/系统问题/部署问题/网络问题/存储问题）。
+- 标签必须具体到现象/对象/操作（如：“镜像拉取失败”“证书过期”“Readiness probe failed”）。
+- 出现明确错误码/错误片段（如 5xx/ImagePullBackOff/x509/ECONNREFUSED）应体现在标签中。
+- 出现组件/模块名（如 devbox/applaunchpad/ingress/pvc）应纳入标签语义。
+- 存在歧义/信息不足时：降低 confidence（≤0.6），reasoning 标注“信息不足/语义含糊”。
+
+## 结合上下文
+- 综合“标题/富文本描述（提取纯文本）/图片内容（若有）”与“现有分类/标签列表”进行判定。
+- 若包含图片，请结合图片中的错误信息、界面元素、配置截图辅助分类与打标签。
+- 严禁臆造不存在的字段或信息；无法确定时宁可降低 confidence。
 
 ## 工单内容
 标题: "${title}"
-描述: "${descriptionText}"
+描述(纯文本): "${descriptionText}"
 
 ## 现有分类标签
 分类: ${existingCategories.length > 0 ? existingCategories.join(", ") : "暂无"}
 标签: ${existingTags.length > 0 ? existingTags.join(", ") : "暂无"}
 
-## 分析要求
-- 优先使用现有分类（相似度>70%）
-- 分类简洁明确：技术问题、账户问题、支付问题、性能问题、界面问题、服务问题、系统问题
-- 标签具体描述：用户无法正常登录系统、支付流程中断或失败、应用页面加载速度缓慢
-- **如果包含图片，请结合图片内容进行分析**，图片可能包含错误截图、界面问题、配置信息等
-- confidence: 不确定时降低置信度
+## 示例1（仅示意）
+输入：
+标题: "applaunchpad 部署失败 ImagePullBackOff"
+描述(纯文本): "新版本发布后，应用一直 Pending，事件提示镜像拉取失败，私有仓库凭证已配置。"
+现有分类: ["部署问题","镜像问题","网络问题"]
+现有标签: ["镜像拉取失败","凭证错误","私有仓库权限"]
+
+输出：
+{"category":"镜像问题","tag":"镜像拉取失败","confidence":0.86,"reasoning":"事件包含 ImagePullBackOff，符合镜像拉取失败"}
 
 只输出 { "category": "...", "tag": "...", "confidence": 0.85, "reasoning": "..." } 的 JSON。`;
 

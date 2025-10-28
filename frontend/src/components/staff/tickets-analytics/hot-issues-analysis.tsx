@@ -1,5 +1,5 @@
 import { Badge, cn } from "tentix-ui";
-import { TrendingUp, TrendingDown, Minus, Sparkles, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Sparkles, BarChartBig } from "lucide-react";
 import { hotIssuesQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
 
@@ -140,16 +140,16 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
   
   return (
     <div className="w-full bg-white rounded-lg border border-gray-200">
-      <div className="p-6 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-zinc-900 flex items-center gap-2">
-          {t("top_popular_issues")}
+      <div className="flex h-16 p-6 justify-between items-center flex-shrink-0 border-b border-gray-200">
+        <h2 className="text-xl  text-zinc-900 flex items-center gap-2">
+          {t("hot_issues_analysis")}
         </h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2">
-        <div className="p-6 border-r border-gray-200">
-          <h3 className="text-base font-semibold mb-4">{t("top_popular_issues")}</h3>
-          <div className="space-y-2">
+        <div className="flex flex-col p-8 items-start gap-4 flex-1 border-r border-gray-200">
+          <h3 className="text-base text-black">{t("top_popular_issues")}</h3>
+          <div className="flex flex-col gap-4 w-full">
             {displayedIssues.map((issue, index) => {
               const blueGradient = [
                 'bg-blue-50',
@@ -166,7 +166,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                   className={cn("flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-blue-100/50 transition-colors", bgColor)}
                 >
                 <div className="flex items-center gap-3 flex-1">
-                  <div className="flex items-center justify-center w-8 font-semibold text-sm text-black">
+                  <div className="flex items-center justify-center w-8  text-sm text-black">
                     {String(index + 1).padStart(2, '0')}
                   </div>
 
@@ -182,7 +182,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 text-lg font-semibold text-zinc-900">
+                  <div className="flex items-center gap-1 text-lg  text-zinc-900">
                     {getTrendIcon(issue.trend, issue.priority)}
                     <span>{issue.count}</span>
                   </div>
@@ -199,8 +199,8 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
           </div>
         </div>
 
-        <div className="p-6">
-          <h3 className="text-base font-semibold mb-6">{t("category_issue_count")}</h3>
+        <div className="p-8">
+          <h3 className="text-base  mb-4">{t("category_issue_count")}</h3>
 
            <div className="h-80 relative">
              <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-zinc-500">
@@ -226,13 +226,13 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
               <div className="absolute left-0 right-0 bottom-0 h-full flex items-end justify-around px-4 gap-2">
                 {data.categoryStats.map((stat, index) => {
                   const blueShades = [
-                    '#1e40af',
-                    '#2563eb',
-                    '#3b82f6',
-                    '#60a5fa',
+                    '#1D4ED8',
+                    '#2563EB',
+                    '#3B82F6',
+                    '#60A5FA',
                     '#93c5fd',
-                    '#bfdbfe',
-                    '#dbeafe',
+                    '#93C5FD',
+                    '#BFDBFE',
                   ];
                   const barColor = blueShades[Math.min(index, blueShades.length - 1)];
                   
@@ -245,7 +245,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                        className="flex-1 flex flex-col items-center justify-end group max-w-[80px]"
                      >
                        <div className="relative w-full flex flex-col items-center">
-                         <div className="text-sm font-semibold text-zinc-700 mb-1">
+                         <div className="text-sm  text-zinc-700 mb-1">
                            {stat.count}
                          </div>
                          
@@ -284,37 +284,34 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
         </div>
       </div>
 
-      <div className="border-t border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-zinc-900 flex items-center gap-2">
+      <div className="border-t border-gray-200 flex flex-col w-[1316px] items-start flex-shrink-0">
+        <div className="flex flex-col py-6 px-8 items-start gap-[10px] self-stretch w-full">
+          <h2 className="text-xl text-black flex items-center gap-2">
             {t("intelligent_analysis_insights")}
             <Sparkles className="h-5 w-5 text-blue-500" />
           </h2>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold text-zinc-900 flex items-center gap-2">
+          <div className="flex flex-col gap-[10px]">
+            <h3 className="text-base text-zinc-900 flex items-center gap-2">
               {t("key_findings")}
             </h3>
-            <ul className="space-y-2">
+            <ul className="flex flex-col gap-0">
               {(data.aiInsights?.keyFindings || []).map((finding, index) => (
-                <li key={index} className="flex items-center gap-2 text-sm text-zinc-700">
-                  <span className="text-black text-lg">•</span>
+                <li key={index} className="flex items-center gap-2 text-sm font-normal leading-normal text-zinc-600">
+                  <span className="text-zinc-600 text-lg">•</span>
                   <span>{finding}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold text-zinc-900 flex items-center gap-2">
+          <div className="flex flex-col gap-[10px]">
+            <h3 className="text-base text-zinc-900 flex items-center gap-2">
               {t("improvement_suggestions")}
             </h3>
-            <ul className="space-y-2">
+            <ul className="flex flex-col gap-0">
               {(data.aiInsights?.improvements || []).map((improvement, index) => (
-                <li key={index} className="flex items-center gap-2 text-sm text-zinc-700">
-                  <span className="text-black text-lg">•</span>
+                <li key={index} className="flex items-center gap-2 text-sm font-normal leading-normal text-zinc-600">
+                  <span className="text-zinc-600 text-lg">•</span>
                   <span>{improvement}</span>
                 </li>
               ))}
@@ -322,11 +319,11 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
           </div>
 
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-            <h3 className="text-base font-semibold text-zinc-900 flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-blue-500" />
+            <h3 className="text-base text-zinc-900 flex items-center gap-2">
+              <BarChartBig className="h-4 w-4 text-blue-500" />
               {t("data_driven_strategy")}
             </h3>
-              <p className="text-sm text-zinc-700 leading-relaxed">
+              <p className="text-sm font-normal leading-normal text-zinc-900">
                 {data.aiInsights?.strategy || t("analyzing_data")}
               </p>
             </div>

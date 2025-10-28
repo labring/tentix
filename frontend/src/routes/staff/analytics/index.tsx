@@ -141,7 +141,7 @@ function AnalyticsDashboard() {
         <StaffSidebar />
         <div className="flex-1 overflow-auto bg-zinc-50">
           <Suspense fallback={<AnalyticsSkeleton />}>
-            <div className="w-full p-4 space-y-6">
+            <div className="w-full flex flex-col pt-6 px-6 pb-0 gap-[15px]">
               {/* 筛选组件 */}
               <AnalyticsFilter
                 onDateRangeChange={handleDateRangeChange}
