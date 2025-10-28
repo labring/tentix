@@ -95,7 +95,7 @@
     },
     "packages/i18n": {
       "name": "i18n",
-      "devDependencies": {
+      "dependencies": {
         "i18next": "^25.1.1",
         "react-i18next": "^15.5.1",
       },
@@ -213,6 +213,8 @@
         "@langchain/langgraph": "^0.4.3",
         "@langchain/openai": "^0.6.7",
         "@scalar/hono-api-reference": "^0.8.10",
+        "@tiptap/core": "^2.10.6",
+        "@tiptap/react": "^2.10.6",
         "croner": "^9.1.0",
         "drizzle-orm": "0.43.1",
         "drizzle-zod": "^0.7",
@@ -233,6 +235,7 @@
       "devDependencies": {
         "@types/bun": "catalog:",
         "@types/jsonwebtoken": "^9.0.9",
+        "@types/markdown-it": "^14.1.2",
         "@types/pg": "8.11.13",
         "drizzle-kit": "^0.31.1",
         "drizzle-seed": "^0.3.1",
