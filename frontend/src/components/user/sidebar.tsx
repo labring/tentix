@@ -6,6 +6,7 @@ import { Button, LayersIcon } from "tentix-ui";
 import { useSettingsModal } from "@modal/use-settings-modal";
 import { useSealos } from "src/_provider/sealos";
 import { useAuth } from "@hook/use-local-user.tsx";
+import { useForumUrl } from "@store/app-config";
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -13,6 +14,7 @@ export function Sidebar() {
   const sealosContext = useSealos();
   const authContext = useAuth();
   const { isSealos } = sealosContext;
+  const forumUrl = useForumUrl();
 
   return (
     <div className="py-3 px-2 flex flex-col h-full items-center w-fit border-r-[0.8px] border-solid border-zinc-200 bg-zinc-50">
@@ -42,23 +44,25 @@ export function Sidebar() {
             {t("settings")}
           </span>
         </Button>
-        <Button
-          asChild
-          variant="ghost"
-          className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"
-        >
-          <a
-            href="https://forum.sealos.run"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center justify-center gap-1 text-center"
+        {forumUrl && (
+          <Button
+            asChild
+            variant="ghost"
+            className="flex flex-col w-[60px] h-auto p-2 justify-center items-center gap-1 rounded-lg text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-500"
           >
-            <MessagesSquare className="!w-6 !h-6" strokeWidth={1.33} />
-            <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
-              {t("community")}
-            </span>
-          </a>
-        </Button>
+            <a
+              href={forumUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center gap-1 text-center"
+            >
+              <MessagesSquare className="!w-6 !h-6" strokeWidth={1.33} />
+              <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
+                {t("community")}
+              </span>
+            </a>
+          </Button>
+        )}
       </div>
       <div className="flex-1 flex flex-col justify-end items-center">
         {isSealos ? (

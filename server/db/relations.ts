@@ -16,6 +16,7 @@ import {
   ticketFeedback,
   knowledgeBase,
   knowledgeUsageStats,
+  knowledgeAccessLog,
   favoritedConversationsKnowledge,
   historyConversationKnowledge,
   handoffRecords,
@@ -50,6 +51,7 @@ export const ticketsRelations = relations(tickets, ({ many, one }) => ({
 
   // 新增的关联关系
   knowledgeUsageStats: many(knowledgeUsageStats), // 工单可以有多个知识库使用统计
+  knowledgeAccessLogs: many(knowledgeAccessLog), // 工单可以有多个知识库访问记录
   favoritedConversationsKnowledge: one(favoritedConversationsKnowledge), // 工单最多只能被收藏一次
   historyConversationKnowledge: one(historyConversationKnowledge), // 工单最多只能有一条历史对话知识记录
 
@@ -245,6 +247,7 @@ export const ticketFeedbackRelations = relations(ticketFeedback, ({ one }) => ({
 // 知识库表的关联关系
 export const knowledgeBaseRelations = relations(knowledgeBase, ({ many }) => ({
   usageStats: many(knowledgeUsageStats), // 一个知识条目可以有多个使用统计记录
+  accessLogs: many(knowledgeAccessLog), // 一个知识条目可以有多个访问记录
 }));
 
 // 知识库使用统计表的关联关系
@@ -262,6 +265,21 @@ export const knowledgeUsageStatsRelations = relations(
     user: one(users, {
       fields: [knowledgeUsageStats.userId],
       references: [users.id],
+    }),
+  }),
+);
+
+// 知识库访问记录表的关联关系
+export const knowledgeAccessLogRelations = relations(
+  knowledgeAccessLog,
+  ({ one }) => ({
+    knowledge: one(knowledgeBase, {
+      fields: [knowledgeAccessLog.knowledgeBaseId],
+      references: [knowledgeBase.id],
+    }),
+    ticket: one(tickets, {
+      fields: [knowledgeAccessLog.ticketId],
+      references: [tickets.id],
     }),
   }),
 );

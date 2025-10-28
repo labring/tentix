@@ -15,11 +15,13 @@ import { adminRouter } from "./admin/index.ts";
 import { playgroundRouter } from "./playground/index.ts";
 import { feishuRouter } from "./feishu/index.ts";
 import { feedbackRouter } from "./feedback/index.ts";
-import { startAllJobs } from "@/utils/jobs/kb-jobs/index.ts";
-import "@/utils/events/handoff/index.ts";
+import { startTicketAutoCloseJob } from "@/utils/jobs/ticket-jobs/index.ts";
 import { kbRouter } from "./kb/index.ts";
 import { logInfo } from "@/utils/log.ts";
 import { websocket } from "@/utils/websocket.ts";
+// register events
+import "@/utils/events/handoff/index.ts";
+import "@/utils/events/kb/index.ts";
 
 const app = factory.createApp();
 
@@ -148,7 +150,7 @@ app.use(
 );
 
 // 启动所有jobs
-startAllJobs();
+startTicketAutoCloseJob();
 
 export default {
   fetch: app.fetch,

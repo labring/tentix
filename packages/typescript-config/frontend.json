@@ -7,7 +7,7 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "bun-types", "node"],
+    "types": ["vite/client", "node"],
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "strict": true,

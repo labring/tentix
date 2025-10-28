@@ -13,7 +13,7 @@ const envSchema = z.object({
 
   FASTGPT_API_URL: z.string().url().trim().optional(),
   FASTGPT_API_KEY: z.string().startsWith("fastgpt-").trim().optional(),
-  FASTGPT_API_LIMIT: z.coerce.number().default(10).optional(),
+  FASTGPT_API_LIMIT: z.coerce.number().default(10),
 
   MINIO_ACCESS_KEY: z.string().trim(),
   MINIO_SECRET_KEY: z.string().trim(),
@@ -34,17 +34,17 @@ const envSchema = z.object({
   VECTOR_BACKEND: z.enum(["internal", "external"]).default("internal"),
   EXTERNAL_VECTOR_BASE_URL: z.string().url().trim().optional(),
 
-  KB_SYNC_INTERVAL_SEC: z.coerce.number().default(5).optional(),
-  KB_SYNC_MAX_PROCESSING: z.coerce.number().default(10).optional(),
-  KB_SYNC_BATCH_SIZE: z.coerce.number().default(10).optional(),
-  KB_SYNC_TZ: z.string().trim().default("Asia/Shanghai").optional(),
+  // 工单自动关闭配置
+  TICKET_AUTO_CLOSE_DAY: z.coerce.number().min(0).max(6).default(1), // 每周几执行（0=周日，1=周一）
+  TICKET_AUTO_CLOSE_HOUR: z.coerce.number().min(0).max(23).default(10), // 每天几点执行
+  TICKET_AUTO_CLOSE_TZ: z.string().trim().default("Asia/Shanghai"), // 时区
 
   APP_URL: z.string().url().trim().optional(),
   TARGET_PLATFORM: z.enum(["sealos", "generic"]).default("generic"),
-  DISABLE_REGISTER: z.coerce.boolean().default(false).optional(),
+  DISABLE_REGISTER: z.coerce.boolean().default(false),
   THIRD_PARTY_API: z.string().url().trim().optional(),
   THIRD_PARTY_TOKEN: z.string().trim().optional(),
-
+  FORUM_URL: z.string().url().trim().default("https://forum.sealos.run"),
   NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 

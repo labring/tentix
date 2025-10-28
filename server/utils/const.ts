@@ -161,6 +161,7 @@ export enum NodeType {
   SMART_CHAT = "smartChat", // 智能聊天
   ESCALATION_OFFER = "escalationOffer", // 升级询问
   VARIABLE_SETTER = "variableSetter", // 变量设置
+  RAG = "rag", // 检索增强生成
   START = "start", // 哨兵节点
   END = "end",
 }
@@ -208,18 +209,6 @@ export interface EscalationOfferConfig extends BaseNodeConfig {
 export interface SmartChatConfig extends BaseNodeConfig {
   type: NodeType.SMART_CHAT;
   config: {
-    enableRAG: boolean;
-    ragConfig?: {
-      enableIntentAnalysis: boolean;
-      intentAnalysisUserPrompt: string;
-      intentAnalysisSystemPrompt: string;
-      generateSearchQueriesUserPrompt: string;
-      generateSearchQueriesSystemPrompt: string;
-      intentAnalysisLLM?: LLMConfig;
-      generateSearchQueriesLLM?: LLMConfig;
-      // searchQueries: number;
-      // topK: number;
-    };
     systemPrompt: string;
     userPrompt: string;
     enableVision: boolean;
@@ -230,19 +219,37 @@ export interface SmartChatConfig extends BaseNodeConfig {
   };
 }
 
+export interface RagConfig extends BaseNodeConfig {
+  type: NodeType.RAG;
+  config: {
+    enableIntentAnalysis: boolean;
+    intentAnalysisConfig?: {
+      intentAnalysisUserPrompt: string;
+      intentAnalysisSystemPrompt: string;
+      intentAnalysisLLM?: LLMConfig;
+    };
+    generateSearchQueriesUserPrompt: string;
+    generateSearchQueriesSystemPrompt: string;
+    generateSearchQueriesLLM?: LLMConfig;
+    // searchQueries: number;
+    // topK: number;
+  };
+}
+
 export type NodeConfig =
   | EmotionDetectionConfig
   | HandoffConfig
   | EscalationOfferConfig
   | SmartChatConfig
+  | RagConfig
   | BaseNodeConfig;
 
 export type NodeConfigData =
   | EmotionDetectionConfig["config"]
   | HandoffConfig["config"]
   | EscalationOfferConfig["config"]
-  | SmartChatConfig["config"];
-
+  | SmartChatConfig["config"]
+  | RagConfig["config"];
 export interface LLMConfig {
   apiKey?: string; // 可不填 -> 用全局 OPENAI_CONFIG
   baseURL?: string; // 可不填 -> 用全局 OPENAI_CONFIG
@@ -277,6 +284,7 @@ export interface WorkflowConfig {
     | HandoffConfig
     | EscalationOfferConfig
     | SmartChatConfig
+    | RagConfig
     | BaseNodeConfig
   >;
   edges: WorkflowEdge[];

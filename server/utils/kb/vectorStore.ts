@@ -1,6 +1,6 @@
 import { sql, asc, and, eq, inArray, type SQL } from "drizzle-orm";
 
-import { knowledgeBase } from "@/db/schema";
+import { knowledgeBase, knowledgeAccessLog } from "@/db/schema";
 import {
   KBChunk,
   KBFilter,
@@ -18,6 +18,17 @@ function hash(s: string) {
 function toPgVectorLiteral(vec: number[]): string {
   // 统一用 '.' 小数点、去掉 NaN/Infinity，限制精度减少体积
   return `[${vec.map((x) => (Number.isFinite(x) ? Number(x).toFixed(6) : "0")).join(",")}]`;
+}
+
+// 计算一年中的第几周（ISO 8601 标准）
+function getWeekOfYear(date: Date): number {
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
 const embedder = new OpenAIEmbeddings({
@@ -134,30 +145,35 @@ export class PgVectorStore implements VectorStore {
       const candidateLimit = Math.max(k * 3, 30);
       const rough = await qb.orderBy(asc(distance)).limit(candidateLimit);
 
-      // 轻度 re-rank：以距离为主，来源权重与热度做微调，输出 score 越大越相关
-      // 访问次数高的内容在相似度接近时会被优先推荐
+      // 轻度 re-rank：以向量相似度为主，结合来源权重与热度做微调
+      // 目标：相似度高、来源可信、访问多的内容排在前面
       const ranked = rough
         .map((r) => {
-          const w = SOURCE_WEIGHTS[r.source_type as SourceType] ?? 0.5;
-          const dist = Number(r.distance); // 0..2（cosine）
-          const relevance = Math.max(0, 1 - Math.min(dist, 1)); // 0..1
-          const boost = Math.min((r.accessCount ?? 0) / 100, 0.05); // ≤ 0.05 热度加分(访问次数)
-          const final = relevance * w + boost; // 最终得分 = 相关度×权重 + 热度加分
+          const dist = Number(r.distance); // cosine 距离 ∈ [0, 2]
+          
+          // 1. 计算基础相关度分数 [0, 1]
+          // cosine 距离 0 = 完全相同（最相关）
+          // cosine 距离 1 = 正交（不相关）
+          // cosine 距离 > 1 = 反向（负相关，截断为 0）
+          const relevance = Math.max(0, 1 - dist);
+          
+          // 2. 来源权重：不同来源的可信度不同
+          // 精选案例 > 历史工单 > 通用知识
+          const sourceWeight = SOURCE_WEIGHTS[r.source_type as SourceType] ?? 0.5;
+          
+          // 3. 热度加分：访问次数多说明该知识常用且可能更有价值
+          // 上限 0.05，避免热度完全主导排序
+          const heatBoost = Math.min((r.accessCount ?? 0) / 100, 0.05);
+          
+          // 4. 最终得分 = 相关度 × 来源权重 + 热度加分
+          // 理论最大值：1.0 × 1.0 + 0.05 = 1.05
+          // 理论最小值：0
+          const final = relevance * sourceWeight + heatBoost;
+          
           return { ...r, final };
         })
         .sort((a, b) => b.final - a.final)
         .slice(0, k);
-
-      if (ranked.length > 0) {
-        const ids = ranked.map((r) => r.id);
-        await tx
-          .update(knowledgeBase)
-          .set({
-            accessCount: sql`COALESCE(${knowledgeBase.accessCount}, 0) + 1`,
-            updatedAt: sql`NOW()`,
-          })
-          .where(inArray(knowledgeBase.id, ids));
-      }
 
       return ranked.map((r) => ({
         id: String(r.id),
@@ -280,6 +296,71 @@ export class PgVectorStore implements VectorStore {
       metadata: r.metadata,
     }));
   }
+
+  /**
+   * 批量更新访问次数（用于去重后的统一统计）
+   * 确保同一次对话中，每个 chunk 只被计数一次
+   * 同时记录知识库访问日志
+   */
+  async updateAccessCount(
+    chunkIds: string[],
+    options: {
+      userQuery: string;
+      aiGenerateQueries?: string[];
+      ticketId?: string;
+      ticketModule?: string;
+      ragDuration?: number;
+    },
+  ): Promise<void> {
+    if (chunkIds.length === 0) return;
+
+    const now = new Date();
+    const dateDay = now.toISOString().split("T")[0]!; // YYYY-MM-DD
+    const dateHour = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      0,
+      0,
+      0,
+    ).toISOString(); // YYYY-MM-DD HH:00:00
+    const hourOfDay = now.getHours(); // 0-23
+    const dayOfWeek = now.getDay() || 7; // 1-7 (周日为7)
+    const weekOfYear = getWeekOfYear(now); // 1-53
+    const monthOfYear = now.getMonth() + 1; // 1-12
+    const yearMonth = `${now.getFullYear()}-${String(monthOfYear).padStart(2, "0")}`; // YYYY-MM
+
+    await this.db.transaction(async (tx) => {
+      // 1. 更新访问次数
+      await tx
+        .update(knowledgeBase)
+        .set({
+          accessCount: sql`COALESCE(${knowledgeBase.accessCount}, 0) + 1`,
+          updatedAt: sql`NOW()`,
+        })
+        .where(inArray(knowledgeBase.id, chunkIds));
+
+      // 2. 记录访问日志（为每个 chunk 创建一条记录）
+      const accessLogs = chunkIds.map((knowledgeBaseId) => ({
+        userQuery: options.userQuery,
+        aiGenerateQueries: options.aiGenerateQueries || [],
+        knowledgeBaseId,
+        ticketId: options.ticketId || null,
+        ticketModule: options.ticketModule || null,
+        ragDuration: options.ragDuration || null,
+        dateDay,
+        dateHour,
+        hourOfDay,
+        dayOfWeek,
+        weekOfYear,
+        monthOfYear,
+        yearMonth,
+      }));
+
+      await tx.insert(knowledgeAccessLog).values(accessLogs);
+    });
+  }
 }
 
 export class ExternalHttpStore implements VectorStore {
@@ -373,5 +454,28 @@ export class ExternalHttpStore implements VectorStore {
   async health() {
     const res = await fetch(`${this.base}/health`);
     return { ok: res.ok, info: await res.text() };
+  }
+
+  /**
+   * 批量更新访问次数（用于去重后的统一统计）
+   * 同时记录知识库访问日志
+   */
+  async updateAccessCount(
+    chunkIds: string[],
+    options: {
+      userQuery: string;
+      aiGenerateQueries?: string[];
+      ticketId?: string;
+      ticketModule?: string;
+      ragDuration?: number;
+    },
+  ): Promise<void> {
+    if (chunkIds.length === 0) return;
+
+    await fetch(`${this.base}/updateAccessCount`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chunkIds, options }),
+    });
   }
 }

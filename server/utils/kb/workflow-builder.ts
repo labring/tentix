@@ -6,6 +6,7 @@ import {
   WorkflowEdge,
   WorkflowConfig,
   BaseNodeConfig,
+  RagConfig,
   NodeType,
 } from "@/utils/const";
 import {
@@ -14,9 +15,10 @@ import {
   emotionDetectionNode,
   handoffNode,
   escalationOfferNode,
-  smartChatNode,
+  chatNode,
+  ragNode,
   getVariables,
-} from "./chat-node";
+} from "./workflow-node";
 
 import {
   StateGraph,
@@ -61,7 +63,7 @@ export class WorkflowBuilder {
     );
     if (unreachableNodes.length > 0) {
       logError(
-        `工作流中发现 ${unreachableNodes.length} 个孤岛节点（不可达节点）：${unreachableNodes.map((n) => n.id).join(", ")}`,
+        `工作流 ${this.config.name} 中发现 ${unreachableNodes.length} 个孤岛节点（不可达节点）：${unreachableNodes.map((n) => n.id).join(", ")}`,
       );
     }
 
@@ -256,18 +258,21 @@ export class WorkflowBuilder {
       | EmotionDetectionConfig
       | HandoffConfig
       | EscalationOfferConfig
-      | SmartChatConfig,
+      | SmartChatConfig
+      | RagConfig,
     state: WorkflowState,
   ): Promise<Partial<WorkflowState>> {
     switch (node.type) {
       case NodeType.EMOTION_DETECTOR:
         return await emotionDetectionNode(state, node.config);
       case NodeType.SMART_CHAT:
-        return await smartChatNode(state, node.config);
+        return await chatNode(state, node.config);
       case NodeType.HANDOFF:
         return await handoffNode(state, node.config);
       case NodeType.ESCALATION_OFFER:
         return await escalationOfferNode(state, node.config);
+      case NodeType.RAG:
+        return await ragNode(state, node.config);
       default:
         logError(`Unknown node type: ${(node as BaseNodeConfig).type}`);
         return {};

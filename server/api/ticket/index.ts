@@ -50,7 +50,7 @@ const transferTicketSchema = z.object({
   targetStaffId: z.array(z.number()),
   description: z.string().max(200, {
     message: "Description must be less than 200 characters",
-  }),
+  }).optional(),
 });
 
 const upgradeTicketSchema = z.object({
@@ -821,7 +821,7 @@ const ticketRouter = factory
       for (const assignee of assignees) {
         const card = getFeishuCard("transfer", {
           title: ticketInfo.title,
-          comment: description,
+          comment: description ?? "",
           area: ticketInfo.area,
           assignee: agent.feishuOpenId,
           module: c.var.i18n.t(ticketInfo.module),
@@ -844,12 +844,16 @@ const ticketRouter = factory
         );
 
         // 飞书机器人私聊
+        const messageText = description
+          ? `<at user_id="${operator.feishuOpenId}">${operator.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${description}`
+          : `<at user_id="${operator.feishuOpenId}">${operator.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}`;
+
         sendFeishuMsg(
           "open_id",
           assignee.feishuOpenId,
           "text",
           JSON.stringify({
-            text: `<at user_id="${operator.feishuOpenId}">${operator.realName}</at> 向你转移了一个新工单。${appLink}\n 工单标题：${ticketInfo.title}\n 留言：${description}`,
+            text: messageText,
           }),
           tenant_access_token,
         );

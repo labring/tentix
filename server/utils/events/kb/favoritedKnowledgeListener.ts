@@ -8,7 +8,10 @@ on(Events.KBFavoritesSync, async (payload) => {
   const db = connectDB();
   try {
     // 调用你提供的构建逻辑
-    await knowledgeBuilder.buildFavoritedConversations(payload.ticketId, payload);
+    await knowledgeBuilder.buildFavoritedConversations(
+      payload.ticketId,
+      payload,
+    );
 
     await markSynced(db, payload.id);
   } catch (err) {
