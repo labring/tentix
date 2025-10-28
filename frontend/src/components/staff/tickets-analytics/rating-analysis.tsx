@@ -98,12 +98,12 @@ export function RatingAnalysis({
   const handoffChartConfig = getHandoffChartConfig(t);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-[15px]">
       {/* 左侧：评分点比分布 */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm">
         {/* 标题 */}
         <div className="p-6 h-16 flex items-center border-b border-zinc-200">
-          <h2 className="text-xl font-semibold text-zinc-900">
+          <h2 className="text-xl">
             {t("rating_distribution_analysis")}
           </h2>
         </div>
@@ -210,7 +210,7 @@ export function RatingAnalysis({
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm">
         {/* 标题 */}
         <div className="p-6 h-16 flex items-center border-b border-zinc-200">
-          <h2 className="text-xl font-semibold text-zinc-900">
+          <h2 className="text-xl">
             {t("manual_transfer_distribution")}
           </h2>
         </div>

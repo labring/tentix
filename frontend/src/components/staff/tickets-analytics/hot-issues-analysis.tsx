@@ -284,7 +284,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
         </div>
       </div>
 
-      <div className="border-t border-gray-200 flex flex-col w-[1316px] items-start flex-shrink-0">
+      <div className="border-t border-gray-200 flex flex-col w-full items-start flex-shrink-0">
         <div className="flex flex-col py-6 px-8 items-start gap-[10px] self-stretch w-full">
           <h2 className="text-xl text-black flex items-center gap-2">
             {t("intelligent_analysis_insights")}
@@ -318,7 +318,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
             </ul>
           </div>
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 w-full">
             <h3 className="text-base text-zinc-900 flex items-center gap-2">
               <BarChartBig className="h-4 w-4 text-blue-500" />
               {t("data_driven_strategy")}

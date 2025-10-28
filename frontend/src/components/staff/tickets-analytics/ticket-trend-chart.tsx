@@ -277,7 +277,7 @@ export function TicketTrendChart({
   const responseChartConfig = getResponseChartConfig(t);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 ">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-[15px]">
       {/* 左侧：工单数量趋势（带时间粒度显示器） */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm">
         {/* 左侧标题和粒度显示器 */}
