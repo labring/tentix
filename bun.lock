@@ -87,7 +87,7 @@
         "eslint-plugin-drizzle": "^0.2.3",
       },
       "devDependencies": {
-        "@eslint/js": "^9.20.1",
+        "@eslint/js": "^9.28.0",
         "@next/eslint-plugin-next": "^15.1.7",
         "@typescript-eslint/eslint-plugin": "^8.32.1",
         "@typescript-eslint/parser": "^8.32.1",
@@ -177,7 +177,7 @@
         "highlight.js": "^11.11.1",
         "i18n": "workspace:*",
         "lowlight": "^3.3.0",
-        "lucide-react": "^0.468.0",
+        "lucide-react": "^0.510.0",
         "marked": "^15.0.11",
         "next-themes": "^0.4.4",
         "react": "catalog:",
@@ -3103,8 +3103,6 @@
     "svgo/picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
     "tar/mkdirp": ["mkdirp@3.0.1", "", { "bin": { "mkdirp": "dist/cjs/src/bin.js" } }, "sha512-+NsyUUAZDmo6YVHzL/stxSu3t9YS1iljliy3BSDrXJ/dkn1KYdmtZODGGjLcc9XLgVVpH4KshHB8XmZgMhaBXg=="],
-
-    "tentix-ui/lucide-react": ["lucide-react@0.468.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0-rc" } }, "sha512-6koYRhnM2N0GGZIdXzSeiNwguv1gt/FAjZOiPl76roBi3xKEXa4WmfpxgQwTTL4KipXjefrnf3oV4IsYhi4JFA=="],
 
     "ts-node/diff": ["diff@4.0.2", "", {}, "sha512-58lmxKSA4BNyLz+HHMUzlOEpg09FV+ev6ZMe3vJihgdxzgcwZ8VoEEPmALCZG9LmqfVoNMMKpttIYTVG6uDY7A=="],
 
