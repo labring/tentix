@@ -222,6 +222,7 @@
         "hono-openapi": "^0.4.8",
         "hono-rate-limiter": "^0.4.2",
         "i18n": "workspace:*",
+        "i18next": "^25.1.1",
         "jsonwebtoken": "^9.0.2",
         "langchain": "^0.3.30",
         "liquidjs": "^10.21.1",
