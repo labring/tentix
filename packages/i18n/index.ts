@@ -1,4 +1,4 @@
-import i18nBase, { t } from "i18next";
+import i18nBase from "i18next";
 import { initReactI18next, useTranslation } from "react-i18next";
 export const translations = {
   en: {

@@ -1,14 +1,17 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import * as schema from "@db/schema.ts";
+import * as relations from "@db/relations.ts";
 import type { JSONContentZod } from "../types.ts";
 import { extractText } from "../types.ts";
 import { eq, sql, count, avg, gte, lte, desc, and } from "drizzle-orm";
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { OPENAI_CONFIG } from "../kb/config.ts";
 import { convertToMultimodalMessage } from "../kb/tools.ts";
 
-async function getExistingCategoriesAndTags(db: PostgresJsDatabase<typeof schema>) {
+type AppSchema = typeof schema & typeof relations;
+
+async function getExistingCategoriesAndTags(db: NodePgDatabase<AppSchema>) {
   const categories = await db
     .select({
       category: schema.hotIssues.issueCategory,
@@ -132,7 +135,7 @@ async function analyzeWithAI(
 }
 
 export async function analyzeAndSaveHotIssue(
-  db: PostgresJsDatabase<typeof schema>,
+  db: NodePgDatabase<AppSchema>,
   ticketId: string,
   title: string,
   description: JSONContentZod
@@ -160,7 +163,7 @@ export async function analyzeAndSaveHotIssue(
 }
 
 export async function getHotIssuesStats(
-  db: PostgresJsDatabase<typeof schema>,
+  db: NodePgDatabase<AppSchema>,
   timeRange: { start: Date; end: Date }
 ) {
   const categoryStats = await db
