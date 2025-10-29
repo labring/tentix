@@ -1,4 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
+import { z } from "zod";
 import * as schema from "@db/schema.ts";
 import type { JSONContentZod } from "../types.ts";
 import { extractText } from "../types.ts";
@@ -34,12 +35,15 @@ async function getExistingCategoriesAndTags(db: PostgresJsDatabase<typeof schema
   };
 }
 
-interface AIAnalysisResult {
-  category: string;
-  tag: string;
-  confidence: number;
-  reasoning?: string;
-}
+// 热问题分析结果的 Zod schema
+const hotIssueAnalysisSchema = z.object({
+  category: z.string().describe("问题分类，优先使用现有分类"),
+  tag: z.string().describe("具体问题标签，描述问题细节"),
+  confidence: z.number().min(0).max(1).describe("置信度，0-1之间"),
+  reasoning: z.string().optional().describe("简要推理依据，≤50字"),
+});
+
+type AIAnalysisResult = z.infer<typeof hotIssueAnalysisSchema>;
 
 async function analyzeWithAI(
   title: string,
@@ -60,29 +64,18 @@ async function analyzeWithAI(
   const multimodalContent = convertToMultimodalMessage(description);
   const descriptionText = extractText(description);
 
-  const promptText = `你是 Sealos 工单系统的分类助手，**只分析**工单内容并生成分类标签。**只输出 JSON**。
-
-## 输出协议（严格）
-- 只输出不带 Markdown 的 JSON 字符串，可被 JSON.parse 成功解析。
-- 结构与字段：
-  {
-    "category": string,      // 问题分类，优先使用现有分类
-    "tag": string,           // 具体问题标签，描述问题细节
-    "confidence": number,    // 0-1 之间，保留 2 位小数为宜
-    "reasoning": string      // ≤50 字，简述依据
-  }
-- 不要输出额外字段；不要包含注释或解释文本；不得输出自然语言段落。
+  const promptText = `你是 Sealos 工单系统的分类助手，**只分析**工单内容并生成分类标签。
 
 ## 判定要点
-- 优先复用“现有分类/标签”（提供于上下文）；相似度 ≥70% 时应归入现有项。
+- 优先复用"现有分类/标签"（提供于上下文）；相似度 ≥70% 时应归入现有项。
 - 分类需简洁稳健（如：技术问题/账户问题/支付问题/性能问题/界面问题/服务问题/系统问题/部署问题/网络问题/存储问题）。
-- 标签必须具体到现象/对象/操作（如：“镜像拉取失败”“证书过期”“Readiness probe failed”）。
+- 标签必须具体到现象/对象/操作（如："镜像拉取失败""证书过期""Readiness probe failed"）。
 - 出现明确错误码/错误片段（如 5xx/ImagePullBackOff/x509/ECONNREFUSED）应体现在标签中。
 - 出现组件/模块名（如 devbox/applaunchpad/ingress/pvc）应纳入标签语义。
-- 存在歧义/信息不足时：降低 confidence（≤0.6），reasoning 标注“信息不足/语义含糊”。
+- 存在歧义/信息不足时：降低 confidence（≤0.6），reasoning 标注"信息不足/语义含糊"。
 
 ## 结合上下文
-- 综合“标题/富文本描述（提取纯文本）/图片内容（若有）”与“现有分类/标签列表”进行判定。
+- 综合"标题/富文本描述（提取纯文本）/图片内容（若有）"与"现有分类/标签列表"进行判定。
 - 若包含图片，请结合图片中的错误信息、界面元素、配置截图辅助分类与打标签。
 - 严禁臆造不存在的字段或信息；无法确定时宁可降低 confidence。
 
@@ -102,16 +95,16 @@ async function analyzeWithAI(
 现有标签: ["镜像拉取失败","凭证错误","私有仓库权限"]
 
 输出：
-{"category":"镜像问题","tag":"镜像拉取失败","confidence":0.86,"reasoning":"事件包含 ImagePullBackOff，符合镜像拉取失败"}
-
-只输出 { "category": "...", "tag": "...", "confidence": 0.85, "reasoning": "..." } 的 JSON。`;
+{"category":"镜像问题","tag":"镜像拉取失败","confidence":0.86,"reasoning":"事件包含 ImagePullBackOff，符合镜像拉取失败"}`;
 
   try {
-    let response;
+    const structuredModel = model.withStructuredOutput(hotIssueAnalysisSchema);
+    
+    let result: AIAnalysisResult;
     
     if (typeof multimodalContent === 'string') {
       // 纯文本消息
-      response = await model.invoke(promptText);
+      result = await structuredModel.invoke(promptText);
     } else {
       // 多模态消息（包含图片）
       const messages = [
@@ -123,18 +116,8 @@ async function analyzeWithAI(
           ]
         }
       ];
-      response = await model.invoke(messages);
+      result = await structuredModel.invoke(messages);
     }
-    
-    const content = response.content.toString().trim();
-    
-    const jsonStr = content
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/```\s*$/i, "")
-      .trim();
-    
-    const result = JSON.parse(jsonStr);
     
     return {
       category: result.category || "未分类",

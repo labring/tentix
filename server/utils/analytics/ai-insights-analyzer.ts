@@ -1,4 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
+import { z } from "zod";
 import { OPENAI_CONFIG } from "../kb/config.ts";
 import { logError } from "../log.ts";
 
@@ -16,11 +17,14 @@ interface CategoryData {
   percentage: number;
 }
 
-interface AIInsightsResult {
-  keyFindings: string[];
-  improvements: string[];
-  strategy: string;
-}
+// AI洞察结果的结构化输出定义
+const aiInsightsSchema = z.object({
+  keyFindings: z.array(z.string()).max(10).default([]),
+  improvements: z.array(z.string()).max(10).default([]),
+  strategy: z.string().default(""),
+});
+
+export type AIInsightsResult = z.infer<typeof aiInsightsSchema>;
 
 export async function generateAIInsights(
   topIssues: HotIssueData[],
@@ -90,32 +94,22 @@ TOP问题：
 
 只输出 { "keyFindings": [...], "improvements": [...], "strategy": "..." } 的 JSON。`;
 
-    const response = await model.invoke(prompt);
-    const content = response.content.toString().trim();
-    const jsonStr = content
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/```\s*$/i, "")
-      .trim();
-    
-    let result: AIInsightsResult;
-    try {
-      result = JSON.parse(jsonStr) as AIInsightsResult;
-    } catch (parseError) {
-      logError("AI返回的JSON格式无效", parseError);
-      throw new Error(`AI返回的JSON格式无效: ${parseError instanceof Error ? parseError.message : '未知错误'}`);
-    }
-    
-    if (!result.keyFindings || !Array.isArray(result.keyFindings) || 
-        !result.improvements || !Array.isArray(result.improvements) || 
-        !result.strategy || typeof result.strategy !== 'string') {
-      logError("AI返回数据字段不完整", { result });
-      throw new Error("AI返回数据字段不完整，缺少必要的keyFindings、improvements或strategy字段");
-    }
+    const out = await model
+      .withStructuredOutput(aiInsightsSchema)
+      .invoke(prompt);
 
-    return result;
+    return {
+      keyFindings: out.keyFindings || [],
+      improvements: out.improvements || [],
+      strategy: out.strategy || "",
+    };
   } catch (error) {
-    logError("AI洞察分析失败", error);
-    throw error;
+    logError("generateAIInsights", error);
+    // 失败时返回默认值，避免中断流程
+    return {
+      keyFindings: [],
+      improvements: [],
+      strategy: "数据不足，无法生成分析洞察",
+    };
   }
 }

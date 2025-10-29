@@ -285,7 +285,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
       </div>
 
       <div className="border-t border-gray-200 flex flex-col w-full items-start flex-shrink-0">
-        <div className="flex flex-col py-6 px-8 items-start gap-[10px] self-stretch w-full">
+        <div className="flex flex-col py-6 px-8 pb-8 items-start gap-[10px] self-stretch w-full">
           <h2 className="text-xl text-black flex items-center gap-2">
             {t("intelligent_analysis_insights")}
             <Sparkles className="h-5 w-5 text-blue-500" />

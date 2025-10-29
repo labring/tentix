@@ -538,55 +538,117 @@ const analyticsRouter = factory
       const userId = c.var.userId;
       const userRole = c.var.role;
 
-      const conditions = buildTicketConditions(
-        startDate,
-        endDate,
-        userRole,
-        userId,
-        agentId,
-      );
+      // ===== 1) 构造时间与坐席过滤条件 =====
+      const agentCondition = buildAgentCondition(userRole, userId, agentId);
 
-      const messageConditions = [
-        eq(schema.users.role, "customer"),
+      // 知识库访问日志：使用预计算的时间维度字段做主过滤（充分利用索引）
+      // 根据时间跨度自动选择维度：<=3天用 dateHour，<=62天用 dateDay，>62天用 yearMonth
+      const start = startDate ? new Date(startDate) : undefined;
+      const end = endDate ? new Date(endDate) : undefined;
+      const diffDays = start && end ? (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) : undefined;
+      const timeDim: "dateHour" | "dateDay" | "yearMonth" = (() => {
+        if (!start || !end) return "dateDay";
+        if (diffDays !== undefined && diffDays <= 3) return "dateHour";
+        if (diffDays !== undefined && diffDays > 62) return "yearMonth";
+        return "dateDay";
+      })();
+      const formatYearMonth = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const accessLogDimConditions: SQL<unknown>[] = [];
+      if (timeDim === "dateHour") {
+        if (startDate) accessLogDimConditions.push(gte(schema.knowledgeAccessLog.dateHour, startDate));
+        if (endDate) accessLogDimConditions.push(lte(schema.knowledgeAccessLog.dateHour, endDate));
+      } else if (timeDim === "yearMonth") {
+        if (start) accessLogDimConditions.push(gte(schema.knowledgeAccessLog.yearMonth, formatYearMonth(start)));
+        if (end) accessLogDimConditions.push(lte(schema.knowledgeAccessLog.yearMonth, formatYearMonth(end)));
+      } else {
+        if (startDate) accessLogDimConditions.push(gte(schema.knowledgeAccessLog.dateDay, startDate.slice(0, 10) as unknown as string));
+        if (endDate) accessLogDimConditions.push(lte(schema.knowledgeAccessLog.dateDay, endDate.slice(0, 10) as unknown as string));
+      }
+
+      // AI 消息分母时间过滤（以消息时间为准）
+      const aiMessageDateConditions: SQL<unknown>[] = [
+        eq(schema.users.role, "ai"),
         eq(schema.chatMessages.isInternal, false),
         eq(schema.chatMessages.withdrawn, false),
-        ...conditions,
       ];
-      
-      const [totalUserMessagesResult] = await db
+      if (startDate) {
+        aiMessageDateConditions.push(gte(schema.chatMessages.createdAt, startDate));
+      }
+      if (endDate) {
+        aiMessageDateConditions.push(lte(schema.chatMessages.createdAt, endDate));
+      }
+
+      // 注意：不再用 createdAt 作为主过滤，避免全表扫描，统一走上面的时间维度条件
+
+      // ===== 2) 计算分母：时间段内的 AI 消息数量（可按坐席筛选） =====
+      const [totalAiMessagesResult] = await db
         .select({ count: count() })
         .from(schema.chatMessages)
-        .innerJoin(schema.users, eq(schema.chatMessages.senderId, schema.users.id))
-        .innerJoin(schema.tickets, eq(schema.chatMessages.ticketId, schema.tickets.id))
-        .where(messageConditions.length > 0 ? and(...messageConditions) : undefined);
+        .innerJoin(
+          schema.users,
+          eq(schema.chatMessages.senderId, schema.users.id),
+        )
+        .innerJoin(
+          schema.tickets,
+          eq(schema.chatMessages.ticketId, schema.tickets.id),
+        )
+        .where(
+          and(
+            ...(aiMessageDateConditions.length > 0 ? aiMessageDateConditions : []),
+            ...(agentCondition ? [agentCondition] : []),
+          ),
+        );
 
-      const totalUserMessages = totalUserMessagesResult?.count || 0;
+      const totalAiMessages = totalAiMessagesResult?.count || 0;
 
-      const knowledgeItems = await db
+      // ===== 3) 统计时间段内各 KB 文档的访问次数（可按坐席筛选） =====
+      const perDocAccess = await db
         .select({
-          id: schema.knowledgeBase.id,
+          knowledgeBaseId: schema.knowledgeAccessLog.knowledgeBaseId,
           title: schema.knowledgeBase.title,
-          accessCount: schema.knowledgeBase.accessCount,
+          accessCount: count(),
         })
-        .from(schema.knowledgeBase)
-        .where(eq(schema.knowledgeBase.isDeleted, false));
+        .from(schema.knowledgeAccessLog)
+        .innerJoin(
+          schema.knowledgeBase,
+          and(
+            eq(
+              schema.knowledgeAccessLog.knowledgeBaseId,
+              schema.knowledgeBase.id,
+            ),
+            eq(schema.knowledgeBase.isDeleted, false),
+          ),
+        )
+        .innerJoin(
+          schema.tickets,
+          eq(schema.knowledgeAccessLog.ticketId, schema.tickets.id),
+        )
+        .where(
+          and(
+            ...(accessLogDimConditions.length > 0 ? accessLogDimConditions : []),
+            ...(agentCondition ? [agentCondition] : []),
+          ),
+        )
+        .groupBy(
+          schema.knowledgeAccessLog.knowledgeBaseId,
+          schema.knowledgeBase.title,
+        );
 
-      const totalAccessCount = knowledgeItems.reduce(
-        (sum, kb) => sum + (kb.accessCount || 0),
+      const totalAccessCount = perDocAccess.reduce(
+        (sum, row) => sum + Number(row.accessCount || 0),
         0,
       );
 
-      const knowledgeHitsData = knowledgeItems.map((kb) => {
-        const accessCount = kb.accessCount || 0;
+      const knowledgeHitsData = perDocAccess.map((row) => {
+        const accessCount = Number(row.accessCount) || 0;
         const hitRate =
-          totalUserMessages > 0
-            ? (accessCount / totalUserMessages) * 100
+          totalAiMessages > 0
+            ? (accessCount / totalAiMessages) * 100
             : 0;
-
         return {
-          id: kb.id,
-          title: kb.title,
-          accessCount: accessCount,
+          id: row.knowledgeBaseId,
+          title: row.title,
+          accessCount,
           hitRate: Number(hitRate.toFixed(2)),
         };
       });
@@ -597,6 +659,7 @@ const analyticsRouter = factory
             knowledgeHitsData.length
           : 0;
 
+      // 默认门槛保持 50，与前端现有 UI 对齐（后续可改为分位数门槛）
       const hitRateThreshold = 50;
 
       const zonesData = knowledgeHitsData.map((item) => {
@@ -636,14 +699,20 @@ const analyticsRouter = factory
         bubbleData: zonesData,
         zoneGroups: groupedByZone,
         metrics: {
-          totalUserMessages,
+          totalAiMessages,
           totalAccessCount,
-          knowledgeCount: knowledgeItems.length,
+          knowledgeCount: perDocAccess.length,
           hitRateThreshold: hitRateThreshold,
           avgAccessCount: Number(avgAccessCount.toFixed(2)),
+          // 兼容字段，沿用名称但分母为 AI 消息
           avgAccessPerMessage:
-            totalUserMessages > 0
-              ? Number((totalAccessCount / totalUserMessages).toFixed(2))
+            totalAiMessages > 0
+              ? Number((totalAccessCount / totalAiMessages).toFixed(2))
+              : 0,
+          // 新增更语义化字段
+          avgAccessPerAiMessage:
+            totalAiMessages > 0
+              ? Number((totalAccessCount / totalAiMessages).toFixed(2))
               : 0,
         },
         summary: {

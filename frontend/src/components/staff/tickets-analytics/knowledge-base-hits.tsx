@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ChartContainer,
   ChartTooltip,
@@ -34,7 +34,6 @@ import {
   ChevronsRightIcon,
 } from "lucide-react";
 
-// 定义区域颜色
 const ZONE_COLORS = {
   high_efficiency: "#10B981", 
   potential: "#3B82F6", 
@@ -42,7 +41,6 @@ const ZONE_COLORS = {
   low_efficiency: "#9CA3AF", 
 };
 
-// 定义图表配置 - 将在组件内部使用翻译
 const getChartConfig = (t: any) => ({
   accessCount: {
     label: t("access_count"),
@@ -51,6 +49,189 @@ const getChartConfig = (t: any) => ({
     label: t("hit_rate"),
   },
 }) satisfies ChartConfig;
+
+interface ZoneLabelsOverlayProps {
+  xAxisMax: number;
+  yAxisMax: number;
+  hitRateThreshold: number;
+  accessThreshold: number;
+  t: any;
+  width: number;
+  height: number;
+}
+
+const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThreshold, t, width, height }: ZoneLabelsOverlayProps) => {
+  const chartPadding = { left: 50, right: 20, top: 30, bottom: 50 };
+  const chartWidth = width - chartPadding.left - chartPadding.right;
+  const chartHeight = height - chartPadding.top - chartPadding.bottom;
+  
+  const xScale = chartWidth / xAxisMax;
+  const yScale = chartHeight / yAxisMax;
+  
+  const toPixelY = (dataY: number) => {
+    return chartPadding.top + chartHeight - (dataY * yScale);
+  };
+  
+  const intersectionX = chartPadding.left + accessThreshold * xScale;
+  const intersectionY = toPixelY(hitRateThreshold);
+  
+  const rectWidth = 160;
+  const rectHeight = 48;
+  
+  const labelSpacing = 15;
+  
+  const spacingFromCenter = rectWidth / 2 + labelSpacing / 2;
+  
+  const highEffX = intersectionX + spacingFromCenter;
+  const highEffY = intersectionY - spacingFromCenter;
+  
+  const potentialX = intersectionX - spacingFromCenter;
+  const potentialY = intersectionY - spacingFromCenter;
+  
+  const needOptX = intersectionX + spacingFromCenter;
+  const needOptY = intersectionY + spacingFromCenter;
+  
+  const lowEffX = intersectionX - spacingFromCenter;
+  const lowEffY = intersectionY + spacingFromCenter;
+  
+  const titleStyle: React.CSSProperties = {
+    fontFamily: 'var(--typography-font-family-font-sans, Geist)',
+    fontSize: 12,
+    fontStyle: 'normal',
+    fontWeight: 400,
+    lineHeight: '16px',
+    pointerEvents: 'none',
+    whiteSpace: 'nowrap',
+    zIndex: 10,
+    color: 'rgb(24, 24, 27)',
+  };
+  
+  const descStyle: React.CSSProperties = {
+    fontFamily: 'var(--typography-font-family-font-sans, Geist)',
+    fontSize: 12,
+    fontStyle: 'normal',
+    fontWeight: 400,
+    lineHeight: '16px',
+    pointerEvents: 'none',
+    whiteSpace: 'normal',
+    zIndex: 10,
+    wordBreak: 'break-word',
+    color: 'rgb(113, 113, 122)',
+  };
+  
+  const labels = [
+    {
+      key: 'potential',
+      baseX: potentialX,
+      baseY: potentialY,
+      color: ZONE_COLORS.potential,
+      title: t("potential_zone"),
+      description: t("recommend_adding_guidance"),
+      offsetX: -2,
+      offsetY: 65,
+      textAlign: 'right' as const,
+    },
+    {
+      key: 'low_efficiency',
+      baseX: lowEffX,
+      baseY: lowEffY,
+      color: ZONE_COLORS.low_efficiency,
+      title: t("low_efficiency_zone"),
+      description: t("recommend_updating_content"),
+      offsetX: -2,
+      offsetY: -57,
+      textAlign: 'right' as const,
+    },
+    {
+      key: 'high_efficiency',
+      baseX: highEffX,
+      baseY: highEffY,
+      color: ZONE_COLORS.high_efficiency,
+      title: t("high_efficiency_zone"),
+      description: t("maintain_and_promote_content"),
+      offsetX: -11,
+      offsetY: 65,
+      textAlign: 'left' as const,
+    },
+    {
+      key: 'need_optimization',
+      baseX: needOptX,
+      baseY: needOptY,
+      color: ZONE_COLORS.need_optimization,
+      title: t("needs_optimization"),
+      description: t("recommend_improving_accuracy"),
+      offsetX: -11,
+      offsetY: -57,
+      textAlign: 'left' as const,
+    },
+  ];
+  
+  if (!width || !height || width <= 0 || height <= 0) {
+    return null;
+  }
+  
+  if (!xAxisMax || !yAxisMax || xAxisMax <= 0 || yAxisMax <= 0) {
+    return null;
+  }
+  
+  return (
+    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 10 }}>
+      {labels.map((label) => {
+        const scaleX = width / 500;
+        const scaleY = height / 500;
+        const offsetX = (label.offsetX || 0) * scaleX;
+        const offsetY = (label.offsetY || 0) * scaleY;
+        
+        const finalX = label.baseX + offsetX;
+        const finalY = label.baseY + offsetY;
+        
+        const left = Math.max(0, Math.min(finalX - rectWidth / 2, width - rectWidth));
+        const top = Math.max(0, Math.min(finalY - rectHeight / 2, height - rectHeight));
+        
+        const alignItems = label.textAlign === 'right' ? 'flex-end' : 'flex-start';
+        
+        return (
+          <div
+            key={label.key}
+            style={{
+              position: 'absolute',
+              left: `${left}px`,
+              top: `${top}px`,
+              width: `${rectWidth}px`,
+              height: `${rectHeight}px`,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems,
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 10,
+              padding: '4px 8px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div
+              style={{
+                ...titleStyle,
+                textAlign: label.textAlign,
+                marginBottom: '4px',
+              }}
+            >
+              {label.title}
+            </div>
+            <div
+              style={{
+                ...descStyle,
+                textAlign: label.textAlign,
+              }}
+            >
+              {label.description}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 interface FilterParams {
   startDate?: string;
@@ -79,12 +260,39 @@ export function KnowledgeBaseHits({
   const { t } = useTranslation();
   const [selectedZone, setSelectedZone] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 6; // 每页显示6条数据
+  const [chartSize, setChartSize] = useState({ width: 500, height: 500 });
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const itemsPerPage = 6; 
 
-  // 使用 TanStack Query 获取数据
   const { data } = useSuspenseQuery(knowledgeHitsQueryOptions(filterParams));
 
   const loading = externalLoading;
+
+  useEffect(() => {
+    const updateSize = () => {
+      if (chartContainerRef.current) {
+        const rect = chartContainerRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          setChartSize({ width: rect.width, height: rect.height });
+        }
+      }
+    };
+
+    const timer = setTimeout(updateSize, 100);
+    
+    const resizeObserver = new ResizeObserver(updateSize);
+    if (chartContainerRef.current) {
+      resizeObserver.observe(chartContainerRef.current);
+    }
+    
+    window.addEventListener('resize', updateSize);
+    
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, [data]);
 
   if (loading || !data) {
     return (
@@ -100,50 +308,58 @@ export function KnowledgeBaseHits({
     );
   }
 
-  // 准备气泡图数据（气泡大小由访问数决定）
   const scatterData = data.bubbleData || [];
   
-  // 获取划分阈值（用于显示参考线）
-  const avgAccessCount = data.metrics?.avgAccessCount || 0;
   const hitRateThreshold = data.metrics?.hitRateThreshold || 50;
   
-  // 计算Y轴的合适范围（考虑命中率可能超过100%）
   const maxHitRate = Math.max(...scatterData.map(d => d.hitRate), 100);
-  const yAxisMax = Math.ceil(maxHitRate / 10) * 10; // 向上取整到10的倍数
+  const yAxisMax = Math.ceil(maxHitRate / 10) * 10;
   
-  // 计算X轴的范围
   const maxAccessCount = Math.max(...scatterData.map(d => d.accessCount), 100);
   const xAxisMax = Math.ceil(maxAccessCount / 10) * 10;
-  
-  // 准备气泡数据，添加 z 值用于控制气泡大小
+  const accessThreshold = xAxisMax / 2;
+
+
   const bubbleData = scatterData.map(item => ({
     ...item,
-    z: item.accessCount, // 使用访问数作为气泡大小
+    z: item.accessCount,
   }));
 
-  // 根据选中的区域筛选表格数据
+  const classifiedData = bubbleData.map((item) => {
+    const isHighHitRate = item.hitRate > hitRateThreshold;
+    const isHighAccess = item.accessCount > accessThreshold;
+    const zone = isHighHitRate
+      ? (isHighAccess ? "high_efficiency" : "potential")
+      : (isHighAccess ? "need_optimization" : "low_efficiency");
+    return { ...item, zone } as KnowledgeItem & { z: number };
+  });
+
+  const zoneGroupsLocal = {
+    high_efficiency: classifiedData.filter((i) => i.zone === "high_efficiency"),
+    need_optimization: classifiedData.filter((i) => i.zone === "need_optimization"),
+    potential: classifiedData.filter((i) => i.zone === "potential"),
+    low_efficiency: classifiedData.filter((i) => i.zone === "low_efficiency"),
+  } as const;
+
   const getTableData = () => {
     if (selectedZone === "all") {
-      return data.bubbleData || [];
+      return classifiedData;
     }
-    return data.zoneGroups?.[selectedZone as keyof typeof data.zoneGroups] || [];
+    return zoneGroupsLocal[selectedZone as keyof typeof zoneGroupsLocal] || [];
   };
 
   const allTableData = getTableData();
   
-  // 计算分页
   const totalPages = Math.ceil(allTableData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const tableData = allTableData.slice(startIndex, endIndex);
   
-  // 切换区域时重置页码
   const handleZoneChange = (zone: string) => {
     setSelectedZone(zone);
     setCurrentPage(1);
   };
   
-  // 翻页函数
   const goToFirstPage = () => {
     setCurrentPage(1);
   };
@@ -200,23 +416,16 @@ export function KnowledgeBaseHits({
 
   return (
     <div className="w-full">
-      {/* 标题 */}
       <div className="bg-white border border-zinc-200 rounded-t-lg flex w-full h-16 p-6 justify-between items-center flex-shrink-0 shadow-sm">
         <h2 className="text-xl  text-zinc-900">{t("knowledge_base_hit_distribution")}</h2>
       </div>
 
-      {/* 主体内容 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white border-l border-r border-b border-zinc-200 rounded-b-lg p-8">
-        {/* 左侧：气泡图 */}
         <div className=" border-zinc-200 rounded-lg p-4">
-
-          {/* 散点图 */}
-          <div className="h-[500px]">
+          <div className="h-[500px] relative" ref={chartContainerRef}>
             <ChartContainer config={chartConfig} className="h-full w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 30, right: 20, bottom: 13, left: 0 }}>
-                  
-                  {/* X轴 - 访问数 */}
+                <ScatterChart margin={{ top: 30, right: 20, bottom: 13, left: -30 }}>
                   <XAxis
                     type="number"
                     dataKey="accessCount"
@@ -228,7 +437,6 @@ export function KnowledgeBaseHits({
                     <Label value={t("access_count")} position="insideBottom" offset={-10} />
                   </XAxis>
                   
-                  {/* Y轴 - 命中率 */}
                   <YAxis
                     type="number"
                     dataKey="hitRate"
@@ -240,7 +448,6 @@ export function KnowledgeBaseHits({
                     <Label value={`${t("hit_rate")}(%)`} position="top" offset={20} style={{ textAnchor: 'start' }} />
                   </YAxis>
 
-                  {/* Z轴 - 控制气泡大小（访问数越大，气泡越大） */}
                   <ZAxis 
                     type="number" 
                     dataKey="z" 
@@ -248,7 +455,6 @@ export function KnowledgeBaseHits({
                     name={t("access_count")}
                   />
 
-                  {/* 参考线 - 命中率50%（横线） */}
                   <ReferenceLine 
                     y={hitRateThreshold} 
                     stroke="#CBD5E1" 
@@ -256,116 +462,21 @@ export function KnowledgeBaseHits({
                     strokeWidth={1}
                   />
 
-                  {/* 参考线 - 访问数平均值（竖线） */}
                   <ReferenceLine 
-                    x={avgAccessCount} 
+                    x={accessThreshold} 
                     stroke="#CBD5E1" 
                     strokeDasharray="5 5"
                     strokeWidth={1}
                   />
 
-                  {/* 区域标签 - 暂时注释所有区域文本，保持图表简洁 */}
-                  
-                  {/* 潜力区 - 左下角区域（低访问数 + 高命中率） */}
-                  {/* <text 
-                    x={avgAccessCount * 0.3} 
-                    y={hitRateThreshold * 4.8} 
-                    textAnchor="start" 
-                    fill="#000000" 
-                    fontSize="13"
-                    fontWeight="600"
-                    opacity="0.75"
-                  >
-                    潜力区
-                  </text>
-                  <text 
-                    x={avgAccessCount * 0.3} 
-                    y={hitRateThreshold * 5.1} 
-                    textAnchor="start" 
-                    fill="#666666" 
-                    fontSize="10"
-                    opacity="0.65"
-                  >
-                    建议增加相关引导和推荐
-                  </text> */}
-                  
-                  {/* 高效区 - 右上角区域（高访问数 + 高命中率） */}
-                  {/* <text 
-                    x={avgAccessCount * 0.79} 
-                    y={hitRateThreshold * 5.2} 
-                    textAnchor="middle" 
-                    fill="#000000" 
-                    fontSize="13"
-                    fontWeight="600"
-                    opacity="0.75"
-                  >
-                    高效区
-                  </text>
-                  <text 
-                    x={avgAccessCount * 0.92} 
-                    y={hitRateThreshold * 5.5} 
-                    textAnchor="middle" 
-                    fill="#666666" 
-                    fontSize="10"
-                    opacity="0.65"
-                  >
-                    保持并推广该部分内容
-                  </text> */}
-                  
-                  {/* 低效区 - 左上角区域（低访问数 + 低命中率） */}
-                  {/* <text 
-                    x={avgAccessCount * 0.6} 
-                    y={hitRateThreshold * 6.2} 
-                    textAnchor="middle" 
-                    fill="#000000" 
-                    fontSize="13"
-                    fontWeight="600"
-                    opacity="0.75"
-                  >
-                    低效区
-                  </text>
-                  <text 
-                    x={avgAccessCount * 0.5} 
-                    y={hitRateThreshold * 5.8} 
-                    textAnchor="middle" 
-                    fill="#666666" 
-                    fontSize="10"
-                    opacity="0.65"
-                  >
-                    建议更新或移除内容
-                  </text> */}
-                  
-                  {/* 需优化区 - 右下角区域（高访问数 + 低命中率） */}
-                  {/* <text 
-                    x={avgAccessCount * 0.79} 
-                    y={hitRateThreshold * 6.2} 
-                    textAnchor="middle" 
-                    fill="#000000" 
-                    fontSize="13"
-                    fontWeight="600"
-                    opacity="0.75"
-                  >
-                    需优化
-                  </text>
-                  <text 
-                    x={avgAccessCount * 0.91} 
-                    y={hitRateThreshold * 5.8} 
-                    textAnchor="middle" 
-                    fill="#666666" 
-                    fontSize="10"
-                    opacity="0.65"
-                  >
-                    建议提高内容准确性
-                  </text> */}
-
                   <ChartTooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
                   
                   <Scatter 
                     name={t("questions")} 
-                    data={bubbleData}
+                    data={classifiedData}
                     fill="#8884d8"
                   >
-                    {bubbleData.map((entry, index) => (
+                    {classifiedData.map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={ZONE_COLORS[entry.zone as keyof typeof ZONE_COLORS]}
@@ -378,13 +489,20 @@ export function KnowledgeBaseHits({
                 </ScatterChart>
               </ResponsiveContainer>
             </ChartContainer>
+            
+            <ZoneLabelsOverlay
+              xAxisMax={xAxisMax}
+              yAxisMax={yAxisMax}
+              hitRateThreshold={hitRateThreshold}
+              accessThreshold={accessThreshold}
+              t={t}
+              width={chartSize.width}
+              height={chartSize.height}
+            />
           </div>
         </div>
 
-        {/* 右侧：数据表格 */}
         <div className=" border-zinc-200 rounded-lg p-4">
-
-          {/* 选项卡 */}
           <Tabs value={selectedZone} onValueChange={handleZoneChange} defaultValue="all">
             <TabsList className="flex w-full bg-white rounded-lg gap-2">
               <TabsTrigger 
@@ -395,18 +513,18 @@ export function KnowledgeBaseHits({
                 {t("high_efficiency_zone")}
               </TabsTrigger>
               <TabsTrigger 
-                value="potential" 
-                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 py-1 px-3 flex items-center justify-center gap-2 flex-1 self-stretch"
-              >
-                <div className="w-2 h-2 bg-blue-500"></div>
-                {t("potential_zone")}
-              </TabsTrigger>
-              <TabsTrigger 
                 value="need_optimization" 
                 className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 py-1 px-3 flex items-center justify-center gap-2 flex-1 self-stretch"
               >
                 <div className="w-2 h-2 bg-yellow-500"></div>
                 {t("needs_optimization")}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="potential" 
+                className="data-[state=active]:bg-zinc-100 hover:bg-zinc-50 border border-zinc-200 py-1 px-3 flex items-center justify-center gap-2 flex-1 self-stretch"
+              >
+                <div className="w-2 h-2 bg-blue-500"></div>
+                {t("potential_zone")}
               </TabsTrigger>
               <TabsTrigger 
                 value="low_efficiency" 
@@ -440,7 +558,6 @@ export function KnowledgeBaseHits({
                               <TableCell className="min-w-[85px] p-4 flex-1">{item.hitRate}%</TableCell>
                             </TableRow>
                           ))}
-                          {/* 填充空行以保持表格高度固定 */}
                           {Array.from({ length: itemsPerPage - tableData.length }).map((_, index) => (
                             <TableRow key={`empty-${index}`} className="border-b border-zinc-200">
                               <TableCell className="w-[300px] min-w-[85px] p-4">&nbsp;</TableCell>
@@ -456,7 +573,6 @@ export function KnowledgeBaseHits({
                               {t("no_data")}
                             </TableCell>
                           </TableRow>
-                          {/* 填充空行 */}
                           {Array.from({ length: itemsPerPage - 1 }).map((_, index) => (
                             <TableRow key={`empty-${index}`} className="border-b border-zinc-200">
                               <TableCell className="w-[300px] min-w-[85px] p-4">&nbsp;</TableCell>
@@ -470,7 +586,6 @@ export function KnowledgeBaseHits({
                   </Table>
                 </div>
 
-                {/* 分页控件 */}
                 {allTableData.length > 0 && (
                   <div className="border-t border-zinc-200 pt-4 px-4 pb-4">
                     <div className="flex items-center justify-between">
@@ -526,7 +641,7 @@ export function KnowledgeBaseHits({
                           <ChevronsRightIcon className="h-4 w-4" />
                         </button>
                         <span className="text-sm text-zinc-600 ml-2">
-                          {itemsPerPage}/页
+                          {itemsPerPage}/{t("page")}
                         </span>
                       </div>
                     </div>
