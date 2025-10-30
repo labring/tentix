@@ -4,15 +4,13 @@ import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import type { SQL } from "drizzle-orm";
 import { Hono } from "hono";
-import { authMiddleware, staffOnlyMiddleware, type AuthEnv } from "../middleware.ts";
+import type { AuthEnv } from "../middleware.ts";
 import { buildTicketConditions } from "./utils.ts";
 import { dateRangeSchema } from "./schemas.ts";
 
 export const ratingAnalysisRouter = new Hono<AuthEnv>()
   .get(
     "/rating-analysis",
-    authMiddleware,
-    staffOnlyMiddleware(),
     describeRoute({
       description: "Get rating analysis",
       tags: ["Analytics"],

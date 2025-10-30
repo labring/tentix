@@ -3,15 +3,13 @@ import { and, count } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { Hono } from "hono";
-import { authMiddleware, staffOnlyMiddleware, type AuthEnv } from "../middleware.ts";
+import type { AuthEnv } from "../middleware.ts";
 import { buildTicketConditions } from "./utils.ts";
 import { dateRangeSchema, ticketStatusResponseSchema } from "./schemas.ts";
 
 export const ticketStatusAnalysisRouter = new Hono<AuthEnv>()
   .get(
     "/ticket-status",
-    authMiddleware,
-    staffOnlyMiddleware(),
     describeRoute({
       description: "Get ticket status analysis",
       tags: ["Analytics"],

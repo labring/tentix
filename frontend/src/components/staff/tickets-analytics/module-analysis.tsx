@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { moduleAnalysisQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
+import { useTicketModules, getModuleTranslation } from "@store/app-config";
 
 interface ModuleAnalysisProps {
   filterParams?: {
@@ -13,11 +14,15 @@ interface ModuleAnalysisProps {
 }
 
 export function ModuleAnalysis({ filterParams, isLoading: externalLoading }: ModuleAnalysisProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const { data: rawData } = useSuspenseQuery(moduleAnalysisQueryOptions(filterParams));
+  const ticketModules = useTicketModules();
 
   const isLoading = externalLoading;
+
+  // Get current language (zh-CN or en-US)
+  const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
 
   const moduleData = rawData?.moduleDistribution || [];
   
@@ -25,7 +30,7 @@ export function ModuleAnalysis({ filterParams, isLoading: externalLoading }: Mod
 
   const data = moduleData
     .map((item) => ({
-      name: item.name || t("uncategorized"),
+      name: item.name ? getModuleTranslation(item.name, currentLang, ticketModules) : t("uncategorized"),
       value: item.value,
       percentage: total > 0 ? Number(((item.value / total) * 100).toFixed(1)) : 0,
     }))

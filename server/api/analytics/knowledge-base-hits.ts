@@ -4,15 +4,13 @@ import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import type { SQL } from "drizzle-orm";
 import { Hono } from "hono";
-import { authMiddleware, staffOnlyMiddleware, type AuthEnv } from "../middleware.ts";
+import type { AuthEnv } from "../middleware.ts";
 import { buildAgentCondition } from "./utils.ts";
 import { dateRangeSchema } from "./schemas.ts";
 
 export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
   .get(
     "/knowledge-hits",
-    authMiddleware,
-    staffOnlyMiddleware(),
     describeRoute({
       description: "Get knowledge base hits analysis",
       tags: ["Analytics"],

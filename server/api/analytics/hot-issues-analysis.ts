@@ -1,18 +1,15 @@
 import * as schema from "@/db/schema.ts";
 import { and, gte, lte, sql, eq} from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import { Hono } from "hono";
-import { authMiddleware, staffOnlyMiddleware, type AuthEnv } from "../middleware.ts";
+import type { AuthEnv } from "../middleware.ts";
 import { hotIssuesQuerySchema } from "./schemas.ts";
 import { generateAIInsights } from "../../utils/analytics/index.ts";
 
 export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
   .get(
     "/hot-issues",
-    authMiddleware,
-    staffOnlyMiddleware(),
     describeRoute({
       description: "Get hot issues statistics based on tags system",
       tags: ["Analytics"],

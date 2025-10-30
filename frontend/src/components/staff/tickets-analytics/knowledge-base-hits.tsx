@@ -249,7 +249,10 @@ export function KnowledgeBaseHits({
   const ticketModules = useTicketModules();
   const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
   const [selectedZone, setSelectedZone] = useState<string>("all");
-  const [selectedModule, setSelectedModule] = useState<string>("all");
+  const [selectedModule, setSelectedModule] = useState<string>(() => {
+    const firstModule = ticketModules?.[0];
+    return firstModule?.code || "all";
+  });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [chartSize, setChartSize] = useState({ width: 500, height: 500 });
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -258,7 +261,7 @@ export function KnowledgeBaseHits({
   // 合并 filterParams 和 selectedModule
   const combinedFilterParams = {
     ...filterParams,
-    module: selectedModule !== "all" ? selectedModule : undefined,
+    module: selectedModule,
   };
 
   const { data } = useSuspenseQuery(knowledgeHitsQueryOptions(combinedFilterParams));
@@ -552,7 +555,6 @@ export function KnowledgeBaseHits({
               <SelectValue placeholder={t("all_modules") || "All Modules"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t("all_modules") || "All Modules"}</SelectItem>
               {ticketModules.map((module) => (
                 <SelectItem key={module.code} value={module.code}>
                   {getModuleTranslation(module.code, currentLang, ticketModules)}
