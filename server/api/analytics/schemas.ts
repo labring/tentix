@@ -5,6 +5,7 @@ export const dateRangeSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   agentId: z.string().optional(),
+  module: z.string().optional(),
 });
 
 export const trendsQuerySchema = dateRangeSchema.extend({

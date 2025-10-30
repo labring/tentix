@@ -466,6 +466,7 @@ const buildAnalyticsParams = (filterParams?: {
   startDate?: string;
   endDate?: string;
   agentId?: string;
+  module?: string;
   isToday?: boolean;
   limit?: string;
   granularity?: "hour" | "day" | "month";
@@ -490,6 +491,10 @@ const buildAnalyticsParams = (filterParams?: {
 
   if (filterParams?.agentId && filterParams.agentId !== "all") {
     searchParams.append("agentId", filterParams.agentId);
+  }
+
+  if (filterParams?.module && filterParams.module !== "all") {
+    searchParams.append("module", filterParams.module);
   }
 
   if (filterParams?.limit) {
@@ -611,6 +616,7 @@ export const knowledgeHitsQueryOptions = (filterParams?: {
   startDate?: string;
   endDate?: string;
   agentId?: string;
+  module?: string;
   isToday?: boolean;
 }) =>
   queryOptions({

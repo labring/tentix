@@ -27,7 +27,7 @@ export const knowledgeBaseHitsRouter = factory
     //查知识库命中
     async (c) => {
       const db = c.var.db;
-      const { startDate, endDate, agentId } = c.req.valid("query");
+      const { startDate, endDate, agentId, module } = c.req.valid("query");
       const userId = c.var.userId;
       const userRole = c.var.role;
 
@@ -54,6 +54,10 @@ export const knowledgeBaseHitsRouter = factory
         if (startDate) accessLogDimConditions.push(gte(schema.knowledgeAccessLog.dateDay, startDate.slice(0, 10) as unknown as string));
         if (endDate) accessLogDimConditions.push(lte(schema.knowledgeAccessLog.dateDay, endDate.slice(0, 10) as unknown as string));
       }
+      // 添加模块筛选条件
+      if (module) {
+        accessLogDimConditions.push(eq(schema.knowledgeAccessLog.ticketModule, module));
+      }
 
       //查AI消息日期条件
       const aiMessageDateConditions: SQL<unknown>[] = [
@@ -66,6 +70,10 @@ export const knowledgeBaseHitsRouter = factory
       }
       if (endDate) {
         aiMessageDateConditions.push(lte(schema.chatMessages.createdAt, endDate));
+      }
+      // 添加模块筛选条件
+      if (module) {
+        aiMessageDateConditions.push(eq(schema.tickets.module, module));
       }
       //查总
       const [totalAiMessagesResult] = await db

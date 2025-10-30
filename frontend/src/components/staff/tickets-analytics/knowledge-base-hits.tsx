@@ -10,6 +10,11 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "tentix-ui";
 import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
@@ -21,6 +26,7 @@ import {
   ChevronsLeftIcon,
   ChevronsRightIcon,
 } from "lucide-react";
+import { useTicketModules, getModuleTranslation } from "@store/app-config";
 
 const ZONE_COLORS = {
   high_efficiency: "#10B981", 
@@ -216,6 +222,7 @@ interface FilterParams {
   startDate?: string;
   endDate?: string;
   agentId?: string;
+  module?: string;
   isToday?: boolean;
 }
 
@@ -236,14 +243,23 @@ export function KnowledgeBaseHits({
   filterParams = {},
   isLoading: externalLoading = false,
 }: KnowledgeBaseHitsProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const ticketModules = useTicketModules();
+  const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
   const [selectedZone, setSelectedZone] = useState<string>("all");
+  const [selectedModule, setSelectedModule] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [chartSize, setChartSize] = useState({ width: 500, height: 500 });
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const itemsPerPage = 6; 
 
-  const { data } = useSuspenseQuery(knowledgeHitsQueryOptions(filterParams));
+  // 合并 filterParams 和 selectedModule
+  const combinedFilterParams = {
+    ...filterParams,
+    module: selectedModule !== "all" ? selectedModule : undefined,
+  };
+
+  const { data } = useSuspenseQuery(knowledgeHitsQueryOptions(combinedFilterParams));
 
   const loading = externalLoading;
 
@@ -337,6 +353,11 @@ export function KnowledgeBaseHits({
     setSelectedZone(zone);
     setCurrentPage(1);
   };
+  
+  // 当模块改变时，重置分页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedModule]);
   
   const goToFirstPage = () => {
     setCurrentPage(1);
@@ -558,8 +579,23 @@ export function KnowledgeBaseHits({
 
   return (
     <div className="w-full">
-      <div className="bg-white border border-zinc-200 rounded-t-lg flex w-full h-16 p-6 justify-between items-center flex-shrink-0 shadow-sm">
-        <h2 className="text-xl  text-zinc-900">{t("knowledge_base_hit_distribution")}</h2>
+      <div className="bg-white border border-zinc-200 rounded-t-lg flex w-full min-h-16 p-6 justify-between items-center flex-shrink-0 shadow-sm">
+        <h2 className="text-xl text-zinc-900">{t("knowledge_base_hit_distribution")}</h2>
+        <div className="flex items-center gap-4">
+          <Select value={selectedModule} onValueChange={setSelectedModule}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder={t("all_modules") || "All Modules"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("all_modules") || "All Modules"}</SelectItem>
+              {ticketModules.map((module) => (
+                <SelectItem key={module.code} value={module.code}>
+                  {getModuleTranslation(module.code, currentLang, ticketModules)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white border-l border-r border-b border-zinc-200 rounded-b-lg p-8">
