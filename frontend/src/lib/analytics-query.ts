@@ -130,6 +130,8 @@ export const hotIssuesQueryOptions = (filterParams?: {
       return data;
     },
     ...analyticsQueryConfig,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
 export const ratingAnalysisQueryOptions = (filterParams?: {
