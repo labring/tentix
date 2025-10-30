@@ -178,7 +178,7 @@ export function staffOnlyMiddleware(
 ) {
   return createMiddleware<AuthEnv>(async (c, next) => {
     const role = c.get("role");
-    if (role === "customer" && global.customEnv.NODE_ENV === "production") {
+    if (role === "customer") {
       throw new HTTPException(403, { message });
     }
     await next();
