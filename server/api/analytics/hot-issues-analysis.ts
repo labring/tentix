@@ -3,12 +3,12 @@ import { and, gte, lte, sql, eq} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
-import { factory, authMiddleware, staffOnlyMiddleware } from "../middleware.ts";
+import { Hono } from "hono";
+import { authMiddleware, staffOnlyMiddleware, type AuthEnv } from "../middleware.ts";
 import { hotIssuesQuerySchema } from "./schemas.ts";
 import { generateAIInsights } from "../../utils/analytics/index.ts";
 
-export const hotIssuesAnalysisRouter = factory
-  .createApp()
+export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
   .get(
     "/hot-issues",
     authMiddleware,

@@ -44,11 +44,12 @@ interface HotIssuesAnalysisProps {
   isLoading?: boolean;
 }
 
+//热点问题分析
 export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: HotIssuesAnalysisProps) {
   const { t } = useTranslation();
   const { data: rawData } = useSuspenseQuery(hotIssuesQueryOptions(filterParams));
   
-  // Type guard to check if response is successful
+  //检查响应
   if ('message' in rawData) {
     console.error('Hot issues API error:', rawData.message);
     return (
@@ -69,9 +70,8 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
   };
   
   const isLoading = externalLoading;
-
+  //计算标签问题数量最大值
   const maxCount = Math.max(...data.tagStats.map(s => s.count), 0);
-  
   let dynamicYAxisMax = 100;
   let yAxisStep = 20;
   
@@ -88,6 +88,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
   
   const numYAxisLabels = Math.floor(dynamicYAxisMax / yAxisStep) + 1;
 
+  //整理趋势图标
   const getTrendIcon = (trend: string, priority: string) => {
     if (priority === 'P1') {
       switch (trend) {
@@ -139,7 +140,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
   };
 
   const displayedIssues = data.topIssues.slice(0, 5);
-
+  //加载中
   if (isLoading) {
     return (
       <div className="w-full">
@@ -162,6 +163,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
 
   
   return (
+    //热点问题分析
     <div className="w-full bg-white rounded-lg border border-gray-200">
       <div className="flex h-16 p-6 justify-between items-center flex-shrink-0 border-b border-gray-200">
         <h2 className="text-xl  text-zinc-900 flex items-center gap-2">
@@ -169,6 +171,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
         </h2>
       </div>
 
+      {/* 热点问题列表 */}
       <div className="grid grid-cols-1 lg:grid-cols-2">
         <div className="flex flex-col p-8 items-start gap-4 flex-1 border-r border-gray-200">
           <h3 className="text-base text-black">{t("top_popular_issues")}</h3>
@@ -183,6 +186,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
               ];
               const bgColor = blueGradient[index] || 'bg-white';
               
+              //热点问题项
               return (
                 <div
                   key={issue.id}
@@ -211,6 +215,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                   </div>
                 </div>
 
+                {/* 趋势和优先级 */}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1 text-lg  text-zinc-900">
                     {getTrendIcon(issue.trend, issue.priority)}
@@ -229,9 +234,11 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
           </div>
         </div>
 
+        {/* 标签问题数量 */}
         <div className="p-8">
           <h3 className="text-base  mb-4">{t("tag_issue_count")}</h3>
 
+           {/* 标签问题数量图表 */}
            <div className="h-80 relative">
              <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-zinc-500">
                {Array.from({ length: numYAxisLabels }, (_, i) => {
@@ -269,6 +276,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                    const heightPercent = (stat.count / dynamicYAxisMax) * 100;
                    const barHeight = Math.max((heightPercent / 100) * 300, 10);
 
+                   //标签问题数量项
                    return (
                      <div
                        key={stat.tag}
@@ -300,6 +308,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                </div>
              </div>
              
+             {/* 标签问题数量标签 */}
              <div className="ml-12 mt-2 flex justify-around px-4 gap-2">
                {data.tagStats.map((stat) => (
                  <div
@@ -314,12 +323,14 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
         </div>
       </div>
 
+      {/* 智能分析洞察 */}
       <div className="border-t border-gray-200 flex flex-col w-full items-start flex-shrink-0">
         <div className="flex flex-col py-6 px-8 pb-8 items-start gap-[10px] self-stretch w-full">
           <h2 className="text-xl text-black flex items-center gap-2">
             {t("intelligent_analysis_insights")}
             <Sparkles className="h-5 w-5 text-blue-500" />
           </h2>
+          {/* 关键发现 */}
           <div className="flex flex-col gap-[10px]">
             <h3 className="text-base text-zinc-900 flex items-center gap-2">
               {t("key_findings")}
@@ -334,6 +345,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
             </ul>
           </div>
 
+          {/* 改进建议 */}
           <div className="flex flex-col gap-[10px]">
             <h3 className="text-base text-zinc-900 flex items-center gap-2">
               {t("improvement_suggestions")}
@@ -348,6 +360,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
             </ul>
           </div>
 
+          {/* 数据驱动策略 */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 w-full">
             <h3 className="text-base text-zinc-900 flex items-center gap-2">
               <BarChartBig className="h-4 w-4 text-blue-500" />

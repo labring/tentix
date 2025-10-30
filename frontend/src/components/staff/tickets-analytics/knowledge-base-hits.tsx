@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "tentix-ui";
-import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 import { knowledgeHitsQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
@@ -27,6 +26,7 @@ import {
   ChevronsRightIcon,
 } from "lucide-react";
 import { useTicketModules, getModuleTranslation } from "@store/app-config";
+import { EChartsWrapper } from "@comp/common/echarts-wrapper";
 
 const ZONE_COLORS = {
   high_efficiency: "#10B981", 
@@ -45,6 +45,7 @@ interface ZoneLabelsOverlayProps {
   height: number;
 }
 
+//计算区域标签位置
 const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThreshold, t, width, height }: ZoneLabelsOverlayProps) => {
   const chartPadding = { left: 50, right: 20, top: 30, bottom: 50 };
   const chartWidth = width - chartPadding.left - chartPadding.right;
@@ -80,7 +81,6 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
   const lowEffY = intersectionY + spacingFromCenter;
   
   const titleStyle: React.CSSProperties = {
-    fontFamily: 'var(--typography-font-family-font-sans, Geist)',
     fontSize: 12,
     fontStyle: 'normal',
     fontWeight: 400,
@@ -92,7 +92,6 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
   };
   
   const descStyle: React.CSSProperties = {
-    fontFamily: 'var(--typography-font-family-font-sans, Geist)',
     fontSize: 12,
     fontStyle: 'normal',
     fontWeight: 400,
@@ -160,6 +159,7 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
   }
   
   return (
+    //区域标签
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 10 }}>
       {labels.map((label) => {
         const scaleX = width / 500;
@@ -176,6 +176,7 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
         const alignItems = label.textAlign === 'right' ? 'flex-end' : 'flex-start';
         
         return (
+          //区域标签项
           <div
             key={label.key}
             style={{
@@ -218,6 +219,7 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
   );
 };
 
+//筛选参数
 interface FilterParams {
   startDate?: string;
   endDate?: string;
@@ -379,45 +381,6 @@ export function KnowledgeBaseHits({
     setCurrentPage(totalPages);
   };
 
-  // 简单的图表组件
-  function ScatterChart({ option }: { option: EChartsOption }) {
-    const chartRef = useRef<HTMLDivElement>(null);
-    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
-
-    useEffect(() => {
-      if (!chartRef.current) return;
-
-      // 初始化图表
-      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
-      chartInstanceRef.current = chart;
-
-      // 监听窗口大小变化
-      const handleResize = () => chart.resize();
-      window.addEventListener('resize', handleResize);
-
-      // 使用 ResizeObserver 监听容器大小变化
-      const resizeObserver = new ResizeObserver(handleResize);
-      if (chartRef.current) {
-        resizeObserver.observe(chartRef.current);
-      }
-
-      return () => {
-        resizeObserver.disconnect();
-        window.removeEventListener('resize', handleResize);
-        chart.dispose();
-        chartInstanceRef.current = null;
-      };
-    }, []);
-
-    useEffect(() => {
-      if (chartInstanceRef.current && option) {
-        chartInstanceRef.current.setOption(option, true);
-      }
-    }, [option]);
-
-    return <div ref={chartRef} className="w-full h-full" />;
-  }
-
   // ECharts 散点图配置
   const scatterChartOption: EChartsOption = {
     grid: {
@@ -578,7 +541,9 @@ export function KnowledgeBaseHits({
   };
 
   return (
+    //知识库命中分布
     <div className="w-full">
+      {/* 标题 */}
       <div className="bg-white border border-zinc-200 rounded-t-lg flex w-full min-h-16 p-6 justify-between items-center flex-shrink-0 shadow-sm">
         <h2 className="text-xl text-zinc-900">{t("knowledge_base_hit_distribution")}</h2>
         <div className="flex items-center gap-4">
@@ -598,10 +563,12 @@ export function KnowledgeBaseHits({
         </div>
       </div>
 
+      {/* 内容区域 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white border-l border-r border-b border-zinc-200 rounded-b-lg p-8">
+        {/* 散点图 */}
         <div className=" border-zinc-200 rounded-lg p-4">
           <div className="h-[500px] relative" ref={chartContainerRef}>
-            <ScatterChart option={scatterChartOption} />
+            <EChartsWrapper option={scatterChartOption} className="w-full h-full" enableResizeObserver={true} />
             
             <ZoneLabelsOverlay
               xAxisMax={xAxisMax}
@@ -615,6 +582,7 @@ export function KnowledgeBaseHits({
           </div>
         </div>
 
+        {/* 表格 */}
         <div className=" border-zinc-200 rounded-lg p-4">
           <Tabs value={selectedZone} onValueChange={handleZoneChange} defaultValue="all">
             <TabsList className="flex w-full bg-white rounded-lg gap-2">
@@ -649,6 +617,7 @@ export function KnowledgeBaseHits({
             </TabsList>
 
             <TabsContent value={selectedZone} className="mt-4">
+              {/* 表格内容 */}
                <div className="border rounded-lg">
                 <div className="overflow-hidden min-h-[360px]">
                   <Table>
@@ -699,6 +668,7 @@ export function KnowledgeBaseHits({
                   </Table>
                 </div>
 
+                {/* 分页 */}
                 {allTableData.length > 0 && (
                   <div className="border-t border-zinc-200 pt-4 px-4 pb-4">
                     <div className="flex items-center justify-between">

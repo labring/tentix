@@ -1,10 +1,9 @@
 import * as React from "react";
-import { Button, Checkbox, Label, Popover, PopoverContent, PopoverTrigger, Calendar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "tentix-ui";
-import { CalendarIcon } from "lucide-react";
-import { cn } from "@lib/utils";
+import { Button, Checkbox, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "tentix-ui";
 import { staffListQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useAuth } from "@hook/use-local-user.tsx";
 import { useTranslation } from "i18n";
+import { DateRangePicker } from "@comp/common/date-range-picker";
 
 
 interface AnalyticsFilterProps {
@@ -15,6 +14,8 @@ interface AnalyticsFilterProps {
   lastUpdated?: string;
 }
 
+
+//筛选逻辑
 export function AnalyticsFilter({
   onDateRangeChange,
   onEmployeeChange,
@@ -28,7 +29,7 @@ export function AnalyticsFilter({
   const [selectedEmployee, setSelectedEmployee] = React.useState("all_staff");
   
   const [initialTime] = React.useState(() => 
-    new Date().toLocaleTimeString("zh-CN", {
+    new Date().toLocaleTimeString(undefined, {
       hour: "2-digit",
       minute: "2-digit",
     })
@@ -39,6 +40,7 @@ export function AnalyticsFilter({
   const authContext = useAuth();
   const currentUser = authContext.user;
 
+  //获取员工列表
   const { data: staffList } = useSuspenseQuery(staffListQueryOptions());
 
   const employees = React.useMemo(() => {
@@ -63,23 +65,22 @@ export function AnalyticsFilter({
     return [defaultOption, currentUserOption];
   }, [employees, currentUser, t]);
 
-  const handleDateRangeChange = (newDateRange: { from: Date | undefined; to?: Date | undefined } | undefined) => {
-    if (newDateRange?.from && newDateRange?.to) {
-      const range = { from: newDateRange.from, to: newDateRange.to };
-      setDateRange(range);
+  //日期范围选择
+  const handleDateRangeChange = (newDateRange: { from: Date; to: Date } | undefined) => {
+    setDateRange(newDateRange);
+    if (newDateRange) {
       setIsTodayChecked(false); 
-      onDateRangeChange?.(range);
-    } else {
-      setDateRange(undefined);
-      onDateRangeChange?.(undefined);
     }
+    onDateRangeChange?.(newDateRange);
   };
 
+  //员工选择
   const handleEmployeeChange = (employeeId: string) => {
     setSelectedEmployee(employeeId);
     onEmployeeChange?.(employeeId);
   };
 
+  //今天筛选
   const handleTodayToggle = (checked: boolean) => {
     setIsTodayChecked(checked);
     if (checked) {
@@ -88,8 +89,9 @@ export function AnalyticsFilter({
     onTodayToggle?.(checked);
   };
 
+  //格式化日期
   const formatDate = (date: Date) => {
-    return date.toLocaleString("zh-CN", {
+    return date.toLocaleString(undefined, {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -104,6 +106,7 @@ export function AnalyticsFilter({
         <span className="text-sm font-medium text-zinc-700">{t("analytics_filter")}</span>
 
         <div className="flex items-center space-x-2 px-3 py-2 border border-zinc-200 rounded-md">
+          {/* 今天筛选 */}
           <Checkbox
             id="today-filter"
             checked={isTodayChecked}
@@ -114,39 +117,13 @@ export function AnalyticsFilter({
           </Label>
         </div>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              id="date-range-picker"
-              variant="outline"
-              className={cn(
-                "w-[300px] justify-start text-left font-normal h-10",
-                !dateRange && "text-muted-foreground"
-              )}
-              disabled={isTodayChecked} 
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateRange?.from ? (
-                dateRange.to ? (
-                  `${formatDate(dateRange.from)} - ${formatDate(dateRange.to)}`
-                ) : (
-                  formatDate(dateRange.from)
-                )
-              ) : (
-                <span>{t("select")}</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              defaultMonth={dateRange?.from}
-              selected={dateRange}
-              onSelect={handleDateRangeChange}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
+        {/* 日期范围选择 */}
+        <DateRangePicker
+          value={dateRange}
+          onChange={handleDateRangeChange}
+          disabled={isTodayChecked}
+          formatDate={formatDate}
+        />
 
         <Select value={selectedEmployee} onValueChange={handleEmployeeChange}>
           <SelectTrigger className="w-[180px] h-10">

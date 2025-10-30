@@ -3,12 +3,12 @@ import { and, asc, count, eq, sql } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import type { SQL } from "drizzle-orm";
-import { factory, authMiddleware, staffOnlyMiddleware } from "../middleware.ts";
+import { Hono } from "hono";
+import { authMiddleware, staffOnlyMiddleware, type AuthEnv } from "../middleware.ts";
 import { buildTicketConditions, getDateFormatSql } from "./utils.ts";
 import { trendsQuerySchema } from "./schemas.ts";
 
-export const ticketTrendChartRouter = factory
-  .createApp()
+export const ticketTrendChartRouter = new Hono<AuthEnv>()
   .get(
     "/ticket-trends",
     authMiddleware,

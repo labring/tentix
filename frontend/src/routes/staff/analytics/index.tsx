@@ -17,6 +17,7 @@ export const Route = createFileRoute("/staff/analytics/")({
   component: AnalyticsDashboard,
 });
 
+//加载骨架屏
 function AnalyticsSkeleton() {
   return (
     <div className="flex items-center justify-center h-screen">
@@ -28,6 +29,7 @@ function AnalyticsSkeleton() {
   );
 }
 
+//分析仪表盘
 function AnalyticsDashboard() {
   const queryClient = useQueryClient();
   const [lastUpdated, setLastUpdated] = useState(() => 
@@ -42,7 +44,6 @@ function AnalyticsDashboard() {
   const [loadSecondaryComponents, setLoadSecondaryComponents] = useState(false);
 
   // 使用 useMemo 稳定 filterParams 对象引用，避免不必要的重新查询
-  // 只有当实际值改变时才创建新对象
   const filterParams = useMemo(() => {
     return {
       startDate: filterParamsState.startDate,

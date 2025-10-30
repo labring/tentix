@@ -1,8 +1,8 @@
-import { useMemo, useRef, useEffect } from "react";
-import * as echarts from 'echarts';
+import { useMemo } from "react";
 import type { EChartsOption } from 'echarts';
 import { ticketTrendsQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
+import { EChartsWrapper } from "@comp/common/echarts-wrapper";
 
 interface FilterParams {
   startDate?: string;
@@ -20,7 +20,8 @@ export function TicketTrendChart({
   filterParams = {},
   isLoading: externalLoading = false,
 }: TicketTrendChartProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === 'zh' ? 'zh-CN' : 'en-US';
   
   const finalFilterParams = useMemo(() => {
     if (!filterParams.startDate || !filterParams.endDate) {
@@ -125,13 +126,13 @@ export function TicketTrendChart({
         const hour = date.getHours();
         return `${hour.toString().padStart(2, '0')}:00`;
       case "day":
-        return date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+        return date.toLocaleDateString(locale, { month: "numeric", day: "numeric" });
       case "month":
-        return date.toLocaleDateString("zh-CN", { year: "numeric", month: "numeric" });
+        return date.toLocaleDateString(locale, { year: "numeric", month: "numeric" });
       case "year":
         return date.getFullYear().toString();
       default:
-        return date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+        return date.toLocaleDateString(locale, { month: "numeric", day: "numeric" });
     }
   };
 
@@ -254,68 +255,6 @@ export function TicketTrendChart({
     return `${min.toFixed(1)} - ${max.toFixed(1)} ${t("hours")}`;
   };
 
-  // 简单的图表组件
-  function TrendChart({ option }: { option: EChartsOption }) {
-    const chartRef = useRef<HTMLDivElement>(null);
-    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
-
-    useEffect(() => {
-      if (!chartRef.current) return;
-
-      // 初始化图表
-      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
-      chartInstanceRef.current = chart;
-
-      // 监听窗口大小变化
-      const handleResize = () => chart.resize();
-      window.addEventListener('resize', handleResize);
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart.dispose();
-        chartInstanceRef.current = null;
-      };
-    }, []);
-
-    useEffect(() => {
-      if (chartInstanceRef.current && option) {
-        chartInstanceRef.current.setOption(option, true);
-      }
-    }, [option]);
-
-    return <div ref={chartRef} className="h-120 w-full" />;
-  }
-
-  function ResponseChart({ option }: { option: EChartsOption }) {
-    const chartRef = useRef<HTMLDivElement>(null);
-    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
-
-    useEffect(() => {
-      if (!chartRef.current) return;
-
-      // 初始化图表
-      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
-      chartInstanceRef.current = chart;
-
-      // 监听窗口大小变化
-      const handleResize = () => chart.resize();
-      window.addEventListener('resize', handleResize);
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart.dispose();
-        chartInstanceRef.current = null;
-      };
-    }, []);
-
-    useEffect(() => {
-      if (chartInstanceRef.current && option) {
-        chartInstanceRef.current.setOption(option, true);
-      }
-    }, [option]);
-
-    return <div ref={chartRef} className="h-90 w-full" />;
-  }
 
   // ECharts配置 - 工单数量趋势
   const trendChartOption: EChartsOption = {
@@ -527,7 +466,7 @@ export function TicketTrendChart({
           itemStyle: {
             borderWidth: 2,
             shadowBlur: 10,
-            shadowColor: 'rgba(16, 185, 129, 0.3)',
+            shadowColor: '#10B981',
           },
           scale: 1.5,
         }
@@ -586,7 +525,7 @@ export function TicketTrendChart({
 
         {/* 左侧图表内容 */}
         <div className="p-8">
-          <TrendChart option={trendChartOption} />
+          <EChartsWrapper option={trendChartOption} className="h-120 w-full" />
         </div>
       </div>
 
@@ -640,7 +579,7 @@ export function TicketTrendChart({
             {/* 响应时长趋势图表 */}
             <div className="h-90 flex items-center justify-center">
               {(formattedResponseData.length > 0 || granularity === "hour") ? (
-                <ResponseChart option={responseChartOption} />
+                <EChartsWrapper option={responseChartOption} className="h-90 w-full" />
               ) : (
                 <div className="h-full flex items-center justify-center text-zinc-500">
                   {t("no_data")}

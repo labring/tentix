@@ -3,12 +3,12 @@ import { and, count, eq, gte, lte, sql } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import type { SQL } from "drizzle-orm";
-import { factory, authMiddleware, staffOnlyMiddleware } from "../middleware.ts";
+import { Hono } from "hono";
+import { authMiddleware, staffOnlyMiddleware, type AuthEnv } from "../middleware.ts";
 import { buildAgentCondition } from "./utils.ts";
 import { dateRangeSchema } from "./schemas.ts";
 
-export const knowledgeBaseHitsRouter = factory
-  .createApp()
+export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
   .get(
     "/knowledge-hits",
     authMiddleware,

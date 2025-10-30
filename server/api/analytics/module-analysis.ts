@@ -2,12 +2,12 @@ import * as schema from "@/db/schema.ts";
 import { and, count, desc } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
-import { factory, authMiddleware, staffOnlyMiddleware } from "../middleware.ts";
+import { Hono } from "hono";
+import { authMiddleware, staffOnlyMiddleware, type AuthEnv } from "../middleware.ts";
 import { buildTicketConditions } from "./utils.ts";
 import { dateRangeSchema } from "./schemas.ts";
 
-export const moduleAnalysisRouter = factory
-  .createApp()
+export const moduleAnalysisRouter = new Hono<AuthEnv>()
   .get(
     "/module-analysis",
     authMiddleware,

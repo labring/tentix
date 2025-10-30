@@ -1,8 +1,7 @@
-import { useRef, useEffect } from "react";
-import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 import { ratingAnalysisQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
+import { EChartsWrapper } from "@comp/common/echarts-wrapper";
 
 const getRatingColors = () => ({
   unrated: "#E4E4E7",
@@ -87,69 +86,6 @@ export function RatingAnalysis({
     nonHandoff: 'bg-blue-500',
   };
 
-  // 简单的图表组件
-  function RatingChart({ option }: { option: EChartsOption }) {
-    const chartRef = useRef<HTMLDivElement>(null);
-    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
-
-    useEffect(() => {
-      if (!chartRef.current) return;
-
-      // 初始化图表
-      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
-      chartInstanceRef.current = chart;
-
-      // 监听窗口大小变化
-      const handleResize = () => chart.resize();
-      window.addEventListener('resize', handleResize);
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart.dispose();
-        chartInstanceRef.current = null;
-      };
-    }, []);
-
-    useEffect(() => {
-      if (chartInstanceRef.current && option) {
-        chartInstanceRef.current.setOption(option, true);
-      }
-    }, [option]);
-
-    return <div ref={chartRef} className="h-[180px] w-[180px]" />;
-  }
-
-  function HandoffChart({ option }: { option: EChartsOption }) {
-    const chartRef = useRef<HTMLDivElement>(null);
-    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
-
-    useEffect(() => {
-      if (!chartRef.current) return;
-
-      // 初始化图表
-      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
-      chartInstanceRef.current = chart;
-
-      // 监听窗口大小变化
-      const handleResize = () => chart.resize();
-      window.addEventListener('resize', handleResize);
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart.dispose();
-        chartInstanceRef.current = null;
-      };
-    }, []);
-
-    useEffect(() => {
-      if (chartInstanceRef.current && option) {
-        chartInstanceRef.current.setOption(option, true);
-      }
-    }, [option]);
-
-    return <div ref={chartRef} className="h-[180px] w-[180px]" />;
-  }
-
   // 评分分布饼图配置
   const ratingChartOption: EChartsOption = {
     tooltip: {
@@ -178,7 +114,7 @@ export function RatingAnalysis({
     series: [
       {
         type: 'pie',
-        radius: ['55%', '100%'],
+        radius: ['62%', '100%'],
         center: ['50%', '50%'],
         data: data.ratingDistribution.map(item => ({
           name: item.name === "unrated" ? t("unrated") : `${item.name}${t("star")}`,
@@ -215,11 +151,11 @@ export function RatingAnalysis({
       {
         type: 'text',
         left: 'center',
-        top: '58%',
+        top: '57%',
         style: {
           text: t("total_rating_count"),
           fill: '#71717A',
-          fontSize: 14,
+          fontSize: 12,
         }
       }
     ] as any
@@ -253,7 +189,7 @@ export function RatingAnalysis({
     series: [
       {
         type: 'pie',
-        radius: ['55%', '100%'],
+        radius: ['62%', '100%'],
         center: ['50%', '50%'],
         data: handoffData.map(item => ({
           name: item.name,
@@ -290,11 +226,11 @@ export function RatingAnalysis({
       {
         type: 'text',
         left: 'center',
-        top: '58%',
+        top: '57%',
         style: {
           text: t("total_tickets"),
           fill: '#71717A',
-          fontSize: 14,
+          fontSize: 12,
         }
       }
     ] as any
@@ -316,8 +252,8 @@ export function RatingAnalysis({
             {/* 环形图和图例 */}
             <div className="flex items-center gap-6">
               {/* 环形图 */}
-              <div className="h-[180px] w-[180px]">
-                <RatingChart option={ratingChartOption} />
+              <div className="h-[192px] w-[192px]">
+                <EChartsWrapper option={ratingChartOption} className="h-[192px] w-[192px]" />
               </div>
 
               {/* 图例列表 */}
@@ -360,8 +296,8 @@ export function RatingAnalysis({
             {totalTickets > 0 ? (
               <div className="flex items-center gap-6">
                 {/* 环形图 */}
-                <div className="h-[180px] w-[180px]">
-                  <HandoffChart option={handoffChartOption} />
+                <div className="h-[192px] w-[192px]">
+                  <EChartsWrapper option={handoffChartOption} className="h-[192px] w-[192px]" />
                 </div>
 
                 {/* 图例列表 */}

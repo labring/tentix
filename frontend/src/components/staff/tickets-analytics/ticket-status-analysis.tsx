@@ -1,11 +1,10 @@
-import { useRef, useEffect } from "react";
 import { Alert, AlertDescription, AlertTitle } from "tentix-ui";
-import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 import { Droplets, TriangleAlert } from "lucide-react";
 import { PendingIcon, ProgressIcon, DoneIcon } from "tentix-ui";
 import { ticketStatusAnalysisQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
+import { EChartsWrapper } from "@comp/common/echarts-wrapper";
 
 const getChartColors = () => ({
   pending: "#E4E4E7",
@@ -57,38 +56,6 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
   const totalTickets = ticketData.reduce((sum, item) => sum + item.value, 0);
   const chartColors = getChartColors();
   const chartLabels = getChartLabels(t);
-
-  // 简单的图表组件
-  function StatusChart({ option }: { option: EChartsOption }) {
-    const chartRef = useRef<HTMLDivElement>(null);
-    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
-
-    useEffect(() => {
-      if (!chartRef.current) return;
-
-      // 初始化图表
-      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
-      chartInstanceRef.current = chart;
-
-      // 监听窗口大小变化
-      const handleResize = () => chart.resize();
-      window.addEventListener('resize', handleResize);
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart.dispose();
-        chartInstanceRef.current = null;
-      };
-    }, []);
-
-    useEffect(() => {
-      if (chartInstanceRef.current && option) {
-        chartInstanceRef.current.setOption(option, true);
-      }
-    }, [option]);
-
-    return <div ref={chartRef} style={{ width: '192px', height: '192px' }} />;
-  }
 
   // 关键指标数据
   const keyMetrics = [
@@ -227,7 +194,7 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
               {/* 环形图和图例 - 使用Frame组件布局 */}
               <div className="inline-flex flex-col items-center gap-6 relative">
                 <div className="flex flex-col items-center gap-9 relative" style={{ width: '192px', height: '192px', flexShrink: 0 }}>
-                  <StatusChart option={chartOption} />
+                  <EChartsWrapper option={chartOption} style={{ width: '192px', height: '192px' }} />
                 </div>
 
                 {/* 图例表格 */}
