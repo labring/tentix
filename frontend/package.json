@@ -28,6 +28,7 @@
     "ahooks": "^3.8.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "echarts": "^6.0.0",
     "highlight.js": "^11.11.1",
     "i18n": "workspace:*",
     "i18next": "^25.1.1",

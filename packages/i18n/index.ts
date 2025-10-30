@@ -427,6 +427,9 @@ export const translations = {
       completion_rate: "Completion Rate",
       suggestions: "Suggestions",
       percentage: "Percentage",
+      current_backlog_percentage: "Current unprocessed ticket percentage",
+      exceed_normal_level: "exceeds normal level",
+      suggest_increase_staff: "suggest increasing processing staff",
 
       // Ticket volume trends module translation keys
       ticket_volume_trends: "Ticket Volume Trends",
@@ -470,14 +473,13 @@ export const translations = {
 
       // Popular issues analysis
       top_popular_issues: "Top Popular Issues",
-      category_issue_count: "Category Issue Count",
+      tag_issue_count: "Tag Issue Count",
 
       // Intelligent analysis insights module
       intelligent_analysis_insights: "Intelligent Analysis Insights",
 
       // Additional keys for ticket status analysis
       current: "Current",
-      exceed_normal_level: "exceeds normal level",
       increase_manpower: "increase processing manpower",
 
       // Additional keys for ticket trend chart
@@ -1006,7 +1008,7 @@ export const translations = {
       // 热门问题分析
       hot_issues_analysis: "热门问题分析",
       top_popular_issues: "热门问题TOP榜单",
-      category_issue_count: "分类问题数量",
+      tag_issue_count: "标签问题数量",
 
       // 智能分析洞察模块
       intelligent_analysis_insights: "智能分析洞察",
@@ -1016,6 +1018,8 @@ export const translations = {
       current: "当前",
       exceed_normal_level: "超过正常水平",
       increase_manpower: "增加处理人力",
+      current_backlog_percentage: "当前未处理工单占比",
+      suggest_increase_staff: "建议增加处理人力",
 
       // 工单趋势图表额外键
       hourly: "按小时",

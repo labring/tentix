@@ -3,7 +3,7 @@ import { AnalyticsFilter } from "@comp/staff/tickets-analytics/analytics-filter"
 import { PriorityAnalyticsWrapper } from "@comp/staff/tickets-analytics/lazy-analytics-wrapper";
 import { StaffSidebar } from "@comp/staff/sidebar";
 import { RouteTransition } from "@comp/page-transition";
-import { Suspense, useState, useCallback, useEffect } from "react";
+import { Suspense, useState, useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface FilterParams {
@@ -36,10 +36,26 @@ function AnalyticsDashboard() {
       minute: "2-digit" 
     })
   );
-  const [filterParams, setFilterParams] = useState<FilterParams>({
+  const [filterParamsState, setFilterParamsState] = useState<FilterParams>({
     isToday: false,
   });
   const [loadSecondaryComponents, setLoadSecondaryComponents] = useState(false);
+
+  // 使用 useMemo 稳定 filterParams 对象引用，避免不必要的重新查询
+  // 只有当实际值改变时才创建新对象
+  const filterParams = useMemo(() => {
+    return {
+      startDate: filterParamsState.startDate,
+      endDate: filterParamsState.endDate,
+      agentId: filterParamsState.agentId,
+      isToday: filterParamsState.isToday,
+    };
+  }, [
+    filterParamsState.startDate,
+    filterParamsState.endDate,
+    filterParamsState.agentId,
+    filterParamsState.isToday,
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -60,24 +76,22 @@ function AnalyticsDashboard() {
       return newDate.toISOString();
     };
 
-    const updatedParams = {
-      ...filterParams,
+    // 使用函数式更新，避免依赖 filterParams
+    setFilterParamsState((prev) => ({
+      ...prev,
       startDate: newDateRange?.from ? convertDateToTimestampRange(newDateRange.from, false) : undefined,
       endDate: newDateRange?.to ? convertDateToTimestampRange(newDateRange.to, true) : undefined,
       isToday: false,
-    };
-    
-    setFilterParams(updatedParams);
-  }, [filterParams]);
+    }));
+  }, []);
 
   const handleEmployeeChange = useCallback((employeeId: string) => {
-    const updatedParams = {
-      ...filterParams,
+    // 使用函数式更新，避免依赖 filterParams
+    setFilterParamsState((prev) => ({
+      ...prev,
       agentId: employeeId,
-    };
-    
-    setFilterParams(updatedParams);
-  }, [filterParams]);
+    }));
+  }, []);
 
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({
@@ -113,27 +127,31 @@ function AnalyticsDashboard() {
   }, [queryClient]);
 
   const handleTodayToggle = useCallback((todayChecked: boolean) => {
-    const updatedParams = {
-      ...filterParams,
-      isToday: todayChecked,
-    };
-    
-    if (todayChecked) {
-      const today = new Date();
-      const startOfToday = new Date(today);
-      startOfToday.setHours(0, 0, 0, 0);
-      const endOfToday = new Date(today);
-      endOfToday.setHours(23, 59, 59, 999);
-      
-      updatedParams.startDate = startOfToday.toISOString();
-      updatedParams.endDate = endOfToday.toISOString();
-    } else {
-      updatedParams.startDate = undefined;
-      updatedParams.endDate = undefined;
-    }
-    
-    setFilterParams(updatedParams);
-  }, [filterParams]);
+    // 使用函数式更新，避免依赖 filterParams
+    setFilterParamsState((prev) => {
+      if (todayChecked) {
+        const today = new Date();
+        const startOfToday = new Date(today);
+        startOfToday.setHours(0, 0, 0, 0);
+        const endOfToday = new Date(today);
+        endOfToday.setHours(23, 59, 59, 999);
+        
+        return {
+          ...prev,
+          isToday: true,
+          startDate: startOfToday.toISOString(),
+          endDate: endOfToday.toISOString(),
+        };
+      } else {
+        return {
+          ...prev,
+          isToday: false,
+          startDate: undefined,
+          endDate: undefined,
+        };
+      }
+    });
+  }, []);
 
   return (
     <RouteTransition>

@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  ChartContainer,
-  ChartTooltip,
   Table,
   TableBody,
   TableCell,
@@ -13,18 +11,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "tentix-ui";
-import type { ChartConfig } from "tentix-ui";
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  ZAxis,
-  ResponsiveContainer,
-  Cell,
-  Label,
-  ReferenceLine,
-} from "recharts";
+import * as echarts from 'echarts';
+import type { EChartsOption } from 'echarts';
 import { knowledgeHitsQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
 import {
@@ -40,15 +28,6 @@ const ZONE_COLORS = {
   need_optimization: "#FCD34D", 
   low_efficiency: "#9CA3AF", 
 };
-
-const getChartConfig = (t: any) => ({
-  accessCount: {
-    label: t("access_count"),
-  },
-  hitRate: {
-    label: t("hit_rate"),
-  },
-}) satisfies ChartConfig;
 
 interface ZoneLabelsOverlayProps {
   xAxisMax: number;
@@ -127,8 +106,8 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
       color: ZONE_COLORS.potential,
       title: t("potential_zone"),
       description: t("recommend_adding_guidance"),
-      offsetX: -2,
-      offsetY: 65,
+      offsetX: 3,
+      offsetY: 55,
       textAlign: 'right' as const,
     },
     {
@@ -138,8 +117,8 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
       color: ZONE_COLORS.low_efficiency,
       title: t("low_efficiency_zone"),
       description: t("recommend_updating_content"),
-      offsetX: -2,
-      offsetY: -57,
+      offsetX: 3,
+      offsetY: -60,
       textAlign: 'right' as const,
     },
     {
@@ -149,8 +128,8 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
       color: ZONE_COLORS.high_efficiency,
       title: t("high_efficiency_zone"),
       description: t("maintain_and_promote_content"),
-      offsetX: -11,
-      offsetY: 65,
+      offsetX: -1,
+      offsetY: 55,
       textAlign: 'left' as const,
     },
     {
@@ -160,8 +139,8 @@ const ZoneLabelsOverlay = ({ xAxisMax, yAxisMax, hitRateThreshold, accessThresho
       color: ZONE_COLORS.need_optimization,
       title: t("needs_optimization"),
       description: t("recommend_improving_accuracy"),
-      offsetX: -11,
-      offsetY: -57,
+      offsetX: -1,
+      offsetY: -60,
       textAlign: 'left' as const,
     },
   ];
@@ -319,7 +298,6 @@ export function KnowledgeBaseHits({
   const xAxisMax = Math.ceil(maxAccessCount / 10) * 10;
   const accessThreshold = xAxisMax / 2;
 
-
   const bubbleData = scatterData.map(item => ({
     ...item,
     z: item.accessCount,
@@ -380,38 +358,202 @@ export function KnowledgeBaseHits({
     setCurrentPage(totalPages);
   };
 
-  const chartConfig = getChartConfig(t);
+  // 简单的图表组件
+  function ScatterChart({ option }: { option: EChartsOption }) {
+    const chartRef = useRef<HTMLDivElement>(null);
+    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length && payload[0]?.payload) {
-      const data = payload[0].payload as KnowledgeItem;
-      return (
-        <div className="bg-white border border-zinc-200 rounded-lg shadow-lg p-4 min-w-[280px]">
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 border-b pb-2">
-              <div 
-                className="w-2 h-2" 
-                style={{ backgroundColor: ZONE_COLORS[data.zone] }}
-              ></div>
-              <div className="font-medium text-zinc-900">
-                {data.title}
-              </div>
+    useEffect(() => {
+      if (!chartRef.current) return;
+
+      // 初始化图表
+      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
+      chartInstanceRef.current = chart;
+
+      // 监听窗口大小变化
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize);
+
+      // 使用 ResizeObserver 监听容器大小变化
+      const resizeObserver = new ResizeObserver(handleResize);
+      if (chartRef.current) {
+        resizeObserver.observe(chartRef.current);
+      }
+
+      return () => {
+        resizeObserver.disconnect();
+        window.removeEventListener('resize', handleResize);
+        chart.dispose();
+        chartInstanceRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (chartInstanceRef.current && option) {
+        chartInstanceRef.current.setOption(option, true);
+      }
+    }, [option]);
+
+    return <div ref={chartRef} className="w-full h-full" />;
+  }
+
+  // ECharts 散点图配置
+  const scatterChartOption: EChartsOption = {
+    grid: {
+      top: 30,
+      right: 20,
+      bottom: 13,
+      left: 20,
+      containLabel: false,
+    },
+    xAxis: {
+      type: 'value',
+      name: t("access_count"),
+      nameLocation: 'middle',
+      nameGap: -10,
+      nameTextStyle: {
+        fontSize: 12,
+        color: '#9CA3AF',
+      },
+      min: 0,
+      max: xAxisMax,
+      axisLine: {
+        lineStyle: {
+          color: '#9CA3AF',
+        }
+      },
+      axisLabel: {
+        fontSize: 12,
+        color: '#6B7280',
+      },
+      splitLine: {
+        show: false,
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: `${t("hit_rate")}(%)`,
+      nameLocation: 'end',
+      nameGap: 20,
+      nameTextStyle: {
+        fontSize: 12,
+        color: '#9CA3AF',
+        align: 'left',
+      },
+      min: 0,
+      max: yAxisMax,
+      axisLine: {
+        lineStyle: {
+          color: '#9CA3AF',
+        }
+      },
+      axisLabel: {
+        fontSize: 12,
+        color: '#6B7280',
+      },
+      splitLine: {
+        show: false,
+      }
+    },
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: '#fff',
+      borderColor: '#E4E4E7',
+      borderWidth: 1,
+      padding: 16,
+      textStyle: {
+        color: '#18181B',
+        fontSize: 14,
+      },
+      formatter: (params: any) => {
+        const item = params.data.item;
+        const zoneColor = ZONE_COLORS[item.zone as keyof typeof ZONE_COLORS] || '#9CA3AF';
+        return `
+          <div style="min-width: 280px;">
+            <div style="display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #E4E4E7;">
+              <div style="width: 8px; height: 8px; background-color: ${zoneColor}; border-radius: 0;"></div>
+              <div style="font-weight: 500; color: #18181B;">${item.title}</div>
             </div>
-            <div className="space-y-1 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-600 ">{t("access_count")}：</span>
-                <span className="">{data.accessCount}</span>
+            <div style="margin-top: 8px;">
+              <div style="display: flex; align-items: center; justify-between; margin-bottom: 4px;">
+                <span style="color: #52525B;">${t("access_count")}：</span>
+                <span style="color: #18181B;">${item.accessCount}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-600 ">{t("hit_rate")}：</span>
-                <span className="">{data.hitRate}%</span>
+              <div style="display: flex; align-items: center; justify-between;">
+                <span style="color: #52525B;">${t("hit_rate")}：</span>
+                <span style="color: #18181B;">${item.hitRate}%</span>
               </div>
             </div>
           </div>
-        </div>
-      );
-    }
-    return null;
+        `;
+      }
+    },
+    series: [
+      {
+        type: 'scatter',
+        symbolSize: (data: any) => {
+          // 气泡大小根据 accessCount 调整
+          const minSize = 10;
+          const maxSize = 40;
+          const value = data[2]; // z value
+          const normalized = (value - 0) / (maxAccessCount - 0 || 1);
+          return minSize + normalized * (maxSize - minSize);
+        },
+        data: classifiedData.map(item => ({
+          value: [item.accessCount, item.hitRate, item.z],
+          item: item,
+          itemStyle: {
+            color: ZONE_COLORS[item.zone],
+            opacity: 0.7,
+            borderColor: '#fff',
+            borderWidth: 2,
+          }
+        })),
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowColor: 'rgba(0, 0, 0, 0.3)',
+          },
+          scale: 1.1,
+        }
+      }
+    ],
+    graphic: [
+      // 垂直参考线
+      {
+        type: 'line',
+        shape: {
+          x1: 50 + (accessThreshold / xAxisMax) * (chartSize.width - 70),
+          y1: 30,
+          x2: 50 + (accessThreshold / xAxisMax) * (chartSize.width - 70),
+          y2: chartSize.height - 63,
+        },
+        style: {
+          stroke: '#CBD5E1',
+          lineDash: [5, 5],
+          lineWidth: 1,
+        },
+        silent: true,
+        z: 0,
+      },
+      // 水平参考线
+      {
+        type: 'line',
+        shape: {
+          x1: 50,
+          y1: 30 + ((yAxisMax - hitRateThreshold) / yAxisMax) * (chartSize.height - 93),
+          x2: chartSize.width - 20,
+          y2: 30 + ((yAxisMax - hitRateThreshold) / yAxisMax) * (chartSize.height - 93),
+        },
+        style: {
+          stroke: '#CBD5E1',
+          lineDash: [5, 5],
+          lineWidth: 1,
+        },
+        silent: true,
+        z: 0,
+      }
+    ]
   };
 
   return (
@@ -423,72 +565,7 @@ export function KnowledgeBaseHits({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white border-l border-r border-b border-zinc-200 rounded-b-lg p-8">
         <div className=" border-zinc-200 rounded-lg p-4">
           <div className="h-[500px] relative" ref={chartContainerRef}>
-            <ChartContainer config={chartConfig} className="h-full w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 30, right: 20, bottom: 13, left: -30 }}>
-                  <XAxis
-                    type="number"
-                    dataKey="accessCount"
-                    name={t("access_count")}
-                    stroke="#9CA3AF"
-                    tick={{ fontSize: 12 }}
-                    domain={[0, xAxisMax]}
-                  >
-                    <Label value={t("access_count")} position="insideBottom" offset={-10} />
-                  </XAxis>
-                  
-                  <YAxis
-                    type="number"
-                    dataKey="hitRate"
-                    name={`${t("hit_rate")}(%)`}
-                    stroke="#9CA3AF"
-                    tick={{ fontSize: 12 }}
-                    domain={[0, yAxisMax]}
-                  >
-                    <Label value={`${t("hit_rate")}(%)`} position="top" offset={20} style={{ textAnchor: 'start' }} />
-                  </YAxis>
-
-                  <ZAxis 
-                    type="number" 
-                    dataKey="z" 
-                    range={[100, 600]} 
-                    name={t("access_count")}
-                  />
-
-                  <ReferenceLine 
-                    y={hitRateThreshold} 
-                    stroke="#CBD5E1" 
-                    strokeDasharray="5 5"
-                    strokeWidth={1}
-                  />
-
-                  <ReferenceLine 
-                    x={accessThreshold} 
-                    stroke="#CBD5E1" 
-                    strokeDasharray="5 5"
-                    strokeWidth={1}
-                  />
-
-                  <ChartTooltip cursor={{ strokeDasharray: "3 3" }} content={<CustomTooltip />} />
-                  
-                  <Scatter 
-                    name={t("questions")} 
-                    data={classifiedData}
-                    fill="#8884d8"
-                  >
-                    {classifiedData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={ZONE_COLORS[entry.zone as keyof typeof ZONE_COLORS]}
-                        fillOpacity={0.7}
-                        stroke="#fff"
-                        strokeWidth={2}
-                      />
-                    ))}
-                  </Scatter>
-                </ScatterChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            <ScatterChart option={scatterChartOption} />
             
             <ZoneLabelsOverlay
               xAxisMax={xAxisMax}

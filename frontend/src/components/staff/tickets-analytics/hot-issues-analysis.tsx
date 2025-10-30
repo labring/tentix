@@ -5,19 +5,19 @@ import { useTranslation } from "i18n";
 
 interface HotIssue {
   id: number;
-  category: string;
   tag: string;
+  description?: string;
   count: number;
   trend: 'up' | 'down' | 'stable';
   priority: 'P0' | 'P1' | 'P2' | 'P3';
   confidence: number;
 }
 
-interface CategoryStat {
-  category: string;
+interface TagStat {
+  tag: string;
+  description?: string;
   count: number;
   percentage: number;
-  color: string;
 }
 
 interface AIInsights {
@@ -28,7 +28,7 @@ interface AIInsights {
 
 interface HotIssuesData {
   topIssues: HotIssue[];
-  categoryStats: CategoryStat[];
+  tagStats: TagStat[];
   totalIssues: number;
   timeRange: string;
   aiInsights?: AIInsights;
@@ -48,11 +48,21 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
   const { t } = useTranslation();
   const { data: rawData } = useSuspenseQuery(hotIssuesQueryOptions(filterParams));
   
-  const sortedCategoryStats = [...(rawData.categoryStats || [])].sort((a, b) => b.count - a.count).slice(0, 6);
+  // Type guard to check if response is successful
+  if ('message' in rawData) {
+    console.error('Hot issues API error:', rawData.message);
+    return (
+      <div className="w-full p-4 bg-red-50 border border-red-200 rounded-lg">
+        <p className="text-red-600">Error loading hot issues: {rawData.message}</p>
+      </div>
+    );
+  }
+  
+  const sortedTagStats = [...(rawData.tagStats || [])].sort((a, b) => b.count - a.count).slice(0, 6);
   
   const data: HotIssuesData = {
     topIssues: (rawData.topIssues || []) as HotIssue[],
-    categoryStats: sortedCategoryStats,
+    tagStats: sortedTagStats,
     totalIssues: rawData.totalIssues || 0,
     timeRange: filterParams?.isToday ? t("today") : t("last_7_days"),
     aiInsights: rawData.aiInsights
@@ -60,7 +70,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
   
   const isLoading = externalLoading;
 
-  const maxCount = Math.max(...data.categoryStats.map(s => s.count), 0);
+  const maxCount = Math.max(...data.tagStats.map(s => s.count), 0);
   
   let dynamicYAxisMax = 100;
   let yAxisStep = 20;
@@ -115,6 +125,19 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
     }
   };
 
+  const getRankNumberColor = (index: number) => {
+    switch (index) {
+      case 0: 
+        return 'text-blue-600';
+      case 1: 
+        return 'text-blue-500';
+      case 2: 
+        return 'text-blue-400';
+      default: 
+        return 'text-zinc-400';
+    }
+  };
+
   const displayedIssues = data.topIssues.slice(0, 5);
 
   if (isLoading) {
@@ -166,17 +189,24 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                   className={cn("flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-blue-100/50 transition-colors", bgColor)}
                 >
                 <div className="flex items-center gap-3 flex-1">
-                  <div className="flex items-center justify-center w-8  text-sm text-black">
+                  <div 
+                    className={cn("flex items-center justify-center w-8 text-sm font-medium leading-normal", getRankNumberColor(index))}
+                    style={{ fontFamily: '"PingFang SC"', letterSpacing: '0.1px' }}
+                  >
                     {String(index + 1).padStart(2, '0')}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm leading-tight text-zinc-900 mb-1">
-                      {issue.tag}
-                    </p>
+                    {issue.description && (
+                      <p className="text-sm font-normal leading-normal text-zinc-900 mb-1">
+                        {issue.description}
+                      </p>
+                    )}
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                      <span className="text-xs text-zinc-600">{issue.category}</span>
+                      <p className="text-xs font-normal leading-normal text-zinc-700">
+                        {issue.tag}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -200,7 +230,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
         </div>
 
         <div className="p-8">
-          <h3 className="text-base  mb-4">{t("category_issue_count")}</h3>
+          <h3 className="text-base  mb-4">{t("tag_issue_count")}</h3>
 
            <div className="h-80 relative">
              <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-zinc-500">
@@ -224,7 +254,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                ))}
 
               <div className="absolute left-0 right-0 bottom-0 h-full flex items-end justify-around px-4 gap-2">
-                {data.categoryStats.map((stat, index) => {
+                {data.tagStats.map((stat, index) => {
                   const blueShades = [
                     '#1D4ED8',
                     '#2563EB',
@@ -241,7 +271,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
 
                    return (
                      <div
-                       key={stat.category}
+                       key={stat.tag}
                        className="flex-1 flex flex-col items-center justify-end group max-w-[80px]"
                      >
                        <div className="relative w-full flex flex-col items-center">
@@ -259,7 +289,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 whitespace-nowrap">
                              <div className="flex items-center gap-2 bg-white rounded-lg px-5 py-2 shadow-lg border border-gray-200">
                                <div className="w-1 h-4 rounded-full" style={{ backgroundColor: barColor }}></div>
-                               <span className="text-sm font-medium text-zinc-900">{stat.category}</span>
+                               <span className="text-sm font-medium text-zinc-900">{stat.tag}</span>
                              </div>
                            </div>
                          </div>
@@ -271,12 +301,12 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
              </div>
              
              <div className="ml-12 mt-2 flex justify-around px-4 gap-2">
-               {data.categoryStats.map((stat) => (
+               {data.tagStats.map((stat) => (
                  <div
-                   key={stat.category}
+                   key={stat.tag}
                    className="text-xs text-zinc-600 text-center leading-tight px-1 max-w-[80px]"
                  >
-                   {stat.category}
+                   {stat.tag}
                  </div>
                ))}
              </div>

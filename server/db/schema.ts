@@ -271,11 +271,34 @@ export const tickets = tentix.table(
   ],
 );
 
-export const tags = tentix.table("tags", {
-  id: serial("id").primaryKey().notNull(),
-  name: varchar("name", { length: 64 }).notNull(),
-  description: text("description").notNull(),
-});
+export const tags = tentix.table(
+  "tags",
+  {
+    id: serial("id").primaryKey().notNull(),
+    name: varchar("name", { length: 64 }).notNull(),
+    description: text("description").notNull(),
+    isAiGenerated: boolean("is_ai_generated").default(false).notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idx_tags_name").on(table.name),
+    index("idx_tags_created_at").on(table.createdAt.desc()),
+  ],
+);
 
 export const ticketHistory = tentix.table("ticket_history", {
   id: serial("id").primaryKey().notNull(),
@@ -297,15 +320,33 @@ export const ticketHistory = tentix.table("ticket_history", {
     .notNull(),
 });
 
-export const ticketsTags = tentix.table("tickets_tags", {
-  id: serial("id").primaryKey().notNull(),
-  tagId: integer("tag_id")
-    .notNull()
-    .references(() => tags.id),
-  ticketId: char("ticket_id", { length: 13 })
-    .notNull()
-    .references(() => tickets.id),
-});
+export const ticketsTags = tentix.table(
+  "tickets_tags",
+  {
+    id: serial("id").primaryKey().notNull(),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+    ticketId: char("ticket_id", { length: 13 })
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    confidence: real("confidence").default(1.0).notNull(),
+    isAiGenerated: boolean("is_ai_generated").default(false).notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("tickets_tags_unique").on(table.ticketId, table.tagId),
+    index("idx_tickets_tags_ticket").on(table.ticketId),
+    index("idx_tickets_tags_tag").on(table.tagId),
+    index("idx_tickets_tags_created").on(table.createdAt.desc()),
+  ],
+);
 
 // Chat Messages
 export const chatMessages = tentix.table(
@@ -1043,47 +1084,5 @@ export const workflowTestTicket = tentix.table(
   (table) => [
     // 更新时间排序索引（用于列表查询）
     index("idx_workflow_test_tickets_updated_at").on(table.updatedAt.desc()),
-  ],
-);
-
-
-export const hotIssues = tentix.table(
-  "hot_issues",
-  {
-    id: serial("id").primaryKey().notNull(),
-    ticketId: char("ticket_id", { length: 13 })
-      .notNull()
-      .references(() => tickets.id, { onDelete: "cascade" }),
-    
-    issueCategory: varchar("issue_category", { length: 100 }).notNull(),
-    issueTag: varchar("issue_tag", { length: 100 }).notNull(),
-    
-    confidence: real("confidence").default(0).notNull(),
-    
-    isAiGenerated: boolean("is_ai_generated").default(true).notNull(),
-    
-    createdAt: timestamp("created_at", {
-      precision: 3,
-      mode: "string",
-      withTimezone: true,
-    })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", {
-      precision: 3,
-      mode: "string",
-      withTimezone: true,
-    })
-      .defaultNow()
-      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
-      .notNull(),
-  },
-  (table) => [
-    unique("hot_issues_ticket_unique").on(table.ticketId),
-    index("idx_hot_issues_category").on(table.issueCategory),
-    index("idx_hot_issues_tag").on(table.issueTag),
-    index("idx_hot_issues_created").on(table.createdAt.desc()),
-    index("idx_hot_issues_category_created").on(table.issueCategory, table.createdAt.desc()),
-    index("idx_hot_issues_tag_created").on(table.issueTag, table.createdAt.desc()),
   ],
 );

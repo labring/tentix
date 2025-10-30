@@ -1,46 +1,22 @@
-import { ChartContainer, ChartTooltip } from "tentix-ui";
-import type { ChartConfig } from "tentix-ui";
-import { PieChart, Pie, Cell, ResponsiveContainer} from "recharts";
+import { useRef, useEffect } from "react";
+import * as echarts from 'echarts';
+import type { EChartsOption } from 'echarts';
 import { ratingAnalysisQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
 
-const getRatingChartConfig = (t: any) => ({
-  "1星": {
-    label: `1${t("star")}`,
-    color: "#F87171",
-  },
-  "2星": {
-    label: `2${t("star")}`, 
-    color: "#FB923C",
-  },
-  "3星": {
-    label: `3${t("star")}`,
-    color: "#FACC15",
-  },
-  "4星": {
-    label: `4${t("star")}`,
-    color: "#3B82F6",
-  },
-  "5星": {
-    label: `5${t("star")}`,
-    color: "#2563EB",
-  },
-  "未评分": {
-    label: t("unrated"),
-    color: "#E4E4E7",
-  },
-}) satisfies ChartConfig;
+const getRatingColors = () => ({
+  unrated: "#E4E4E7",
+  "1": "#F87171",
+  "2": "#FB923C", 
+  "3": "#FACC15",
+  "4": "#3B82F6",
+  "5": "#2563EB",
+});
 
-const getHandoffChartConfig = (t: any) => ({
-  handoff: {
-    label: t("transferred_to_agent_tickets"),
-    color: "#FCD34D",
-  },
-  nonHandoff: {
-    label: t("not_transferred_to_agent_tickets"),
-    color: "#3B82F6",
-  },
-}) satisfies ChartConfig;
+const getHandoffColors = () => ({
+  handoff: "#FCD34D",
+  nonHandoff: "#3B82F6",
+});
 
 interface RatingAnalysisProps {
   filterParams?: {
@@ -94,8 +70,235 @@ export function RatingAnalysis({
 
   const totalTickets = data.handoffDistribution.totalTickets;
 
-  const ratingChartConfig = getRatingChartConfig(t);
-  const handoffChartConfig = getHandoffChartConfig(t);
+  const ratingColors = getRatingColors();
+  const handoffColors = getHandoffColors();
+
+  const ratingColorClassMap: Record<string, string> = {
+    unrated: 'bg-zinc-400',
+    '1': 'bg-red-400',
+    '2': 'bg-orange-400',
+    '3': 'bg-yellow-400',
+    '4': 'bg-blue-500',
+    '5': 'bg-blue-600',
+  };
+
+  const handoffColorClassMap: Record<string, string> = {
+    handoff: 'bg-amber-300',
+    nonHandoff: 'bg-blue-500',
+  };
+
+  // 简单的图表组件
+  function RatingChart({ option }: { option: EChartsOption }) {
+    const chartRef = useRef<HTMLDivElement>(null);
+    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
+    useEffect(() => {
+      if (!chartRef.current) return;
+
+      // 初始化图表
+      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
+      chartInstanceRef.current = chart;
+
+      // 监听窗口大小变化
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart.dispose();
+        chartInstanceRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (chartInstanceRef.current && option) {
+        chartInstanceRef.current.setOption(option, true);
+      }
+    }, [option]);
+
+    return <div ref={chartRef} className="h-[180px] w-[180px]" />;
+  }
+
+  function HandoffChart({ option }: { option: EChartsOption }) {
+    const chartRef = useRef<HTMLDivElement>(null);
+    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
+    useEffect(() => {
+      if (!chartRef.current) return;
+
+      // 初始化图表
+      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
+      chartInstanceRef.current = chart;
+
+      // 监听窗口大小变化
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart.dispose();
+        chartInstanceRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (chartInstanceRef.current && option) {
+        chartInstanceRef.current.setOption(option, true);
+      }
+    }, [option]);
+
+    return <div ref={chartRef} className="h-[180px] w-[180px]" />;
+  }
+
+  // 评分分布饼图配置
+  const ratingChartOption: EChartsOption = {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      padding: 0,
+      formatter: (params: any) => {
+        return `
+          <div class="min-w-[200px] bg-white border border-zinc-200 p-4">
+            <div class="font-medium mb-2 text-zinc-900">${params.name}</div>
+            <div class="border-t border-zinc-300 pt-2 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-zinc-600">${t('count')}</span>
+                <span class="font-semibold text-zinc-900">${params.value}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-zinc-600">${t('percentage')}</span>
+                <span class="font-semibold text-zinc-900">${params.data.percentage}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    },
+    series: [
+      {
+        type: 'pie',
+        radius: ['55%', '100%'],
+        center: ['50%', '50%'],
+        data: data.ratingDistribution.map(item => ({
+          name: item.name === "unrated" ? t("unrated") : `${item.name}${t("star")}`,
+          value: item.value,
+          percentage: item.percentage,
+          itemStyle: {
+            color: ratingColors[item.name as keyof typeof ratingColors],
+          }
+        })),
+        label: {
+          show: false,
+        },
+        labelLine: {
+          show: false,
+        },
+        emphasis: {
+          scale: false,
+          scaleSize: 5,
+        }
+      }
+    ],
+    graphic: [
+      {
+        type: 'text',
+        left: 'center',
+        top: '42%',
+        style: {
+          text: totalRatings.toString(),
+          fill: '#18181B',
+          fontSize: 30,
+          fontWeight: 'bold' as any,
+        }
+      },
+      {
+        type: 'text',
+        left: 'center',
+        top: '58%',
+        style: {
+          text: t("total_rating_count"),
+          fill: '#71717A',
+          fontSize: 14,
+        }
+      }
+    ] as any
+  };
+
+  // 转人工分布饼图配置
+  const handoffChartOption: EChartsOption = {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      padding: 0,
+      formatter: (params: any) => {
+        return `
+          <div class="min-w-[200px] bg-white border border-zinc-200 p-4">
+            <div class="font-medium mb-2 text-zinc-900">${params.name}</div>
+            <div class="border-t border-zinc-300 pt-2 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-zinc-600">${t('count')}</span>
+                <span class="font-semibold text-zinc-900">${params.value}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-zinc-600">${t('percentage')}</span>
+                <span class="font-semibold text-zinc-900">${params.data.percentage}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    },
+    series: [
+      {
+        type: 'pie',
+        radius: ['55%', '100%'],
+        center: ['50%', '50%'],
+        data: handoffData.map(item => ({
+          name: item.name,
+          value: item.value,
+          percentage: item.percentage,
+          itemStyle: {
+            color: handoffColors[item.type as keyof typeof handoffColors] || '#E4E4E7',
+          }
+        })),
+        label: {
+          show: false,
+        },
+        labelLine: {
+          show: false,
+        },
+        emphasis: {
+          scale: false,
+          scaleSize: 5,
+        }
+      }
+    ],
+    graphic: [
+      {
+        type: 'text',
+        left: 'center',
+        top: '42%',
+        style: {
+          text: totalTickets.toString(),
+          fill: '#18181B',
+          fontSize: 30,
+          fontWeight: 'bold' as any,
+        }
+      },
+      {
+        type: 'text',
+        left: 'center',
+        top: '58%',
+        style: {
+          text: t("total_tickets"),
+          fill: '#71717A',
+          fontSize: 14,
+        }
+      }
+    ] as any
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-[15px]">
@@ -114,71 +317,7 @@ export function RatingAnalysis({
             <div className="flex items-center gap-6">
               {/* 环形图 */}
               <div className="h-[180px] w-[180px]">
-                <ChartContainer config={ratingChartConfig} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={data.ratingDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={90}
-                        paddingAngle={0}
-                        dataKey="value"
-                        nameKey="name"
-                        labelLine={false}
-                      >
-                        {data.ratingDistribution.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={ratingChartConfig[entry.name as keyof typeof ratingChartConfig].color}
-                          />
-                        ))}
-                      </Pie>
-                      <ChartTooltip 
-                        cursor={false} 
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length && payload[0]?.payload) {
-                            const data = payload[0].payload;
-                            return (
-                              <div className="bg-white border border-zinc-200 rounded-lg shadow-lg p-3">
-                                <div className="space-y-1">
-                                  <div className="font-medium text-zinc-900">{data.name}</div>
-                                  <div className="text-sm text-zinc-600">
-                                    {t("count")}：<span className="font-semibold">{data.value}</span>
-                                  </div>
-                                  <div className="text-sm text-zinc-600">
-                                    {t("percentage")}：<span className="font-semibold">{data.percentage}%</span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      {/* 环形图中心文本 */}
-                      <text
-                        x="50%"
-                        y="45%"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        className="text-3xl font-bold fill-zinc-900"
-                      >
-                        {totalRatings}
-                      </text>
-                      <text
-                        x="50%"
-                        y="55%"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        className="text-sm fill-zinc-500"
-                      >
-                        {t("total_rating_count")}
-                      </text>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
+                <RatingChart option={ratingChartOption} />
               </div>
 
               {/* 图例列表 */}
@@ -188,11 +327,10 @@ export function RatingAnalysis({
                     <tr key={index} className="border-b border-zinc-200">
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                          <span
-                            className="w-2 h-2"
-                            style={{ backgroundColor: ratingChartConfig[item.name as keyof typeof ratingChartConfig].color }}
-                          ></span>
-                          <span className="text-sm text-zinc-700">{item.name}</span>
+                          <span className={`w-2 h-2 ${ratingColorClassMap[String(item.name)] || 'bg-zinc-400'}`}></span>
+                          <span className="text-sm text-zinc-700">
+                            {item.name === "unrated" ? t("unrated") : `${item.name}${t("star")}`}
+                          </span>
                         </div>
                       </td>
                       <td className="p-4 text-sm text-zinc-600">{t("percentage")}{item.percentage}%</td>
@@ -223,71 +361,7 @@ export function RatingAnalysis({
               <div className="flex items-center gap-6">
                 {/* 环形图 */}
                 <div className="h-[180px] w-[180px]">
-                  <ChartContainer config={handoffChartConfig} className="h-full w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={handoffData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={90}
-                          paddingAngle={0}
-                          dataKey="value"
-                          nameKey="name"
-                          labelLine={false}
-                        >
-                          {handoffData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={handoffChartConfig[entry.type as keyof typeof handoffChartConfig]?.color || '#E4E4E7'}
-                            />
-                          ))}
-                        </Pie>
-                        <ChartTooltip 
-                          cursor={false} 
-                          content={({ active, payload }) => {
-                            if (active && payload && payload.length && payload[0]?.payload) {
-                              const data = payload[0].payload;
-                              return (
-                                <div className="bg-white border border-zinc-200 rounded-lg shadow-lg p-3">
-                                  <div className="space-y-1">
-                                    <div className="font-medium text-zinc-900">{data.name}</div>
-                                    <div className="text-sm text-zinc-600">
-                                      {t("count")}：<span className="font-semibold">{data.value}</span>
-                                    </div>
-                                    <div className="text-sm text-zinc-600">
-                                      {t("percentage")}：<span className="font-semibold">{data.percentage}%</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        {/* 环形图中心文本 */}
-                        <text
-                          x="50%"
-                          y="45%"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          className="text-3xl font-bold fill-zinc-900"
-                        >
-                          {totalTickets}
-                        </text>
-                        <text
-                          x="50%"
-                          y="55%"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          className="text-sm fill-zinc-500"
-                        >
-                          {t("total_tickets")}
-                        </text>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
+                  <HandoffChart option={handoffChartOption} />
                 </div>
 
                 {/* 图例列表 */}
@@ -297,10 +371,7 @@ export function RatingAnalysis({
                       <tr key={index} className="border-b border-zinc-200">
                         <td className="p-4">
                           <div className="flex items-center gap-2">
-                            <span
-                              className="w-2 h-2"
-                              style={{ backgroundColor: handoffChartConfig[item.type as keyof typeof handoffChartConfig]?.color || '#E4E4E7' }}
-                            ></span>
+                            <span className={`w-2 h-2 ${handoffColorClassMap[String(item.type)] || 'bg-zinc-300'}`}></span>
                             <span className="text-sm text-zinc-700">{item.name}</span>
                           </div>
                         </td>

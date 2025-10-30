@@ -1,24 +1,23 @@
-import { ChartContainer, ChartTooltip, ChartTooltipContent, Alert, AlertDescription, AlertTitle } from "tentix-ui";
-import type { ChartConfig } from "tentix-ui";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { useRef, useEffect } from "react";
+import { Alert, AlertDescription, AlertTitle } from "tentix-ui";
+import * as echarts from 'echarts';
+import type { EChartsOption } from 'echarts';
 import { Droplets, TriangleAlert } from "lucide-react";
 import { PendingIcon, ProgressIcon, DoneIcon } from "tentix-ui";
-import { analyticsOverviewQueryOptions, useSuspenseQuery } from "@lib/query";
+import { ticketStatusAnalysisQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
-const getChartConfig = (t: any) => ({
-  pending: {
-    label: t("pending"),
-    color: "#E4E4E7",
-  },
-  in_progress: {
-    label: t("in_progress"), 
-    color: "#FACC15",
-  },
-  resolved: {
-    label: t("resolved"),
-    color: "#2563EB", 
-  },
-}) satisfies ChartConfig;
+
+const getChartColors = () => ({
+  pending: "#E4E4E7",
+  in_progress: "#FACC15",
+  resolved: "#2563EB",
+});
+
+const getChartLabels = (t: any) => ({
+  pending: t("pending"),
+  in_progress: t("in_progress"),
+  resolved: t("resolved"),
+});
 
 interface TicketStatusAnalysisProps {
   filterParams?: {
@@ -33,7 +32,7 @@ interface TicketStatusAnalysisProps {
 export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading }: TicketStatusAnalysisProps) {
   const { t } = useTranslation();
   
-  const { data } = useSuspenseQuery(analyticsOverviewQueryOptions(filterParams));
+  const { data } = useSuspenseQuery(ticketStatusAnalysisQueryOptions(filterParams));
 
   if (externalLoading || !data) {
     return (
@@ -56,7 +55,40 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
   ];
 
   const totalTickets = ticketData.reduce((sum, item) => sum + item.value, 0);
-  const chartConfig = getChartConfig(t);
+  const chartColors = getChartColors();
+  const chartLabels = getChartLabels(t);
+
+  // 简单的图表组件
+  function StatusChart({ option }: { option: EChartsOption }) {
+    const chartRef = useRef<HTMLDivElement>(null);
+    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
+    useEffect(() => {
+      if (!chartRef.current) return;
+
+      // 初始化图表
+      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
+      chartInstanceRef.current = chart;
+
+      // 监听窗口大小变化
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart.dispose();
+        chartInstanceRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (chartInstanceRef.current && option) {
+        chartInstanceRef.current.setOption(option, true);
+      }
+    }, [option]);
+
+    return <div ref={chartRef} style={{ width: '192px', height: '192px' }} />;
+  }
 
   // 关键指标数据
   const keyMetrics = [
@@ -86,6 +118,93 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
     },
   ];
 
+  // ECharts 配置
+  const chartOption: EChartsOption = {
+    tooltip: {
+      trigger: 'item',
+      show: true,
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      padding: 0,
+      formatter: (params: any) => {
+        const name = params?.name as keyof typeof chartLabels;
+        const value = Number(params?.value || 0);
+        const percent = totalTickets > 0 ? ((value / totalTickets) * 100).toFixed(1) : '0.0';
+        const label = chartLabels[name] || '';
+        const colorClassMap: Record<string, string> = {
+          pending: 'bg-zinc-400',
+          in_progress: 'bg-yellow-400',
+          resolved: 'bg-blue-600'
+        };
+        const colorClass = colorClassMap[String(name)] || 'bg-zinc-400';
+        return `
+          <div class="min-w-[180px] bg-white border border-zinc-200 p-4">
+            <div class="flex items-center gap-2 mb-2 text-zinc-900">
+              <div class="w-2 h-2 ${colorClass}"></div>
+              <div class="font-medium">${label}</div>
+            </div>
+            <div class="border-t border-zinc-300 pt-2 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-zinc-600">${t('times')}</span>
+                <span class="font-semibold text-zinc-900">${value}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-zinc-600">${t('percentage')}</span>
+                <span class="font-semibold text-zinc-900">${percent}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    },
+    series: [
+      {
+        type: 'pie',
+        radius: ['62%', '100%'],
+        center: ['50%', '50%'],
+        data: ticketData.map(item => ({
+          name: item.name,
+          value: item.value,
+          itemStyle: {
+            color: chartColors[item.name as keyof typeof chartColors],
+          }
+        })),
+        label: {
+          show: false,
+        },
+        labelLine: {
+          show: false,
+        },
+        emphasis: {
+          scale: false,
+        }
+      }
+    ],
+    graphic: [
+      {
+        type: 'text',
+        left: 'center',
+        top: '42%',
+        style: {
+          text: totalTickets.toString(),
+          fill: '#18181B',
+          fontSize: 30,
+          fontWeight: 'bold' as any,
+        }
+      },
+      {
+        type: 'text',
+        left: 'center',
+        top: '57%',
+        style: {
+          text: `${t("total")}${t("tkt_other")}`,
+          fill: '#71717A',
+          fontSize: 12,
+        }
+      }
+    ] as any
+  };
+
   return (
     <div className="w-full max-w-none min-w-0 px-0 mx-0">
       {/* 标题 */}
@@ -108,44 +227,7 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
               {/* 环形图和图例 - 使用Frame组件布局 */}
               <div className="inline-flex flex-col items-center gap-6 relative">
                 <div className="flex flex-col items-center gap-9 relative" style={{ width: '192px', height: '192px', flexShrink: 0 }}>
-                  <div className="relative flex-1 self-stretch w-full grow">
-                    <div className="relative h-full">
-                      <ChartContainer config={chartConfig} className="h-full w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={ticketData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={50}
-                              outerRadius={80}
-                              paddingAngle={0}
-                              dataKey="value"
-                              nameKey="name"
-                              labelLine={false}
-                            >
-                              {ticketData.map((entry, index) => (
-                                <Cell
-                                  key={`cell-${index}`}
-                                  fill={chartConfig[entry.name as keyof typeof chartConfig].color}
-                                />
-                              ))}
-                            </Pie>
-                            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </ChartContainer>
-                    </div>
-                  </div>
-
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center">
-                    <div className="font-bold text-foreground text-3xl text-center tracking-normal leading-normal whitespace-nowrap">
-                      {totalTickets}
-                    </div>
-                    <div className="font-normal text-muted-foreground text-xs text-center tracking-normal leading-normal whitespace-nowrap">
-                      {t("total")}{t("tkt_other")}
-                    </div>
-                  </div>
+                  <StatusChart option={chartOption} />
                 </div>
 
                 {/* 图例表格 */}
@@ -163,7 +245,7 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
                               }`}
                             />
                             <div className="relative w-fit font-normal text-zinc-600 text-sm text-center tracking-normal leading-normal whitespace-nowrap">
-                              {chartConfig[item.name as keyof typeof chartConfig].label}
+                              {chartLabels[item.name as keyof typeof chartLabels]}
                             </div>
                           </div>
                         </div>
@@ -223,9 +305,9 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
                 <h3 className="text-lg text-zinc-600">{t("suggestions")}</h3>
               <Alert variant="destructive" className="border-1 border-dashed border-black p-4 bg-gray-50">
                 
-                 <AlertTitle className="text-black flex items-center gap-2"><TriangleAlert className="h-4 w-4 text-red-600" />{t("tkt_backlog_rate_error")}</AlertTitle>
-                <AlertDescription className="text-black">
-                  当前未处理工单占比 <span className="text-red-600 ">{data.backlogRate}%</span>，超过正常水平，建议增加处理人力。
+                 <AlertTitle className="flex items-center gap-2 font-normal text-zinc-800"><TriangleAlert className="h-4 w-4 text-red-600" />{t("tkt_backlog_rate_error")}</AlertTitle>
+                <AlertDescription className="text-zinc-800">
+                  {t("current_backlog_percentage")} <span className="text-red-600 ">{data.backlogRate}%</span>，{t("exceed_normal_level")}，{t("suggest_increase_staff")}。
                 </AlertDescription>
               </Alert>
             </div>

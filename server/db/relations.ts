@@ -24,7 +24,6 @@ import {
   aiRoleConfig,
   workflowTestTicket,
   workflowTestMessage,
-  hotIssues,
 } from "./schema.ts";
 
 // Define relations for detailed tickets
@@ -57,7 +56,6 @@ export const ticketsRelations = relations(tickets, ({ many, one }) => ({
   historyConversationKnowledge: one(historyConversationKnowledge), // 工单最多只能有一条历史对话知识记录
 
   handoffRecord: one(handoffRecords), // 工单可以有一条转人工请求记录
-  hotIssue: one(hotIssues), // 工单最多只能有一条热点问题记录
 }));
 
 export const ticketHistoryRelations = relations(ticketHistory, ({ one }) => ({
@@ -387,11 +385,3 @@ export const workflowTestMessageRelation = relations(
     }),
   }),
 );
-
-// 热点问题关联关系
-export const hotIssuesRelations = relations(hotIssues, ({ one }) => ({
-  ticket: one(tickets, {
-    fields: [hotIssues.ticketId],
-    references: [tickets.id],
-  }),
-}));

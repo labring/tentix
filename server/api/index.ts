@@ -23,6 +23,7 @@ import { websocket } from "@/utils/websocket.ts";
 // register events
 import "@/utils/events/handoff/index.ts";
 import "@/utils/events/kb/index.ts";
+import "@/utils/events/ticket/index.ts";
 
 const app = factory.createApp();
 

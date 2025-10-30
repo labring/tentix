@@ -1,27 +1,8 @@
-import { useMemo } from "react";
-import { ChartContainer, ChartTooltip } from "tentix-ui";
-import type { ChartConfig } from "tentix-ui";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { useMemo, useRef, useEffect } from "react";
+import * as echarts from 'echarts';
+import type { EChartsOption } from 'echarts';
 import { ticketTrendsQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
-
-const getTrendChartConfig = (t: any) => ({
-  count: {
-    label: t("ticket_count"),
-    color: "#2563EB",
-  },
-}) satisfies ChartConfig;
-
-const getResponseChartConfig = (t: any) => ({
-  firstResponse: {
-    label: t("average_first_response_time"),
-    color: "#10B981",
-  },
-  resolution: {
-    label: t("average_resolution_time"), 
-    color: "#2563EB",
-  },
-}) satisfies ChartConfig;
 
 interface FilterParams {
   startDate?: string;
@@ -273,8 +254,309 @@ export function TicketTrendChart({
     return `${min.toFixed(1)} - ${max.toFixed(1)} ${t("hours")}`;
   };
 
-  const trendChartConfig = getTrendChartConfig(t);
-  const responseChartConfig = getResponseChartConfig(t);
+  // 简单的图表组件
+  function TrendChart({ option }: { option: EChartsOption }) {
+    const chartRef = useRef<HTMLDivElement>(null);
+    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
+    useEffect(() => {
+      if (!chartRef.current) return;
+
+      // 初始化图表
+      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
+      chartInstanceRef.current = chart;
+
+      // 监听窗口大小变化
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart.dispose();
+        chartInstanceRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (chartInstanceRef.current && option) {
+        chartInstanceRef.current.setOption(option, true);
+      }
+    }, [option]);
+
+    return <div ref={chartRef} className="h-120 w-full" />;
+  }
+
+  function ResponseChart({ option }: { option: EChartsOption }) {
+    const chartRef = useRef<HTMLDivElement>(null);
+    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
+    useEffect(() => {
+      if (!chartRef.current) return;
+
+      // 初始化图表
+      const chart = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
+      chartInstanceRef.current = chart;
+
+      // 监听窗口大小变化
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart.dispose();
+        chartInstanceRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (chartInstanceRef.current && option) {
+        chartInstanceRef.current.setOption(option, true);
+      }
+    }, [option]);
+
+    return <div ref={chartRef} className="h-90 w-full" />;
+  }
+
+  // ECharts配置 - 工单数量趋势
+  const trendChartOption: EChartsOption = {
+    grid: {
+      top: 20,
+      right: 10,
+      left: 25,
+      bottom: 40,
+      containLabel: false,
+    },
+    xAxis: {
+      type: 'category',
+      data: formattedTrendsData.map(d => d.displayDate),
+      axisLine: {
+        lineStyle: {
+          color: '#D1D5DB',
+          width: 1,
+        }
+      },
+      axisLabel: {
+        fontSize: 11,
+        color: '#6B7280',
+        interval: granularity === "hour" ? 1 : 'auto',
+      },
+      axisTick: {
+        show: false,
+      }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: {
+        show: false,
+      },
+      axisLabel: {
+        fontSize: 12,
+        color: '#6B7280',
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#E4E4E7',
+          type: 'dashed',
+        }
+      },
+      axisTick: {
+        show: false,
+      }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      padding: 0,
+      formatter: (params: any) => {
+        const param = params[0];
+        const dataIndex = param?.dataIndex;
+        if (dataIndex === undefined) return '';
+        const item = formattedTrendsData[dataIndex];
+        if (!item) return '';
+        return `
+          <div class="min-w-[200px] bg-white border border-zinc-200 p-4">
+            <div class="font-medium mb-2 text-zinc-900">${item.fullDate}</div>
+            <div class="border-t border-zinc-300 pt-2">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-2 h-2 bg-blue-600"></div>
+                  <span class="text-sm text-zinc-600">${t('ticket_count')}</span>
+                </div>
+                <span class="font-semibold text-zinc-900">${item.count}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      },
+      axisPointer: {
+        type: 'line',
+        lineStyle: {
+          color: '#E4E4E7',
+          width: 1,
+        }
+      }
+    },
+    series: [
+      {
+        type: 'line',
+        data: formattedTrendsData.map(d => d.count),
+        showSymbol: false,
+        lineStyle: {
+          color: '#2563EB',
+          width: 2,
+        },
+        itemStyle: {
+          color: '#2563EB',
+          borderWidth: 2,
+        },
+        symbolSize: 8,
+        emphasis: {
+          itemStyle: {
+            borderWidth: 2,
+            shadowBlur: 10,
+            shadowColor: 'rgba(37, 99, 235, 0.3)',
+          },
+          scale: 1.5,
+        }
+      }
+    ]
+  };
+
+  // ECharts配置 - 响应时长趋势
+  const responseChartOption: EChartsOption = {
+    grid: {
+      top: 20,
+      right: 10,
+      left: 20,
+      bottom: 50,
+      containLabel: false,
+    },
+    xAxis: {
+      type: 'category',
+      data: formattedResponseData.map(d => d.displayDate),
+      axisLine: {
+        lineStyle: {
+          color: '#D1D5DB',
+          width: 1,
+        }
+      },
+      axisLabel: {
+        fontSize: 11,
+        color: '#6B7280',
+        interval: granularity === "hour" ? 1 : 'auto',
+      },
+      axisTick: {
+        show: false,
+      }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: {
+        show: false,
+      },
+      axisLabel: {
+        fontSize: 12,
+        color: '#6B7280',
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#E4E4E7',
+          type: 'dashed',
+        }
+      },
+      axisTick: {
+        show: false,
+      }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      padding: 0,
+      formatter: (params: any) => {
+        const dataIndex = params[0]?.dataIndex;
+        if (dataIndex === undefined) return '';
+        const item = formattedResponseData[dataIndex];
+        if (!item) return '';
+        let content = `
+          <div class="min-w-[240px] bg-white border border-zinc-200 p-4">
+            <div class="font-medium mb-2 text-zinc-900">${item.fullDate}</div>
+            <div class="border-t border-zinc-300 pt-2">
+        `;
+        params.forEach((param: any) => {
+          const label = param.seriesName === 'firstResponse' ? t('average_first_response_time') : t('average_resolution_time');
+          const colorClass = param.seriesName === 'firstResponse' ? 'bg-green-500' : 'bg-blue-600';
+          content += `
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <div class="flex items-center gap-2">
+                <div class="w-2 h-2 ${colorClass}"></div>
+                <span class="text-sm text-zinc-600">${label}</span>
+              </div>
+              <span class="font-semibold text-zinc-900">${param.value} ${t('hours')}</span>
+            </div>
+          `;
+        });
+        content += `</div></div>`;
+        return content;
+      },
+      axisPointer: {
+        type: 'line',
+        lineStyle: {
+          color: '#E4E4E7',
+          width: 1,
+        }
+      }
+    },
+    series: [
+      {
+        name: 'firstResponse',
+        type: 'line',
+        data: formattedResponseData.map(d => d.firstResponse),
+        showSymbol: false,
+        lineStyle: {
+          color: '#10B981',
+          width: 2,
+        },
+        itemStyle: {
+          color: '#10B981',
+          borderWidth: 2,
+        },
+        symbolSize: 8,
+        emphasis: {
+          itemStyle: {
+            borderWidth: 2,
+            shadowBlur: 10,
+            shadowColor: 'rgba(16, 185, 129, 0.3)',
+          },
+          scale: 1.5,
+        }
+      },
+      {
+        name: 'resolution',
+        type: 'line',
+        data: formattedResponseData.map(d => d.resolution),
+        showSymbol: false,
+        lineStyle: {
+          color: '#2563EB',
+          width: 2,
+        },
+        itemStyle: {
+          color: '#2563EB',
+          borderWidth: 2,
+        },
+        symbolSize: 8,
+        emphasis: {
+          itemStyle: {
+            borderWidth: 2,
+            shadowBlur: 10,
+            shadowColor: 'rgba(37, 99, 235, 0.3)',
+          },
+          scale: 1.5,
+        }
+      }
+    ]
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-[15px]">
@@ -304,73 +586,7 @@ export function TicketTrendChart({
 
         {/* 左侧图表内容 */}
         <div className="p-8">
-          <div className="h-120 flex items-center justify-center">
-            <ChartContainer config={trendChartConfig} className="h-full w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={formattedTrendsData} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
-                  <CartesianGrid 
-                    strokeDasharray="3 3" 
-                    stroke="#E4E4E7"
-                    horizontal={true}
-                    vertical={false}
-                  />
-                  <XAxis 
-                    dataKey="displayDate" 
-                    stroke="#D1D5DB"
-                    strokeWidth={1}
-                    fontSize={11}
-                    angle={0}
-                    textAnchor="middle"
-                    height={40}
-                    interval={granularity === "hour" ? 1 : "preserveStartEnd"}
-                  />
-                  <YAxis 
-                    stroke="none" 
-                    fontSize={12}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <ChartTooltip
-                    cursor={{ stroke: "#E4E4E7", strokeWidth: 1 }}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length && payload[0]?.payload) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-white border border-zinc-200 rounded-lg shadow-lg w-[200px] p-4 flex flex-col justify-center items-start gap-2">
-                            <div className="text-sm font-medium text-zinc-900">
-                              {data.fullDate}
-                            </div>
-                            <div className="border-t border-zinc-300 w-full"></div>
-                            <div className="flex items-center justify-between gap-2 w-full">
-                              <div className="flex items-center gap-2">
-                                <div 
-                                  className="w-2 h-2"
-                                  style={{ backgroundColor: payload[0]?.color || '#2563EB' }}
-                                ></div>
-                                <span className="text-sm text-zinc-600">
-                                  {t("ticket_count")}
-                                </span>
-                              </div>
-                              <span className="font-semibold text-zinc-900">{data.count}</span>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="count"
-                    stroke={trendChartConfig.count.color}
-                    strokeWidth={2}
-                    dot={{ fill: trendChartConfig.count.color, strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, stroke: trendChartConfig.count.color, strokeWidth: 2 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </div>
+          <TrendChart option={trendChartOption} />
         </div>
       </div>
 
@@ -424,85 +640,7 @@ export function TicketTrendChart({
             {/* 响应时长趋势图表 */}
             <div className="h-90 flex items-center justify-center">
               {(formattedResponseData.length > 0 || granularity === "hour") ? (
-                <ChartContainer config={responseChartConfig} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={formattedResponseData} margin={{ top: 20, right: 10, left: -30, bottom: 10 }}>
-                      <CartesianGrid 
-                        strokeDasharray="3 3" 
-                        stroke="#E4E4E7"
-                        horizontal={true}
-                        vertical={false}
-                      />
-                      <XAxis 
-                        dataKey="displayDate" 
-                        stroke="#D1D5DB"
-                        strokeWidth={1}
-                        fontSize={11}
-                        angle={0}
-                        textAnchor="middle"
-                        height={40}
-                        interval={granularity === "hour" ? 1 : "preserveStartEnd"}
-                      />
-                      <YAxis 
-                        stroke="none" 
-                        fontSize={12}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <ChartTooltip
-                        cursor={{ stroke: "#E4E4E7", strokeWidth: 1 }}
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length && payload[0]?.payload) {
-                            const data = payload[0].payload;
-                            return (
-                              <div className="bg-white border border-zinc-200 rounded-lg shadow-lg w-[240px] p-4 flex flex-col justify-center items-start gap-2">
-                                <div className="text-sm font-medium text-zinc-900">
-                                  {data.fullDate}
-                                </div>
-                                <div className="border-t border-zinc-300 w-full"></div>
-                                <div className="flex flex-col gap-2 w-full">
-                                  {payload.map((entry, index) => (
-                                    <div key={index} className="flex items-center justify-between gap-2 w-full">
-                                      <div className="flex items-center gap-2">
-                                        <div 
-                                          className="w-2 h-2"
-                                          style={{ backgroundColor: entry.color || '#2563EB' }}
-                                        ></div>
-                                        <span className="text-sm text-zinc-600">
-                                          {entry.dataKey === 'firstResponse' ? t("average_first_response_time") : t("average_resolution_time")}
-                                        </span>
-                                      </div>
-                                      <span className="font-semibold text-zinc-900">
-                                        {entry.value} {t("hours")}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="firstResponse"
-                        stroke={responseChartConfig.firstResponse.color}
-                        strokeWidth={2}
-                        dot={{ fill: responseChartConfig.firstResponse.color, strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: responseChartConfig.firstResponse.color, strokeWidth: 2 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="resolution"
-                        stroke={responseChartConfig.resolution.color}
-                        strokeWidth={2}
-                        dot={{ fill: responseChartConfig.resolution.color, strokeWidth: 2, r: 4 }}
-                        activeDot={{ r: 6, stroke: responseChartConfig.resolution.color, strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
+                <ResponseChart option={responseChartOption} />
               ) : (
                 <div className="h-full flex items-center justify-center text-zinc-500">
                   {t("no_data")}
