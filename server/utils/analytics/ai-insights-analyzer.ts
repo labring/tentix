@@ -25,11 +25,36 @@ const aiInsightsSchema = z.object({
 
 export type AIInsightsResult = z.infer<typeof aiInsightsSchema>;
 
+//限制时间
+const AI_INSIGHTS_TIMEOUT_MS = 20000;
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
+    ),
+  ]);
+}
+
 export async function generateAIInsights(
   topIssues: HotIssueData[],
   tagStats: TagData[],
   totalIssues: number
 ): Promise<AIInsightsResult> {
+  // 检查 OpenAI 配置是否存在
+  if (!OPENAI_CONFIG.apiKey || !OPENAI_CONFIG.summaryModel || !OPENAI_CONFIG.baseURL) {
+    logError("OpenAI config not available, skipping AI insights generation");
+    return {
+      keyFindings: [],
+      improvements: [],
+      strategy: "AI 服务未配置，无法生成分析洞察",
+    };
+  }
+
   try {
     const model = new ChatOpenAI({
       apiKey: OPENAI_CONFIG.apiKey,
@@ -93,9 +118,12 @@ TOP问题：
 
 只输出 { "keyFindings": [...], "improvements": [...], "strategy": "..." } 的 JSON。`;
 
-    const out = await model
-      .withStructuredOutput(aiInsightsSchema)
-      .invoke(prompt);
+    const structuredModel = model.withStructuredOutput(aiInsightsSchema);
+    const out = await withTimeout(
+      structuredModel.invoke(prompt),
+      AI_INSIGHTS_TIMEOUT_MS,
+      `AI insights generation timeout after ${AI_INSIGHTS_TIMEOUT_MS}ms`
+    );
 
     return {
       keyFindings: out.keyFindings || [],
@@ -103,7 +131,13 @@ TOP问题：
       strategy: out.strategy || "",
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     logError("generateAIInsights", error);
+  //记超时信息
+    if (errorMessage.includes("timeout")) {
+      logError(`AI insights generation timed out after ${AI_INSIGHTS_TIMEOUT_MS}ms`);
+    }
+    
     return {
       keyFindings: [],
       improvements: [],

@@ -39,64 +39,68 @@ export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
         );
       }
 
-      // 1. 获取标签统计
-      const tagStatsRaw = await db
-        .select({
-          tag: schema.tags.name,
-          tagDescription: schema.tags.description,
-          tagId: schema.tags.id,
-          count: sql<number>`count(DISTINCT ${schema.ticketsTags.ticketId})`,
-          avgConfidence: sql<number>`avg(${schema.ticketsTags.confidence})`,
-        })
-        .from(schema.tags)
-        .innerJoin(
-          schema.ticketsTags,
-          eq(schema.tags.id, schema.ticketsTags.tagId)
-        )
-        .where(
-          and(
-            gte(schema.ticketsTags.createdAt, start.toISOString()),
-            lte(schema.ticketsTags.createdAt, end.toISOString())
+      // 1. 计算开始时间
+      const previousStart = new Date(
+        start.getTime() - (end.getTime() - start.getTime())
+      );
+
+      // 2. 并行执行
+      const [tagStatsRaw, previousIssueStats] = await Promise.all([
+        // 查询当前周期标签统计
+        db
+          .select({
+            tag: schema.tags.name,
+            tagDescription: schema.tags.description,
+            tagId: schema.tags.id,
+            count: sql<number>`count(DISTINCT ${schema.ticketsTags.ticketId})`,
+            avgConfidence: sql<number>`avg(${schema.ticketsTags.confidence})`,
+          })
+          .from(schema.tags)
+          .innerJoin(
+            schema.ticketsTags,
+            eq(schema.tags.id, schema.ticketsTags.tagId)
           )
-        )
-        .groupBy(schema.tags.id, schema.tags.name, schema.tags.description)
-        .orderBy(sql`count(DISTINCT ${schema.ticketsTags.ticketId}) DESC`)
-        .limit(limitNum);
+          .where(
+            and(
+              gte(schema.ticketsTags.createdAt, start.toISOString()),
+              lte(schema.ticketsTags.createdAt, end.toISOString())
+            )
+          )
+          .groupBy(schema.tags.id, schema.tags.name, schema.tags.description)
+          .orderBy(sql`count(DISTINCT ${schema.ticketsTags.ticketId}) DESC`)
+          .limit(limitNum),
+        // 查询上一周期数据用于对比趋势
+        db
+          .select({
+            tagId: schema.tags.id,
+            count: sql<number>`count(DISTINCT ${schema.ticketsTags.ticketId})`,
+          })
+          .from(schema.tags)
+          .innerJoin(
+            schema.ticketsTags,
+            eq(schema.tags.id, schema.ticketsTags.tagId)
+          )
+          .where(
+            and(
+              gte(schema.ticketsTags.createdAt, previousStart.toISOString()),
+              lte(schema.ticketsTags.createdAt, start.toISOString())
+            )
+          )
+          .groupBy(schema.tags.id),
+      ]);
 
       const totalIssues = tagStatsRaw.reduce(
         (sum, item) => sum + Number(item.count),
         0
       );
 
-      // 2. 处理标签数据
+      // 3. 处理标签数据
       const topIssues = tagStatsRaw.map((issue) => ({
         tag: issue.tag,
         count: Number(issue.count),
         confidence: Number(issue.avgConfidence),
         description: issue.tagDescription,
       }));
-
-      // 3. 获取上一周期的数据用于对比趋势
-      const previousStart = new Date(
-        start.getTime() - (end.getTime() - start.getTime())
-      );
-      const previousIssueStats = await db
-        .select({
-          tagId: schema.tags.id,
-          count: sql<number>`count(DISTINCT ${schema.ticketsTags.ticketId})`,
-        })
-        .from(schema.tags)
-        .innerJoin(
-          schema.ticketsTags,
-          eq(schema.tags.id, schema.ticketsTags.tagId)
-        )
-        .where(
-          and(
-            gte(schema.ticketsTags.createdAt, previousStart.toISOString()),
-            lte(schema.ticketsTags.createdAt, start.toISOString())
-          )
-        )
-        .groupBy(schema.tags.id);
 
       const previousMap = new Map(
         previousIssueStats.map((item) => [item.tagId, Number(item.count)])
@@ -146,14 +150,20 @@ export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
             : 0,
       }));
 
-      // 6. 生成 AI 洞察（可选）
+      // 6. 生成 AI 洞察
       let aiInsights;
       try {
-        aiInsights = await generateAIInsights(
-          topIssuesWithTrend,
-          tagDistribution,
-          totalIssues
-        );
+        const AI_TIMEOUT = 20000;
+        aiInsights = await Promise.race([
+          generateAIInsights(
+            topIssuesWithTrend,
+            tagDistribution,
+            totalIssues
+          ),
+          new Promise<undefined>((_, reject) =>
+            setTimeout(() => reject(new Error("AI analysis timeout")), AI_TIMEOUT)
+          ),
+        ]);
       } catch (error) {
         console.error("Failed to generate AI insights:", error);
         aiInsights = undefined;
