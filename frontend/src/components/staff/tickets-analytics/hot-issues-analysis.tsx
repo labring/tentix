@@ -1,6 +1,7 @@
 import { Badge, cn } from "tentix-ui";
-import { TrendingUp, TrendingDown, Minus, Sparkles, BarChartBig } from "lucide-react";
-import { hotIssuesQueryOptions, useSuspenseQuery } from "@lib/query";
+import { TrendingUp, TrendingDown, Minus, Sparkles, BarChartBig, AlertCircle } from "lucide-react";
+import { hotIssuesQueryOptions } from "@lib/analytics-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "i18n";
 
 interface HotIssue {
@@ -47,14 +48,95 @@ interface HotIssuesAnalysisProps {
 //热点问题分析
 export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: HotIssuesAnalysisProps) {
   const { t } = useTranslation();
-  const { data: rawData } = useSuspenseQuery(hotIssuesQueryOptions(filterParams));
+  const { data: rawData, isLoading: queryLoading, error, isError } = useQuery(
+    hotIssuesQueryOptions(filterParams)
+  );
   
-  //检查响应
+  const isLoading = externalLoading || queryLoading;
+  
+  // 错误状态-不阻塞其他组件
+  if (isError) {
+    console.error('Hot issues API error:', error);
+    const isTimeout = error instanceof Error && (
+      error.message.includes("timeout") || 
+      error.message.includes("超时") ||
+      error.message.includes("timed out")
+    );
+    
+    return (
+      <div className="w-full bg-white rounded-lg border border-orange-200 shadow-sm">
+        <div className="flex h-16 p-6 justify-between items-center flex-shrink-0 border-b border-orange-200">
+          <h2 className="text-xl text-zinc-900 flex items-center gap-2">
+            {t("hot_issues_analysis")}
+          </h2>
+        </div>
+        <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[300px]">
+          <AlertCircle className="h-12 w-12 text-orange-500" />
+          <div className="text-center max-w-md">
+            <p className="text-base font-medium text-zinc-900 mb-2">
+              {isTimeout 
+                ? (t("request_timeout"))
+                : (t("data_loading_failed"))
+              }
+            </p>
+            <p className="text-sm text-zinc-600 mb-4">
+              {isTimeout 
+                ? (t("request_timeout_message"))
+                : (error instanceof Error ? error.message : (t("network_error_message")))
+              }
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+            >
+              {t("retry")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  //加载中或数据为空
+  if (!rawData || isLoading) {
+    return (
+      <div className="w-full">
+        <div className="bg-white border border-zinc-200 rounded-lg p-4 shadow-sm">
+          <div className="animate-pulse">
+            <div className="h-6 bg-zinc-200 rounded w-48 mb-2"></div>
+            <div className="h-4 bg-zinc-200 rounded w-32"></div>
+          </div>
+        </div>
+        <div className="bg-white border-l border-r border-b border-zinc-200 rounded-b-lg p-6">
+          <div className="animate-pulse space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-16 bg-zinc-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  //检查响应格式错误
   if ('message' in rawData) {
     console.error('Hot issues API error:', rawData.message);
     return (
-      <div className="w-full p-4 bg-red-50 border border-red-200 rounded-lg">
-        <p className="text-red-600">Error loading hot issues: {rawData.message}</p>
+      <div className="w-full bg-white rounded-lg border border-orange-200">
+        <div className="flex h-16 p-6 justify-between items-center flex-shrink-0 border-b border-orange-200">
+          <h2 className="text-xl text-zinc-900 flex items-center gap-2">
+            {t("hot_issues_analysis")}
+          </h2>
+        </div>
+        <div className="p-8 flex flex-col items-center justify-center gap-4 min-h-[300px]">
+          <AlertCircle className="h-12 w-12 text-orange-500" />
+          <div className="text-center">
+            <p className="text-base font-medium text-zinc-900 mb-2">
+              {t("data_error")}
+            </p>
+            <p className="text-sm text-zinc-600">{rawData.message}</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -68,8 +150,6 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
     timeRange: filterParams?.isToday ? t("today") : t("last_7_days"),
     aiInsights: rawData.aiInsights
   };
-  
-  const isLoading = externalLoading;
   //计算标签问题数量最大值
   const maxCount = Math.max(...data.tagStats.map(s => s.count), 0);
   let dynamicYAxisMax = 100;
@@ -330,46 +410,64 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
             {t("intelligent_analysis_insights")}
             <Sparkles className="h-5 w-5 text-blue-500" />
           </h2>
-          {/* 关键发现 */}
-          <div className="flex flex-col gap-[10px]">
-            <h3 className="text-base text-zinc-900 flex items-center gap-2">
-              {t("key_findings")}
-            </h3>
-            <ul className="flex flex-col gap-0">
-              {(data.aiInsights?.keyFindings || []).map((finding, index) => (
-                <li key={index} className="flex items-center gap-2 text-sm font-normal leading-normal text-zinc-600">
-                  <span className="text-zinc-600 text-lg">•</span>
-                  <span>{finding}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* 改进建议 */}
-          <div className="flex flex-col gap-[10px]">
-            <h3 className="text-base text-zinc-900 flex items-center gap-2">
-              {t("improvement_suggestions")}
-            </h3>
-            <ul className="flex flex-col gap-0">
-              {(data.aiInsights?.improvements || []).map((improvement, index) => (
-                <li key={index} className="flex items-center gap-2 text-sm font-normal leading-normal text-zinc-600">
-                  <span className="text-zinc-600 text-lg">•</span>
-                  <span>{improvement}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* 数据驱动策略 */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 w-full">
-            <h3 className="text-base text-zinc-900 flex items-center gap-2">
-              <BarChartBig className="h-4 w-4 text-blue-500" />
-              {t("data_driven_strategy")}
-            </h3>
-              <p className="text-sm font-normal leading-normal text-zinc-900">
-                {data.aiInsights?.strategy || t("analyzing_data")}
-              </p>
+          
+          {/* 如果 AI 洞察不可用，显示友好的错误提示 */}
+          {!data.aiInsights ? (
+            <div className="w-full bg-orange-50 border border-orange-200 rounded-lg p-6 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-orange-900 mb-1">
+                  {t("ai_insights_unavailable")}
+                </p>
+                <p className="text-sm text-orange-700">
+                  {t("ai_insights_timeout_message")}
+                </p>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* 关键发现 */}
+              <div className="flex flex-col gap-[10px]">
+                <h3 className="text-base text-zinc-900 flex items-center gap-2">
+                  {t("key_findings")}
+                </h3>
+                <ul className="flex flex-col gap-0">
+                  {(data.aiInsights.keyFindings || []).map((finding, index) => (
+                    <li key={index} className="flex items-center gap-2 text-sm font-normal leading-normal text-zinc-600">
+                      <span className="text-zinc-600 text-lg">•</span>
+                      <span>{finding}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* 改进建议 */}
+              <div className="flex flex-col gap-[10px]">
+                <h3 className="text-base text-zinc-900 flex items-center gap-2">
+                  {t("improvement_suggestions")}
+                </h3>
+                <ul className="flex flex-col gap-0">
+                  {(data.aiInsights.improvements || []).map((improvement, index) => (
+                    <li key={index} className="flex items-center gap-2 text-sm font-normal leading-normal text-zinc-600">
+                      <span className="text-zinc-600 text-lg">•</span>
+                      <span>{improvement}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* 数据驱动策略 */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 w-full">
+                <h3 className="text-base text-zinc-900 flex items-center gap-2">
+                  <BarChartBig className="h-4 w-4 text-blue-500" />
+                  {t("data_driven_strategy")}
+                </h3>
+                <p className="text-sm font-normal leading-normal text-zinc-900">
+                  {data.aiInsights.strategy || t("analyzing_data")}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

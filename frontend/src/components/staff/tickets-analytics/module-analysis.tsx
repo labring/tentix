@@ -16,6 +16,7 @@ interface ModuleAnalysisProps {
 export function ModuleAnalysis({ filterParams, isLoading: externalLoading }: ModuleAnalysisProps) {
   const { t, i18n } = useTranslation();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const { data: rawData } = useSuspenseQuery(moduleAnalysisQueryOptions(filterParams));
   const ticketModules = useTicketModules();
 
@@ -86,31 +87,36 @@ export function ModuleAnalysis({ filterParams, isLoading: externalLoading }: Mod
               const bgColor = blueColors[Math.min(index, blueColors.length - 1)];
               const isHovered = hoveredIndex === index;
               
-              const isTopItem = index < 1;
-              
               return (
                 <div 
                   key={index} 
-                  className="relative cursor-pointer"
-                  onMouseEnter={() => setHoveredIndex(index)}
-                  onMouseLeave={() => setHoveredIndex(null)}
+                  className="relative"
+                  onMouseMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setMousePosition({
+                      x: e.clientX - rect.left,
+                      y: e.clientY - rect.top,
+                    });
+                  }}
                 >
                   {/* 条形容器 */}
                   <div className="relative h-12 rounded-lg overflow-visible">
                     {/* 条形背景 */}
                     <div
-                      className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out rounded-lg z-10 ${
+                      className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out rounded-lg z-10 cursor-pointer ${
                         isHovered ? 'opacity-90 scale-x-[1.02]' : 'opacity-100 scale-x-100'
                       }`}
                       style={{
                         width: `${Math.max(widthPercentage * 0.8, 15)}%`,
                         backgroundColor: bgColor,
                       }}
+                      onMouseEnter={() => setHoveredIndex(index)}
+                      onMouseLeave={() => setHoveredIndex(null)}
                     />
                     
                     {/* 模块名称 */}
                     <div 
-                      className="absolute top-0 left-0 h-full flex items-center px-4 z-20"
+                      className="absolute top-0 left-0 h-full flex items-center px-4 z-20 pointer-events-none"
                       style={{
                         width: `${Math.max(widthPercentage * 0.8, 15)}%`,
                       }}
@@ -126,7 +132,7 @@ export function ModuleAnalysis({ filterParams, isLoading: externalLoading }: Mod
                     
                     {/* 数值和百分比 - 显示在颜色条形旁边 */}
                     <div 
-                      className="absolute top-1/2 left-0 transform -translate-y-1/2 ml-3 z-30"
+                      className="absolute top-1/2 left-0 transform -translate-y-1/2 ml-3 z-30 pointer-events-none"
                       style={{
                         left: `${Math.max(widthPercentage * 0.8, 15)}%`,
                       }}
@@ -137,12 +143,14 @@ export function ModuleAnalysis({ filterParams, isLoading: externalLoading }: Mod
                     </div>
                   </div>
 
-                   {/* Hover 提示框*/}
+                   {/* 提示框-跟鼠标 */}
                    {isHovered && (
                      <div
-                       className={`absolute left-1/2 transform -translate-x-1/2 bg-white text-gray-700 w-[240px] p-4 flex flex-col justify-center items-start gap-2 rounded-xl border border-zinc-200 z-[1000] pointer-events-none shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] ${
-                         isTopItem ? "top-[calc(100%+10px)]" : "-top-12"
-                       }`}
+                       className="absolute bg-white text-gray-700 w-[240px] p-4 flex flex-col justify-center items-start gap-2 rounded-xl border border-zinc-200 z-[1000] pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
+                       style={{
+                         left: `${mousePosition.x + 15}px`,
+                         top: `${mousePosition.y - 30}px`,
+                       }}
                      >
                       <div className="flex items-center gap-2 w-full">
                         {/* 蓝色小竖线 */}
@@ -154,14 +162,6 @@ export function ModuleAnalysis({ filterParams, isLoading: externalLoading }: Mod
                           </span>
                         </div>
                       </div>
-                       {/* 箭头指示器 */}
-                       <div
-                         className={`absolute left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 ${
-                           isTopItem 
-                             ? 'top-[-4px] border-b-4 border-b-white' 
-                             : 'bottom-[-4px] border-t-4 border-t-white'
-                         }`}
-                       />
                     </div>
                   )}
                 </div>
