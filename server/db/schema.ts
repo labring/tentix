@@ -271,11 +271,34 @@ export const tickets = tentix.table(
   ],
 );
 
-export const tags = tentix.table("tags", {
-  id: serial("id").primaryKey().notNull(),
-  name: varchar("name", { length: 64 }).notNull(),
-  description: text("description").notNull(),
-});
+export const tags = tentix.table(
+  "tags",
+  {
+    id: serial("id").primaryKey().notNull(),
+    name: varchar("name", { length: 64 }).notNull(),
+    description: text("description").notNull(),
+    isAiGenerated: boolean("is_ai_generated").default(false).notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    index("idx_tags_name").on(table.name),
+    index("idx_tags_created_at").on(table.createdAt.desc()),
+  ],
+);
 
 export const ticketHistory = tentix.table("ticket_history", {
   id: serial("id").primaryKey().notNull(),
@@ -297,15 +320,33 @@ export const ticketHistory = tentix.table("ticket_history", {
     .notNull(),
 });
 
-export const ticketsTags = tentix.table("tickets_tags", {
-  id: serial("id").primaryKey().notNull(),
-  tagId: integer("tag_id")
-    .notNull()
-    .references(() => tags.id),
-  ticketId: char("ticket_id", { length: 13 })
-    .notNull()
-    .references(() => tickets.id),
-});
+export const ticketsTags = tentix.table(
+  "tickets_tags",
+  {
+    id: serial("id").primaryKey().notNull(),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+    ticketId: char("ticket_id", { length: 13 })
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    confidence: real("confidence").default(1.0).notNull(),
+    isAiGenerated: boolean("is_ai_generated").default(false).notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 3,
+      mode: "string",
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("uniq_tickets_tags_ticket_id_tag_id").on(table.ticketId, table.tagId),
+    index("idx_tickets_tags_ticket_id").on(table.ticketId),
+    index("idx_tickets_tags_tag_id").on(table.tagId),
+    index("idx_tickets_tags_created_at_desc").on(table.createdAt.desc()),
+  ],
+);
 
 // Chat Messages
 export const chatMessages = tentix.table(

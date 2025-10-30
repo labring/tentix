@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StaffAiRouteImport } from './routes/staff/ai'
 import { Route as UserNewticketIndexRouteImport } from './routes/user/newticket/index'
+import { Route as StaffAnalyticsIndexRouteImport } from './routes/staff/analytics/index'
 import { Route as UserTicketsListRouteImport } from './routes/user/tickets/list'
 import { Route as UserTicketsIdRouteImport } from './routes/user/tickets/$id'
 import { Route as StaffWorkflowIdRouteImport } from './routes/staff/workflow_.$id'
@@ -57,6 +58,11 @@ const UserNewticketIndexRoute = UserNewticketIndexRouteImport.update({
   id: '/newticket/',
   path: '/newticket/',
   getParentRoute: () => UserRoute,
+} as any)
+const StaffAnalyticsIndexRoute = StaffAnalyticsIndexRouteImport.update({
+  id: '/analytics/',
+  path: '/analytics/',
+  getParentRoute: () => StaffRoute,
 } as any)
 const UserTicketsListRoute = UserTicketsListRouteImport.update({
   id: '/tickets/list',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/staff/workflow/$id': typeof StaffWorkflowIdRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
+  '/staff/analytics': typeof StaffAnalyticsIndexRoute
   '/user/newticket': typeof UserNewticketIndexRoute
 }
 export interface FileRoutesByTo {
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/staff/workflow/$id': typeof StaffWorkflowIdRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
+  '/staff/analytics': typeof StaffAnalyticsIndexRoute
   '/user/newticket': typeof UserNewticketIndexRoute
 }
 export interface FileRoutesById {
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/staff/workflow_/$id': typeof StaffWorkflowIdRoute
   '/user/tickets/$id': typeof UserTicketsIdRoute
   '/user/tickets/list': typeof UserTicketsListRoute
+  '/staff/analytics/': typeof StaffAnalyticsIndexRoute
   '/user/newticket/': typeof UserNewticketIndexRoute
 }
 export interface FileRouteTypes {
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/staff/workflow/$id'
     | '/user/tickets/$id'
     | '/user/tickets/list'
+    | '/staff/analytics'
     | '/user/newticket'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | '/staff/workflow/$id'
     | '/user/tickets/$id'
     | '/user/tickets/list'
+    | '/staff/analytics'
     | '/user/newticket'
   id:
     | '__root__'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/staff/workflow_/$id'
     | '/user/tickets/$id'
     | '/user/tickets/list'
+    | '/staff/analytics/'
     | '/user/newticket/'
   fileRoutesById: FileRoutesById
 }
@@ -277,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserTicketsListRouteImport
       parentRoute: typeof UserRoute
     }
+    '/staff/analytics/': {
+      id: '/staff/analytics/'
+      path: '/analytics'
+      fullPath: '/staff/analytics'
+      preLoaderRoute: typeof StaffAnalyticsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/user/newticket/': {
       id: '/user/newticket/'
       path: '/newticket'
@@ -293,6 +312,7 @@ interface StaffRouteChildren {
   StaffTicketsAllRoute: typeof StaffTicketsAllRoute
   StaffTicketsListRoute: typeof StaffTicketsListRoute
   StaffWorkflowIdRoute: typeof StaffWorkflowIdRoute
+  StaffAnalyticsIndexRoute: typeof StaffAnalyticsIndexRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
@@ -301,6 +321,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffTicketsAllRoute: StaffTicketsAllRoute,
   StaffTicketsListRoute: StaffTicketsListRoute,
   StaffWorkflowIdRoute: StaffWorkflowIdRoute,
+  StaffAnalyticsIndexRoute: StaffAnalyticsIndexRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)

@@ -460,3 +460,13 @@ export async function collectFavoritedKnowledge({
   const res = await response.json();
   return res;
 }
+
+// Re-export analytics query options from analytics-query.ts
+export {
+  ticketStatusAnalysisQueryOptions,
+  ticketTrendsQueryOptions,
+  moduleAnalysisQueryOptions,
+  hotIssuesQueryOptions,
+  ratingAnalysisQueryOptions,
+  knowledgeHitsQueryOptions,
+} from "./analytics-query";

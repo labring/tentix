@@ -17,11 +17,13 @@ import { feishuRouter } from "./feishu/index.ts";
 import { feedbackRouter } from "./feedback/index.ts";
 import { startTicketAutoCloseJob } from "@/utils/jobs/ticket-jobs/index.ts";
 import { kbRouter } from "./kb/index.ts";
+import { analyticsRouter } from "./analytics/index.ts";
 import { logInfo } from "@/utils/log.ts";
 import { websocket } from "@/utils/websocket.ts";
 // register events
 import "@/utils/events/handoff/index.ts";
 import "@/utils/events/kb/index.ts";
+import "@/utils/events/ticket/index.ts";
 
 const app = factory.createApp();
 
@@ -123,7 +125,7 @@ app.get(
 );
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-const routes = app // RPC routes
+const routes = app 
   .basePath("/api")
   .route("/user", userRouter)
   .route("/ticket", ticketRouter)
@@ -133,7 +135,8 @@ const routes = app // RPC routes
   .route("/admin", adminRouter)
   .route("/feishu", feishuRouter)
   .route("/feedback", feedbackRouter)
-  .route("/kb", kbRouter);
+  .route("/kb", kbRouter)
+  .route("/analytics", analyticsRouter);
 if (global.customEnv.NODE_ENV !== "production") {
   routes.route("/playground", playgroundRouter);
 }

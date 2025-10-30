@@ -36,6 +36,7 @@ import { userTicketSchema } from "@/utils/types.ts";
 import { createSelectSchema } from "drizzle-zod";
 import { isFeishuConfigured } from "@/utils/tools";
 import { workflowCache } from "@/utils/kb/workflow-cache.ts";
+import { emit, Events } from "@/utils/events/ticket";
 
 const createResponseSchema = z.array(
   z.object({
@@ -220,6 +221,13 @@ const ticketRouter = factory
           message: "Failed to create ticket",
         });
       }
+
+      // 发出工单分析事件，异步处理，不阻塞工单创建
+      emit(Events.TicketHotIssueAnalysis, {
+        ticketId,
+        title: payload.title,
+        description: payload.description,
+      });
 
       return c.json({
         status: "success",
