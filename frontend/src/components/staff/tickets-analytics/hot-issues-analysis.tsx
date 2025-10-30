@@ -89,7 +89,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
               onClick={() => window.location.reload()} 
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
             >
-              {t("retry") || "重新加载"}
+              {t("retry")}
             </button>
           </div>
         </div>
@@ -132,7 +132,7 @@ export function HotIssuesAnalysis({ filterParams, isLoading: externalLoading }: 
           <AlertCircle className="h-12 w-12 text-orange-500" />
           <div className="text-center">
             <p className="text-base font-medium text-zinc-900 mb-2">
-              {t("data_error") || "数据错误"}
+              {t("data_error")}
             </p>
             <p className="text-sm text-zinc-600">{rawData.message}</p>
           </div>
