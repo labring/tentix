@@ -341,10 +341,10 @@ export const ticketsTags = tentix.table(
       .notNull(),
   },
   (table) => [
-    unique("tickets_tags_unique").on(table.ticketId, table.tagId),
-    index("idx_tickets_tags_ticket").on(table.ticketId),
-    index("idx_tickets_tags_tag").on(table.tagId),
-    index("idx_tickets_tags_created").on(table.createdAt.desc()),
+    unique("uniq_tickets_tags_ticket_id_tag_id").on(table.ticketId, table.tagId),
+    index("idx_tickets_tags_ticket_id").on(table.ticketId),
+    index("idx_tickets_tags_tag_id").on(table.tagId),
+    index("idx_tickets_tags_created_at_desc").on(table.createdAt.desc()),
   ],
 );
 
