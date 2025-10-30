@@ -40,7 +40,6 @@ export * from './toaster.tsx';
 export * from './toast.tsx';
 export * from './checkbox.tsx';
 export * from './sheet.tsx';
-export * from './chart.tsx';
 export * from './separator.tsx';
 export * from './kbd.tsx';
 export * from './empty.tsx';
