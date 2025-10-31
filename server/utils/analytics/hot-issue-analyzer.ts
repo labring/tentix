@@ -205,7 +205,7 @@ function buildUserContent(
     { type: "text", text: prompt }
   ];
   const imageUrls = extractImageUrls(description);
-  imageUrls.forEach((url) => {
+  imageUrls.slice(0, 6).forEach((url) => {
     content.push({
       type: "image_url",
       image_url: { url }
