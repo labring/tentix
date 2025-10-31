@@ -15,6 +15,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "tentix-ui";
 import type { EChartsOption } from 'echarts';
 import { knowledgeHitsQueryOptions, useSuspenseQuery } from "@lib/query";
@@ -236,6 +240,7 @@ interface KnowledgeBaseHitsProps {
 interface KnowledgeItem {
   id: string;
   title: string;
+  content: string;
   accessCount: number;
   hitRate: number;
   zone: "high_efficiency" | "potential" | "need_optimization" | "low_efficiency";
@@ -620,14 +625,14 @@ export function KnowledgeBaseHits({
 
             <TabsContent value={selectedZone} className="mt-4">
               {/* 表格内容 */}
-               <div className="border rounded-lg">
+               <div className="border rounded-lg overflow-hidden">
                 <div className="overflow-hidden min-h-[360px]">
-                  <Table>
+                  <Table className="table-fixed w-full">
                     <TableHeader className="bg-white border-b border-zinc-200">
                       <TableRow>
-                        <TableHead className="w-[300px] min-w-[85px] p-4 text-muted-foreground">{t("questions")}</TableHead>
-                        <TableHead className="min-w-[85px] p-4 flex-1 text-muted-foreground">{t("access_count")}</TableHead>
-                        <TableHead className="min-w-[85px] p-4 flex-1 text-muted-foreground">{t("hit_rate")}</TableHead>
+                        <TableHead className="w-[90%] p-4 text-muted-foreground">{t("questions")}</TableHead>
+                        <TableHead className="w-[27.5%] p-4 text-muted-foreground">{t("access_count")}</TableHead>
+                        <TableHead className="w-[27.5%] p-4 text-muted-foreground">{t("hit_rate")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -635,18 +640,34 @@ export function KnowledgeBaseHits({
                         <>
                           {tableData.map((item) => (
                             <TableRow key={item.id} className="border-b border-zinc-200">
-                              <TableCell className="w-[300px] min-w-[85px] p-4 truncate" title={item.title}>
-                                {item.title}
+                              <TableCell className="w-[45%] p-4 max-w-0">
+                                <TooltipProvider>
+                                  <Tooltip delayDuration={300}>
+                                    <TooltipTrigger asChild>
+                                      <div className="truncate cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap">
+                                        {item.title}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent 
+                                      side="top" 
+                                      className="max-w-[400px] max-h-[300px] overflow-y-auto bg-white border border-zinc-200 p-3 shadow-lg"
+                                    >
+                                      <div className="text-sm text-zinc-900 whitespace-pre-wrap break-words">
+                                        {item.content}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </TableCell>
-                              <TableCell className="min-w-[85px] p-4 flex-1">{item.accessCount}</TableCell>
-                              <TableCell className="min-w-[85px] p-4 flex-1">{item.hitRate}%</TableCell>
+                              <TableCell className="w-[27.5%] p-4">{item.accessCount}</TableCell>
+                              <TableCell className="w-[27.5%] p-4">{item.hitRate}%</TableCell>
                             </TableRow>
                           ))}
                           {Array.from({ length: itemsPerPage - tableData.length }).map((_, index) => (
                             <TableRow key={`empty-${index}`} className="border-b border-zinc-200">
-                              <TableCell className="w-[300px] min-w-[85px] p-4">&nbsp;</TableCell>
-                              <TableCell className="min-w-[85px] p-4 flex-1">&nbsp;</TableCell>
-                              <TableCell className="min-w-[85px] p-4 flex-1">&nbsp;</TableCell>
+                              <TableCell className="w-[45%] p-4">&nbsp;</TableCell>
+                              <TableCell className="w-[27.5%] p-4">&nbsp;</TableCell>
+                              <TableCell className="w-[27.5%] p-4">&nbsp;</TableCell>
                             </TableRow>
                           ))}
                         </>
@@ -659,9 +680,9 @@ export function KnowledgeBaseHits({
                           </TableRow>
                           {Array.from({ length: itemsPerPage - 1 }).map((_, index) => (
                             <TableRow key={`empty-${index}`} className="border-b border-zinc-200">
-                              <TableCell className="w-[300px] min-w-[85px] p-4">&nbsp;</TableCell>
-                              <TableCell className="min-w-[85px] p-4 flex-1">&nbsp;</TableCell>
-                              <TableCell className="min-w-[85px] p-4 flex-1">&nbsp;</TableCell>
+                              <TableCell className="w-[45%] p-4">&nbsp;</TableCell>
+                              <TableCell className="w-[27.5%] p-4">&nbsp;</TableCell>
+                              <TableCell className="w-[27.5%] p-4">&nbsp;</TableCell>
                             </TableRow>
                           ))}
                         </>

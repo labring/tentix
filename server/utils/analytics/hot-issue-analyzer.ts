@@ -50,7 +50,7 @@ async function analyzeWithAI(
 ): Promise<AIAnalysisResult> {
   const model = new ChatOpenAI({
     apiKey: OPENAI_CONFIG.apiKey,
-    model: OPENAI_CONFIG.summaryModel,
+    model: OPENAI_CONFIG.analysisModel,
     temperature: 0.3,
     configuration: {
       baseURL: OPENAI_CONFIG.baseURL,

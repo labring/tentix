@@ -1,6 +1,8 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { OPENAI_CONFIG } from "../kb/config.ts";
+import { extractText } from "../types.ts";
+import type { JSONContentZod } from "../types.ts";
 import { logError } from "../log.ts";
 
 interface HotIssueData {
@@ -43,11 +45,20 @@ async function withTimeout<T>(
 export async function generateAIInsights(
   topIssues: HotIssueData[],
   tagStats: TagData[],
-  totalIssues: number
+  totalIssues: number,
+  additionalContext?: JSONContentZod
 ): Promise<AIInsightsResult> {
   // 检查 OpenAI 配置是否存在
-  if (!OPENAI_CONFIG.apiKey || !OPENAI_CONFIG.summaryModel || !OPENAI_CONFIG.baseURL) {
-    logError("OpenAI config not available, skipping AI insights generation");
+  if (!OPENAI_CONFIG.apiKey) {
+    logError("OPENAI_API_KEY is not configured");
+    return {
+      keyFindings: [],
+      improvements: [],
+      strategy: "AI 服务未配置，无法生成分析洞察",
+    };
+  }
+  if (!OPENAI_CONFIG.analysisModel) {
+    logError("ANALYSIS_MODEL is not configured");
     return {
       keyFindings: [],
       improvements: [],
@@ -58,14 +69,16 @@ export async function generateAIInsights(
   try {
     const model = new ChatOpenAI({
       apiKey: OPENAI_CONFIG.apiKey,
-      model: OPENAI_CONFIG.summaryModel,
+      model: OPENAI_CONFIG.analysisModel,
       temperature: 0.3,
       configuration: {
         baseURL: OPENAI_CONFIG.baseURL,
       },
     });
 
-    const prompt = `你是 Sealos 工单系统的数据分析师，**只分析**工单数据并生成洞察报告。**只输出 JSON**。
+    const additionalText = additionalContext ? extractText(additionalContext) : "";
+
+    const promptText = `你是 Sealos 工单系统的数据分析师，**只分析**工单数据并生成洞察报告。**只输出 JSON**。
 
 ## 输出协议（严格）
 - 只输出不带 Markdown 的 JSON 字符串，可被 JSON.parse 成功解析。
@@ -88,8 +101,9 @@ export async function generateAIInsights(
   - 总问题数 totalIssues
   - TOP 问题（category/tag/count/trend/priority）
   - 分类统计（category/count/percentage）
+  - 额外上下文信息（如有图片，请结合图片中的错误信息、界面元素、配置截图辅助分析）
 - 洞察来自数据本身，不得臆造不存在的维度或结论；引用趋势/优先级/占比时需与输入一致。
-
+${additionalText ? `\n## 额外上下文\n${additionalText}\n` : ''}
 ## 数据概况
 总问题数: ${totalIssues}
 
@@ -119,16 +133,17 @@ TOP问题：
 只输出 { "keyFindings": [...], "improvements": [...], "strategy": "..." } 的 JSON。`;
 
     const structuredModel = model.withStructuredOutput(aiInsightsSchema);
-    const out = await withTimeout(
-      structuredModel.invoke(prompt),
+      // 多模态消息（包含图片）进行处理
+    const result = await withTimeout(
+      structuredModel.invoke(promptText),
       AI_INSIGHTS_TIMEOUT_MS,
       `AI insights generation timeout after ${AI_INSIGHTS_TIMEOUT_MS}ms`
     );
 
     return {
-      keyFindings: out.keyFindings || [],
-      improvements: out.improvements || [],
-      strategy: out.strategy || "",
+      keyFindings: result.keyFindings || [],
+      improvements: result.improvements || [],
+      strategy: result.strategy || "",
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

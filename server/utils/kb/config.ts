@@ -8,6 +8,7 @@ export const OPENAI_CONFIG = {
   baseURL: global.customEnv.OPENAI_BASE_URL,
   apiKey: global.customEnv.OPENAI_API_KEY,
   summaryModel: global.customEnv.SUMMARY_MODEL,
+  analysisModel: global.customEnv.ANALYSIS_MODEL,
   chatModel: global.customEnv.CHAT_MODEL,
   embeddingModel: global.customEnv.EMBEDDING_MODEL,
   vectorBackend: global.customEnv.VECTOR_BACKEND,

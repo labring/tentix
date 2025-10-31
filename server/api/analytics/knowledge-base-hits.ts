@@ -99,6 +99,7 @@ export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
         .select({
           knowledgeBaseId: schema.knowledgeAccessLog.knowledgeBaseId,
           title: schema.knowledgeBase.title,
+          content: schema.knowledgeBase.content,
           accessCount: count(),
         })
         .from(schema.knowledgeAccessLog)
@@ -125,6 +126,7 @@ export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
         .groupBy(
           schema.knowledgeAccessLog.knowledgeBaseId,
           schema.knowledgeBase.title,
+          schema.knowledgeBase.content,
         );
 
       const totalAccessCount = perDocAccess.reduce(
@@ -141,6 +143,7 @@ export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
         return {
           id: row.knowledgeBaseId,
           title: row.title,
+          content: row.content,
           accessCount,
           hitRate: Number(hitRate.toFixed(2)),
         };

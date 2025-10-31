@@ -26,7 +26,7 @@ export function AnalyticsFilter({
   const { t } = useTranslation();
   const [dateRange, setDateRange] = React.useState<{ from: Date; to: Date } | undefined>();
   const [isTodayChecked, setIsTodayChecked] = React.useState(false);
-  const [selectedEmployee, setSelectedEmployee] = React.useState("all_staff");
+  const [selectedEmployee, setSelectedEmployee] = React.useState("all");
   
   const [initialTime] = React.useState(() => 
     new Date().toLocaleTimeString(undefined, {
@@ -51,7 +51,7 @@ export function AnalyticsFilter({
   }, [staffList]);
 
   const employeeOptions = React.useMemo(() => {
-    const defaultOption = { id: "all_staff", name: t("all_staff") };
+    const defaultOption = { id: "all", name: t("all_staff") };
     
     if (currentUser?.role === "admin") {
       return [defaultOption, ...employees];
