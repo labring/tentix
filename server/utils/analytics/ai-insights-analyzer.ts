@@ -3,6 +3,7 @@ import { z } from "zod";
 import { OPENAI_CONFIG } from "../kb/config.ts";
 import { logError } from "../log.ts";
 
+// 类型定义
 interface HotIssueData {
   tag: string;
   count: number;
@@ -16,17 +17,63 @@ interface TagData {
   percentage: number;
 }
 
-// AI洞察结果的结构化输出定义
 const aiInsightsSchema = z.object({
-  keyFindings: z.array(z.string()).max(10).default([]),
-  improvements: z.array(z.string()).max(10).default([]),
-  strategy: z.string().default(""),
+  keyFindings: z.array(z.string()).min(1).max(10).describe("关键发现，4-10条"),
+  improvements: z.array(z.string()).min(1).max(10).describe("改进建议，4-10条"),
+  strategy: z.string().min(50).describe("整体策略，80-150字"),
 });
 
 export type AIInsightsResult = z.infer<typeof aiInsightsSchema>;
 
-//限制时间
+// 常量配置
 const AI_INSIGHTS_TIMEOUT_MS = 20000;
+const TREND_TEXT_MAP = {
+  up: '上升',
+  down: '下降',
+  stable: '稳定',
+} as const;
+const SYSTEM_PROMPT = `你是 Sealos 工单系统的数据分析师。你的任务是分析工单数据并生成洞察报告。
+输出要求：
+1. keyFindings（关键发现）：4-10 条，基于趋势、优先级、占比分析数据特征，能量化尽量量化
+2. improvements（改进建议）：4-10 条，与关键发现对应，给出具体可执行的改进措施
+3. strategy（整体策略）：80-150 字，从预防-监控-响应-复盘闭环给出整体方向
+
+分析原则：
+- 充分利用趋势（上升/下降/稳定）、优先级（P0-P3）、占比等信息
+- 改进建议要具体可落地（如建立SOP、优化监控、完善文档等）
+- 策略要强调资源配置、流程优化、风险前置
+- 避免重复表述，不臆造数据中不存在的信息`;
+
+// 错误响应
+const ERROR_RESPONSES = {
+  noApiKey: {
+    keyFindings: ["AI 服务未配置"],
+    improvements: ["请配置 OpenAI API Key"],
+    strategy: "AI 服务未配置，无法生成分析洞察",
+  },
+  noModel: {
+    keyFindings: ["AI 模型未配置"],
+    improvements: ["请配置分析模型"],
+    strategy: "AI 服务未配置，无法生成分析洞察",
+  },
+  noData: {
+    keyFindings: ["暂无工单数据"],
+    improvements: ["等待数据积累"],
+    strategy: "数据不足，无法生成有效的分析洞察",
+  },
+  timeout: {
+    keyFindings: ["AI 分析响应超时"],
+    improvements: ["请稍后重试或检查网络连接"],
+    strategy: `分析请求超时（${AI_INSIGHTS_TIMEOUT_MS}ms），请稍后重试`,
+  },
+  unknown: (errorMsg: string) => ({
+    keyFindings: ["AI 分析失败"],
+    improvements: ["请检查配置或联系管理员"],
+    strategy: `生成洞察时出错：${errorMsg.substring(0, 100)}`,
+  }),
+};
+
+//超时控制
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -40,108 +87,119 @@ async function withTimeout<T>(
   ]);
 }
 
+//验证配置
+function validateConfig(): { valid: boolean; error?: AIInsightsResult } {
+  if (!OPENAI_CONFIG.apiKey) {
+    logError("OPENAI_API_KEY is not configured");
+    return { valid: false, error: ERROR_RESPONSES.noApiKey };
+  }
+  if (!OPENAI_CONFIG.analysisModel) {
+    logError("ANALYSIS_MODEL is not configured");
+    return { valid: false, error: ERROR_RESPONSES.noModel };
+  }
+  return { valid: true };
+}
+
+//验证数据
+function validateData(
+  topIssues: HotIssueData[],
+  totalIssues: number
+): { valid: boolean; error?: AIInsightsResult } {
+  if (totalIssues === 0 || topIssues.length === 0) {
+    return { valid: false, error: ERROR_RESPONSES.noData };
+  }
+  return { valid: true };
+}
+
+/*构建用户消息内容*/
+function buildUserMessage(
+  topIssues: HotIssueData[],
+  tagStats: TagData[],
+  totalIssues: number
+): string {
+  const topIssuesList = topIssues
+    .slice(0, 10)
+    .map((issue, index) => {
+      const trendText = TREND_TEXT_MAP[issue.trend];
+      return `${index + 1}. ${issue.tag} - ${issue.count}次 (趋势:${trendText}, 优先级:${issue.priority})`;
+    })
+    .join('\n');
+
+  const tagStatsList = tagStats
+    .slice(0, 10)
+    .map((tag) => `- ${tag.tag}: ${tag.count}次 (占比${tag.percentage.toFixed(1)}%)`)
+    .join('\n');
+
+  return `请分析以下工单数据：
+## 数据概况
+总问题数: ${totalIssues}
+## TOP 问题列表
+${topIssuesList}
+## 标签统计
+${tagStatsList}`;
+}
+//创建OpenAI客户端
+function createOpenAIClient(): ChatOpenAI {
+  return new ChatOpenAI({
+    apiKey: OPENAI_CONFIG.apiKey,
+    model: OPENAI_CONFIG.analysisModel,
+    temperature: 0.3,
+    configuration: {
+      baseURL: OPENAI_CONFIG.baseURL,
+    },
+  });
+}
+//验证AI返回结果
+function validateAIResult(result: AIInsightsResult): void {
+  if (!result.keyFindings?.length || !result.improvements?.length || !result.strategy) {
+    throw new Error("AI 返回结果不完整");
+  }
+}
+
+function handleError(error: unknown): AIInsightsResult {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  logError("generateAIInsights error", error);
+  if (errorMessage.includes("AI_INSIGHTS_TIMEOUT")) {
+    logError(`AI insights generation timed out after ${AI_INSIGHTS_TIMEOUT_MS}ms`);
+    return ERROR_RESPONSES.timeout;
+  }
+  return ERROR_RESPONSES.unknown(errorMessage);
+}
+
+/**生成 AI 洞察报告*/
 export async function generateAIInsights(
   topIssues: HotIssueData[],
   tagStats: TagData[],
   totalIssues: number
 ): Promise<AIInsightsResult> {
-  // 检查 OpenAI 配置是否存在
-  if (!OPENAI_CONFIG.apiKey || !OPENAI_CONFIG.summaryModel || !OPENAI_CONFIG.baseURL) {
-    logError("OpenAI config not available, skipping AI insights generation");
-    return {
-      keyFindings: [],
-      improvements: [],
-      strategy: "AI 服务未配置，无法生成分析洞察",
-    };
+  const configValidation = validateConfig();
+  if (!configValidation.valid) {
+    return configValidation.error!;
+  }
+
+  const dataValidation = validateData(topIssues, totalIssues);
+  if (!dataValidation.valid) {
+    return dataValidation.error!;
   }
 
   try {
-    const model = new ChatOpenAI({
-      apiKey: OPENAI_CONFIG.apiKey,
-      model: OPENAI_CONFIG.summaryModel,
-      temperature: 0.3,
-      configuration: {
-        baseURL: OPENAI_CONFIG.baseURL,
-      },
+    const model = createOpenAIClient();
+    const structuredModel = model.withStructuredOutput(aiInsightsSchema, {
+      strict: true,
     });
-
-    const prompt = `你是 Sealos 工单系统的数据分析师，**只分析**工单数据并生成洞察报告。**只输出 JSON**。
-
-## 输出协议（严格）
-- 只输出不带 Markdown 的 JSON 字符串，可被 JSON.parse 成功解析。
-- 结构与字段：
-  {
-    "keyFindings": string[],   // 恰好 4 条，每条 ≤100 字
-    "improvements": string[],  // 恰好 4 条，每条 ≤100 字
-    "strategy": string         // 80-150 字，面向全局的策略建议
-  }
-- 不要输出额外字段；不要包含注释或解释文本；不得输出自然语言段落。
-
-## 判定要点
-- keyFindings：基于趋势（上升/下降/稳定）、优先级（P0-P3）、占比/贡献度、波动性与影响面；能量化尽量量化；避免重复表述。
-- improvements：与 keyFindings 一一对应，具体可执行（流程/产品/技术/运营），可落地（如建立 SOP/扩容/优化监控/修复缺陷/完善文档）。
-- strategy：从预防-监控-响应-复盘闭环给出方向；强调资源配置、流程优化、风险前置；避免与 improvements 重复。
-- 若样本量不足或波动大，需提示不确定性（但仍按输出协议给出完整 JSON）。
-
-## 结合上下文
-- 充分利用以下输入：
-  - 总问题数 totalIssues
-  - TOP 问题（category/tag/count/trend/priority）
-  - 分类统计（category/count/percentage）
-- 洞察来自数据本身，不得臆造不存在的维度或结论；引用趋势/优先级/占比时需与输入一致。
-
-## 数据概况
-总问题数: ${totalIssues}
-
-## TOP问题列表
-${topIssues.slice(0, 5).map((issue, index) => 
-  `${index + 1}. ${issue.tag} - ${issue.count}次 (${issue.trend === 'up' ? '上升' : issue.trend === 'down' ? '下降' : '稳定'}, ${issue.priority})`
-).join('\n')}
-
-## 标签统计
-${tagStats.slice(0, 5).map((tag) => 
-  `- ${tag.tag}: ${tag.count}次 (${tag.percentage}%)`
-).join('\n')}
-
-## 示例1（仅示意）
-输入（节选）：
-totalIssues: 120
-TOP问题：
-1. 登录失败 - 28 次 (上升, P1)
-2. 退款异常 - 15 次 (稳定, P2)
-标签统计（节选）：
-- 技术问题: 55 次 (45.8%)
-- 支付问题: 22 次 (18.3%)
-
-输出：
-{"keyFindings":["登录失败为最高频问题且呈上升趋势，需优先关注","技术问题占比接近一半，影响范围广","支付相关问题稳定存在，需优化流程与兜底","高优先级问题集中于登录与鉴权链路"],"improvements":["为登录问题建立快速诊断与回滚SOP","完善鉴权与风控链路监控与告警","梳理支付异常路径并补齐兜底提示","对高频问题建立知识库与自助化脚本"],"strategy":"以技术稳定性为抓手，围绕登录与鉴权链路做预防性加固，配套监控告警与应急演练；并行优化支付流程体验，完善异常兜底与用户提示；建立高频问题知识库与自动化工具，提升处理效率并降低重复工单。"}
-
-只输出 { "keyFindings": [...], "improvements": [...], "strategy": "..." } 的 JSON。`;
-
-    const structuredModel = model.withStructuredOutput(aiInsightsSchema);
-    const out = await withTimeout(
-      structuredModel.invoke(prompt),
+    const userMessage = buildUserMessage(topIssues, tagStats, totalIssues);
+    const result = await withTimeout(
+      structuredModel.invoke([
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ]),
       AI_INSIGHTS_TIMEOUT_MS,
-      `AI insights generation timeout after ${AI_INSIGHTS_TIMEOUT_MS}ms`
+      "AI_INSIGHTS_TIMEOUT"
     );
-
-    return {
-      keyFindings: out.keyFindings || [],
-      improvements: out.improvements || [],
-      strategy: out.strategy || "",
-    };
+    validateAIResult(result);
+    return result;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logError("generateAIInsights", error);
-  //记超时信息
-    if (errorMessage.includes("timeout")) {
-      logError(`AI insights generation timed out after ${AI_INSIGHTS_TIMEOUT_MS}ms`);
-    }
-    
-    return {
-      keyFindings: [],
-      improvements: [],
-      strategy: "数据不足，无法生成分析洞察",
-    };
+    // 8️⃣ 错误处理
+    return handleError(error);
   }
 }

@@ -28,6 +28,7 @@ const envSchema = z.object({
   OPENAI_BASE_URL: z.string().url().trim().optional(),
   OPENAI_API_KEY: z.string().trim().optional(),
   SUMMARY_MODEL: z.string().trim().optional(),
+  ANALYSIS_MODEL: z.string().trim().optional(),
   EMBEDDING_MODEL: z.string().trim().optional(),
   CHAT_MODEL: z.string().trim().optional(),
   MAX_AI_RESPONSES_PER_TICKET: z.coerce.number().default(3),

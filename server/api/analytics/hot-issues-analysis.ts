@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import type { AuthEnv } from "../middleware.ts";
 import { hotIssuesQuerySchema } from "./schemas.ts";
 import { generateAIInsights } from "../../utils/analytics/index.ts";
+import { logError } from "../../utils/log.ts";
 
 export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
   .get(
@@ -150,22 +151,47 @@ export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
             : 0,
       }));
 
-      // 6. 生成 AI 洞察
+      // 6. 生成 AI 洞察（带重试机制）
       let aiInsights;
-      try {
-        const AI_TIMEOUT = 20000;
-        aiInsights = await Promise.race([
-          generateAIInsights(
-            topIssuesWithTrend,
-            tagDistribution,
-            totalIssues
-          ),
-          new Promise<undefined>((_, reject) =>
-            setTimeout(() => reject(new Error("AI analysis timeout")), AI_TIMEOUT)
-          ),
-        ]);
+      const maxRetries = 3;
+      const AI_TIMEOUT = 20000;
+      let attempt = 0;
+
+      while (attempt <= maxRetries) {
+        try {
+          const result = await Promise.race([
+            generateAIInsights(
+              topIssuesWithTrend,
+              tagDistribution,
+              totalIssues
+            ),
+            new Promise<undefined>((_, reject) =>
+              setTimeout(() => reject(new Error("AI analysis timeout")), AI_TIMEOUT)
+            ),
+          ]);
+
+          // 检查结果是否有效（不为空或错误消息）
+          if (
+            result && 
+            (result.keyFindings?.length > 0 || 
+             result.improvements?.length > 0 || 
+             (result.strategy))
+          ) {
+            aiInsights = result;
+          break;
+        }
       } catch (error) {
-        console.error("Failed to generate AI insights:", error);
+        logError(`AI insights generation failed (attempt ${attempt + 1}/${maxRetries + 1})`, error);
+      }
+
+        attempt++;
+        if (attempt <= maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+
+      if (!aiInsights) {
+        logError("Failed to generate AI insights after all retries");
         aiInsights = undefined;
       }
 

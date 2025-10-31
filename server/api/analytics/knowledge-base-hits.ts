@@ -1,8 +1,7 @@
 import * as schema from "@/db/schema.ts";
-import { and, count, eq, gte, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, lte, type SQL } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
-import type { SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthEnv } from "../middleware.ts";
 import { buildAgentCondition } from "./utils.ts";
@@ -99,6 +98,7 @@ export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
         .select({
           knowledgeBaseId: schema.knowledgeAccessLog.knowledgeBaseId,
           title: schema.knowledgeBase.title,
+          content: schema.knowledgeBase.content,
           accessCount: count(),
         })
         .from(schema.knowledgeAccessLog)
@@ -125,6 +125,7 @@ export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
         .groupBy(
           schema.knowledgeAccessLog.knowledgeBaseId,
           schema.knowledgeBase.title,
+          schema.knowledgeBase.content,
         );
 
       const totalAccessCount = perDocAccess.reduce(
@@ -141,6 +142,7 @@ export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
         return {
           id: row.knowledgeBaseId,
           title: row.title,
+          content: row.content,
           accessCount,
           hitRate: Number(hitRate.toFixed(2)),
         };
@@ -200,7 +202,7 @@ export const knowledgeBaseHitsRouter = new Hono<AuthEnv>()
           totalAiMessages,
           totalAccessCount,
           knowledgeCount: perDocAccess.length,
-          hitRateThreshold: hitRateThreshold,
+          hitRateThreshold,
           avgAccessCount: Number(avgAccessCount.toFixed(2)),
           avgAccessPerMessage:
             totalAiMessages > 0

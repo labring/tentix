@@ -1,6 +1,5 @@
 import * as schema from "@/db/schema.ts";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
+import {  eq, gte, lte, sql, type SQL } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 
 

@@ -1,5 +1,15 @@
 import { Suspense, lazy } from "react";
 
+interface FilterParams {
+  startDate?: string;
+  endDate?: string;
+  agentId?: string;
+  module?: string;
+  isToday?: boolean;
+  granularity?: "hour" | "day" | "month" | "year";
+  limit?: string;
+}
+
 // 懒加载组件映射
 const LazyComponents = {
   TicketStatusAnalysis: lazy(() => import("./ticket-status-analysis").then(m => ({ default: m.TicketStatusAnalysis }))),
@@ -25,7 +35,7 @@ function AnalyticsSkeleton({ height = "h-80" }: { height?: string }) {
 // 懒加载包装器组件
 interface LazyAnalyticsWrapperProps {
   componentName: keyof typeof LazyComponents;
-  filterParams?: any;
+  filterParams?: FilterParams;
   height?: string;
 }
 
@@ -46,7 +56,7 @@ function LazyAnalyticsWrapper({
 // 优先级加载组件
 interface PriorityAnalyticsWrapperProps {
   componentName: keyof typeof LazyComponents;
-  filterParams?: any;
+  filterParams?: FilterParams;
   priority?: "high" | "medium" | "low";
   height?: string;
 }

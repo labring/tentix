@@ -6,7 +6,7 @@ import { logWarning } from "@/utils/log.ts";
 on(Events.TicketHotIssueAnalysis, async (payload) => {
   const db = connectDB();
   try {
-    // 调用热门问题分析逻辑
+    // 调用热门问题分析逻辑（支持图片）
     await analyzeAndSaveHotIssue(
       db,
       payload.ticketId,

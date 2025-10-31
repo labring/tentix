@@ -93,18 +93,19 @@ export function RatingAnalysis({
       backgroundColor: 'transparent',
       borderWidth: 0,
       padding: 0,
-      formatter: (params: any) => {
+      formatter: (params: unknown) => {
+        const paramData = params as { name?: string; value?: number; data?: { percentage?: number } };
         return `
           <div class="min-w-[200px] bg-white border border-zinc-200 p-4">
-            <div class="font-medium mb-2 text-zinc-900">${params.name}</div>
+            <div class="font-medium mb-2 text-zinc-900">${paramData.name || ''}</div>
             <div class="border-t border-zinc-300 pt-2 space-y-1.5">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-zinc-600">${t('count')}</span>
-                <span class="font-semibold text-zinc-900">${params.value}</span>
+                <span class="font-semibold text-zinc-900">${paramData.value || 0}</span>
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-sm text-zinc-600">${t('percentage')}</span>
-                <span class="font-semibold text-zinc-900">${params.data.percentage}%</span>
+                <span class="font-semibold text-zinc-900">${paramData.data?.percentage || 0}%</span>
               </div>
             </div>
           </div>
@@ -145,7 +146,7 @@ export function RatingAnalysis({
           text: totalRatings.toString(),
           fill: '#18181B',
           fontSize: 30,
-          fontWeight: 'bold' as any,
+          fontWeight: 'bold',
         }
       },
       {
@@ -158,7 +159,7 @@ export function RatingAnalysis({
           fontSize: 12,
         }
       }
-    ] as any
+    ]
   };
 
   // 转人工分布饼图配置
@@ -168,18 +169,19 @@ export function RatingAnalysis({
       backgroundColor: 'transparent',
       borderWidth: 0,
       padding: 0,
-      formatter: (params: any) => {
+      formatter: (params: unknown) => {
+        const paramData = params as { name?: string; value?: number; data?: { percentage?: number } };
         return `
           <div class="min-w-[200px] bg-white border border-zinc-200 p-4">
-            <div class="font-medium mb-2 text-zinc-900">${params.name}</div>
+            <div class="font-medium mb-2 text-zinc-900">${paramData.name || ''}</div>
             <div class="border-t border-zinc-300 pt-2 space-y-1.5">
               <div class="flex items-center justify-between">
                 <span class="text-sm text-zinc-600">${t('count')}</span>
-                <span class="font-semibold text-zinc-900">${params.value}</span>
+                <span class="font-semibold text-zinc-900">${paramData.value || 0}</span>
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-sm text-zinc-600">${t('percentage')}</span>
-                <span class="font-semibold text-zinc-900">${params.data.percentage}%</span>
+                <span class="font-semibold text-zinc-900">${paramData.data?.percentage || 0}%</span>
               </div>
             </div>
           </div>
@@ -220,7 +222,7 @@ export function RatingAnalysis({
           text: totalTickets.toString(),
           fill: '#18181B',
           fontSize: 30,
-          fontWeight: 'bold' as any,
+          fontWeight: 'bold',
         }
       },
       {
@@ -233,7 +235,7 @@ export function RatingAnalysis({
           fontSize: 12,
         }
       }
-    ] as any
+    ]
   };
 
   return (
