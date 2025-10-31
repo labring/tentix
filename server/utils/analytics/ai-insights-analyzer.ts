@@ -1,10 +1,8 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { OPENAI_CONFIG } from "../kb/config.ts";
-import { extractText, type JSONContentZod } from "../types.ts";
+import type { JSONContentZod } from "../types.ts";
 import { logError } from "../log.ts";
-import { extractImageUrls } from "@/utils/kb/tools.ts";
-import type { MMItem } from "../kb/workflow-node/workflow-tools.ts";
 
 interface HotIssueData {
   tag: string;
@@ -47,7 +45,7 @@ export async function generateAIInsights(
   topIssues: HotIssueData[],
   tagStats: TagData[],
   totalIssues: number,
-  additionalContext?: JSONContentZod
+  _additionalContext?: JSONContentZod
 ): Promise<AIInsightsResult> {
   // 检查 OpenAI 配置是否存在
   if (!OPENAI_CONFIG.apiKey) {
@@ -77,8 +75,6 @@ export async function generateAIInsights(
       },
     });
 
-    const additionalText = additionalContext ? extractText(additionalContext) : "";
-
     const promptText = `你是 Sealos 工单系统的数据分析师，**只分析**工单数据并生成洞察报告。**只输出 JSON**。
 
 ## 输出协议（严格）
@@ -104,7 +100,7 @@ export async function generateAIInsights(
   - 分类统计（category/count/percentage）
   - 额外上下文信息（如有图片，请结合图片中的错误信息、界面元素、配置截图辅助分析）
 - 洞察来自数据本身，不得臆造不存在的维度或结论；引用趋势/优先级/占比时需与输入一致。
-${additionalText ? `\n## 额外上下文\n${additionalText}\n` : ''}
+
 ## 数据概况
 总问题数: ${totalIssues}
 
@@ -132,29 +128,13 @@ TOP问题：
 {"keyFindings":["登录失败为最高频问题且呈上升趋势，需优先关注","技术问题占比接近一半，影响范围广","支付相关问题稳定存在，需优化流程与兜底","高优先级问题集中于登录与鉴权链路"],"improvements":["为登录问题建立快速诊断与回滚SOP","完善鉴权与风控链路监控与告警","梳理支付异常路径并补齐兜底提示","对高频问题建立知识库与自助化脚本"],"strategy":"以技术稳定性为抓手，围绕登录与鉴权链路做预防性加固，配套监控告警与应急演练；并行优化支付流程体验，完善异常兜底与用户提示；建立高频问题知识库与自动化工具，提升处理效率并降低重复工单。"}
 
 只输出 { "keyFindings": [...], "improvements": [...], "strategy": "..." } 的 JSON。`;
-
-    // 构建多模态内容（如果有额外上下文且包含图片）
-    const mm: MMItem[] = [{ type: "text", text: promptText }];
-    if (additionalContext) {
-      const imageUrls = extractImageUrls(additionalContext);
-      if (imageUrls.length > 0) {
-        // 去重 + 截断（最多 6 张）
-        const uniq = Array.from(new Set(imageUrls)).slice(-6);
-        for (const url of uniq) {
-          mm.push({ type: "image_url", image_url: { url } });
-        }
-      }
-    }
-
-    // 判断是否启用视觉能力
-    const enableVision = additionalContext && extractImageUrls(additionalContext).length > 0;
-
     // 以 system + user 
     const structuredModel = model.withStructuredOutput(aiInsightsSchema);
     const result = await withTimeout(
       structuredModel.invoke([
-        { role: "system", content: "你是 Sealos 工单系统的数据分析师。" },
-        { role: "user", content: enableVision ? mm : promptText },
+        { role: "system", content: promptText  },
+        // 因是分析数据库不需额外上下文
+        { role: "user", content:"你是 Sealos 工单系统的数据分析师，请根据以下输入生成洞察报告。" },
       ]),
       AI_INSIGHTS_TIMEOUT_MS,
       `AI insights generation timeout after ${AI_INSIGHTS_TIMEOUT_MS}ms`

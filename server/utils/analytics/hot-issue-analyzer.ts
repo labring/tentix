@@ -4,7 +4,8 @@ import * as schema from "@db/schema.ts";
 import { type JSONContentZod } from "../types.ts";
 import { eq, sql, count, desc, and } from "drizzle-orm";
 import { OPENAI_CONFIG } from "../kb/config.ts";
-import { convertToMultimodalMessage } from "../kb/tools.ts";
+import { convertToMultimodalMessage, extractTextWithoutImages } from "../kb/tools.ts";
+import type { MMItem } from "../kb/workflow-node/workflow-tools.ts";
 import { connectDB } from "../tools.ts";
 
 type DB = ReturnType<typeof connectDB>;
@@ -56,7 +57,7 @@ async function analyzeWithAI(
     },
   });
 
-  // 使用多模态消息转换
+  // 使用文本转换为多模态消息
   const multimodalContent = convertToMultimodalMessage(description);
   const tagsText = existingTags.length > 0
     ? existingTags
@@ -64,7 +65,8 @@ async function analyzeWithAI(
         .join("\n")
     : "暂无现有标签";
 
-  const promptText = `你是 Sealos 工单系统的标签分析助手，**只分析**工单内容并生成问题标签。
+  // System prompt: 包含角色说明、规则、现有标签、示例
+  const systemPrompt = `你是 Sealos 工单系统的标签分析助手，**只分析**工单内容并生成问题标签。
 
 ## 判定要点
 - **优先复用现有标签**（见下方列表），相似度 ≥70% 时应归入现有项。
@@ -80,9 +82,6 @@ async function analyzeWithAI(
 - 综合"标题/描述内容/图片内容（若有）"与"现有标签列表"进行判定。
 - 若包含图片，请结合图片中的错误信息、界面元素、配置截图辅助分析。
 - 严禁臆造不存在的字段或信息；无法确定时宁可降低 confidence。
-
-## 工单内容
-标题: "${title}"
 
 ## 现有标签列表（按使用频率排序）
 ${tagsText}
@@ -115,26 +114,32 @@ ${tagsText}
   "reasoning": "支付相关的特定问题类型"
 }`;
 
+  // 实际内容
+  const userPromptText = `标题: ${title}
+
+描述: ${typeof multimodalContent === "string" ? multimodalContent : extractTextWithoutImages(description)}`;
+
+  // 构建 user 消息（可能包含图片）
+  let userContent: string | MMItem[];
+  if (typeof multimodalContent === "string") {
+    // 纯文本
+    userContent = userPromptText;
+  } else {
+    // 多模态（文本 + 图片）
+    const images = multimodalContent.filter((item): item is { type: "image_url"; image_url: { url: string } } => 
+      item.type === "image_url"
+    );
+    userContent = [
+      { type: "text", text: userPromptText },
+      ...images
+    ];
+  }
+
+  // 创建结构化输出模型并调用
   const structuredModel = model.withStructuredOutput(hotIssueAnalysisSchema);
-
-  // 构建多模态内容
-  type MMItem = 
-    | { type: "text"; text: string }
-    | { type: "image_url"; image_url: { url: string } };
-
-  const mm: MMItem[] = typeof multimodalContent === "string"
-    ? [{ type: "text", text: promptText }]
-    : [
-        { type: "text", text: promptText },
-        ...multimodalContent.filter((item): item is { type: "image_url"; image_url: { url: string } } => 
-          item.type === "image_url"
-        ),
-      ];
-
-  //  system + user 
   const result: AIAnalysisResult = await structuredModel.invoke([
-    { role: "system", content: "你是 Sealos 工单系统的标签分析助手。" },
-    { role: "user", content: typeof multimodalContent === "string" ? promptText : mm },
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userContent },
   ]);
 
   return {
