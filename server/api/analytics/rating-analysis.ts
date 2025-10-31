@@ -1,8 +1,7 @@
 import * as schema from "@/db/schema.ts";
-import { and, count, eq, gte, lte } from "drizzle-orm";
+import { and, count, eq, gte, lte, type SQL } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
-import type { SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthEnv } from "../middleware.ts";
 import { buildTicketConditions } from "./utils.ts";

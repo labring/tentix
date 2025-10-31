@@ -1,9 +1,9 @@
-import { Alert, AlertDescription, AlertTitle } from "tentix-ui";
+import { Alert, AlertDescription, AlertTitle, PendingIcon, ProgressIcon, DoneIcon } from "tentix-ui";
 import type { EChartsOption } from 'echarts';
 import { Droplets, TriangleAlert } from "lucide-react";
-import { PendingIcon, ProgressIcon, DoneIcon } from "tentix-ui";
 import { ticketStatusAnalysisQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
+import type { TFunction } from "i18next";
 import { EChartsWrapper } from "@comp/common/echarts-wrapper";
 
 const getChartColors = () => ({
@@ -12,7 +12,7 @@ const getChartColors = () => ({
   resolved: "#2563EB",
 });
 
-const getChartLabels = (t: any) => ({
+const getChartLabels = (t: TFunction) => ({
   pending: t("pending"),
   in_progress: t("in_progress"),
   resolved: t("resolved"),
@@ -93,9 +93,10 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
       backgroundColor: 'transparent',
       borderWidth: 0,
       padding: 0,
-      formatter: (params: any) => {
-        const name = params?.name as keyof typeof chartLabels;
-        const value = Number(params?.value || 0);
+      formatter: (params: unknown) => {
+        const paramData = params as { name?: string; value?: number };
+        const name = paramData.name as keyof typeof chartLabels;
+        const value = Number(paramData.value || 0);
         const percent = totalTickets > 0 ? ((value / totalTickets) * 100).toFixed(1) : '0.0';
         const label = chartLabels[name] || '';
         const colorClassMap: Record<string, string> = {
@@ -156,7 +157,7 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
           text: totalTickets.toString(),
           fill: '#18181B',
           fontSize: 30,
-          fontWeight: 'bold' as any,
+          fontWeight: 'bold',
         }
       },
       {
@@ -169,7 +170,7 @@ export function TicketStatusAnalysis({ filterParams, isLoading: externalLoading 
           fontSize: 12,
         }
       }
-    ] as any
+    ]
   };
 
   return (

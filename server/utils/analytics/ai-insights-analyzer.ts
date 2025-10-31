@@ -1,9 +1,10 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { OPENAI_CONFIG } from "../kb/config.ts";
-import { extractText } from "../types.ts";
-import type { JSONContentZod } from "../types.ts";
+import { extractText, type JSONContentZod } from "../types.ts";
 import { logError } from "../log.ts";
+import { extractImageUrls } from "@/utils/kb/tools.ts";
+import type { MMItem } from "../kb/workflow-node/workflow-tools.ts";
 
 interface HotIssueData {
   tag: string;
@@ -132,10 +133,29 @@ TOP问题：
 
 只输出 { "keyFindings": [...], "improvements": [...], "strategy": "..." } 的 JSON。`;
 
+    // 构建多模态内容（如果有额外上下文且包含图片）
+    const mm: MMItem[] = [{ type: "text", text: promptText }];
+    if (additionalContext) {
+      const imageUrls = extractImageUrls(additionalContext);
+      if (imageUrls.length > 0) {
+        // 去重 + 截断（最多 6 张）
+        const uniq = Array.from(new Set(imageUrls)).slice(-6);
+        for (const url of uniq) {
+          mm.push({ type: "image_url", image_url: { url } });
+        }
+      }
+    }
+
+    // 判断是否启用视觉能力
+    const enableVision = additionalContext && extractImageUrls(additionalContext).length > 0;
+
+    // 以 system + user 
     const structuredModel = model.withStructuredOutput(aiInsightsSchema);
-      // 多模态消息（包含图片）进行处理
     const result = await withTimeout(
-      structuredModel.invoke(promptText),
+      structuredModel.invoke([
+        { role: "system", content: "你是 Sealos 工单系统的数据分析师。" },
+        { role: "user", content: enableVision ? mm : promptText },
+      ]),
       AI_INSIGHTS_TIMEOUT_MS,
       `AI insights generation timeout after ${AI_INSIGHTS_TIMEOUT_MS}ms`
     );

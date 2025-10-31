@@ -1,9 +1,8 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import * as schema from "@db/schema.ts";
-import type { JSONContentZod } from "../types.ts";
-import { extractText } from "../types.ts";
-import { eq, sql, count, desc, and, or } from "drizzle-orm";
+import { type JSONContentZod } from "../types.ts";
+import { eq, sql, count, desc, and } from "drizzle-orm";
 import { OPENAI_CONFIG } from "../kb/config.ts";
 import { convertToMultimodalMessage } from "../kb/tools.ts";
 import { connectDB } from "../tools.ts";
@@ -59,8 +58,6 @@ async function analyzeWithAI(
 
   // 使用多模态消息转换
   const multimodalContent = convertToMultimodalMessage(description);
-  const descriptionText = extractText(description);
-
   const tagsText = existingTags.length > 0
     ? existingTags
         .map((t) => `- ${t.name}: ${t.description} (使用次数: ${t.usageCount})`)
@@ -80,13 +77,12 @@ async function analyzeWithAI(
 - 存在歧义/信息不足时：降低 confidence（≤0.6），reasoning 标注"信息不足/语义含糊"。
 
 ## 结合上下文
-- 综合"标题/富文本描述（提取纯文本）/图片内容（若有）"与"现有标签列表"进行判定。
+- 综合"标题/描述内容/图片内容（若有）"与"现有标签列表"进行判定。
 - 若包含图片，请结合图片中的错误信息、界面元素、配置截图辅助分析。
 - 严禁臆造不存在的字段或信息；无法确定时宁可降低 confidence。
 
 ## 工单内容
 标题: "${title}"
-描述(纯文本): "${descriptionText}"
 
 ## 现有标签列表（按使用频率排序）
 ${tagsText}
@@ -119,37 +115,34 @@ ${tagsText}
   "reasoning": "支付相关的特定问题类型"
 }`;
 
-  try {
-    const structuredModel = model.withStructuredOutput(hotIssueAnalysisSchema);
+  const structuredModel = model.withStructuredOutput(hotIssueAnalysisSchema);
 
-    let result: AIAnalysisResult;
+  // 构建多模态内容
+  type MMItem = 
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } };
 
-    if (typeof multimodalContent === "string") {
-      // 纯文本消息
-      result = await structuredModel.invoke(promptText);
-    } else {
-      // 多模态消息（包含图片）
-      const messages = [
-        {
-          role: "user" as const,
-          content: [
-            { type: "text" as const, text: promptText },
-            ...multimodalContent.filter((item) => item.type === "image_url"),
-          ],
-        },
+  const mm: MMItem[] = typeof multimodalContent === "string"
+    ? [{ type: "text", text: promptText }]
+    : [
+        { type: "text", text: promptText },
+        ...multimodalContent.filter((item): item is { type: "image_url"; image_url: { url: string } } => 
+          item.type === "image_url"
+        ),
       ];
-      result = await structuredModel.invoke(messages);
-    }
 
-    return {
-      name: result.name || "其他问题",
-      description: result.description || "未明确分类的问题",
-      confidence: Math.min(Math.max(result.confidence || 0.5, 0), 1),
-      reasoning: result.reasoning,
-    };
-  } catch (error) {
-    throw error;
-  }
+  //  system + user 
+  const result: AIAnalysisResult = await structuredModel.invoke([
+    { role: "system", content: "你是 Sealos 工单系统的标签分析助手。" },
+    { role: "user", content: typeof multimodalContent === "string" ? promptText : mm },
+  ]);
+
+  return {
+    name: result.name || "其他问题",
+    description: result.description || "未明确分类的问题",
+    confidence: Math.min(Math.max(result.confidence || 0.5, 0), 1),
+    reasoning: result.reasoning,
+  };
 }
 
 /**
@@ -195,51 +188,47 @@ export async function analyzeAndSaveHotIssue(
   title: string,
   description: JSONContentZod
 ): Promise<void> {
-  try {
-    // 检查 OPENAI 配置
-    if (!OPENAI_CONFIG.apiKey) {
-      throw new Error("OPENAI_API_KEY is not configured");
-    }
-    if (!OPENAI_CONFIG.summaryModel) {
-      throw new Error("SUMMARY_MODEL is not configured");
-    }
+  // 检查 OPENAI 配置
+  if (!OPENAI_CONFIG.apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
+  if (!OPENAI_CONFIG.summaryModel) {
+    throw new Error("SUMMARY_MODEL is not configured");
+  }
 
-    // 获取现有的标签
-    const existingTags = await getExistingTags(db);
+  // 获取现有的标签
+  const existingTags = await getExistingTags(db);
 
-    // AI 分析
-    const analysis = await analyzeWithAI(title, description, existingTags);
+  // AI 分析
+  const analysis = await analyzeWithAI(title, description, existingTags);
 
-    // 查找或创建标签
-    const tagId = await findOrCreateTag(
-      db,
-      analysis.name,
-      analysis.description
-    );
+  // 查找或创建标签
+  const tagId = await findOrCreateTag(
+    db,
+    analysis.name,
+    analysis.description
+  );
 
-    // 检查是否已经关联过这个标签（避免重复）
-    const existingLink = await db
-      .select()
-      .from(schema.ticketsTags)
-      .where(
-        and(
-          eq(schema.ticketsTags.ticketId, ticketId),
-          eq(schema.ticketsTags.tagId, tagId)
-        )
+  // 检查是否已经关联过这个标签（避免重复）
+  const existingLink = await db
+    .select()
+    .from(schema.ticketsTags)
+    .where(
+      and(
+        eq(schema.ticketsTags.ticketId, ticketId),
+        eq(schema.ticketsTags.tagId, tagId)
       )
-      .limit(1);
+    )
+    .limit(1);
 
-    // 创建工单-标签关联（如果不存在）
-    if (existingLink.length === 0) {
-      await db.insert(schema.ticketsTags).values({
-        ticketId,
-        tagId: tagId,
-        confidence: analysis.confidence,
-        isAiGenerated: true,
-      });
-    }
-  } catch (error) {
-    throw error;
+  // 创建工单-标签关联（如果不存在）
+  if (existingLink.length === 0) {
+    await db.insert(schema.ticketsTags).values({
+      ticketId,
+      tagId,
+      confidence: analysis.confidence,
+      isAiGenerated: true,
+    });
   }
 }
 

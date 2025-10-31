@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import type { AuthEnv } from "../middleware.ts";
 import { hotIssuesQuerySchema } from "./schemas.ts";
 import { generateAIInsights } from "../../utils/analytics/index.ts";
+import { logError } from "../../utils/log.ts";
 
 export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
   .get(
@@ -177,11 +178,11 @@ export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
              (result.strategy))
           ) {
             aiInsights = result;
-            break;
-          }
-        } catch (error) {
-          console.error(`AI insights generation failed (attempt ${attempt + 1}/${maxRetries + 1}):`, error);
+          break;
         }
+      } catch (error) {
+        logError(`AI insights generation failed (attempt ${attempt + 1}/${maxRetries + 1})`, error);
+      }
 
         attempt++;
         if (attempt <= maxRetries) {
@@ -190,7 +191,7 @@ export const hotIssuesAnalysisRouter = new Hono<AuthEnv>()
       }
 
       if (!aiInsights) {
-        console.error("Failed to generate AI insights after all retries");
+        logError("Failed to generate AI insights after all retries");
         aiInsights = undefined;
       }
 

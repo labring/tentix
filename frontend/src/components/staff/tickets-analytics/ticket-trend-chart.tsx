@@ -85,7 +85,7 @@ export function TicketTrendChart({
     } else {
       return "year";
     }
-  }, [finalFilterParams.startDate, finalFilterParams.endDate]);
+  }, [finalFilterParams]);
 
   const granularityOptions = [
     { value: "hour", label: t("hourly") },
@@ -122,9 +122,10 @@ export function TicketTrendChart({
   const formatDateForDisplay = (dateStr: string) => {
     const date = new Date(dateStr);
     switch (granularity) {
-      case "hour":
+      case "hour": {
         const hour = date.getHours();
         return `${hour.toString().padStart(2, '0')}:00`;
+      }
       case "day":
         return date.toLocaleDateString(locale, { month: "numeric", day: "numeric" });
       case "month":
@@ -151,7 +152,7 @@ export function TicketTrendChart({
         displayDate: hourStr,
         fullDate: `${finalFilterParams.startDate?.split('T')[0]}T${hourStr}:00`,
         count: 0, 
-        hour: hour, 
+        hour, 
       });
     }
     
@@ -196,7 +197,7 @@ export function TicketTrendChart({
         fullDate: `${finalFilterParams.startDate?.split('T')[0]}T${hourStr}:00`,
         firstResponse: 0, 
         resolution: 0,
-        hour: hour, 
+        hour, 
       });
     }
     
@@ -246,9 +247,11 @@ export function TicketTrendChart({
     }
   }
 
-  const getResponseTimeRange = (data: any[], key: 'firstResponse' | 'resolution') => {
+  const getResponseTimeRange = (data: Array<{ firstResponse?: number; resolution?: number }>, key: 'firstResponse' | 'resolution') => {
     if (data.length === 0) return t("no_data");
-    const values = data.map(item => item[key]).filter(val => val != null && val > 0);
+    const values: number[] = data
+      .map(item => item[key])
+      .filter((val): val is number => typeof val === 'number' && val > 0);
     if (values.length === 0) return t("no_data");
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -307,9 +310,9 @@ export function TicketTrendChart({
       backgroundColor: 'transparent',
       borderWidth: 0,
       padding: 0,
-      formatter: (params: any) => {
-        const param = params[0];
-        const dataIndex = param?.dataIndex;
+      formatter: ((params: unknown) => {
+        const list = (Array.isArray(params) ? params : [params]) as Array<{ dataIndex?: number }>;
+        const dataIndex = list[0]?.dataIndex;
         if (dataIndex === undefined) return '';
         const item = formattedTrendsData[dataIndex];
         if (!item) return '';
@@ -327,7 +330,7 @@ export function TicketTrendChart({
             </div>
           </div>
         `;
-      },
+      }) ,
       axisPointer: {
         type: 'line',
         lineStyle: {
@@ -413,8 +416,9 @@ export function TicketTrendChart({
       backgroundColor: 'transparent',
       borderWidth: 0,
       padding: 0,
-      formatter: (params: any) => {
-        const dataIndex = params[0]?.dataIndex;
+      formatter: ((params: unknown) => {
+        const list = (Array.isArray(params) ? params : [params]) as Array<{ dataIndex?: number; seriesName?: string; value?: number }>;
+        const dataIndex = list[0]?.dataIndex;
         if (dataIndex === undefined) return '';
         const item = formattedResponseData[dataIndex];
         if (!item) return '';
@@ -423,7 +427,7 @@ export function TicketTrendChart({
             <div class="font-medium mb-2 text-zinc-900">${item.fullDate}</div>
             <div class="border-t border-zinc-300 pt-2">
         `;
-        params.forEach((param: any) => {
+        list.forEach((param) => {
           const label = param.seriesName === 'firstResponse' ? t('average_first_response_time') : t('average_resolution_time');
           const colorClass = param.seriesName === 'firstResponse' ? 'bg-green-500' : 'bg-blue-600';
           content += `
@@ -432,13 +436,13 @@ export function TicketTrendChart({
                 <div class="w-2 h-2 ${colorClass}"></div>
                 <span class="text-sm text-zinc-600">${label}</span>
               </div>
-              <span class="font-semibold text-zinc-900">${param.value} ${t('hours')}</span>
+              <span class="font-semibold text-zinc-900">${param.value ?? 0} ${t('hours')}</span>
             </div>
           `;
         });
         content += `</div></div>`;
         return content;
-      },
+      }) ,
       axisPointer: {
         type: 'line',
         lineStyle: {

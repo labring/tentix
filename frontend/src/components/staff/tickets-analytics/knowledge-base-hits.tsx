@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "tentix-ui";
 import type { EChartsOption } from 'echarts';
+import type { TFunction } from "i18next";
 import { knowledgeHitsQueryOptions, useSuspenseQuery } from "@lib/query";
 import { useTranslation } from "i18n";
 import {
@@ -44,7 +45,7 @@ interface ZoneLabelsOverlayProps {
   yAxisMax: number;
   hitRateThreshold: number;
   accessThreshold: number;
-  t: any;
+  t: TFunction;
   width: number;
   height: number;
 }
@@ -273,6 +274,11 @@ export function KnowledgeBaseHits({
 
   const loading = externalLoading;
 
+  // 当模块改变时，重置分页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedModule]);
+
   useEffect(() => {
     const updateSize = () => {
       if (chartContainerRef.current) {
@@ -364,11 +370,6 @@ export function KnowledgeBaseHits({
     setCurrentPage(1);
   };
   
-  // 当模块改变时，重置分页
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedModule]);
-  
   const goToFirstPage = () => {
     setCurrentPage(1);
   };
@@ -457,8 +458,10 @@ export function KnowledgeBaseHits({
         color: '#18181B',
         fontSize: 14,
       },
-      formatter: (params: any) => {
-        const item = params.data.item;
+      formatter: (params: unknown) => {
+        const paramData = params as { data?: { item?: KnowledgeItem } };
+        if (!paramData.data?.item) return '';
+        const item = paramData.data.item;
         const zoneColor = ZONE_COLORS[item.zone as keyof typeof ZONE_COLORS] || '#9CA3AF';
         return `
           <div style="min-width: 280px;">
@@ -483,17 +486,17 @@ export function KnowledgeBaseHits({
     series: [
       {
         type: 'scatter',
-        symbolSize: (data: any) => {
+        symbolSize: (data: number[] | number) => {
           // 气泡大小根据 accessCount 调整
           const minSize = 10;
           const maxSize = 40;
-          const value = data[2]; // z value
+          const value = Array.isArray(data) ? (data[2] ?? 0) : data;
           const normalized = (value - 0) / (maxAccessCount - 0 || 1);
           return minSize + normalized * (maxSize - minSize);
         },
         data: classifiedData.map(item => ({
           value: [item.accessCount, item.hitRate, item.z],
-          item: item,
+          item,
           itemStyle: {
             color: ZONE_COLORS[item.zone],
             opacity: 0.7,
