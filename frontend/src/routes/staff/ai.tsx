@@ -1270,6 +1270,7 @@ function KnowledgeBaseTab() {
               aria-pressed={status === "disabled"}
               onClick={() => {
                 setStatus((value) => (value === "disabled" ? "all" : "disabled"));
+                setFailedOnly(false);
                 setPage(1);
                 setSelectedKnowledge(null);
               }}
@@ -1294,6 +1295,7 @@ function KnowledgeBaseTab() {
             type="button"
             onClick={() => {
               setFailedOnly((value) => !value);
+              setStatus("all");
               setPage(1);
               setSelectedKnowledge(null);
             }}
@@ -1386,6 +1388,7 @@ function KnowledgeBaseTab() {
           value={status}
           onValueChange={(value) => {
             setStatus(value as KnowledgeStatusFilter);
+            setFailedOnly(false);
             resetListPage();
             setSelectedKnowledge(null);
           }}
