@@ -1,6 +1,7 @@
 import * as schema from "@/db/schema.ts";
 import {
   and,
+  asc,
   count,
   eq,
   ilike,
@@ -28,6 +29,8 @@ import {
   loadEditedKnowledgeSourceContext,
   rebuildEditedKnowledgeMetadata,
 } from "@/utils/kb/kb-builder";
+import { getTextWithImageInfo } from "@/utils/kb/tools";
+import type { JSONContentZod } from "@/utils/types";
 
 const createFavoritedSchema = z.object({
   ticketId: z.string(),
@@ -222,6 +225,85 @@ function getMetadataStringArray(metadata: unknown, key: string): string[] {
     : [];
 }
 
+function getUserDisplayName(user: {
+  realName?: string | null;
+  nickname?: string | null;
+  name?: string | null;
+  id?: number | null;
+}): string {
+  return (
+    user.realName?.trim() ||
+    user.nickname?.trim() ||
+    user.name?.trim() ||
+    (user.id ? `用户 ${user.id}` : "未知用户")
+  );
+}
+
+function getUserRoleLabel(role: string | null | undefined): string {
+  if (role === "admin") return "管理员";
+  if (role === "agent") return "客服";
+  if (role === "technician") return "技术";
+  if (role === "ai") return "AI";
+  if (role === "customer") return "用户";
+  return role || "未知角色";
+}
+
+function getFavoriteSelectionMode(messageIds: number[] | null | undefined) {
+  return messageIds && messageIds.length > 0
+    ? "selected_messages"
+    : "entire_conversation";
+}
+
+async function loadFavoritedSourceMessages(
+  db: any,
+  ticketId: string,
+  messageIds: number[] | null | undefined,
+) {
+  const rows = await db
+    .select({
+      id: schema.chatMessages.id,
+      ticketId: schema.chatMessages.ticketId,
+      senderId: schema.chatMessages.senderId,
+      content: schema.chatMessages.content,
+      createdAt: schema.chatMessages.createdAt,
+      isInternal: schema.chatMessages.isInternal,
+      withdrawn: schema.chatMessages.withdrawn,
+      senderName: schema.users.name,
+      senderNickname: schema.users.nickname,
+      senderRealName: schema.users.realName,
+      senderRole: schema.users.role,
+    })
+    .from(schema.chatMessages)
+    .leftJoin(schema.users, eq(schema.chatMessages.senderId, schema.users.id))
+    .where(
+      messageIds && messageIds.length > 0
+        ? and(
+            eq(schema.chatMessages.ticketId, ticketId),
+            inArray(schema.chatMessages.id, messageIds),
+          )
+        : eq(schema.chatMessages.ticketId, ticketId),
+    )
+    .orderBy(asc(schema.chatMessages.createdAt));
+
+  return rows.map((row: (typeof rows)[number]) => ({
+    id: row.id,
+    ticketId: row.ticketId,
+    senderId: row.senderId,
+    senderName: getUserDisplayName({
+      id: row.senderId,
+      name: row.senderName,
+      nickname: row.senderNickname,
+      realName: row.senderRealName,
+    }),
+    senderRole: row.senderRole,
+    senderRoleLabel: getUserRoleLabel(row.senderRole),
+    createdAt: row.createdAt,
+    isInternal: Boolean(row.isInternal),
+    withdrawn: Boolean(row.withdrawn),
+    contentText: getTextWithImageInfo(row.content as JSONContentZod),
+  }));
+}
+
 const kbRouter = factory
   .createApp()
   .use(authMiddleware)
@@ -357,8 +439,19 @@ const kbRouter = factory
       let failedSourceIds: string[] | undefined;
       if (query.failedOnly === "true") {
         const failedRows = await db
-          .select({ ticketId: schema.favoritedConversationsKnowledge.ticketId })
+          .select({
+            ticketId: schema.favoritedConversationsKnowledge.ticketId,
+            syncedAt: schema.favoritedConversationsKnowledge.syncedAt,
+            updatedAt: schema.favoritedConversationsKnowledge.updatedAt,
+            title: schema.tickets.title,
+            module: schema.tickets.module,
+            category: schema.tickets.category,
+          })
           .from(schema.favoritedConversationsKnowledge)
+          .leftJoin(
+            schema.tickets,
+            eq(schema.favoritedConversationsKnowledge.ticketId, schema.tickets.id),
+          )
           .where(eq(schema.favoritedConversationsKnowledge.syncStatus, "failed"));
         failedSourceIds = failedRows.map((row) => row.ticketId);
       }
@@ -366,7 +459,7 @@ const kbRouter = factory
       const whereClause = buildKnowledgeWhere(query, failedSourceIds);
       const statusHaving = buildKnowledgeStatusHaving(query.status ?? "all");
       const disabledChunkCount = sql<number>`COALESCE(SUM(CASE WHEN ${schema.knowledgeBase.isDeleted} THEN 1 ELSE 0 END), 0)`;
-      const groups =
+      let groups =
         failedSourceIds?.length === 0
           ? []
           : await db
@@ -387,6 +480,63 @@ const kbRouter = factory
               .groupBy(schema.knowledgeBase.sourceType, schema.knowledgeBase.sourceId)
               .having(statusHaving)
               .orderBy(sql`MAX(${schema.knowledgeBase.updatedAt}) DESC`);
+
+      if (query.failedOnly === "true") {
+        const failedFavorites = await db
+          .select({
+            ticketId: schema.favoritedConversationsKnowledge.ticketId,
+            syncedAt: schema.favoritedConversationsKnowledge.syncedAt,
+            updatedAt: schema.favoritedConversationsKnowledge.updatedAt,
+            title: schema.tickets.title,
+            module: schema.tickets.module,
+            category: schema.tickets.category,
+          })
+          .from(schema.favoritedConversationsKnowledge)
+          .leftJoin(
+            schema.tickets,
+            eq(schema.favoritedConversationsKnowledge.ticketId, schema.tickets.id),
+          )
+          .where(eq(schema.favoritedConversationsKnowledge.syncStatus, "failed"))
+          .orderBy(sql`${schema.favoritedConversationsKnowledge.updatedAt} DESC`);
+        const existingFailedSourceIds = new Set(groups.map((row) => row.sourceId));
+        const keyword = query.keyword?.trim().toLowerCase();
+        const sourceType = query.sourceType ?? "all";
+        const module = query.module?.trim();
+        const shouldShowZeroChunkFailures =
+          (sourceType === "all" || sourceType === "favorited_conversation") &&
+          (query.status ?? "all") === "all";
+        const zeroChunkFailedGroups = shouldShowZeroChunkFailures
+          ? failedFavorites
+              .filter((row) => !existingFailedSourceIds.has(row.ticketId))
+              .filter((row) => !module || row.module === module)
+              .filter((row) => {
+                if (!keyword) return true;
+                return [
+                  row.ticketId,
+                  row.title,
+                  row.module,
+                  row.category,
+                ].some((value) => (value ?? "").toLowerCase().includes(keyword));
+              })
+              .map((row) => ({
+                sourceType: "favorited_conversation",
+                sourceId: row.ticketId,
+                title: row.title ?? row.ticketId,
+                module: row.module ?? "",
+                category: row.category ?? "",
+                chunkCount: 0,
+                disabledChunkCount: 0,
+                accessCount: 0,
+                isDeleted: false,
+                updatedAt: row.updatedAt,
+                syncFailed: true,
+                syncedAt: row.syncedAt ?? null,
+              }))
+          : [];
+        groups = [...groups, ...zeroChunkFailedGroups].sort((a, b) => {
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+      }
 
       const allGroups = await db
         .select({
@@ -503,17 +653,50 @@ const kbRouter = factory
         )
         .orderBy(schema.knowledgeBase.chunkId);
 
-      if (chunks.length === 0) {
-        throw new HTTPException(404, { message: "Knowledge item not found" });
-      }
-
-      const firstChunk = chunks.find((chunk) => Number(chunk.chunkId) === 0) ?? chunks[0]!;
       const favorite =
         sourceType === "favorited_conversation"
           ? await db.query.favoritedConversationsKnowledge.findFirst({
               where: eq(schema.favoritedConversationsKnowledge.ticketId, sourceId),
             })
           : null;
+      const sourceMessages =
+        favorite && favorite.syncStatus === "failed"
+          ? await loadFavoritedSourceMessages(db, sourceId, favorite.messageIds)
+          : [];
+      const ticket =
+        sourceType === "favorited_conversation" && favorite
+          ? await db.query.tickets.findFirst({
+              where: eq(schema.tickets.id, sourceId),
+            })
+          : null;
+
+      if (chunks.length === 0) {
+        if (!favorite || favorite.syncStatus !== "failed") {
+          throw new HTTPException(404, { message: "Knowledge item not found" });
+        }
+        return c.json({
+          sourceType,
+          sourceId,
+          title: ticket?.title || sourceId,
+          module: ticket?.module ?? "",
+          category: ticket?.category ?? "",
+          area: ticket?.area ?? "",
+          tags: [],
+          problemSummary: "",
+          isDeleted: false,
+          accessCount: 0,
+          syncFailed: true,
+          syncedAt: favorite.syncedAt ?? null,
+          ticketId: favorite.ticketId,
+          selectionMode: getFavoriteSelectionMode(favorite.messageIds),
+          sourceMessages,
+          createdAt: favorite.createdAt,
+          updatedAt: favorite.updatedAt,
+          chunks: [],
+        });
+      }
+
+      const firstChunk = chunks.find((chunk) => Number(chunk.chunkId) === 0) ?? chunks[0]!;
 
       return c.json({
         sourceType,
@@ -529,6 +712,8 @@ const kbRouter = factory
         syncFailed: favorite?.syncStatus === "failed",
         syncedAt: favorite?.syncedAt ?? null,
         ticketId: favorite?.ticketId ?? null,
+        selectionMode: favorite ? getFavoriteSelectionMode(favorite.messageIds) : null,
+        sourceMessages,
         createdAt: firstChunk.createdAt,
         updatedAt: firstChunk.updatedAt,
         chunks: chunks.map((chunk) => ({

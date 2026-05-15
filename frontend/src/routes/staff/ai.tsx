@@ -175,6 +175,21 @@ type KnowledgeChunk = {
   updatedAt: string;
 };
 
+type KnowledgeSelectionMode = "selected_messages" | "entire_conversation";
+
+type KnowledgeSourceMessage = {
+  id: number;
+  ticketId: string;
+  senderId: number;
+  senderName: string;
+  senderRole: string | null;
+  senderRoleLabel: string;
+  createdAt: string;
+  isInternal: boolean;
+  withdrawn: boolean;
+  contentText: string;
+};
+
 type KnowledgeDetail = {
   sourceType: KnowledgeSourceType;
   sourceId: string;
@@ -189,6 +204,8 @@ type KnowledgeDetail = {
   syncFailed: boolean;
   syncedAt: string | null;
   ticketId: string | null;
+  selectionMode: KnowledgeSelectionMode | null;
+  sourceMessages: KnowledgeSourceMessage[];
   createdAt: string;
   updatedAt: string;
   chunks: KnowledgeChunk[];
@@ -1214,6 +1231,7 @@ function KnowledgeBaseTab() {
   };
 
   const summary = listQuery.data?.summary;
+  const isFailureView = Boolean(failedOnly && detail?.syncFailed);
   const isMutating =
     updateKnowledgeMutation.isPending ||
     updateKnowledgeChunkMutation.isPending ||
@@ -1392,7 +1410,9 @@ function KnowledgeBaseTab() {
       ) : items.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
           <Database className="h-10 w-10" />
-          <div className="text-sm">暂无知识内容</div>
+          <div className="text-sm">
+            {failedOnly ? "暂无同步失败内容" : "暂无知识内容"}
+          </div>
         </div>
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)]">
@@ -1501,7 +1521,7 @@ function KnowledgeBaseTab() {
               <div className="space-y-5">
                 {detail.syncFailed ? (
                   <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    同步失败。可保存当前内容触发索引重建。
+                    同步失败。请查看导入失败的原始内容，确认后可打开工单处理或删除失败记录。
                   </div>
                 ) : null}
                 <div className="flex items-center gap-2 text-xs">
@@ -1534,16 +1554,35 @@ function KnowledgeBaseTab() {
                   {detail.title}
                 </div>
 
-                <div className="grid grid-cols-4 gap-x-6 gap-y-2 border-y border-border py-3">
-                  <KbDetailMeta label="模块" value={detail.module || "未分模块"} />
-                  <KbDetailMeta
-                    label="分类"
-                    value={detail.category || "未分类"}
-                    muted
-                  />
-                  <KbDetailMeta label="片段" value={String(draftChunks.length)} />
-                  <KbDetailMeta label="命中" value={String(detail.accessCount)} />
-                </div>
+                {isFailureView ? (
+                  <div className="grid grid-cols-3 gap-x-6 gap-y-2 border-y border-border py-3">
+                    <KbDetailMeta label="模块" value={detail.module || "未分模块"} />
+                    <KbDetailMeta
+                      label="分类"
+                      value={detail.category || "未分类"}
+                      muted
+                    />
+                    <KbDetailMeta
+                      label="导入范围"
+                      value={
+                        detail.selectionMode === "entire_conversation"
+                          ? "整段对话"
+                          : "选中消息"
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-x-6 gap-y-2 border-y border-border py-3">
+                    <KbDetailMeta label="模块" value={detail.module || "未分模块"} />
+                    <KbDetailMeta
+                      label="分类"
+                      value={detail.category || "未分类"}
+                      muted
+                    />
+                    <KbDetailMeta label="片段" value={String(draftChunks.length)} />
+                    <KbDetailMeta label="命中" value={String(detail.accessCount)} />
+                  </div>
+                )}
 
                 {detail.tags.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -1558,83 +1597,92 @@ function KnowledgeBaseTab() {
                   </div>
                 ) : null}
 
-                <div className="border-t border-border pt-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-sm font-medium">内容片段</div>
-                    <div className="text-xs text-muted-foreground">
-                      未点击保存前不会写入数据库
+                {isFailureView ? (
+                  <KnowledgeSourceMessages messages={detail.sourceMessages} />
+                ) : (
+                  <div className="border-t border-border pt-5">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="text-sm font-medium">内容片段</div>
+                      <div className="text-xs text-muted-foreground">
+                        未点击保存前不会写入数据库
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {draftChunks.map((chunk, index) => (
+                        <div key={chunk.id} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            {chunk.chunkId === 0 ? (
+                              <Badge
+                                variant="outline"
+                                className="gap-1 border-orange-500/30 bg-orange-50 text-orange-700"
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                AI 摘要
+                              </Badge>
+                            ) : (
+                              <span className="text-xs font-medium text-muted-foreground">
+                                原始内容 {index}
+                              </span>
+                            )}
+                            {chunk.isDeleted ? (
+                              <Badge
+                                variant="outline"
+                                className="border-destructive/30 bg-destructive/10 text-destructive"
+                              >
+                                已禁用
+                              </Badge>
+                            ) : null}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="ml-auto h-7"
+                              onClick={() => handleToggleChunkDisabled(chunk)}
+                              disabled={isMutating}
+                            >
+                              {chunk.isDeleted ? "解除禁用" : "禁用"}
+                            </Button>
+                          </div>
+                          <Textarea
+                            value={chunk.content}
+                            onChange={(e) =>
+                              setDraftChunks((prev) =>
+                                prev.map((item) =>
+                                  item.id === chunk.id
+                                    ? { ...item, content: e.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className={cn(
+                              "min-h-[130px] resize-y text-sm leading-6",
+                              chunk.isDeleted && "border-destructive/30 bg-destructive/5",
+                            )}
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    {draftChunks.map((chunk, index) => (
-                      <div key={chunk.id} className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          {chunk.chunkId === 0 ? (
-                            <Badge
-                              variant="outline"
-                              className="gap-1 border-orange-500/30 bg-orange-50 text-orange-700"
-                            >
-                              <Sparkles className="h-3 w-3" />
-                              AI 摘要
-                            </Badge>
-                          ) : (
-                            <span className="text-xs font-medium text-muted-foreground">
-                              原始内容 {index}
-                            </span>
-                          )}
-                          {chunk.isDeleted ? (
-                            <Badge
-                              variant="outline"
-                              className="border-destructive/30 bg-destructive/10 text-destructive"
-                            >
-                              已禁用
-                            </Badge>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="ml-auto h-7"
-                            onClick={() => handleToggleChunkDisabled(chunk)}
-                            disabled={isMutating}
-                          >
-                            {chunk.isDeleted ? "解除禁用" : "禁用"}
-                          </Button>
-                        </div>
-                        <Textarea
-                          value={chunk.content}
-                          onChange={(e) =>
-                            setDraftChunks((prev) =>
-                              prev.map((item) =>
-                                item.id === chunk.id
-                                  ? { ...item, content: e.target.value }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className={cn(
-                            "min-h-[130px] resize-y text-sm leading-6",
-                            chunk.isDeleted && "border-destructive/30 bg-destructive/5",
-                          )}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                )}
 
                 <div className="flex items-center gap-2">
-                  <Button onClick={handleSave} disabled={isMutating} className="shadow-sm">
-                    <Save className="mr-2 h-4 w-4" />
-                    保存并重建索引
-                  </Button>
+                  {isFailureView ? null : (
+                    <Button onClick={handleSave} disabled={isMutating} className="shadow-sm">
+                      <Save className="mr-2 h-4 w-4" />
+                      保存并重建索引
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
-                    className="ml-auto text-destructive hover:text-destructive"
+                    className={cn(
+                      "text-destructive hover:text-destructive",
+                      !isFailureView && "ml-auto",
+                    )}
                     onClick={() => setDeleteDialogOpen(true)}
                     disabled={isMutating}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    删除
+                    {isFailureView ? "删除失败记录" : "删除"}
                   </Button>
                 </div>
 
@@ -1644,8 +1692,17 @@ function KnowledgeBaseTab() {
                       <DialogTitle>确认删除知识</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>删除后会移除这条知识的全部片段。</p>
-                      <p>相关命中记录会被级联删除，历史命中分析数据会减少。</p>
+                      {isFailureView ? (
+                        <>
+                          <p>删除后会移除这条同步失败记录。</p>
+                          <p>如果这条记录没有成功生成过知识内容，不会影响现有可用知识。</p>
+                        </>
+                      ) : (
+                        <>
+                          <p>删除后会移除这条知识的全部片段。</p>
+                          <p>相关命中记录会被级联删除，历史命中分析数据会减少。</p>
+                        </>
+                      )}
                     </div>
                     <DialogFooter>
                       <Button
@@ -1743,6 +1800,52 @@ function KbDetailMeta({
       >
         {value}
       </div>
+    </div>
+  );
+}
+
+function KnowledgeSourceMessages({
+  messages,
+}: {
+  messages: KnowledgeSourceMessage[];
+}) {
+  return (
+    <div className="border-t border-border pt-5">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-sm font-medium">导入失败的内容</div>
+        <div className="text-xs text-muted-foreground">
+          原始消息全文
+        </div>
+      </div>
+      {messages.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
+          未找到原始消息内容
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {messages.map((message) => (
+            <div key={message.id} className="rounded-md border border-border bg-muted/20 p-3">
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {message.senderName}
+                </span>
+                <span>{message.senderRoleLabel}</span>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{formatDateTime(message.createdAt)}</span>
+                {message.isInternal ? (
+                  <Badge variant="outline">内部</Badge>
+                ) : null}
+                {message.withdrawn ? (
+                  <Badge variant="outline">已撤回</Badge>
+                ) : null}
+              </div>
+              <div className="whitespace-pre-wrap break-words text-sm leading-6">
+                {message.contentText || "（空消息）"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
