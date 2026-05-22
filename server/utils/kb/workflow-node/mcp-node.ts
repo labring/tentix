@@ -443,6 +443,11 @@ try {
       "Content-Type": "application/json",
     };
 
+    const inspectorApiKey = global.customEnv.TENTIX_INSPECTOR_API_KEY?.trim();
+    if (inspectorApiKey) {
+      headers["X-Tentix-Inspector-Key"] = inspectorApiKey;
+    }
+
     if (isSealosRuntime) {
       const sealosKubeconfig = getTicketSealosKubeconfig(ticketId);
 

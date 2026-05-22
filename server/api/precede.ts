@@ -26,6 +26,7 @@ const envSchema = z.object({
 
   ENCRYPTION_KEY: z.string().base64().trim(),
   SEALOS_APP_TOKEN: z.string().trim().optional(),
+  TENTIX_INSPECTOR_API_KEY: z.string().trim().optional(),
 
   OPENAI_BASE_URL: z.string().url().trim().optional(),
   OPENAI_API_KEY: z.string().trim().optional(),
