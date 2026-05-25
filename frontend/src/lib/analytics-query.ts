@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { apiClient } from "./api-client";
+import { apiClient, hotIssuesAnalyticsFetch } from "./api-client";
 
 const buildAnalyticsParams = (filterParams?: {
   startDate?: string;
@@ -124,7 +124,10 @@ export const hotIssuesQueryOptions = (filterParams?: {
 
       console.log('[Frontend] Fetching hot issues with params:', filterParams);
       const response = await apiClient.analytics["hot-issues"]
-        .$get({ query: Object.fromEntries(searchParams) });
+        .$get(
+          { query: Object.fromEntries(searchParams) },
+          { fetch: hotIssuesAnalyticsFetch }
+        );
       const data = await response.json();
       console.log('[Frontend] Hot issues data received:', data);
       return data;
