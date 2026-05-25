@@ -27,7 +27,7 @@ interface TimeRange {
 }
 const CONFIG = {
   MAX_EXISTING_TAGS: 50,
-  MAX_DESCRIPTION_LENGTH: 6,
+  MAX_DESCRIPTION_LENGTH: 24,
   MAX_REASONING_LENGTH: 50,
   AI_TEMPERATURE: 0.3,
   TAG_SIMILARITY_THRESHOLD: 0.7,
@@ -36,22 +36,18 @@ const CONFIG = {
 
 const hotIssueAnalysisSchema = z.object({
   name: z
-    .string()
-    .describe("问题标签名称，简洁明了，如：技术问题、支付问题、性能问题"),
+    .string(),
   description: z
     .string()
-    .max(CONFIG.MAX_DESCRIPTION_LENGTH)
-    .describe("问题标签的简要描述，最多6个字，总结关键信息，如：应用部署出现问题"),
+    .max(CONFIG.MAX_DESCRIPTION_LENGTH),
   confidence: z
     .number()
     .min(0)
-    .max(1)
-    .describe("置信度，0-1之间"),
+    .max(1),
   reasoning: z
     .string()
     .nullable()
-    .optional()
-    .describe("简要推理依据，≤50字"),
+    .optional(),
 });
 /**获取现有标签*/
 async function getExistingTags(db: DB): Promise<ExistingTag[]> {
@@ -136,7 +132,6 @@ async function linkTicketToTag(
     isAiGenerated: true,
   });
 }
-//构建系统提示词
 function buildSystemPrompt(existingTags: ExistingTag[]): string {
   const tagsText = existingTags.length > 0
     ? existingTags
@@ -144,53 +139,79 @@ function buildSystemPrompt(existingTags: ExistingTag[]): string {
         .join("\n")
     : "暂无现有标签";
 
-  return `你是 Sealos 工单系统的标签分析助手，**只分析**工单内容并生成问题标签。
+  return `你是 Sealos 工单系统的标签分析助手。请仅基于工单的“标题/描述/图片”生成结构化标签结果。
 
-## 判定要点
-- **优先复用现有标签**（见下方列表），相似度 ≥${CONFIG.TAG_SIMILARITY_THRESHOLD * 100}% 时应归入现有项。
-- **标签名称**需简洁明了，代表问题类别（如：技术问题、支付问题、性能问题、界面问题等）。
-- **标签描述**必须控制在${CONFIG.MAX_DESCRIPTION_LENGTH}个字以内，总结关键问题信息（例如：应用部署出现问题、用户无法登录、支付流程中断、页面加载缓慢等）。
-  - 优先包含：错误类型/现象、组件/模块名、关键操作
-  - 避免冗余词汇，直接表达核心问题
-- 出现明确错误码/错误片段（如 5xx/ImagePullBackOff/x509/ECONNREFUSED）应体现在描述中。
-- 出现组件/模块名（如 devbox/applaunchpad/ingress/pvc）应纳入描述语义。
-- 存在歧义/信息不足时：降低 confidence（≤0.6），reasoning 标注"信息不足/语义含糊"。
+输出字段:
+- name: 标签类别。优先复用现有标签（见下方列表）；相似度 ≥${CONFIG.TAG_SIMILARITY_THRESHOLD * 100}% 归入现有项；否则创建新的“类别名”，保持简洁（如：部署问题/网络问题/身份认证/镜像仓库/数据库）。
+- description: 12-${CONFIG.MAX_DESCRIPTION_LENGTH} 个中文字符（不含空格），必须包含关键信息，且“严格≤${CONFIG.MAX_DESCRIPTION_LENGTH}字”，绝不允许超过。推荐模板：
+  [模块/服务/系统名] + [现象/错误码/关键报错词] + [阶段/资源]
+  示例：applaunchpad 镜像拉取失败 ImagePullBackOff
+- confidence: 0-1 之间；信息不足或歧义高时 ≤0.6
+- reasoning(可选): 简要说明依据或指出缺失信息（≤${CONFIG.MAX_REASONING_LENGTH}字）
 
-## 结合上下文
-- 综合"标题/描述内容/图片内容（若有）"与"现有标签列表"进行判定。
-- 若包含图片，请结合图片中的错误信息、界面元素、配置截图辅助分析。
-- 严禁臆造不存在的字段或信息；无法确定时宁可降低 confidence。
+强制要求:
+- “description” 禁止仅输出“XX问题/信息不足”等泛化词；必须包含至少一项具体实体：
+  - 模块/服务名（如: applaunchpad, devbox, ingress, registry, gateway, postgres, mysql, redis）
+  - 资源或对象（如: Deployment/Pod/Job/Service/Ingress + 名称）
+  - 错误码/关键词（如: ImagePullBackOff, CrashLoopBackOff, x509, ECONNREFUSED, 5xx, 404, TLS, 超时）
+  - 阶段/操作（如: 启动/部署/登录/拉取/变更/升级/备份/恢复）
+- 描述中出现的代码/标识符/错误关键词要如实保留原文，不要翻译或概括为“问题”。
+- 如果文本或图片无法识别出“模块名/错误码/资源名”中的任意一类，降低 confidence，并在 reasoning 明确指出缺失项（如“缺少应用名/错误码”）。
+ - 若用户输入包含大段“代码/日志”，忽略实现细节，不要复制粘贴长代码；只提取“模块名/资源名/错误关键词/错误码/阶段”这类短关键词到 description；必要时进行压缩以满足≤${CONFIG.MAX_DESCRIPTION_LENGTH}字。
+ - description 必须为单行短语，不要包含换行或多余空格、不要添加标点装饰或引号。
 
-## 现有标签列表（按使用频率排序）
+判定流程建议:
+1) 从标题/描述/图片中抽取命名实体与关键错误词（模块/资源/错误码/阶段/环境词：公网/内网/集群/租户/namespace）。
+2) 先尝试与现有标签 name 匹配（≥${CONFIG.TAG_SIMILARITY_THRESHOLD * 100}%），命中则复用该 name；否则产出新的“类别性” name。
+3) 用“模块/错误关键词/阶段或资源”拼成 description，控制在 12-${CONFIG.MAX_DESCRIPTION_LENGTH} 字，优先保留关键信息，避免冗余。
+4) 无法确定则降低 confidence，并在 reasoning 说明“不足之处”。
+
+现有标签（按使用频率排序）:
 ${tagsText}
 
-## 示例1（使用现有标签）
-输入：
-标题: "applaunchpad 部署失败 ImagePullBackOff"
-描述(纯文本): "新版本发布后，应用一直 Pending，事件提示镜像拉取失败，私有仓库凭证已配置。"
-现有标签: ["部署问题: 应用部署出现问题", "技术问题: 系统技术故障"]
+正反例:
 
-输出：
+正例1
+输入标题: "applaunchpad 部署失败 ImagePullBackOff"
+输出:
 {
   "name": "部署问题",
-  "description": "应用部署出现问题",
+  "description": "applaunchpad 镜像拉取失败 ImagePullBackOff",
   "confidence": 0.86,
-  "reasoning": "ImagePullBackOff 是典型的部署问题"
+  "reasoning": "标题含模块与错误码，指向部署阶段镜像拉取失败"
 }
 
-## 示例2（创建新标签）
-输入：
-标题: "支付页面无法加载"
-描述(纯文本): "用户点击支付按钮后，支付页面一直显示加载中，无法完成支付。"
-现有标签: ["技术问题: 系统技术故障", "界面问题: 界面交互异常"]
-
-输出：
+正例2
+输入标题: "编辑器打不开，页面 404"
+输出:
 {
-  "name": "支付问题",
-  "description": "支付流程中断",
+  "name": "界面问题",
+  "description": "devbox 页面 404 无法加载",
   "confidence": 0.82,
-  "reasoning": "支付相关的特定问题类型"
-}`;
+  "reasoning": "编辑器=devbox，现象为 404"
+}
+
+正例3
+输入标题: "公网连接卡住，访问外网超时 30s"
+输出:
+{
+  "name": "网络问题",
+  "description": "公网 egress 超时 30s",
+  "confidence": 0.8
+}
+
+正例4
+输入标题: "数据库连接失败 ECONNREFUSED"
+输出:
+{
+  "name": "数据库问题",
+  "description": "postgres 连接失败 ECONNREFUSED",
+  "confidence": 0.84
+}
+
+反例（禁止）:
+- "应用无法启动" / "启动问题" / "信息不足" / "编辑器问题" / "公网连接问题"（过于泛化，缺少实体与错误关键词）
+`;
 }
 
 //构建用户提示词
