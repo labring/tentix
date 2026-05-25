@@ -51,7 +51,7 @@ function getTicketSortOrder(
 }
 
 // 根据全局待回复状态筛选工单ID的辅助函数（用于 allTicket=true）
-// unread：客户初始提交或最后一条客户有效消息之后，没有负责人/协作技术员公开回复
+// unread：未完成工单中，客户初始提交或最后一条客户有效消息之后，没有负责人/协作技术员公开回复
 // read：客户初始提交或最后一条客户有效消息之后，已有负责人/协作技术员公开回复
 // 这里保留 readStatus 参数名，是为了兼容现有接口和前端状态结构
 async function getFilteredTicketIdsByStaffReadStatus(
@@ -86,6 +86,7 @@ async function getFilteredTicketIdsByStaffReadStatus(
           AND cm.is_internal = false
           AND cm.withdrawn = false
         )
+        WHERE t.status <> 'resolved'
         GROUP BY t.id, t.created_at, t.customer_id, t.agent_id
       )
       SELECT ticket_id
