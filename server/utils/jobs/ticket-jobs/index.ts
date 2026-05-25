@@ -1,6 +1,8 @@
 import { ticketAutoCloseJob } from "./ticketAutoClose";
+import { ticketAutoPendingJob } from "./ticketAutoPending";
 
 export function startTicketAutoCloseJob() {
-  const job = ticketAutoCloseJob();
-  return { job };
+  const autoCloseJob = ticketAutoCloseJob();
+  const autoPendingJob = ticketAutoPendingJob();
+  return { autoCloseJob, autoPendingJob };
 }

@@ -4,9 +4,16 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import { areaEnumArray } from "tentix-server/constants";
-import { useAuth } from "../hooks/use-local-user";
+import {
+  TENTIX_SEALOS_USER_ID_KEY,
+  useAuth,
+} from "../hooks/use-local-user";
 import { useEffect, useState, useCallback } from "react";
-import { useSealos, waitForSealosInit } from "../_provider/sealos";
+import {
+  releaseSealosAuthGate,
+  useSealos,
+  waitForSealosInit,
+} from "../_provider/sealos";
 import { useTranslation } from "i18n";
 
 // beforeLoad: 检查 url 是否有 token 信息，如果有则走第三方登录
@@ -19,7 +26,7 @@ function AuthGuard() {
   const router = useRouter();
   const authContext = useAuth();
   const sealosContext = useSealos();
-  const { sealosUser, isSealos, isInitialized } = sealosContext;
+  const { sealosUser, sealosUserId, isSealos, isInitialized } = sealosContext;
   const routeContext = useRouteContext({ from: "/" });
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +96,11 @@ function AuthGuard() {
     window.localStorage.setItem("role", res.role);
     window.localStorage.setItem("id", res.id.toString());
     window.localStorage.setItem("token", res.token);
+    if (!sealosUserId) {
+      throw new Error("Sealos user id is missing");
+    }
+    window.localStorage.setItem(TENTIX_SEALOS_USER_ID_KEY, sealosUserId);
+    releaseSealosAuthGate();
 
     // 获取并更新用户信息
     const userData = await apiClient.user.info.$get().then((r) => r.json());
@@ -101,7 +113,14 @@ function AuthGuard() {
 
     // 导航
     navigateByRole(res.role);
-  }, [router, routeContext.apiClient, sealosUser, authContext, navigateByRole]);
+  }, [
+    router,
+    routeContext.apiClient,
+    sealosUser,
+    sealosUserId,
+    authContext,
+    navigateByRole,
+  ]);
 
   useEffect(() => {
     const initializeAndAuthenticate = async () => {
@@ -121,10 +140,35 @@ function AuthGuard() {
           return;
         }
 
+        const storedSealosUserId = window.localStorage.getItem(
+          TENTIX_SEALOS_USER_ID_KEY,
+        );
+        const hasTentixToken = window.localStorage.getItem("token") !== null;
+        const sealosUserMismatch = Boolean(
+          isSealos &&
+            sealosUserId &&
+            storedSealosUserId &&
+            storedSealosUserId !== sealosUserId,
+        );
+
+        if (sealosUserMismatch) {
+          authContext.clearTentixSessionOnly();
+        }
+
         // 2. 处理 Sealos 环境登录
-        if (isSealos && (!authContext.isAuthenticated || !authContext.user)) {
+        if (
+          isSealos &&
+          (!hasTentixToken ||
+            !authContext.isAuthenticated ||
+            !authContext.user ||
+            sealosUserMismatch)
+        ) {
           await handleSealosLogin();
           return;
+        }
+
+        if (isSealos) {
+          releaseSealosAuthGate();
         }
 
         // 3. 处理普通环境
@@ -139,6 +183,7 @@ function AuthGuard() {
           navigateByRole(role);
         }
       } catch (error) {
+        releaseSealosAuthGate();
         console.error("Authentication error:", error);
         setError(error instanceof Error ? error.message : "Unknown error");
         authContext.logout();
@@ -157,7 +202,9 @@ function AuthGuard() {
     authContext.isAuthenticated,
     authContext.user,
     authContext.logout,
+    authContext.clearTentixSessionOnly,
     isSealos,
+    sealosUserId,
     handleThirdPartyLogin,
     handleSealosLogin,
     navigateByRole,

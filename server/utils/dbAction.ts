@@ -1,6 +1,10 @@
 import { connectDB } from "./tools.ts";
 import * as schema from "@db/schema.ts";
-import { JSONContentZod, validateJSONContent } from "./types.ts";
+import {
+  JSONContentZod,
+  validateJSONContent,
+  type userRoleType,
+} from "./types.ts";
 import { eq, and } from "drizzle-orm";
 import { logError } from "./log.ts";
 
@@ -10,6 +14,11 @@ export function plainTextToJSONContent(text: string): JSONContentZod {
     content: [{ type: "paragraph", content: [{ type: "text", text }] }],
   };
 }
+
+const AI_MESSAGE_WITHDRAW_ALLOWED_ROLES = new Set<userRoleType>([
+  "agent",
+  "admin",
+]);
 
 // Helper function to save a message to the database
 export async function saveMessageToDb(
@@ -60,17 +69,29 @@ export async function saveMessageReadStatus(messageId: number, userId: number) {
   }
 }
 
-export async function withdrawMessage(messageId: number, userId: number) {
+type WithdrawMessageParams = {
+  messageId: number;
+  ticketId: string;
+  operatorId: number;
+  operatorRole: userRoleType;
+};
+
+export async function withdrawMessage({
+  messageId,
+  ticketId,
+  operatorId,
+  operatorRole,
+}: WithdrawMessageParams) {
   const db = connectDB();
 
-  // First check if the message exists and belongs to the user
+  // Limit lookup to the current ticket to avoid cross-ticket withdrawals.
   const [message] = await db
     .select()
     .from(schema.chatMessages)
     .where(
       and(
         eq(schema.chatMessages.id, messageId),
-        eq(schema.chatMessages.senderId, userId),
+        eq(schema.chatMessages.ticketId, ticketId),
       ),
     )
     .limit(1);
@@ -79,6 +100,26 @@ export async function withdrawMessage(messageId: number, userId: number) {
     throw new Error(
       "Message not found or you don't have permission to withdraw it",
     );
+  }
+
+  const isOwnMessage = message.senderId === operatorId;
+
+  if (!isOwnMessage) {
+    const [sender] = await db
+      .select({ role: schema.users.role })
+      .from(schema.users)
+      .where(eq(schema.users.id, message.senderId))
+      .limit(1);
+
+    const canWithdrawAiMessage =
+      sender?.role === "ai" &&
+      AI_MESSAGE_WITHDRAW_ALLOWED_ROLES.has(operatorRole);
+
+    if (!canWithdrawAiMessage) {
+      throw new Error(
+        "Message not found or you don't have permission to withdraw it",
+      );
+    }
   }
 
   const [updatedMessage] = await db

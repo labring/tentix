@@ -21,10 +21,13 @@ import {
   EllipsisIcon,
   CircleStopIcon,
   SearchIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
+  ChevronDownIcon,
 } from "lucide-react";
 import * as React from "react";
 import { useMemo, useState } from "react";
@@ -32,6 +35,7 @@ import {
   type GetUserTicketsResponseType,
   type TicketsListItemType,
 } from "tentix-server/rpc";
+import { areaEnumArray } from "tentix-server/constants";
 import {
   LayersIcon,
   PendingIcon,
@@ -69,6 +73,10 @@ export function PaginatedDataTable({
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const ticketModules = useTicketModules();
+  const searchTicketsPlaceholder =
+    i18n.language === "zh"
+      ? `${t("search")}${t("tkt_other")}`
+      : `${t("search")} ${t("tkt_other")}`;
 
   // 使用 zustand store 管理分页状态
   const {
@@ -78,10 +86,19 @@ export function PaginatedDataTable({
     statuses,
     allTicket,
     readStatus,
+    searchMode,
+    sortBy,
+    sortOrder,
+    areaFilter,
+    moduleFilter,
     setCurrentPage,
     setSearchQuery,
     setStatuses,
     setAllTicket,
+    setSearchMode,
+    setSorting,
+    setAreaFilter,
+    setModuleFilter,
   } = userTablePagination();
 
   const handleStatusToggle = (
@@ -104,6 +121,18 @@ export function PaginatedDataTable({
   };
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const effectiveSearchQuery = searchQuery.trim() ? debouncedSearchQuery : "";
+  const requestSearchMode =
+    character === "staff" && effectiveSearchQuery.trim() ? searchMode : "ticket";
+  const displaySearchMode = character === "staff" ? searchMode : "ticket";
+  const handleSearchModeChange = (mode: "ticket" | "user") => {
+    if (mode === searchMode) {
+      return;
+    }
+
+    setSearchMode(mode);
+  };
+
   const [isSmallScreen, setIsSmallScreen] = useState(
     typeof window !== "undefined" ? window.innerWidth < 1316 : false,
   );
@@ -127,21 +156,40 @@ export function PaginatedDataTable({
     }
   }, []);
 
+  React.useEffect(() => {
+    if (character === "user" && searchMode !== "ticket") {
+      setSearchMode("ticket");
+    }
+  }, [character, searchMode, setSearchMode]);
+
   // Use regular query for page-based pagination
   const { data, isLoading, error } = useQuery({
     ...userTicketsQueryOptions(
       pageSize,
       currentPage,
-      debouncedSearchQuery,
+      effectiveSearchQuery,
       statuses,
       readStatus,
       allTicket,
+      undefined,
+      requestSearchMode,
+      character === "staff"
+        ? {
+            sortBy,
+            sortOrder,
+            area: areaFilter,
+            module: moduleFilter,
+          }
+        : undefined,
     ),
     initialData:
       initialData &&
       currentPage === 1 &&
       statuses.length === 0 &&
-      !debouncedSearchQuery
+      !effectiveSearchQuery &&
+      !sortBy &&
+      !areaFilter &&
+      !moduleFilter
         ? initialData
         : undefined,
   });
@@ -221,6 +269,119 @@ export function PaginatedDataTable({
   }, [character, isSmallScreen]);
 
   const columns = React.useMemo<ColumnDef<TicketsListItemType>[]>(() => {
+    const isStaffTable = character === "staff";
+    const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
+    const newestFirstText = i18n.language === "zh" ? "最新优先" : "Newest first";
+    const oldestFirstText = i18n.language === "zh" ? "最旧优先" : "Oldest first";
+    const defaultSortText = i18n.language === "zh" ? "默认排序" : "Default sort";
+    const allText = t("all");
+    const handleSort = (field: "createdAt" | "updatedAt") => {
+      if (sortBy !== field) {
+        setSorting(field, "desc");
+        return;
+      }
+      if (sortOrder === "desc") {
+        setSorting(field, "asc");
+        return;
+      }
+      setSorting(null);
+    };
+    const renderSortableHeader = (
+      field: "createdAt" | "updatedAt",
+      label: string,
+    ) => {
+      if (!isStaffTable) return label;
+      const isActive = sortBy === field;
+      const activeText =
+        !isActive
+          ? defaultSortText
+          : sortOrder === "asc"
+            ? oldestFirstText
+            : newestFirstText;
+      return (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-left"
+          title={`${label}: ${activeText}`}
+          onClick={() => handleSort(field)}
+        >
+          <span>{label}</span>
+          <span className="inline-flex flex-col leading-none">
+            <ArrowUpIcon
+              className={`h-3 w-3 ${
+                isActive && sortOrder === "asc" ? "text-blue-600" : "text-zinc-300"
+              }`}
+            />
+            <ArrowDownIcon
+              className={`h-3 w-3 -mt-1 ${
+                isActive && sortOrder === "desc" ? "text-blue-600" : "text-zinc-300"
+              }`}
+            />
+          </span>
+        </button>
+      );
+    };
+    const renderAreaHeader = () => {
+      if (!isStaffTable) return t("area");
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-left"
+              title={areaFilter ? `${t("area")}: ${areaFilter}` : `${t("area")}: ${allText}`}
+            >
+              <span>{t("area")}</span>
+              <ChevronDownIcon
+                className={`h-3.5 w-3.5 ${areaFilter ? "text-zinc-900" : "text-zinc-400"}`}
+              />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-32">
+            <DropdownMenuItem onClick={() => setAreaFilter(null)}>
+              {allText}
+            </DropdownMenuItem>
+            {areaEnumArray.filter((area) => area !== "test").map((area) => (
+              <DropdownMenuItem key={area} onClick={() => setAreaFilter(area)}>
+                {area}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    };
+    const renderModuleHeader = () => {
+      if (!isStaffTable) return t("module");
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-left"
+              title={moduleFilter ? `${t("module")}: ${getModuleTranslation(moduleFilter, currentLang, ticketModules)}` : `${t("module")}: ${allText}`}
+            >
+              <span>{t("module")}</span>
+              <ChevronDownIcon
+                className={`h-3.5 w-3.5 ${moduleFilter ? "text-zinc-900" : "text-zinc-400"}`}
+              />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44">
+            <DropdownMenuItem onClick={() => setModuleFilter(null)}>
+              {allText}
+            </DropdownMenuItem>
+            {ticketModules.map((module) => (
+              <DropdownMenuItem
+                key={module.code}
+                onClick={() => setModuleFilter(module.code)}
+              >
+                {getModuleTranslation(module.code, currentLang, ticketModules)}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    };
     const baseColumns: ColumnDef<TicketsListItemType>[] = [
       {
         accessorKey: "title",
@@ -247,7 +408,7 @@ export function PaginatedDataTable({
       },
       {
         accessorKey: "submittedDate",
-        header: t("created_at"),
+        header: () => renderSortableHeader("createdAt", t("created_at")),
         cell: ({ row }) => {
           const date = new Date(row.original.createdAt);
           return (
@@ -265,7 +426,7 @@ export function PaginatedDataTable({
       },
       {
         accessorKey: "updatedDate",
-        header: t("updated_at"),
+        header: () => renderSortableHeader("updatedAt", t("updated_at")),
         cell: ({ row }) => {
           const date = new Date(row.original.updatedAt);
           return (
@@ -283,7 +444,7 @@ export function PaginatedDataTable({
       },
       {
         accessorKey: "area",
-        header: t("area"),
+        header: () => renderAreaHeader(),
         cell: ({ row }) => (
           <p className="text-zinc-600 text-sm font-normal leading-normal">
             {row.original.area}
@@ -292,10 +453,9 @@ export function PaginatedDataTable({
       },
       {
         accessorKey: "module",
-        header: t("module"),
+        header: () => renderModuleHeader(),
         cell: ({ row }) => {
           const moduleCode = row.original.module;
-          const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
           const moduleText = getModuleTranslation(moduleCode, currentLang, ticketModules);
 
           return (
@@ -413,6 +573,13 @@ export function PaginatedDataTable({
     i18n.language,
     ticketModules,
     isSmallScreen,
+    sortBy,
+    sortOrder,
+    areaFilter,
+    moduleFilter,
+    setSorting,
+    setAreaFilter,
+    setModuleFilter,
     openTransferModal,
     openUpdatePriorityModal,
     openStaffCloseConfirmationModal,
@@ -455,7 +622,16 @@ export function PaginatedDataTable({
       })
       .join(" ");
 
-    if (rows.length === 0 && !isLoading) {
+    const isSealosUserSearchEmpty =
+      character === "staff" &&
+      requestSearchMode === "user" &&
+      !areaFilter &&
+      !moduleFilter &&
+      Boolean(effectiveSearchQuery.trim());
+    const hasActiveColumnControl =
+      character === "staff" && Boolean(sortBy || areaFilter || moduleFilter);
+
+    if (rows.length === 0 && !isLoading && !hasActiveColumnControl) {
       return (
         <div className="flex-1 flex flex-col px-4 lg:px-6">
           <div
@@ -484,14 +660,18 @@ export function PaginatedDataTable({
                 <p className="text-black text-2xl font-medium leading-8 mb-1">
                   {character === "user"
                     ? t("no_tickets_created_yet")
-                    : t("no_tickets_found")}
+                    : isSealosUserSearchEmpty
+                      ? t("no_tickets_found_for_sealos_user")
+                      : t("no_tickets_found")}
                 </p>
                 <div className="flex flex-col items-center justify-center text-center">
-                  <p className="text-gray-600 text-base font-normal leading-6">
-                    {character === "user"
-                      ? t("click_to_create_ticket")
-                      : t("no_tickets_received")}
-                  </p>
+                  {(character === "user" || !isSealosUserSearchEmpty) && (
+                    <p className="text-gray-600 text-base font-normal leading-6">
+                      {character === "user"
+                        ? t("click_to_create_ticket")
+                        : t("no_tickets_received")}
+                    </p>
+                  )}
                   {character === "user" && (
                     <p className="text-gray-600 text-base font-normal leading-6">
                       {t("team_resolve_questions")}
@@ -539,7 +719,7 @@ export function PaginatedDataTable({
                 {t("loading")}
               </div>
             </div>
-          ) : (
+          ) : rows.length > 0 ? (
             <div className="bg-white border border-zinc-200 rounded-xl">
               {rows.map((row, index) => (
                 <div
@@ -589,6 +769,21 @@ export function PaginatedDataTable({
                   ))}
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-64">
+              <div className="flex flex-col items-center justify-center text-center">
+                <p className="text-black text-2xl font-medium leading-8 mb-1">
+                  {isSealosUserSearchEmpty
+                    ? t("no_tickets_found_for_sealos_user")
+                    : t("no_tickets_found")}
+                </p>
+                {!isSealosUserSearchEmpty && (
+                  <p className="text-gray-600 text-base font-normal leading-6">
+                    {t("no_tickets_received")}
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </ScrollArea>
@@ -836,15 +1031,54 @@ export function PaginatedDataTable({
               </Tooltip>
             </TooltipProvider>
           )}
-          <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={joinTrans([t("search"), t("tkt_other")])}
-              className="pl-10 pr-3 text-sm leading-none h-10 rounded-lg"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+          {character === "staff" ? (
+            <div className="flex h-10 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-full min-w-[112px] rounded-none border-r border-zinc-200 px-3 text-sm font-normal"
+                  >
+                    <span>
+                      {displaySearchMode === "ticket" ? t("tkt_one") : "Sealos ID"}
+                    </span>
+                    <ChevronDownIcon className="ml-1 h-4 w-4 text-zinc-500" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-40">
+                  <DropdownMenuItem onClick={() => handleSearchModeChange("ticket")}>
+                    {t("tkt_one")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSearchModeChange("user")}>
+                    Sealos ID
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="relative">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={
+                    displaySearchMode === "user"
+                      ? "Sealos ID"
+                      : searchTicketsPlaceholder
+                  }
+                  className="h-full w-56 rounded-none border-0 pl-10 pr-3 text-sm leading-none focus-visible:ring-0"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="relative">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={searchTicketsPlaceholder}
+                className="pl-10 pr-3 text-sm leading-none h-10 rounded-lg"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          )}
 
           {character === "user" && (
             <Link to="/user/newticket">

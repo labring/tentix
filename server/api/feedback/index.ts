@@ -13,6 +13,8 @@ import {
 import { rateLimiter } from "hono-rate-limiter";
 import { getConnInfo } from "hono/bun";
 import { createSelectSchema } from "drizzle-zod";
+import { sendFeishuComplaintWebhook } from "@/utils/platform/feishu.ts";
+import { logError } from "@/utils/log.ts";
 import {
   messageFeedbackSchema,
   staffFeedbackSchema,
@@ -63,6 +65,58 @@ const technicianWithFeedbackResponseSchema = createSelectSchema(schema.users)
   .extend({
     feedbacks: z.array(createSelectSchema(schema.staffFeedback)),
   });
+
+type FeedbackType = (typeof schema.feedbackType.enumValues)[number];
+
+function hasComplaintDetails(
+  dislikeReasons?: unknown[] | null,
+  feedbackComment?: string | null,
+  hasComplaint?: boolean | null,
+) {
+  return Boolean(
+    (dislikeReasons?.length ?? 0) > 0 ||
+      feedbackComment?.trim() ||
+      hasComplaint,
+  );
+}
+
+function isDislikeComplaint(
+  feedbackType: FeedbackType,
+  dislikeReasons?: unknown[] | null,
+  feedbackComment?: string | null,
+  hasComplaint?: boolean | null,
+) {
+  return (
+    feedbackType === "dislike" &&
+    hasComplaintDetails(dislikeReasons, feedbackComment, hasComplaint)
+  );
+}
+
+function isTicketComplaint(
+  satisfactionRating: number,
+  dislikeReasons?: unknown[] | null,
+  feedbackComment?: string | null,
+  hasComplaint?: boolean | null,
+) {
+  if (satisfactionRating <= 2) {
+    return true;
+  }
+
+  return (
+    satisfactionRating === 3 &&
+    hasComplaintDetails(dislikeReasons, feedbackComment, hasComplaint)
+  );
+}
+
+function notifyComplaint(
+  payload: Parameters<typeof sendFeishuComplaintWebhook>[0],
+) {
+  void sendFeishuComplaintWebhook(payload).catch((error) => {
+    logError(
+      `[feedback.complaint] Failed to send Feishu webhook: ${String(error)}`,
+    );
+  });
+}
 
 const feedbackRouter = factory
   .createApp()
@@ -142,6 +196,21 @@ const feedbackRouter = factory
         });
       }
 
+      const existingFeedback = await db.query.messageFeedback.findFirst({
+        where: and(
+          eq(schema.messageFeedback.messageId, messageId),
+          eq(schema.messageFeedback.userId, userId),
+        ),
+      });
+      const shouldNotifyComplaint =
+        !isDislikeComplaint(
+          existingFeedback?.feedbackType ?? "like",
+          existingFeedback?.dislikeReasons,
+          existingFeedback?.feedbackComment,
+          existingFeedback?.hasComplaint,
+        ) &&
+        isDislikeComplaint(feedbackType, dislikeReasons, feedbackComment, hasComplaint);
+
       // 准备插入数据
       const insertData: typeof schema.messageFeedback.$inferInsert = {
         messageId,
@@ -174,6 +243,29 @@ const feedbackRouter = factory
           },
         })
         .returning();
+
+      if (shouldNotifyComplaint) {
+        const sealosIdentity = await db.query.userIdentities.findFirst({
+          where: and(
+            eq(schema.userIdentities.userId, userId),
+            eq(schema.userIdentities.provider, "sealos"),
+          ),
+        });
+        const sealosId =
+          sealosIdentity?.metadata?.sealos?.accountId ||
+          sealosIdentity?.providerUserId;
+
+        notifyComplaint({
+          kind: "message",
+          ticketId,
+          ticketTitle: ticket.title,
+          sealosId,
+          messageId,
+          dislikeReasons: feedbackRecord!.dislikeReasons,
+          feedbackComment: feedbackRecord!.feedbackComment,
+          hasComplaint: feedbackRecord!.hasComplaint,
+        });
+      }
 
       return c.json({
         success: true,
@@ -282,6 +374,22 @@ const feedbackRouter = factory
         });
       }
 
+      const existingFeedback = await db.query.staffFeedback.findFirst({
+        where: and(
+          eq(schema.staffFeedback.ticketId, ticketId),
+          eq(schema.staffFeedback.evaluatorId, userId),
+          eq(schema.staffFeedback.evaluatedId, evaluatedId),
+        ),
+      });
+      const shouldNotifyComplaint =
+        !isDislikeComplaint(
+          existingFeedback?.feedbackType ?? "like",
+          existingFeedback?.dislikeReasons,
+          existingFeedback?.feedbackComment,
+          existingFeedback?.hasComplaint,
+        ) &&
+        isDislikeComplaint(feedbackType, dislikeReasons, feedbackComment, hasComplaint);
+
       // 准备插入数据
       const insertData: typeof schema.staffFeedback.$inferInsert = {
         ticketId,
@@ -315,6 +423,30 @@ const feedbackRouter = factory
           },
         })
         .returning();
+
+      if (shouldNotifyComplaint) {
+        const sealosIdentity = await db.query.userIdentities.findFirst({
+          where: and(
+            eq(schema.userIdentities.userId, userId),
+            eq(schema.userIdentities.provider, "sealos"),
+          ),
+        });
+        const sealosId =
+          sealosIdentity?.metadata?.sealos?.accountId ||
+          sealosIdentity?.providerUserId;
+
+        notifyComplaint({
+          kind: "staff",
+          ticketId,
+          ticketTitle: ticket.title,
+          sealosId,
+          targetName:
+            evaluatedUser.name || evaluatedUser.nickname || String(evaluatedId),
+          dislikeReasons: feedbackRecord!.dislikeReasons,
+          feedbackComment: feedbackRecord!.feedbackComment,
+          hasComplaint: feedbackRecord!.hasComplaint,
+        });
+      }
 
       return c.json({
         success: true,
@@ -396,6 +528,23 @@ const feedbackRouter = factory
         });
       }
 
+      const existingFeedback = await db.query.ticketFeedback.findFirst({
+        where: eq(schema.ticketFeedback.ticketId, ticketId),
+      });
+      const shouldNotifyComplaint =
+        !isTicketComplaint(
+          existingFeedback?.satisfactionRating ?? 5,
+          existingFeedback?.dislikeReasons,
+          existingFeedback?.feedbackComment,
+          existingFeedback?.hasComplaint,
+        ) &&
+        isTicketComplaint(
+          satisfactionRating,
+          dislikeReasons,
+          feedbackComment,
+          hasComplaint,
+        );
+
       // 准备插入数据
       const insertData: typeof schema.ticketFeedback.$inferInsert = {
         ticketId,
@@ -403,8 +552,8 @@ const feedbackRouter = factory
         satisfactionRating,
       };
 
-      // 当satisfactionRating小于3时，添加可选字段
-      if (satisfactionRating < 3) {
+      // 当satisfactionRating小于等于3时，添加可选字段
+      if (satisfactionRating <= 3) {
         if (dislikeReasons) insertData.dislikeReasons = dislikeReasons;
         if (feedbackComment) insertData.feedbackComment = feedbackComment;
         if (hasComplaint !== undefined) insertData.hasComplaint = hasComplaint;
@@ -424,6 +573,29 @@ const feedbackRouter = factory
           },
         })
         .returning();
+
+      if (shouldNotifyComplaint) {
+        const sealosIdentity = await db.query.userIdentities.findFirst({
+          where: and(
+            eq(schema.userIdentities.userId, userId),
+            eq(schema.userIdentities.provider, "sealos"),
+          ),
+        });
+        const sealosId =
+          sealosIdentity?.metadata?.sealos?.accountId ||
+          sealosIdentity?.providerUserId;
+
+        notifyComplaint({
+          kind: "ticket",
+          ticketId,
+          ticketTitle: ticket.title,
+          sealosId,
+          satisfactionRating: feedbackRecord!.satisfactionRating,
+          dislikeReasons: feedbackRecord!.dislikeReasons,
+          feedbackComment: feedbackRecord!.feedbackComment,
+          hasComplaint: feedbackRecord!.hasComplaint,
+        });
+      }
 
       return c.json({
         success: true,

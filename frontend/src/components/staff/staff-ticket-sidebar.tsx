@@ -18,6 +18,10 @@ import {
   Button,
   Input,
   ScrollArea,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   PendingIcon,
   ProgressIcon,
   DoneIcon,
@@ -33,6 +37,10 @@ import { useQuery } from "@tanstack/react-query";
 import { userTicketsQueryOptions } from "@lib/query";
 import useDebounce from "@hook/use-debounce";
 import { cn } from "@lib/utils";
+
+type StaffTicketsListItemType = TicketsListItemType & {
+  pendingReply?: boolean;
+};
 
 // Function to extract text content from JSONContent description
 function extractTextFromDescription(content: JSONContent): string {
@@ -100,6 +108,10 @@ export function StaffTicketSidebar({
   const { t, i18n } = useTranslation();
   const { id: userId } = useLocalUser();
   const ticketModules = useTicketModules();
+  const searchTicketsPlaceholder =
+    i18n.language === "zh"
+      ? `${t("search")}${t("tkt_other")}`
+      : `${t("search")} ${t("tkt_other")}`;
 
   // 使用 table-pagination store
   const {
@@ -109,7 +121,9 @@ export function StaffTicketSidebar({
     statuses,
     readStatus,
     allTicket,
+    searchMode,
     setSearchQuery,
+    setSearchMode,
     setStatuses,
     setReadStatus,
     setCurrentPage,
@@ -117,17 +131,27 @@ export function StaffTicketSidebar({
   } = userTablePagination();
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const effectiveSearchQuery = searchQuery.trim() ? debouncedSearchQuery : "";
+  const requestSearchMode = effectiveSearchQuery.trim() ? searchMode : "ticket";
+  const handleSearchModeChange = (mode: "ticket" | "user") => {
+    if (mode === searchMode) {
+      return;
+    }
+
+    setSearchMode(mode);
+  };
 
   // 将数据查询移到组件内部 - 这样状态变化只影响当前组件
   const { data: userTicketsData, isLoading: isUserTicketsLoading } = useQuery(
     userTicketsQueryOptions(
       pageSize,
       currentPage,
-      debouncedSearchQuery,
+      effectiveSearchQuery,
       statuses,
       readStatus,
       allTicket,
       currentTicketId,
+      requestSearchMode,
     ),
   );
 
@@ -226,7 +250,11 @@ export function StaffTicketSidebar({
   };
 
   // Check if a ticket is unread
-  const isTicketUnread = (ticket: TicketsListItemType) => {
+  const isTicketUnread = (ticket: StaffTicketsListItemType) => {
+    if (allTicket) {
+      return ticket.pendingReply ?? false;
+    }
+
     // 没有任何消息：未读
     if (!ticket.messages || ticket.messages.length === 0) {
       return true;
@@ -253,7 +281,7 @@ export function StaffTicketSidebar({
     return !lastMessage.readStatus.some((status) => status.userId === userId);
   };
 
-  const tickets = userTicketsData?.tickets || [];
+  const tickets = (userTicketsData?.tickets || []) as StaffTicketsListItemType[];
 
   // Sort tickets by updated time
   const sortedTickets = [...tickets].sort(
@@ -329,14 +357,39 @@ export function StaffTicketSidebar({
 
       {/* Search - fixed height */}
       <div className="flex flex-col gap-3 px-4 pt-4 pb-3 flex-shrink-0">
-        <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={joinTrans([t("search"), t("tkt_other")])}
-            className="pl-11 pr-3 text-sm leading-none h-10 rounded-[8px]"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex h-10 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-full min-w-[112px] rounded-none border-r border-zinc-200 px-3 text-sm font-normal"
+              >
+                <span>{searchMode === "ticket" ? t("tkt_one") : "Sealos ID"}</span>
+                <ChevronDownIcon className="ml-1 h-4 w-4 text-zinc-500" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-40">
+              <DropdownMenuItem onClick={() => handleSearchModeChange("ticket")}>
+                {t("tkt_one")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSearchModeChange("user")}>
+                Sealos ID
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={
+                searchMode === "user"
+                  ? "Sealos ID"
+                  : searchTicketsPlaceholder
+              }
+              className="h-full w-full rounded-none border-0 pl-10 pr-3 text-sm leading-none focus-visible:ring-0"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -426,7 +479,7 @@ export function StaffTicketSidebar({
               setReadStatus(readStatus === "unread" ? "all" : "unread")
             }
           >
-            {t("unread")}
+            {allTicket ? t("pending_reply") : t("unread")}
           </Button>
           <TooltipProvider>
             <Tooltip>

@@ -1,5 +1,6 @@
 import { initClient } from "tentix-server/rpc";
 import ky from "ky";
+import { waitForSealosAuthReady } from "../_provider/sealos";
 
 // const baseUrl = import.meta.env.DEV
 //   ? "http://localhost:3000"
@@ -8,7 +9,8 @@ import ky from "ky";
 export const myFetch = ky.extend({
   hooks: {
     beforeRequest: [
-      (request) => {
+      async (request) => {
+        await waitForSealosAuthReady(request.url);
         // dynamic get token, ensure the latest token is used for each request
         const token = window.localStorage.getItem("token");
         if (token) {
@@ -73,6 +75,12 @@ export const myFetch = ky.extend({
   },
   retry: 1,
   throwHttpErrors: true,
+});
+
+const KB_ADMIN_SAVE_TIMEOUT_MS = 60_000;
+
+export const kbAdminSaveFetch = myFetch.extend({
+  timeout: KB_ADMIN_SAVE_TIMEOUT_MS,
 });
 
 export const apiClient = initClient(import.meta.env.BASE_URL, {

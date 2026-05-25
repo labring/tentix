@@ -4,6 +4,24 @@ import { favoritedConversationsKnowledge } from "@/db/schema";
 
 type DB = ReturnType<typeof connectDB>;
 
+export async function markProcessing(db: DB, id: number): Promise<boolean> {
+  const updated = await db
+    .update(favoritedConversationsKnowledge)
+    .set({
+      syncStatus: "processing",
+      updatedAt: sql`NOW()`,
+    })
+    .where(
+      and(
+        eq(favoritedConversationsKnowledge.id, id),
+        eq(favoritedConversationsKnowledge.syncStatus, "pending"),
+      ),
+    )
+    .returning({ id: favoritedConversationsKnowledge.id });
+
+  return updated.length > 0;
+}
+
 export async function markSynced(db: DB, id: number): Promise<void> {
   await db
     .update(favoritedConversationsKnowledge)

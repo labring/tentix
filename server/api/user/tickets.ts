@@ -2,6 +2,7 @@ import { connectDB, getAbbreviatedText } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
 import {
   and,
+  asc,
   desc,
   eq,
   sql,
@@ -22,7 +23,7 @@ import "zod-openapi/extend";
 import { Hono } from "hono";
 import type { AuthEnv } from "../middleware.ts";
 
-import { TicketStatus } from "@/utils/const.ts";
+import { areaEnumArray, TicketStatus } from "@/utils/const.ts";
 import { userTicketSchema } from "@/utils/types.ts";
 
 const basicUserCols = {
@@ -34,10 +35,25 @@ const basicUserCols = {
   },
 } as const;
 
-// 根据已读/未读状态筛选工单ID的辅助函数（用于员工工单）
-// 未读：没有任何一个员工已读，且最后一条消息不是员工发送的
-// 已读：有至少一个员工已读，或者最后一条消息是员工发送的
-// chat_messages (主表) → 筛选最新消息 → 检查已读状态 → 返回 ticket_id
+type SearchMode = "ticket" | "user";
+type TicketSortBy = "createdAt" | "updatedAt";
+type TicketSortOrder = "asc" | "desc";
+
+function getTicketSortOrder(
+  sortBy: TicketSortBy,
+  sortOrder: TicketSortOrder,
+) {
+  const order = sortOrder === "asc" ? asc : desc;
+  const column =
+    sortBy === "createdAt" ? schema.tickets.createdAt : schema.tickets.updatedAt;
+
+  return [order(column), order(schema.tickets.id)];
+}
+
+// 根据全局待回复状态筛选工单ID的辅助函数（用于 allTicket=true）
+// unread：客户初始提交或最后一条客户有效消息之后，没有负责人/协作技术员公开回复
+// read：客户初始提交或最后一条客户有效消息之后，已有负责人/协作技术员公开回复
+// 这里保留 readStatus 参数名，是为了兼容现有接口和前端状态结构
 async function getFilteredTicketIdsByStaffReadStatus(
   readStatus: "read" | "unread",
 ) {
@@ -49,65 +65,64 @@ async function getFilteredTicketIdsByStaffReadStatus(
 
   if (readStatus === "unread") {
     const result = await db.execute(sql`
-      WITH latest_messages AS (
-        SELECT 
-          cm.id,
-          cm.ticket_id,
-          cm.sender_id,
-          ROW_NUMBER() OVER (
-            PARTITION BY cm.ticket_id 
-            ORDER BY cm.created_at DESC
-          ) as rn
-        FROM tentix.chat_messages cm
-      )
-      SELECT DISTINCT lm.ticket_id
-      FROM latest_messages lm
-      LEFT JOIN tentix.message_read_status mrs ON mrs.message_id = lm.id
-      LEFT JOIN tentix.users staff_readers ON (
-        staff_readers.id = mrs.user_id 
-        AND staff_readers.role IN ('agent', 'technician')
-      )
-      LEFT JOIN tentix.users message_senders ON message_senders.id = lm.sender_id
-      WHERE 
-        lm.rn = 1
-        AND staff_readers.id IS NULL
-        AND (
-          message_senders.role IS NULL 
-          OR message_senders.role NOT IN ('agent', 'technician')
+      WITH ticket_message_state AS (
+        SELECT
+          t.id AS ticket_id,
+          COALESCE(MAX(cm.created_at) FILTER (
+            WHERE cm.sender_id = t.customer_id
+          ), t.created_at) AS last_customer_request_at,
+          MAX(cm.created_at) FILTER (
+            WHERE cm.sender_id = t.agent_id
+              OR EXISTS (
+                SELECT 1
+                FROM tentix.technicians_to_tickets tt
+                WHERE tt.ticket_id = t.id
+                  AND tt.user_id = cm.sender_id
+              )
+          ) AS last_member_reply_at
+        FROM tentix.tickets t
+        LEFT JOIN tentix.chat_messages cm ON (
+          cm.ticket_id = t.id
+          AND cm.is_internal = false
+          AND cm.withdrawn = false
         )
+        GROUP BY t.id, t.created_at, t.customer_id, t.agent_id
+      )
+      SELECT ticket_id
+      FROM ticket_message_state
+      WHERE last_member_reply_at IS NULL
+        OR last_member_reply_at < last_customer_request_at
     `);
 
     return (result.rows as { ticket_id: string }[]).map((row) => row.ticket_id);
   } else {
     const result = await db.execute(sql`
-      WITH latest_messages AS (
-        SELECT 
-          cm.id,
-          cm.ticket_id,
-          cm.sender_id,
-          ROW_NUMBER() OVER (
-            PARTITION BY cm.ticket_id 
-            ORDER BY cm.created_at DESC
-          ) as rn
-        FROM tentix.chat_messages cm
-      )
-      SELECT DISTINCT lm.ticket_id
-      FROM latest_messages lm
-      LEFT JOIN tentix.message_read_status mrs ON mrs.message_id = lm.id
-      LEFT JOIN tentix.users staff_readers ON (
-        staff_readers.id = mrs.user_id 
-        AND staff_readers.role IN ('agent', 'technician')
-      )
-      WHERE 
-        lm.rn = 1
-        AND (
-          staff_readers.id IS NOT NULL  -- 有员工已读
-          OR 
-          lm.sender_id IN (  -- 或者发送者是员工
-            SELECT id FROM tentix.users 
-            WHERE role IN ('agent', 'technician')
-          )
+      WITH ticket_message_state AS (
+        SELECT
+          t.id AS ticket_id,
+          COALESCE(MAX(cm.created_at) FILTER (
+            WHERE cm.sender_id = t.customer_id
+          ), t.created_at) AS last_customer_request_at,
+          MAX(cm.created_at) FILTER (
+            WHERE cm.sender_id = t.agent_id
+              OR EXISTS (
+                SELECT 1
+                FROM tentix.technicians_to_tickets tt
+                WHERE tt.ticket_id = t.id
+                  AND tt.user_id = cm.sender_id
+              )
+          ) AS last_member_reply_at
+        FROM tentix.tickets t
+        LEFT JOIN tentix.chat_messages cm ON (
+          cm.ticket_id = t.id
+          AND cm.is_internal = false
+          AND cm.withdrawn = false
         )
+        GROUP BY t.id, t.created_at, t.customer_id, t.agent_id
+      )
+      SELECT ticket_id
+      FROM ticket_message_state
+      WHERE last_member_reply_at >= last_customer_request_at
     `);
     return (result.rows as { ticket_id: string }[]).map((row) => row.ticket_id);
   }
@@ -182,22 +197,50 @@ async function getFilteredTicketIdsByReadStatus(
 }
 
 // 🔍 构建搜索条件的辅助函数
-function buildSearchConditions(
+async function buildSearchConditions(
   keyword?: string,
   statuses?: TicketStatus[],
   createdAt_start?: string,
   createdAt_end?: string,
   module?: string,
+  area?: string,
+  searchMode: SearchMode = "ticket",
 ) {
   const conditions = [];
 
   if (keyword && keyword.trim()) {
-    const trimmedKeyword = `%${keyword.trim()}%`;
-    const keywordCondition = or(
-      like(schema.tickets.id, trimmedKeyword),
-      like(schema.tickets.title, trimmedKeyword),
-    );
-    conditions.push(keywordCondition);
+    const trimmedKeyword = keyword.trim();
+    if (searchMode === "user") {
+      const db = connectDB();
+      const matchedUsers = await db
+        .select({ userId: schema.userIdentities.userId })
+        .from(schema.userIdentities)
+        .where(
+          and(
+            eq(schema.userIdentities.provider, "sealos"),
+            eq(schema.userIdentities.providerUserId, trimmedKeyword),
+          ),
+        );
+
+      if (matchedUsers.length === 0) {
+        // 用户搜索模式下找不到 Sealos ID 时必须返回空，不能回退到工单搜索。
+        conditions.push(sql`false`);
+      } else {
+        conditions.push(
+          inArray(
+            schema.tickets.customerId,
+            matchedUsers.map((user) => user.userId),
+          ),
+        );
+      }
+    } else {
+      const keywordPattern = `%${trimmedKeyword}%`;
+      const keywordCondition = or(
+        like(schema.tickets.id, keywordPattern),
+        like(schema.tickets.title, keywordPattern),
+      );
+      conditions.push(keywordCondition);
+    }
   }
 
   if (statuses && statuses.length > 0) {
@@ -215,6 +258,10 @@ function buildSearchConditions(
     conditions.push(eq(schema.tickets.module, module));
   }
 
+  if (area) {
+    conditions.push(eq(schema.tickets.area, area));
+  }
+
   return conditions;
 }
 
@@ -230,18 +277,27 @@ async function getTicketsWithPagination(
   createdAt_start?: string,
   createdAt_end?: string,
   module?: string,
+  searchMode: SearchMode = "ticket",
+  area?: string,
+  sortBy?: TicketSortBy,
+  sortOrder: TicketSortOrder = "desc",
 ) {
   const db = connectDB();
   const offset = (page - 1) * pageSize;
 
   // 构建搜索条件
-  const searchConditions = buildSearchConditions(
+  const searchConditions = await buildSearchConditions(
     keyword,
     status,
     createdAt_start,
     createdAt_end,
     module,
+    area,
+    searchMode,
   );
+  const orderBy = sortBy
+    ? getTicketSortOrder(sortBy, sortOrder)
+    : [desc(schema.tickets.updatedAt), desc(schema.tickets.id)];
 
   // 【新增】如果提供了 readStatus，则首先获取符合条件的工单ID
   if (readStatus) {
@@ -281,7 +337,7 @@ async function getTicketsWithPagination(
     // 获取当前页数据
     const tickets = await db.query.tickets.findMany({
       where: whereConditions,
-      orderBy: [desc(schema.tickets.updatedAt), desc(schema.tickets.id)],
+      orderBy,
       limit: pageSize,
       offset,
       with: {
@@ -349,7 +405,7 @@ async function getTicketsWithPagination(
         eq(schema.techniciansToTickets.ticketId, schema.tickets.id),
       )
       .where(allConditions)
-      .orderBy(desc(schema.tickets.updatedAt), desc(schema.tickets.id))
+      .orderBy(...orderBy)
       .limit(pageSize)
       .offset(offset);
 
@@ -366,7 +422,7 @@ async function getTicketsWithPagination(
     const ticketIds = ticketsData.map((t) => t.ticketId);
     const tickets = await db.query.tickets.findMany({
       where: inArray(schema.tickets.id, ticketIds),
-      orderBy: [desc(schema.tickets.updatedAt), desc(schema.tickets.id)],
+      orderBy,
       with: {
         agent: basicUserCols,
         customer: basicUserCols,
@@ -413,16 +469,22 @@ async function getTicketsForAgent(
   createdAt_start?: string,
   createdAt_end?: string,
   module?: string,
+  searchMode: SearchMode = "ticket",
+  area?: string,
+  sortBy?: TicketSortBy,
+  sortOrder: TicketSortOrder = "desc",
 ) {
   const db = connectDB();
 
   // 构建搜索条件
-  const searchConditions = buildSearchConditions(
+  const searchConditions = await buildSearchConditions(
     keyword,
     status,
     createdAt_start,
     createdAt_end,
     module,
+    area,
+    searchMode,
   );
 
   // 【新增】如果提供了 readStatus，则首先获取符合条件的工单ID
@@ -493,6 +555,90 @@ async function getTicketsForAgent(
     searchConditions.length > 0
       ? and(eq(schema.tickets.agentId, userId), ...searchConditions)
       : eq(schema.tickets.agentId, userId);
+
+  if (sortBy) {
+    const sortField = sortBy === "createdAt" ? "createdAt" : "updatedAt";
+    const sortDirection = sortOrder === "asc" ? 1 : -1;
+    const globalOffset = (page - 1) * pageSize;
+    const pageEnd = globalOffset + pageSize;
+    const technicianTicketRefs = await db
+      .select({
+        ticketId: schema.techniciansToTickets.ticketId,
+        id: schema.tickets.id,
+        createdAt: schema.tickets.createdAt,
+        updatedAt: schema.tickets.updatedAt,
+      })
+      .from(schema.techniciansToTickets)
+      .innerJoin(
+        schema.tickets,
+        eq(schema.techniciansToTickets.ticketId, schema.tickets.id),
+      )
+      .where(technicianAllConditions);
+    const agentTicketRefs = await db.query.tickets.findMany({
+      where: agentAllConditions,
+      columns: {
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    const ticketRefs = [
+      ...technicianTicketRefs,
+      ...agentTicketRefs.map((ticket) => ({
+        ticketId: ticket.id,
+        id: ticket.id,
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.updatedAt,
+      })),
+    ];
+    const sortedRefs = ticketRefs.sort((a, b) => {
+      const timeCompare =
+        (new Date(a[sortField]).getTime() - new Date(b[sortField]).getTime()) *
+        sortDirection;
+      if (timeCompare !== 0) return timeCompare;
+      return a.id.localeCompare(b.id) * sortDirection;
+    });
+    const pageTicketRefs = sortedRefs.slice(globalOffset, pageEnd);
+    const pageTicketIds = pageTicketRefs.map((ticket) => ticket.ticketId);
+    const pageTickets =
+      pageTicketIds.length > 0
+        ? await db.query.tickets.findMany({
+            where: inArray(schema.tickets.id, pageTicketIds),
+            with: {
+              agent: basicUserCols,
+              customer: basicUserCols,
+              messages: {
+                orderBy: [desc(schema.chatMessages.createdAt)],
+                limit: 1,
+                with: {
+                  readStatus: true,
+                },
+              },
+            },
+          })
+        : [];
+    const orderedTickets = pageTicketRefs
+      .map((ticketRef) =>
+        pageTickets.find((ticket) => ticket.id === ticketRef.ticketId),
+      )
+      .filter(
+        (ticket): ticket is NonNullable<typeof ticket> =>
+          ticket !== undefined,
+      );
+
+    return {
+      tickets: orderedTickets.map((ticket) => ({
+        ...ticket,
+        messages: ticket.messages.map((message) => ({
+          ...message,
+          content: getAbbreviatedText(message.content, 100),
+        })),
+      })),
+      totalCount,
+      totalPages,
+      currentPage: page,
+    };
+  }
 
   // 2. 计算当前页的数据来源和偏移量
   const globalOffset = (page - 1) * pageSize;
@@ -634,6 +780,10 @@ async function getAllTickets(
   createdAt_start?: string,
   createdAt_end?: string,
   module?: string,
+  searchMode: SearchMode = "ticket",
+  area?: string,
+  sortBy?: TicketSortBy,
+  sortOrder: TicketSortOrder = "desc",
 ) {
   const db = connectDB();
   const offset = (page - 1) * pageSize;
@@ -648,18 +798,26 @@ async function getAllTickets(
   } as const;
 
   // 构建搜索条件
-  const searchConditions = buildSearchConditions(
+  const searchConditions = await buildSearchConditions(
     keyword,
     status,
     createdAt_start,
     createdAt_end,
     module,
+    area,
+    searchMode,
   );
+  const orderBy = sortBy
+    ? getTicketSortOrder(sortBy, sortOrder)
+    : [desc(schema.tickets.updatedAt), desc(schema.tickets.id)];
+  let filteredPendingReplyTicketIds: Set<string> | undefined;
 
-  // 【新增】如果提供了 readStatus，则按照新逻辑过滤：检查是否有任意 agent 或 technician 读过最新消息
+  // allTicket=true 时沿用 readStatus 参数：unread 表示待回复，read 表示无需回复
   if (readStatus) {
     const readStatusTicketIds =
       await getFilteredTicketIdsByStaffReadStatus(readStatus);
+    filteredPendingReplyTicketIds =
+      readStatus === "unread" ? new Set(readStatusTicketIds) : new Set();
     // 如果没有匹配的工单，可以直接返回空，避免后续查询
     if (readStatusTicketIds.length === 0) {
       return {
@@ -682,13 +840,15 @@ async function getAllTickets(
 
     db.query.tickets.findMany({
       where: whereConditions,
-      orderBy: [desc(schema.tickets.updatedAt), desc(schema.tickets.id)],
+      orderBy,
       limit: pageSize,
       offset,
       with: {
         agent: basicUserCols,
         customer: basicUserCols,
         messages: {
+          where: (messages, { and, eq }) =>
+            and(eq(messages.isInternal, false), eq(messages.withdrawn, false)),
           orderBy: [desc(schema.chatMessages.createdAt)],
           limit: 1,
           with: {
@@ -710,9 +870,13 @@ async function getAllTickets(
 
   const totalCount = totalCountResult[0]?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
+  const pendingReplyTicketIds =
+    filteredPendingReplyTicketIds ??
+    new Set(await getFilteredTicketIdsByStaffReadStatus("unread"));
 
   const processedTickets = tickets.map((ticket) => ({
     ...ticket,
+    pendingReply: pendingReplyTicketIds.has(ticket.id),
     messages: ticket.messages.map((message) => ({
       ...message,
       content: getAbbreviatedText(message.content, 100),
@@ -864,11 +1028,15 @@ const ticketsRouter = new Hono<AuthEnv>().get(
           description: "Number of records returned per page (1-100)",
         }),
       keyword: z.string().optional().openapi({
-        description: "Search keyword to match ticket ID or title",
+        description: "Search keyword interpreted by searchMode",
+      }),
+      searchMode: z.enum(["ticket", "user"]).optional().default("ticket").openapi({
+        description:
+          "'ticket' matches ticket ID/title. 'user' matches Sealos user ID.",
       }),
       readStatus: z.enum(["read", "unread"]).optional().openapi({
         description:
-          "根据已读/未读状态筛选工单。'read' 为已读，'unread' 为未读。",
+          "根据列表模式筛选工单。allTicket=true 时 'unread' 为待回复、'read' 为无需回复；否则为个人已读/未读。",
       }),
       pending: z
         .string()
@@ -917,6 +1085,15 @@ const ticketsRouter = new Hono<AuthEnv>().get(
       module: z.string().optional().openapi({
         description: "Filter tickets by module",
       }),
+      area: z.enum(areaEnumArray).optional().openapi({
+        description: "Filter tickets by area",
+      }),
+      sortBy: z.enum(["createdAt", "updatedAt"]).optional().openapi({
+        description: "Sort tickets by createdAt or updatedAt",
+      }),
+      sortOrder: z.enum(["asc", "desc"]).optional().default("desc").openapi({
+        description: "Sort order. desc means newest first.",
+      }),
       allTicket: z
         .string()
         .optional()
@@ -933,6 +1110,7 @@ const ticketsRouter = new Hono<AuthEnv>().get(
       page,
       pageSize,
       keyword,
+      searchMode,
       readStatus,
       pending,
       in_progress,
@@ -941,6 +1119,9 @@ const ticketsRouter = new Hono<AuthEnv>().get(
       createdAt_start,
       createdAt_end,
       module,
+      area,
+      sortBy,
+      sortOrder,
       allTicket,
     } = c.req.valid("query");
 
@@ -969,6 +1150,10 @@ const ticketsRouter = new Hono<AuthEnv>().get(
           createdAt_start,
           createdAt_end,
           module,
+          searchMode,
+          area,
+          sortBy,
+          sortOrder,
         ),
         // 获取全局统计
         (async () => {
@@ -1000,6 +1185,10 @@ const ticketsRouter = new Hono<AuthEnv>().get(
                 createdAt_start,
                 createdAt_end,
                 module,
+                searchMode,
+                area,
+                sortBy,
+                sortOrder,
               );
             case "admin":
             case "technician":
@@ -1014,6 +1203,10 @@ const ticketsRouter = new Hono<AuthEnv>().get(
                 createdAt_start,
                 createdAt_end,
                 module,
+                searchMode,
+                area,
+                sortBy,
+                sortOrder,
               );
             default: // customer
               return getTicketsWithPagination(
@@ -1027,6 +1220,10 @@ const ticketsRouter = new Hono<AuthEnv>().get(
                 createdAt_start,
                 createdAt_end,
                 module,
+                searchMode,
+                area,
+                sortBy,
+                sortOrder,
               );
           }
         })(),

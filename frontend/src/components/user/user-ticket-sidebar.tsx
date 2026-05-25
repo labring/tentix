@@ -103,7 +103,9 @@ export function UserTicketSidebar({
     statuses,
     readStatus,
     allTicket,
+    searchMode,
     setSearchQuery,
+    setSearchMode,
     setStatuses,
     setReadStatus,
     setCurrentPage,
@@ -142,6 +144,12 @@ export function UserTicketSidebar({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    if (searchMode !== "ticket") {
+      setSearchMode("ticket");
+    }
+  }, [searchMode, setSearchMode]);
 
   // Status options
   const statusOptions = [

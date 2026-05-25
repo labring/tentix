@@ -10,6 +10,8 @@ const envSchema = z.object({
   FEISHU_CHAT_ID: z.string().trim().optional(),
   FEISHU_TRANSFER_CARD: z.string().trim().optional(),
   FEISHU_NEW_TICKET_CARD: z.string().trim().optional(),
+  FEISHU_COMPLAINT_WEBHOOK_URL: z.string().trim().optional(),
+  FEISHU_COMPLAINT_WEBHOOK_SECRET: z.string().trim().optional(),
 
   FASTGPT_API_URL: z.string().url().trim().optional(),
   FASTGPT_API_KEY: z.string().startsWith("fastgpt-").trim().optional(),
@@ -24,6 +26,7 @@ const envSchema = z.object({
 
   ENCRYPTION_KEY: z.string().base64().trim(),
   SEALOS_APP_TOKEN: z.string().trim().optional(),
+  TENTIX_INSPECTOR_API_KEY: z.string().trim().optional(),
 
   OPENAI_BASE_URL: z.string().url().trim().optional(),
   OPENAI_API_KEY: z.string().trim().optional(),

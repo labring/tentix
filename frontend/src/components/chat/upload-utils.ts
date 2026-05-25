@@ -1,6 +1,7 @@
 // 2. 发送时处理文件上传的工具函数
 
 import { type JSONContentZod } from "tentix-server/types";
+import { waitForSealosAuthReady } from "../../_provider/sealos";
 
 // 错误处理工具函数
 const getErrorMessage = (error: unknown): string => {
@@ -37,6 +38,8 @@ const uploadFile = async (file: File): Promise<string> => {
     );
     presignedUrl.searchParams.set("fileName", file.name);
     presignedUrl.searchParams.set("fileType", file.type);
+
+    await waitForSealosAuthReady(presignedUrl.toString());
 
     const token = window.localStorage.getItem("token");
     const headers: HeadersInit = {};

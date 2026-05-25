@@ -5,7 +5,6 @@ import {
 import {
   ticketPriorityEnumArray,
   ticketStatusEnumArray,
-  WS_TOKEN_EXPIRY_TIME,
 } from "tentix-server/constants";
 import { apiClient } from "./api-client";
 
@@ -14,6 +13,16 @@ type ErrorMessage = {
   message: string;
   timeISO: string;
   stack: string;
+};
+
+type TicketSortBy = "createdAt" | "updatedAt";
+type TicketSortOrder = "asc" | "desc";
+
+type TicketListQueryOptions = {
+  sortBy?: TicketSortBy | null;
+  sortOrder?: TicketSortOrder;
+  area?: string | null;
+  module?: string | null;
 };
 
 // 全局声明
@@ -46,6 +55,8 @@ export const userTicketsQueryOptions = (
   readStatus?: "read" | "unread" | "all",
   allTicket?: boolean,
   id?: string,
+  searchMode: "ticket" | "user" = "ticket",
+  options: TicketListQueryOptions = {},
 ) =>
   queryOptions({
     queryKey: [
@@ -57,6 +68,11 @@ export const userTicketsQueryOptions = (
       readStatus,
       allTicket,
       id,
+      searchMode,
+      options.sortBy ?? null,
+      options.sortOrder ?? "desc",
+      options.area ?? null,
+      options.module ?? null,
     ],
     queryFn: async () => {
       const params: Record<string, string | boolean> = {
@@ -85,12 +101,27 @@ export const userTicketsQueryOptions = (
         params.keyword = keyword.trim();
       }
 
+      params.searchMode = searchMode;
+
       if (allTicket) {
         params.allTicket = allTicket;
       }
 
       if (readStatus && readStatus !== "all") {
         params.readStatus = readStatus;
+      }
+
+      if (options.sortBy) {
+        params.sortBy = options.sortBy;
+        params.sortOrder = options.sortOrder ?? "desc";
+      }
+
+      if (options.area) {
+        params.area = options.area;
+      }
+
+      if (options.module) {
+        params.module = options.module;
       }
 
       const data = await apiClient.user.getTickets
@@ -108,9 +139,22 @@ export const allTicketsQueryOptions = (
   page = 1,
   keyword?: string,
   statuses?: string[],
+  searchMode: "ticket" | "user" = "ticket",
+  options: TicketListQueryOptions = {},
 ) =>
   queryOptions({
-    queryKey: ["getAllTickets", pageSize, page, statuses, keyword],
+    queryKey: [
+      "getAllTickets",
+      pageSize,
+      page,
+      statuses,
+      keyword,
+      searchMode,
+      options.sortBy ?? null,
+      options.sortOrder ?? "desc",
+      options.area ?? null,
+      options.module ?? null,
+    ],
     queryFn: async () => {
       const params: Record<string, string> = {
         pageSize: pageSize.toString(),
@@ -138,6 +182,21 @@ export const allTicketsQueryOptions = (
         params.keyword = keyword.trim();
       }
 
+      params.searchMode = searchMode;
+
+      if (options.sortBy) {
+        params.sortBy = options.sortBy;
+        params.sortOrder = options.sortOrder ?? "desc";
+      }
+
+      if (options.area) {
+        params.area = options.area;
+      }
+
+      if (options.module) {
+        params.module = options.module;
+      }
+
       const data = await apiClient.ticket.all
         .$get({ query: params })
         .then((r) => r.json());
@@ -162,16 +221,60 @@ export const ticketsQueryOptions = (id: string) =>
     refetchOnWindowFocus: true, // 窗口聚焦时重新获取
   });
 
-export const wsTokenQueryOptions = (testUserId?: string) =>
+type WsTokenQueryOptionsConfig = {
+  testUserId?: string;
+  ticketId: string;
+  getSealosKubeconfig?: () => Promise<string | null>;
+};
+
+export const wsTokenQueryOptions = ({
+  testUserId,
+  ticketId,
+  getSealosKubeconfig,
+}: WsTokenQueryOptionsConfig) =>
   queryOptions({
-    queryKey: ["getWsToken"],
+    queryKey: [
+      "getWsToken",
+      ticketId,
+      testUserId ?? "",
+      getSealosKubeconfig ? "with-sealos-kc" : "without-sealos-kc",
+    ],
     queryFn: async () => {
-      const data = await apiClient.chat.token
-        .$get({ query: { testUserId } })
-        .then((r) => r.json());
-      return data;
+      let headers: Record<string, string> | undefined;
+
+      if (getSealosKubeconfig) {
+        try {
+          const sealosKubeconfig = await getSealosKubeconfig();
+          if (sealosKubeconfig) {
+            headers = {
+              "x-sealos-kubeconfig": encodeURIComponent(sealosKubeconfig),
+            };
+          }
+        } catch (error) {
+          console.warn(
+            "Failed to get sealos kubeconfig for ws token request:",
+            error,
+          );
+        }
+      }
+
+      const res = await apiClient.chat.token.$get(
+        { query: { testUserId } },
+        headers ? { headers } : undefined,
+      );
+
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
+        throw new Error(err.message || "Failed to get ws token");
+      }
+
+      return await res.json();
     },
-    staleTime: WS_TOKEN_EXPIRY_TIME,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
 
 export const userInfoQueryOptions = () =>

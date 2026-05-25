@@ -33,6 +33,12 @@ import { resolver } from "hono-openapi/zod";
 import { streamSSE } from "hono/streaming";
 import NodeCache from "node-cache";
 import { z } from "zod";
+import {
+  bindTicketSealosKubeconfig,
+  getUserSealosKubeconfig,
+  setUserSealosKubeconfig,
+  unbindTicketSealosKubeconfig,
+} from "@/utils/sealos-kubeconfig-session.ts";
 import { authMiddleware, factory } from "../middleware.ts";
 import { sendUnreadSSE, sendWsMessage, wsInstance } from "./tools.ts";
 
@@ -226,7 +232,7 @@ namespace aiHandler {
 
   // In-flight lock set and timeout map to avoid concurrent AI runs per ticket
   const aiProcessingSet = new Set<string>();
-  const AI_PROCESSING_TIMEOUT = 180000; // 3 minute
+  const AI_PROCESSING_TIMEOUT = 300000; // 5 minute
   const aiProcessingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   export function isAIInFlight(ticketId: string) {
@@ -535,6 +541,22 @@ const chatRouter = factory
     async (c) => {
       const userId = Number(c.var.userId);
       const role = c.var.role;
+
+      const rawSealosKubeconfig = c.req.header("x-sealos-kubeconfig");
+      if (rawSealosKubeconfig) {
+        try {
+          const decoded = decodeURIComponent(rawSealosKubeconfig);
+          if (decoded.trim()) {
+            setUserSealosKubeconfig(userId, decoded);
+          }
+        } catch {
+          return c.json(
+            { message: "Invalid x-sealos-kubeconfig header" },
+            400,
+          );
+        }
+      }
+
       // Generate WebSocket token
       const wsToken = generateToken(userId, role);
       return c.json({
@@ -634,6 +656,19 @@ const chatRouter = factory
         return {
           async onOpen(_evt, ws) {
             logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
+
+            if (role === "customer") {
+              const sealosKubeconfig = getUserSealosKubeconfig(userId);
+              if (sealosKubeconfig) {
+                bindTicketSealosKubeconfig(
+                  ticketId,
+                  clientId,
+                  userId,
+                  sealosKubeconfig,
+                );
+              }
+            }
+
             roomEmitter.emit("user_join", {
               clientId,
               roomId: ticketId,
@@ -801,10 +836,12 @@ const chatRouter = factory
                 }
                 case "withdraw_message": {
                   // Withdraw the message
-                  const withdrawnMessage = await withdrawMessage(
-                    parsedMessage.messageId,
-                    userId,
-                  );
+                  const withdrawnMessage = await withdrawMessage({
+                    messageId: parsedMessage.messageId,
+                    ticketId,
+                    operatorId: userId,
+                    operatorRole: role,
+                  });
 
                   if (withdrawnMessage) {
                     let broadcastExclude = [clientId];
@@ -848,14 +885,13 @@ const chatRouter = factory
             }
           },
           onClose(_evt, ws) {
+            if (role === "customer") {
+              unbindTicketSealosKubeconfig(ticketId, clientId);
+            }
+
             // 如果是 customer 离开首先检查 房间是否有 agent，如果没有 agent 则将 ticket 状态变为 pending，如果有 检查ticket 最近一条消息是否是自己发的，如果是则 pending
             // 如果不是 customer 离开，则检查 ticket 最近一条消息是否是自己发的，如果是自己发的 则状态改为 in progress
             handleUserLeaveStatusUpdate(ticketId, userId, role);
-
-            // Clear AI in-flight lock when user leaves the room
-            if (aiHandler.isAIInFlight(ticketId)) {
-              aiHandler.clearAIInFlight(ticketId);
-            }
 
             roomEmitter.emit("user_leave", {
               clientId,
@@ -868,9 +904,8 @@ const chatRouter = factory
           },
 
           onError(evt, ws) {
-            // Clear AI in-flight lock when error occurs
-            if (aiHandler.isAIInFlight(ticketId)) {
-              aiHandler.clearAIInFlight(ticketId);
+            if (role === "customer") {
+              unbindTicketSealosKubeconfig(ticketId, clientId);
             }
 
             logError(

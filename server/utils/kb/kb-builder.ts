@@ -155,6 +155,349 @@ const schema = z.object({
     .describe("该问题的主题标签，3-8 个中文或英文关键词"),
 });
 
+export type KnowledgeMetadataSummary = z.infer<typeof schema>;
+
+export type KnowledgeMetadataResult = {
+  metadata: KnowledgeMetadataSummary;
+  summaryContent: string;
+};
+
+export type EditedKnowledgeSourceContext = {
+  description: string;
+  conversationText: string;
+  module?: string | null;
+  category?: string | null;
+  area?: string | null;
+  images: string[];
+};
+
+function emptyKnowledgeMetadataSummary(): KnowledgeMetadataSummary {
+  return {
+    problem_summary: "",
+    solution_steps: [],
+    generated_queries: [],
+    tags: [],
+  };
+}
+
+function buildEnhancedKnowledgeContent({
+  title,
+  description,
+  module,
+  category,
+  area,
+  metadata,
+}: {
+  title: string;
+  description: string;
+  module?: string | null;
+  category?: string | null;
+  area?: string | null;
+  metadata: KnowledgeMetadataSummary;
+}): string {
+  const { problem_summary, solution_steps, generated_queries, tags } = metadata;
+  return [
+    `问题: ${problem_summary || title}`,
+    solution_steps.length
+      ? `解决步骤:\n- ${solution_steps.join("\n- ")}`
+      : "",
+    generated_queries.length
+      ? `搜索关键词: ${generated_queries.join(", ")}`
+      : "",
+    tags.length ? `标签: ${tags.join(", ")}` : "",
+    "",
+    "原始工单信息:",
+    `- 标题: ${title}`,
+    `- 描述: ${description}`,
+    `- 模块: ${module}`,
+    `- 分类: ${category}`,
+    `- 区域: ${area}`,
+    "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function generateKnowledgeMetadata({
+  title,
+  description,
+  category,
+  module,
+  area,
+  conversationText,
+  images,
+  editedKnowledgeContent,
+  throwOnError = false,
+}: {
+  title: string;
+  description: string;
+  category?: string | null;
+  module?: string | null;
+  area?: string | null;
+  conversationText: string;
+  images: string[];
+  editedKnowledgeContent?: string;
+  throwOnError?: boolean;
+}): Promise<KnowledgeMetadataResult> {
+  try {
+    const model = new ChatOpenAI({
+      apiKey: OPENAI_CONFIG.apiKey,
+      model: OPENAI_CONFIG.summaryModel,
+      configuration: {
+        baseURL: OPENAI_CONFIG.baseURL,
+      },
+    });
+    const structured = model.withStructuredOutput(schema);
+    const promptText = [
+      "请阅读以下客服工单的基本信息与按时间排序的对话，仅基于这些已知事实生成严格有效的 JSON。禁止任何多余说明、前后缀或 Markdown。输出结构必须完全符合：",
+      '{ "problem_summary": string, "solution_steps": string[], "generated_queries": string[], "tags": string[] }',
+      "",
+      "生成规则（务必逐条遵守）：",
+      "1) problem_summary：用中文精准概括用户问题，不引入未在工单或对话中出现的推断。",
+      "2) solution_steps：严格依据“客服/技术”在对话中明确给出的处理方案与操作顺序整理；如无明确方案，只总结已尝试或已建议的步骤，不得自创步骤或扩展不存在的功能；AI 的建议若未被客服/技术确认，不得采纳。若有可复用的相似场景处理方式，可在步骤末尾附加 1-3 条，并以“（相似场景）”前缀标注。",
+      "3) generated_queries：用于检索知识库的高精度检索词，优先包含产品/模块名、分类、错误码/提示语、关键操作、环境信息等；避免泛化词（如“问题”“报错”“怎么解决”）；长度适中，避免重复。",
+      "4) tags：3-8 个高置信标签，优先选用领域词与工单中出现的关键实体（模块、分类、错误码、产品版本等）；去重；避免过于宽泛的词。",
+      "5) 若信息不足，对应字段置为空字符串或空数组，绝不臆测。",
+      "6) 不得引用本指令文本；不得输出解释；确保 JSON 可被 JSON.parse 正确解析。",
+      editedKnowledgeContent
+        ? "7) 管理员保存后的知识内容是最终事实源；若它与原始工单或对话存在冲突，以管理员保存后的知识内容为准。"
+        : "",
+      "",
+      "工单信息：",
+      `- 标题: ${title}`,
+      `- 描述: ${description}`,
+      `- 分类: ${category}`,
+      `- 模块: ${module}`,
+      "",
+      "对话记录（按时间排序）：",
+      conversationText,
+      editedKnowledgeContent
+        ? ["", "管理员保存后的知识内容：", editedKnowledgeContent].join("\n")
+        : "",
+    ].filter(Boolean).join("\n");
+
+    const summaryInput =
+      images.length > 0
+        ? [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: promptText },
+                ...images.map((url) => ({
+                  type: "image_url",
+                  image_url: { url },
+                })),
+              ],
+            },
+          ]
+        : promptText;
+    const metadata = await structured.invoke(summaryInput);
+    const normalized = {
+      problem_summary: metadata.problem_summary ?? "",
+      solution_steps: metadata.solution_steps ?? [],
+      generated_queries: metadata.generated_queries ?? [],
+      tags: metadata.tags ?? [],
+    };
+    return {
+      metadata: normalized,
+      summaryContent: buildEnhancedKnowledgeContent({
+        title,
+        description,
+        module,
+        category,
+        area,
+        metadata: normalized,
+      }),
+    };
+  } catch (err) {
+    logWarning(
+      `KnowledgeBuilderService structured summary failed: ${String(err)}`,
+    );
+    if (throwOnError) throw err;
+    const metadata = emptyKnowledgeMetadataSummary();
+    return {
+      metadata,
+      summaryContent: buildEnhancedKnowledgeContent({
+        title,
+        description,
+        module,
+        category,
+        area,
+        metadata,
+      }),
+    };
+  }
+}
+
+function getMetadataString(metadata: unknown, key: string): string {
+  if (!metadata || typeof metadata !== "object") return "";
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : "";
+}
+
+export async function loadEditedKnowledgeSourceContext({
+  db,
+  sourceType,
+  sourceId,
+  metadata,
+}: {
+  db: ReturnType<typeof connectDB>;
+  sourceType: string;
+  sourceId: string;
+  metadata: Record<string, unknown>;
+}): Promise<EditedKnowledgeSourceContext | undefined> {
+  if (sourceType !== "favorited_conversation") return undefined;
+
+  let description = "";
+  let conversationText = "";
+  let module = getMetadataString(metadata, "module");
+  let category = getMetadataString(metadata, "category");
+  let area = getMetadataString(metadata, "area");
+  const images: string[] = [];
+
+  const ticket = await db.query.tickets.findFirst({
+    where: eq(tickets.id, sourceId),
+  });
+  const favorited = await db.query.favoritedConversationsKnowledge.findFirst({
+    where: eq(favoritedConversationsKnowledge.ticketId, sourceId),
+  });
+
+  if (ticket) {
+    description = getTextContent(ticket.description as JSONContentZod, 2000);
+    module = ticket.module ?? module;
+    category = ticket.category ?? category;
+    area = ticket.area ?? area;
+    images.push(...extractImageUrls(ticket.description as JSONContentZod));
+
+    const messageIds = favorited?.messageIds;
+    const msgs = await db.query.chatMessages.findMany({
+      where:
+        messageIds && messageIds.length
+          ? and(
+              eq(chatMessages.ticketId, sourceId),
+              inArray(chatMessages.id, messageIds),
+            )
+          : eq(chatMessages.ticketId, sourceId),
+      orderBy: asc(chatMessages.createdAt),
+      with: {
+        sender: basicUserCols,
+      },
+    });
+    conversationText = formatMessagesForAI(
+      msgs.map((m) => ({
+        isInternal: m.isInternal,
+        withdrawn: m.withdrawn,
+        senderId: m.senderId as number | string,
+        createdAt: m.createdAt,
+        content: m.content as JSONContentZod,
+        sender: (m as unknown as { sender?: { role?: string | null } }).sender,
+      })),
+      ticket.customerId as unknown as string | number | null,
+      {
+        perMessageMax: 5000,
+        enumerate: true,
+      },
+    );
+    for (const m of msgs) {
+      if (m?.content) {
+        images.push(...extractImageUrls(m.content as JSONContentZod));
+      }
+    }
+  }
+
+  return { description, conversationText, module, category, area, images };
+}
+
+export async function rebuildEditedKnowledgeMetadata({
+  db,
+  sourceType,
+  sourceId,
+  title,
+  metadata,
+  chunks,
+  sourceContext,
+}: {
+  db: ReturnType<typeof connectDB>;
+  sourceType: string;
+  sourceId: string;
+  title: string;
+  metadata: Record<string, unknown>;
+  chunks: Array<{ chunkId: number; content: string }>;
+  sourceContext?: EditedKnowledgeSourceContext;
+}): Promise<KnowledgeMetadataResult> {
+  const editedKnowledgeContent = chunks
+    .map((chunk) => `片段 ${chunk.chunkId}:\n${chunk.content}`)
+    .join("\n\n");
+  let description = sourceContext?.description ?? "";
+  let conversationText = sourceContext?.conversationText || editedKnowledgeContent;
+  let module = sourceContext?.module ?? getMetadataString(metadata, "module");
+  let category = sourceContext?.category ?? getMetadataString(metadata, "category");
+  let area = sourceContext?.area ?? getMetadataString(metadata, "area");
+  const images: string[] = sourceContext?.images ? [...sourceContext.images] : [];
+
+  if (!sourceContext && sourceType === "favorited_conversation") {
+    const ticket = await db.query.tickets.findFirst({
+      where: eq(tickets.id, sourceId),
+    });
+    const favorited = await db.query.favoritedConversationsKnowledge.findFirst({
+      where: eq(favoritedConversationsKnowledge.ticketId, sourceId),
+    });
+    if (ticket) {
+      description = getTextContent(ticket.description as JSONContentZod, 2000);
+      module = ticket.module ?? module;
+      category = ticket.category ?? category;
+      area = ticket.area ?? area;
+      images.push(...extractImageUrls(ticket.description as JSONContentZod));
+      const messageIds = favorited?.messageIds;
+      const msgs = await db.query.chatMessages.findMany({
+        where:
+          messageIds && messageIds.length
+            ? and(
+                eq(chatMessages.ticketId, sourceId),
+                inArray(chatMessages.id, messageIds),
+              )
+            : eq(chatMessages.ticketId, sourceId),
+        orderBy: asc(chatMessages.createdAt),
+        with: {
+          sender: basicUserCols,
+        },
+      });
+      conversationText = formatMessagesForAI(
+        msgs.map((m) => ({
+          isInternal: m.isInternal,
+          withdrawn: m.withdrawn,
+          senderId: m.senderId as number | string,
+          createdAt: m.createdAt,
+          content: m.content as JSONContentZod,
+          sender: (m as unknown as { sender?: { role?: string | null } }).sender,
+        })),
+        ticket.customerId as unknown as string | number | null,
+        {
+          perMessageMax: 5000,
+          enumerate: true,
+        },
+      );
+      for (const m of msgs) {
+        if (m?.content) {
+          images.push(...extractImageUrls(m.content as JSONContentZod));
+        }
+      }
+    }
+  }
+
+  return generateKnowledgeMetadata({
+    title,
+    description,
+    category,
+    module,
+    area,
+    conversationText,
+    images,
+    editedKnowledgeContent,
+    throwOnError: true,
+  });
+}
+
 export class KnowledgeBuilderService {
   private externalProvider?: VectorStore;
   private internalProvider?: VectorStore;
@@ -220,114 +563,30 @@ export class KnowledgeBuilderService {
 
     const ticketDesc = getTextContent(t.description as JSONContentZod, 2000);
     const safeTitle = truncateString(t.title ?? "", 500);
-    // AI 增强摘要（用于构建高信息密度的知识内容）
-    let problem_summary = "",
-      solution_steps: string[] = [],
-      generated_queries: string[] = [],
-      tags: string[] = [];
-    try {
-      const model = new ChatOpenAI({
-        apiKey: OPENAI_CONFIG.apiKey,
-        model: OPENAI_CONFIG.summaryModel,
-        configuration: {
-          baseURL: OPENAI_CONFIG.baseURL,
-        },
-      });
-
-      const structured = model.withStructuredOutput(schema);
-
-      // 构建多模态消息，包含工单描述和历史对话中的图片
-      const ticketDescImages = extractImageUrls(
-        t.description as JSONContentZod,
-      );
-
-      // 提取历史对话中的所有图片
-      const conversationImages: string[] = [];
-      for (const m of msgs) {
-        if (m && m.content) {
-          const msgImages = extractImageUrls(m.content as JSONContentZod);
-          conversationImages.push(...msgImages);
-        }
+    const ticketDescImages = extractImageUrls(t.description as JSONContentZod);
+    const conversationImages: string[] = [];
+    for (const m of msgs) {
+      if (m && m.content) {
+        conversationImages.push(...extractImageUrls(m.content as JSONContentZod));
       }
-
-      const promptText = [
-        "请阅读以下客服工单的基本信息与按时间排序的对话，仅基于这些已知事实生成严格有效的 JSON。禁止任何多余说明、前后缀或 Markdown。输出结构必须完全符合：",
-        '{ "problem_summary": string, "solution_steps": string[], "generated_queries": string[], "tags": string[] }',
-        "",
-        "生成规则（务必逐条遵守）：",
-        "1) problem_summary：用中文精准概括用户问题，不引入未在工单或对话中出现的推断。",
-        "2) solution_steps：严格依据“客服/技术”在对话中明确给出的处理方案与操作顺序整理；如无明确方案，只总结已尝试或已建议的步骤，不得自创步骤或扩展不存在的功能；AI 的建议若未被客服/技术确认，不得采纳。若有可复用的相似场景处理方式，可在步骤末尾附加 1-3 条，并以“（相似场景）”前缀标注。",
-        "3) generated_queries：用于检索知识库的高精度检索词，优先包含产品/模块名、分类、错误码/提示语、关键操作、环境信息等；避免泛化词（如“问题”“报错”“怎么解决”）；长度适中，避免重复。",
-        "4) tags：3-8 个高置信标签，优先选用领域词与工单中出现的关键实体（模块、分类、错误码、产品版本等）；去重；避免过于宽泛的词。",
-        "5) 若信息不足，对应字段置为空字符串或空数组，绝不臆测。",
-        "6) 不得引用本指令文本；不得输出解释；确保 JSON 可被 JSON.parse 正确解析。",
-        "",
-        "工单信息：",
-        `- 标题: ${safeTitle}`,
-        `- 描述: ${ticketDesc}`,
-        `- 分类: ${t.category}`,
-        `- 模块: ${t.module}`,
-        "",
-        "对话记录（按时间排序）：",
-        joined,
-      ].join("\n");
-
-      // 收集所有图片
-      const allImages = [...ticketDescImages, ...conversationImages];
-
-      let summaryInput;
-      if (allImages.length > 0) {
-        // 如果有图片，构建多模态消息（正确的 LangChain 消息格式）
-        summaryInput = [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: promptText },
-              ...allImages.map((url) => ({
-                type: "image_url",
-                image_url: { url },
-              })),
-            ],
-          },
-        ];
-      } else {
-        // 否则使用纯文本
-        summaryInput = promptText;
-      }
-
-      const j = await structured.invoke(summaryInput);
-
-      problem_summary = j.problem_summary ?? "";
-      solution_steps = j.solution_steps ?? [];
-      generated_queries = j.generated_queries ?? [];
-      tags = j.tags ?? [];
-    } catch (err) {
-      logWarning(
-        `KnowledgeBuilderService structured summary failed: ${String(err)}`,
-      );
     }
+    const metadataResult = await generateKnowledgeMetadata({
+      title: safeTitle,
+      description: ticketDesc,
+      category: t.category,
+      module: t.module,
+      area: t.area,
+      conversationText: joined,
+      images: [...ticketDescImages, ...conversationImages],
+    });
+    const {
+      problem_summary,
+      solution_steps,
+      generated_queries,
+      tags,
+    } = metadataResult.metadata;
 
-    // 组合 AI 增强后的知识内容（信息密度更高，更利于向量检索）
-    const enhanced = [
-      `问题: ${problem_summary || safeTitle}`,
-      solution_steps.length
-        ? `解决步骤:\n- ${solution_steps.join("\n- ")}`
-        : "",
-      generated_queries.length
-        ? `搜索关键词: ${generated_queries.join(", ")}`
-        : "",
-      tags.length ? `标签: ${tags.join(", ")}` : "",
-      "",
-      "原始工单信息:",
-      `- 标题: ${safeTitle}`,
-      `- 描述: ${ticketDesc}`,
-      `- 模块: ${t.module}`,
-      `- 分类: ${t.category}`,
-      `- 区域: ${t.area}`,
-      "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const enhanced = metadataResult.summaryContent;
 
     // 1) 写入一条 AI 增强摘要文档（chunk_id: 0）
     const summaryDoc: KBChunk = {

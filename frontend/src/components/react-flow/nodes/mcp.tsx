@@ -44,7 +44,7 @@ const Mcp: React.FC<NodeProps<Node<McpNodeData>>> = ({ id, data }) => {
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const updateNode = useWorkflowStore((s) => s.updateNode);
 
-  const safeData = useMemo(() => data || ({} as any), [data]);
+  const safeData = useMemo<McpNodeData>(() => data ?? { name: "" }, [data]);
 
   const patchConfig = useCallback(
     (patch: Partial<McpConfig["config"]>) => {
@@ -52,7 +52,7 @@ const Mcp: React.FC<NodeProps<Node<McpNodeData>>> = ({ id, data }) => {
         if (prev.type !== NodeType.MCP) return prev;
         const typedPrev = prev as McpConfig;
         const prevConfig: McpConfig["config"] =
-          (typedPrev as any).config ?? ({} as McpConfig["config"]);
+          typedPrev.config ?? ({} as McpConfig["config"]);
         const nextConfig: McpConfig["config"] = { ...prevConfig, ...patch };
         return { ...typedPrev, config: nextConfig };
       });
@@ -138,6 +138,19 @@ const removeApi = (id: string) => {
                   className="nodrag"
                   checked={enabled}
                   onCheckedChange={(v) => patchConfig({ enabled: v })}
+                />
+              </div>
+
+              <Separator className="my-3" />
+
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">是否在 Sealos 上运行</Label>
+                <Switch
+                  className="nodrag"
+                  checked={!!safeData.isSealosRuntime}
+                  onCheckedChange={(v) =>
+                    patchConfig({ isSealosRuntime: v })
+                  }
                 />
               </div>
 

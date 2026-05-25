@@ -1,6 +1,25 @@
 import * as React from "react";
 import { type UserType } from "tentix-server/rpc";
 import { areaEnumArray } from "tentix-server/constants";
+
+export const TENTIX_SEALOS_USER_ID_KEY = "tentixSealosUserId";
+export const TENTIX_SEALOS_SESSION_CLEARED_EVENT =
+  "tentix-sealos-session-cleared";
+
+const TENTIX_SESSION_KEYS = [
+  "token",
+  "role",
+  "id",
+  "user",
+  TENTIX_SEALOS_USER_ID_KEY,
+] as const;
+
+export function clearTentixSessionStorageOnly() {
+  TENTIX_SESSION_KEYS.forEach((key) => {
+    window.localStorage.removeItem(key);
+  });
+}
+
 export interface AuthContext {
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -17,6 +36,7 @@ export interface AuthContext {
   ) => void;
   setIsAuthenticated: (isAuthenticated: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
+  clearTentixSessionOnly: () => void;
   logout: () => void;
 }
 
@@ -38,18 +58,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return hasToken && !hasUser;
   });
 
-  const logout = React.useCallback(() => {
-    window.localStorage.removeItem("sealosToken");
-    window.localStorage.removeItem("sealosArea");
-    window.localStorage.removeItem("sealosNs");
-    window.localStorage.removeItem("token");
-    window.localStorage.removeItem("role");
-    window.localStorage.removeItem("id");
-    window.localStorage.removeItem("user");
+  const clearTentixSessionOnly = React.useCallback(() => {
+    clearTentixSessionStorageOnly();
     setIsAuthenticated(false);
     setUser(null);
     setIsLoading(false);
   }, []);
+
+  const logout = React.useCallback(() => {
+    window.localStorage.removeItem("sealosToken");
+    window.localStorage.removeItem("sealosArea");
+    window.localStorage.removeItem("sealosNs");
+    clearTentixSessionOnly();
+  }, [clearTentixSessionOnly]);
+
+  React.useEffect(() => {
+    const handleSealosSessionCleared = () => {
+      clearTentixSessionOnly();
+    };
+
+    window.addEventListener(
+      TENTIX_SEALOS_SESSION_CLEARED_EVENT,
+      handleSealosSessionCleared,
+    );
+
+    return () => {
+      window.removeEventListener(
+        TENTIX_SEALOS_SESSION_CLEARED_EVENT,
+        handleSealosSessionCleared,
+      );
+    };
+  }, [clearTentixSessionOnly]);
 
   const updateUser = React.useCallback(
     (
@@ -79,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         setIsAuthenticated,
         setIsLoading,
+        clearTentixSessionOnly,
       }}
     >
       {children}

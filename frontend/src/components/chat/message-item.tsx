@@ -45,7 +45,12 @@ const OtherMessage = ({
 }) => {
   const { sessionMembers } = useSessionMembersStore();
   const { role } = useLocalUser();
-  const { currentTicketId, updateMessage } = useChatStore();
+  const {
+    currentTicketId,
+    updateMessage,
+    withdrawMessageFunc: withdrawMessage,
+    kbSelectionMode,
+  } = useChatStore();
   const notCustomer = role !== "customer";
   const isCustomer = role === "customer";
   const queryClient = useQueryClient();
@@ -58,6 +63,11 @@ const OtherMessage = ({
   const messageSender = sessionMembers?.find(
     (member) => member.id === message.senderId,
   );
+  const canWithdrawAiMessage =
+    !message.withdrawn &&
+    !kbSelectionMode &&
+    (role === "agent" || role === "admin") &&
+    messageSender?.role === "ai";
 
   // Get current feedback status
   const currentFeedback = message.feedbacks?.[0];
@@ -162,76 +172,106 @@ const OtherMessage = ({
           alt={messageSender?.nickname}
           fallback={messageSender?.nickname?.charAt(0) ?? "U"}
         />
-        <div
-          className={cn(
-            "flex flex-col gap-2 min-w-0 flex-1",
-            message.isInternal ? "bg-violet-50 rounded-xl py-4 px-5" : "",
-          )}
-        >
-          {/* name and time */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              {messageSender?.name ?? "Unknown"}
-            </span>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              {dateTimeFmt(message.createdAt)}
-            </span>
-            {notCustomer && (
-              <>
-                <div className="w-px h-[18px] bg-zinc-200"></div>
-                <Badge
-                  className={cn(
-                    "border-zinc-200 bg-zinc-50  gap-1 justify-center items-center rounded border hover:bg-zinc-50",
-                    message.isInternal ? "border-violet-200 bg-violet-100" : "",
-                  )}
-                >
-                  {messageSender?.role === "customer" ? (
-                    <UserIcon className="h-3 w-3 text-zinc-500" />
-                  ) : (
-                    <HeadsetIcon className="h-3 w-3 text-zinc-500" />
-                  )}
-                  {messageSender?.role === "customer" ? (
-                    <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
-                      {t("user")}
-                    </span>
-                  ) : (
-                    <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
-                      {t("csr")}
-                    </span>
-                  )}
-                </Badge>
-                {message.isInternal && (
-                  <>
-                    <div className="w-px h-[18px] bg-zinc-200"></div>
-                    <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5 hover:bg-violet-100">
-                      <EyeOffIcon className="h-3 w-3 text-zinc-500" />
-                      <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
-                        {t("internal")}
-                      </span>
-                    </Badge>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* content */}
+        <div className="flex min-w-0 flex-1 gap-2">
           <div
             className={cn(
-              "p-0 transition-colors text-base font-normal leading-6 text-zinc-900 break-words break-all overflow-hidden",
+              "flex flex-col gap-2 min-w-0 flex-1",
+              message.isInternal ? "bg-violet-50 rounded-xl py-4 px-5" : "",
             )}
           >
-            {message.withdrawn ? (
-              <div className="flex items-center gap-2">
-                <span className="text-blue-600 font-sans text-sm font-normal leading-normal">
-                  {t("message_withdrawn")}
-                </span>
-                <CircleCheckBig className="h-3 w-3 text-blue-600" />
-              </div>
-            ) : (
-              <ContentRenderer doc={message.content} isMine={false} />
-            )}
+            {/* name and time */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {messageSender?.name ?? "Unknown"}
+              </span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {dateTimeFmt(message.createdAt)}
+              </span>
+              {notCustomer && (
+                <>
+                  <div className="w-px h-[18px] bg-zinc-200"></div>
+                  <Badge
+                    className={cn(
+                      "border-zinc-200 bg-zinc-50  gap-1 justify-center items-center rounded border hover:bg-zinc-50",
+                      message.isInternal
+                        ? "border-violet-200 bg-violet-100"
+                        : "",
+                    )}
+                  >
+                    {messageSender?.role === "customer" ? (
+                      <UserIcon className="h-3 w-3 text-zinc-500" />
+                    ) : (
+                      <HeadsetIcon className="h-3 w-3 text-zinc-500" />
+                    )}
+                    {messageSender?.role === "customer" ? (
+                      <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
+                        {t("user")}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
+                        {t("csr")}
+                      </span>
+                    )}
+                  </Badge>
+                  {message.isInternal && (
+                    <>
+                      <div className="w-px h-[18px] bg-zinc-200"></div>
+                      <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5 hover:bg-violet-100">
+                        <EyeOffIcon className="h-3 w-3 text-zinc-500" />
+                        <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
+                          {t("internal")}
+                        </span>
+                      </Badge>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* content */}
+            <div
+              className={cn(
+                "p-0 transition-colors text-base font-normal leading-6 text-zinc-900 break-words break-all overflow-hidden",
+              )}
+            >
+              {message.withdrawn ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-600 font-sans text-sm font-normal leading-normal">
+                    {t("message_withdrawn")}
+                  </span>
+                  <CircleCheckBig className="h-3 w-3 text-blue-600" />
+                </div>
+              ) : (
+                <ContentRenderer doc={message.content} isMine={false} />
+              )}
+            </div>
           </div>
+          {canWithdrawAiMessage && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="smIcon"
+                  className="mt-auto h-9 w-9 shrink-0 rounded-lg py-2 px-3"
+                >
+                  <Ellipsis className="h-5 w-5 text-zinc-500" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-fit p-2 rounded-xl" align="start">
+                <div
+                  className="flex items-center gap-2 px-2 py-2.5 rounded-md cursor-pointer hover:bg-zinc-100 transition-colors"
+                  onClick={() => {
+                    withdrawMessage(message.id);
+                  }}
+                >
+                  <Undo2 className="h-4 w-4 text-zinc-500" />
+                  <span className="text-sm font-normal leading-5">
+                    {t("withdraw")}
+                  </span>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
       {/* Feedback buttons - only show for customers and on non-withdrawn messages */}

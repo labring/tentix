@@ -11,7 +11,7 @@ import {
   logInfo,
 } from "@/utils/index.ts";
 import * as schema from "@db/schema.ts";
-import { eq, and, desc, count, or, like, inArray, gte, lte } from "drizzle-orm";
+import { eq, and, asc, desc, count, or, like, inArray, gte, lte, sql } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
@@ -27,6 +27,7 @@ import { membersCols } from "../queryParams.ts";
 import { MyCache } from "@/utils/cache.ts";
 import {
   getIndex,
+  areaEnumArray,
   ticketCategoryEnumArray,
   ticketPriorityEnumArray,
   TicketStatus,
@@ -45,6 +46,20 @@ const createResponseSchema = z.array(
     createdAt: z.date(),
   }),
 );
+
+type TicketSortBy = "createdAt" | "updatedAt";
+type TicketSortOrder = "asc" | "desc";
+
+function getTicketSortOrder(
+  sortBy: TicketSortBy,
+  sortOrder: TicketSortOrder,
+) {
+  const order = sortOrder === "asc" ? asc : desc;
+  const column =
+    sortBy === "createdAt" ? schema.tickets.createdAt : schema.tickets.updatedAt;
+
+  return [order(column), order(schema.tickets.id)];
+}
 
 const transferTicketSchema = z.object({
   ticketId: z.string(),
@@ -303,7 +318,11 @@ const ticketRouter = factory
             description: "Number of records returned per page (1-100)",
           }),
         keyword: z.string().optional().openapi({
-          description: "Search keyword to match ticket ID or title",
+          description: "Search keyword interpreted by searchMode",
+        }),
+        searchMode: z.enum(["ticket", "user"]).optional().default("ticket").openapi({
+          description:
+            "'ticket' matches ticket ID/title. 'user' matches Sealos user ID.",
         }),
         pending: z
           .string()
@@ -352,6 +371,15 @@ const ticketRouter = factory
         module: z.string().optional().openapi({
           description: "Filter tickets by module",
         }),
+        area: z.enum(areaEnumArray).optional().openapi({
+          description: "Filter tickets by area",
+        }),
+        sortBy: z.enum(["createdAt", "updatedAt"]).optional().openapi({
+          description: "Sort tickets by createdAt or updatedAt",
+        }),
+        sortOrder: z.enum(["asc", "desc"]).optional().default("desc").openapi({
+          description: "Sort order. desc means newest first.",
+        }),
       }),
     ),
     async (c) => {
@@ -361,6 +389,7 @@ const ticketRouter = factory
         page,
         pageSize,
         keyword,
+        searchMode,
         pending,
         in_progress,
         resolved,
@@ -368,6 +397,9 @@ const ticketRouter = factory
         createdAt_start,
         createdAt_end,
         module,
+        area,
+        sortBy,
+        sortOrder,
       } = c.req.valid("query");
 
       const basicUserCols = {
@@ -396,12 +428,37 @@ const ticketRouter = factory
       const conditions = [];
 
       if (keyword && keyword.trim()) {
-        const trimmedKeyword = `%${keyword.trim()}%`;
-        const keywordCondition = or(
-          like(schema.tickets.id, trimmedKeyword),
-          like(schema.tickets.title, trimmedKeyword),
-        );
-        conditions.push(keywordCondition);
+        const trimmedKeyword = keyword.trim();
+        if (searchMode === "user") {
+          const matchedUsers = await db
+            .select({ userId: schema.userIdentities.userId })
+            .from(schema.userIdentities)
+            .where(
+              and(
+                eq(schema.userIdentities.provider, "sealos"),
+                eq(schema.userIdentities.providerUserId, trimmedKeyword),
+              ),
+            );
+
+          if (matchedUsers.length === 0) {
+            // 用户搜索模式下找不到 Sealos ID 时必须返回空，不能回退到工单搜索。
+            conditions.push(sql`false`);
+          } else {
+            conditions.push(
+              inArray(
+                schema.tickets.customerId,
+                matchedUsers.map((user) => user.userId),
+              ),
+            );
+          }
+        } else {
+          const keywordPattern = `%${trimmedKeyword}%`;
+          const keywordCondition = or(
+            like(schema.tickets.id, keywordPattern),
+            like(schema.tickets.title, keywordPattern),
+          );
+          conditions.push(keywordCondition);
+        }
       }
 
       if (selectedStatuses.length > 0) {
@@ -419,9 +476,16 @@ const ticketRouter = factory
         conditions.push(eq(schema.tickets.module, module));
       }
 
+      if (area) {
+        conditions.push(eq(schema.tickets.area, area));
+      }
+
       const whereConditions =
         conditions.length > 0 ? and(...conditions) : undefined;
       const offset = (page - 1) * pageSize;
+      const orderBy = sortBy
+        ? getTicketSortOrder(sortBy, sortOrder)
+        : [desc(schema.tickets.updatedAt), desc(schema.tickets.id)];
 
       // Get total count and tickets data in parallel
       const [totalCountResult, tickets, stats] = await Promise.all([
@@ -432,7 +496,7 @@ const ticketRouter = factory
 
         db.query.tickets.findMany({
           where: whereConditions,
-          orderBy: [desc(schema.tickets.updatedAt), desc(schema.tickets.id)],
+          orderBy,
           limit: pageSize,
           offset,
           with: {

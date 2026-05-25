@@ -5,6 +5,7 @@ import { logError } from "@/utils/log";
 import { tickets } from "@/db/schema";
 import { connectDB } from "@/utils/tools";
 import { eq } from "drizzle-orm";
+import { getTicketSealosKubeconfig } from "@/utils/sealos-kubeconfig-session.ts";
 import { renderTemplate as renderLiquidTemplate } from "@/utils/template";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
@@ -167,6 +168,7 @@ const selectedApiId = toNonEmptyTrimmed((config as any)?.selectedApiId);
 const enableAiSelection = (config as any)?.enableAiSelection === true;
 const aiSystemPromptTpl = (config as any)?.systemPrompt as string | undefined;
 const aiUserPromptTpl = (config as any)?.userPrompt as string | undefined;
+const isSealosRuntime = (config as any)?.isSealosRuntime === true;
 
 
 if (!baseUrl) {
@@ -437,9 +439,44 @@ try {
       latestMessageImages,
     };
 
-    fetchOptions.headers = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
+
+    const inspectorApiKey = global.customEnv.TENTIX_INSPECTOR_API_KEY?.trim();
+    if (inspectorApiKey) {
+      headers["X-Tentix-Inspector-Key"] = inspectorApiKey;
+    }
+
+    if (isSealosRuntime) {
+      const sealosKubeconfig = getTicketSealosKubeconfig(ticketId);
+
+      if (!sealosKubeconfig) {
+        return {
+          variables: {
+            mcp: {
+              ...prevMcp,
+              status: "error",
+              ticketId,
+              zone,
+              namespace,
+              source,
+              apiId: api.id,
+              apiMethod: method,
+              sealosRuntime: true,
+              reason:
+                "config.isSealosRuntime=true but no sealos kubeconfig is bound to current ticket session",
+              result: null,
+              updatedAt: now,
+            },
+          },
+        };
+      }
+
+      headers.Authorization = encodeURIComponent(sealosKubeconfig);
+    }
+
+    fetchOptions.headers = headers;
     fetchOptions.body = JSON.stringify(payload);
   }
 
@@ -496,6 +533,7 @@ const resultText = bodyText;
       zone,
       namespace,
       source: "tickets",
+      sealosRuntime: isSealosRuntime,
       aiSelectedApiId,
       aiReason,
       finalSelectedApiId,

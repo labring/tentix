@@ -13,25 +13,40 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@comp/user/sidebar";
 import { PageTransition } from "@comp/page-transition";
+import { useAuth } from "src/_provider/auth";
+import { useSealos } from "src/_provider/sealos";
 
 export const Route = createFileRoute("/user/tickets/$id")({
-  loader: async ({ context: { queryClient, authContext } }) => {
-    return {
-      token: await queryClient.ensureQueryData(
-        wsTokenQueryOptions(authContext.user?.id?.toString() ?? "1"),
-      ),
-    };
-  },
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const { token } = Route.useLoaderData();
   const { id: ticketId } = Route.useParams();
+  const { user } = useAuth();
+  const {
+    isSealos,
+    isInitialized,
+    sealosKubeconfig,
+    refreshSealosSession,
+  } = useSealos();
   const { setTicket } = useTicketStore();
   const { setSessionMembers } = useSessionMembersStore();
   const { setCurrentTicketId, clearMessages } = useChatStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const { data: wsToken, isLoading: isWsTokenLoading } = useQuery({
+    ...wsTokenQueryOptions({
+      testUserId: user?.id?.toString(),
+      ticketId,
+      getSealosKubeconfig: isSealos
+        ? async () => {
+            const latest = await refreshSealosSession();
+            return latest?.sealosKubeconfig ?? sealosKubeconfig;
+          }
+        : undefined,
+    }),
+    enabled: !!user && (!isSealos || isInitialized),
+  });
   // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
   // 数据立即过期，每次组件挂载时重新获取 ,窗口聚焦时重新获取
   const { data: ticket, isLoading: isTicketLoading } = useQuery(
@@ -46,13 +61,15 @@ function RouteComponent() {
     }
   }, [ticket, setTicket, setSessionMembers]);
 
-  // 路由切换时的清理
+  // 当前 ticket 数据可用后，同步当前 room id
   useEffect(() => {
-    // 路由切换时设置新的 ticketId
     if (ticket) {
       setCurrentTicketId(ticket.id);
     }
+  }, [ticket, setCurrentTicketId]);
 
+  // 路由切换时的清理
+  useEffect(() => {
     return () => {
       // 当路由组件卸载时，清理全局状态
       setTicket(null);
@@ -60,11 +77,19 @@ function RouteComponent() {
       setCurrentTicketId(null);
       clearMessages();
     };
-  }, [ticketId]); // 依赖 ticketId，确保路由切换时触发
+  }, [
+    ticketId,
+    setTicket,
+    setSessionMembers,
+    setCurrentTicketId,
+    clearMessages,
+  ]); // 依赖 ticketId，确保路由切换时触发
 
   return (
-    <PageTransition isLoading={isTicketLoading || !ticket}>
-      {ticket && (
+    <PageTransition
+      isLoading={isTicketLoading || isWsTokenLoading || !ticket || !wsToken}
+    >
+      {ticket && wsToken && (
         <div className="flex h-screen w-full transition-all duration-300 ease-in-out">
           <Sidebar />
           <UserTicketSidebar
@@ -84,7 +109,7 @@ function RouteComponent() {
               </div>
               <UserChat
                 ticket={ticket}
-                token={token.token}
+                token={wsToken.token}
                 key={ticketId}
                 isTicketLoading={isTicketLoading}
               />

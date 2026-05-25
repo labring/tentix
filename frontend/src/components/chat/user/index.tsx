@@ -33,7 +33,6 @@ export function UserChat({
     setMessages,
     setCurrentTicketId,
     clearMessages,
-    currentTicketId,
   } = useChatStore();
   const [unreadMessages, setUnreadMessages] = useState<Set<number>>(new Set());
   const sentReadStatusRef = useRef<Set<number>>(new Set());
@@ -69,7 +68,7 @@ export function UserChat({
     sendReadStatus,
     closeConnection,
   } = useTicketWebSocket({
-    ticketId: currentTicketId,
+    ticketId: ticket.id,
     token,
     userId,
     onUserTyping: handleUserTyping,

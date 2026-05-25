@@ -248,6 +248,13 @@ export interface McpConfig extends BaseNodeConfig {
     enabled?: boolean;
 
     /**
+     * 是否按 Sealos 运行态处理当前 MCP 节点。
+     * - 不填/undefined/false：保持现有行为不变
+     * - true：仅在 POST 请求时尝试为下游追加当前用户的 Sealos kubeconfig
+     */
+    isSealosRuntime?: boolean;
+
+    /**
      * MCP 服务的 base URL，例如：http://127.0.0.1:8787
      * 注意：不在这里做校验（MVP），后端执行时校验非空即可
      */

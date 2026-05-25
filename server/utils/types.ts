@@ -365,6 +365,7 @@ export const userTicketSchema = createSelectSchema(schema.tickets).extend({
       readStatus: z.array(createSelectSchema(schema.messageReadStatus)),
     }),
   ),
+  pendingReply: z.boolean().optional(),
 });
 
 // feedback
@@ -450,7 +451,7 @@ export const ticketFeedbackSchema = z
     },
     {
       message:
-        "dislikeReasons, feedbackComment, and hasComplaint can only be provided when satisfactionRating is less than 3",
+        "dislikeReasons, feedbackComment, and hasComplaint can only be provided when satisfactionRating is less than or equal to 3",
     },
   );
 
@@ -559,4 +560,15 @@ export type testTicketInsertType = z.infer<typeof testTicketInsertSchema>;
 
 export const ticketModuleSchema = createSelectSchema(schema.ticketModule);
 
-export type ticketModule = z.infer<typeof ticketModuleSchema>;
+export type ticketModule = {
+  code: string;
+  icon: string | null;
+  translations: {
+    "zh-CN": string;
+    "en-US": string;
+    [key: string]: string;
+  };
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};

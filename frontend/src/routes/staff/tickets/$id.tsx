@@ -15,7 +15,7 @@ import { StaffSidebar } from "@comp/staff/sidebar";
 import { RouteTransition } from "@comp/page-transition";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
-  loader: async ({ context: { queryClient, authContext } }) => {
+  loader: async ({ params, context: { queryClient, authContext } }) => {
     // 如果没有认证，返回null数据，让 staff.tsx 处理重定向
     if (!authContext.isAuthenticated || !authContext.user) {
       return {
@@ -24,7 +24,10 @@ export const Route = createFileRoute("/staff/tickets/$id")({
     }
     return {
       token: await queryClient.ensureQueryData(
-        wsTokenQueryOptions(authContext.user.id.toString()),
+        wsTokenQueryOptions({
+          testUserId: authContext.user.id.toString(),
+          ticketId: params.id,
+        }),
       ),
     };
   },
@@ -61,13 +64,15 @@ function RouteComponent() {
     }
   }, [ticket, setTicket, setSessionMembers]);
 
-  // 路由切换时的清理
+  // 当前 ticket 数据可用后，同步当前 room id
   useEffect(() => {
-    // 路由切换时设置新的 ticketId
     if (ticket) {
       setCurrentTicketId(ticket.id);
     }
+  }, [ticket, setCurrentTicketId]);
 
+  // 路由切换时的清理
+  useEffect(() => {
     return () => {
       // 当路由组件卸载时，清理全局状态
       setTicket(null);
@@ -75,7 +80,13 @@ function RouteComponent() {
       setCurrentTicketId(null);
       clearMessages();
     };
-  }, [ticketId]); // 依赖 id，确保路由切换时触发
+  }, [
+    ticketId,
+    setTicket,
+    setSessionMembers,
+    setCurrentTicketId,
+    clearMessages,
+  ]); // 依赖 id，确保路由切换时触发
 
   // 如果数据为空（未认证），显示加载状态
   if (!wsToken) {

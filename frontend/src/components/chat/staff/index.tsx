@@ -41,7 +41,6 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
     setMessages,
     setCurrentTicketId,
     clearMessages,
-    currentTicketId,
   } = useChatStore();
 
   // 预加载聊天列表头像
@@ -102,7 +101,7 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
     sendCustomMsg,
     closeConnection,
   } = useTicketWebSocket({
-    ticketId: currentTicketId,
+    ticketId: ticket.id,
     token,
     userId,
     onUserTyping: handleUserTyping,
@@ -179,7 +178,10 @@ export function StaffChat({ ticket, token, isTicketLoading }: StaffChatProps) {
       unreadMessages.has(messageId) &&
       !sentReadStatusRef.current.has(messageId)
     ) {
-      sendReadStatus(messageId);
+      const readStatusSent = sendReadStatus(messageId);
+      if (!readStatusSent) {
+        return;
+      }
       sentReadStatusRef.current.add(messageId);
       setUnreadMessages((prev) => {
         const next = new Set(prev);

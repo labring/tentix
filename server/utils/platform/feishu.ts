@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { logError } from "../log.ts";
 import { isFeishuConfigured } from "@/utils/tools";
 import { FeishuDepartmentsInfo } from "./feishu.type.ts";
@@ -133,6 +134,217 @@ export async function sendFeishuMsg(
     throw new Error("Failed to send Feishu message");
   }
   return res.json();
+}
+
+export type FeishuComplaintWebhookPayload = {
+  kind: "message" | "staff" | "ticket";
+  ticketId: string;
+  ticketTitle: string;
+  sealosId?: string;
+  messageId?: number;
+  targetName?: string;
+  satisfactionRating?: number;
+  dislikeReasons?: unknown[] | null;
+  feedbackComment?: string | null;
+  hasComplaint?: boolean | null;
+};
+
+type FeishuComplaintWebhookResponse = {
+  code?: number;
+  msg?: string;
+  StatusCode?: number;
+  StatusMessage?: string;
+};
+
+function getFeishuComplaintWebhookSign(timestamp: string, secret: string) {
+  return createHmac("sha256", `${timestamp}\n${secret}`)
+    .update("")
+    .digest("base64");
+}
+
+function getComplaintKindText(kind: FeishuComplaintWebhookPayload["kind"]) {
+  switch (kind) {
+    case "message":
+      return "消息评价";
+    case "staff":
+      return "人员评价";
+    case "ticket":
+      return "工单满意度";
+  }
+}
+
+const complaintReasonTextMap: Record<string, string> = {
+  irrelevant: "不相关",
+  unresolved: "未解决",
+  unfriendly: "不友好",
+  slow_response: "响应慢",
+  other: "其他",
+};
+
+function getComplaintReasonText(reason: unknown) {
+  const key = String(reason);
+  return complaintReasonTextMap[key] || key;
+}
+
+function getComplaintCardTheme(payload: FeishuComplaintWebhookPayload) {
+  if (
+    payload.hasComplaint ||
+    (payload.kind === "ticket" &&
+      payload.satisfactionRating !== undefined &&
+      payload.satisfactionRating <= 2)
+  ) {
+    return "red" satisfies FeiShuTheme;
+  }
+
+  return "orange" satisfies FeiShuTheme;
+}
+
+function buildFeishuComplaintWebhookCard(payload: FeishuComplaintWebhookPayload) {
+  const appUrl = global.customEnv.APP_URL?.replace(/\/$/, "");
+  const ticketUrl = appUrl ? `${appUrl}/staff/tickets/${payload.ticketId}` : "";
+  const fields = [
+    {
+      label: "类型",
+      value: getComplaintKindText(payload.kind),
+    },
+    {
+      label: "工单标题",
+      value: payload.ticketTitle,
+    },
+    {
+      label: "工单ID",
+      value: payload.ticketId,
+    },
+  ];
+
+  if (payload.sealosId) {
+    fields.push({
+      label: "Sealos ID",
+      value: payload.sealosId,
+    });
+  }
+
+  if (payload.messageId !== undefined) {
+    fields.push({
+      label: "消息ID",
+      value: String(payload.messageId),
+    });
+  }
+
+  if (payload.targetName) {
+    fields.push({
+      label: "评价对象",
+      value: payload.targetName,
+    });
+  }
+
+  if (payload.satisfactionRating !== undefined) {
+    fields.push({
+      label: "满意度",
+      value: `${payload.satisfactionRating}星`,
+    });
+  }
+
+  if (payload.dislikeReasons?.length) {
+    fields.push({
+      label: "原因",
+      value: payload.dislikeReasons.map(getComplaintReasonText).join(", "),
+    });
+  }
+
+  if (payload.hasComplaint) {
+    fields.push({
+      label: "用户操作",
+      value: "勾选投诉",
+    });
+  }
+
+  const comment = payload.feedbackComment?.trim();
+  if (comment) {
+    fields.push({
+      label: "反馈内容",
+      value: comment,
+    });
+  }
+
+  const elements: Record<string, unknown>[] = [
+    {
+      tag: "div",
+      text: {
+        tag: "lark_md",
+        content: fields
+          .map((field) => `**${field.label}：**${field.value}`)
+          .join("\n"),
+      },
+    },
+  ];
+
+  if (ticketUrl) {
+    elements.push({
+      tag: "action",
+      actions: [
+        {
+          tag: "button",
+          text: {
+            tag: "plain_text",
+            content: "查看工单",
+          },
+          type: "primary",
+          url: ticketUrl,
+        },
+      ],
+    });
+  }
+
+  return {
+    config: {
+      wide_screen_mode: true,
+    },
+    header: {
+      template: getComplaintCardTheme(payload),
+      title: {
+        tag: "plain_text",
+        content: "投诉通知",
+      },
+    },
+    elements,
+  };
+}
+
+export async function sendFeishuComplaintWebhook(
+  payload: FeishuComplaintWebhookPayload,
+) {
+  const webhookUrl = global.customEnv.FEISHU_COMPLAINT_WEBHOOK_URL?.trim();
+  const secret = global.customEnv.FEISHU_COMPLAINT_WEBHOOK_SECRET?.trim();
+  if (!webhookUrl || !secret) {
+    return;
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const sign = getFeishuComplaintWebhookSign(timestamp, secret);
+  const res = await myFetch(webhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      timestamp,
+      sign,
+      msg_type: "interactive",
+      card: buildFeishuComplaintWebhookCard(payload),
+    }),
+  });
+
+  const data = (await res.json().catch(
+    () => null,
+  )) as FeishuComplaintWebhookResponse | null;
+  if (
+    data &&
+    ((typeof data.code === "number" && data.code !== 0) ||
+      (typeof data.StatusCode === "number" && data.StatusCode !== 0))
+  ) {
+    throw new Error(data.msg || data.StatusMessage || "Feishu webhook failed");
+  }
 }
 
 interface RetryConfig {
