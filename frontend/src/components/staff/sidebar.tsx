@@ -5,6 +5,7 @@ import { Button } from "tentix-ui";
 import { useSettingsModal } from "@modal/use-settings-modal";
 import { useSealos } from "src/_provider/sealos";
 import { useAuth } from "@hook/use-local-user.tsx";
+import { userTablePagination } from "@store/table-pagination";
 
 export function StaffSidebar() {
   const { t } = useTranslation();
@@ -13,6 +14,22 @@ export function StaffSidebar() {
   const authContext = useAuth();
   const role = authContext.user?.role;
   const { isSealos } = sealosContext;
+
+  const resetTicketListFilters = () => {
+    const pagination = userTablePagination.getState();
+    if (pagination.readStatus !== "all") {
+      pagination.setReadStatus("all");
+    }
+    if (pagination.searchMode !== "ticket") {
+      pagination.setSearchMode("ticket");
+    }
+    if (pagination.searchQuery) {
+      pagination.setSearchQuery("");
+    }
+    pagination.setSorting(null);
+    pagination.setAreaFilter(null);
+    pagination.setModuleFilter(null);
+  };
 
   return (
     <div className="py-3 px-2 hidden md:flex flex-col h-full items-center w-fit border-r-[0.8px] border-solid border-zinc-200 bg-zinc-50">
@@ -25,6 +42,7 @@ export function StaffSidebar() {
           <Link
             to="/staff/tickets/list"
             className="flex flex-col items-center justify-center gap-1 text-center"
+            onClick={resetTicketListFilters}
           >
             <LayersIcon className="!w-6 !h-6" strokeWidth={1.33} />
             <span className="text-[11px] leading-4 font-medium tracking-[0.5px] whitespace-nowrap font-['PingFang_SC']">
