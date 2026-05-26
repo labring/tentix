@@ -3,15 +3,20 @@ name: Build & Deploy
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    types: [ closed ]
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  # Job for main branch pushes and merged PRs
   build-and-deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    env:
+      DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      IMAGE_NAME: ${{ secrets.IMAGE_NAME || 'tentix' }}
 
     steps:
       - name: Checkout code
@@ -36,9 +41,8 @@ jobs:
 
       - name: Set repo owner lower
         id: repo_owner
-        run: echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        run: echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-      # Login to GitHub Container Registry
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -46,25 +50,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Login to Aliyun Registry (if configured)
       - name: Login to Aliyun Docker Registry
-        if: secrets.DOCKER_REGISTRY && secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD
+        if: ${{ env.DOCKER_REGISTRY != '' && env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != '' }}
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.DOCKER_REGISTRY }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
 
       - name: Generate version tag
         id: version
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "tag=pr-${{ github.event.number }}-$(date +%Y%m%d)-${{ github.sha }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=$(date +%Y%m%d)-${{ github.sha }}" >> $GITHUB_OUTPUT
-          fi
+        run: echo "tag=$(date +%Y%m%d)-${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
-      # Build and push to GitHub Container Registry
       - name: Build and push to GHCR
         run: |
           docker build --platform linux/amd64 \
@@ -74,23 +71,22 @@ jobs:
           docker push ghcr.io/${{ steps.repo_owner.outputs.owner }}/tentix:${{ steps.version.outputs.tag }}
           docker push ghcr.io/${{ steps.repo_owner.outputs.owner }}/tentix:latest
 
-      # Build and push to Aliyun Registry (if configured)
       - name: Build and push to Aliyun Registry
-        if: secrets.DOCKER_REGISTRY && secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD
+        if: ${{ env.DOCKER_REGISTRY != '' && env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != '' }}
         run: |
           docker tag ghcr.io/${{ steps.repo_owner.outputs.owner }}/tentix:${{ steps.version.outputs.tag }} \
-            ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME || 'tentix' }}:${{ steps.version.outputs.tag }}
+            ${DOCKER_REGISTRY}/${IMAGE_NAME}:${{ steps.version.outputs.tag }}
           docker tag ghcr.io/${{ steps.repo_owner.outputs.owner }}/tentix:latest \
-            ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME || 'tentix' }}:latest
-          docker push ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME || 'tentix' }}:${{ steps.version.outputs.tag }}
-          docker push ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME || 'tentix' }}:latest
+            ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
+          docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:${{ steps.version.outputs.tag }}
+          docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
 
       - name: Output image tags
         run: |
-          echo "🚀 Images published:"
+          echo "Images published:"
           echo "- ghcr.io/${{ steps.repo_owner.outputs.owner }}/tentix:${{ steps.version.outputs.tag }}"
           echo "- ghcr.io/${{ steps.repo_owner.outputs.owner }}/tentix:latest"
-          if [ -n "${{ secrets.DOCKER_REGISTRY }}" ]; then
-            echo "- ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME || 'tentix' }}:${{ steps.version.outputs.tag }}"
-            echo "- ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.IMAGE_NAME || 'tentix' }}:latest"
-          fi 
+          if [ -n "${DOCKER_REGISTRY}" ]; then
+            echo "- ${DOCKER_REGISTRY}/${IMAGE_NAME}:${{ steps.version.outputs.tag }}"
+            echo "- ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
+          fi
