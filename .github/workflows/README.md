@@ -30,11 +30,12 @@ This directory contains GitHub Actions workflows for different scenarios in the 
 ### 3. `docker-publish.yml` - Build & Deploy
 **Trigger:**
 - `push` to main branch
-- `pull_request` closed (merged) to main branch
+
+Merging a PR into `main` creates a main branch push, which triggers this workflow.
 
 **Purpose:** Production deployment pipeline
 
-- ✅ Full test suite
+- ✅ Test step when configured
 - ✅ Application build
 - ✅ Docker image build and push to multiple registries
 - ✅ Version tagging
@@ -108,4 +109,4 @@ This directory contains GitHub Actions workflows for different scenarios in the 
 
 2. **From Main Repository:**
    - Create PR → Full CI runs automatically
-   - All checks must pass before merge 
+   - All checks must pass before merge
