@@ -78,7 +78,8 @@ graph TD
 ## Features
 
 - Customer service chat system
-- AI workflow (LangGraph: Analyze → Generate query → Retrieve → Generate answer)
+- Configurable AI workflow with RAG, handoff, and MCP-style integration nodes
+- Admin knowledge base management: browse, edit, disable/delete entries, and rebuild indexes
 - Multi-channel notifications; Feishu supported; other IM/forms via modular integration
 - Extensible architecture: Modular design for pluggable extensions
 - Unified authentication design: Pluggable third-party integrations
@@ -230,10 +231,10 @@ Planned features in priority order, covering Admin and Agent dashboards:
     - Historical ticket indexing: scheduled jobs (e.g., every 7/14 days)
     - General docs: upload, parse, and structure into unified knowledge entries
   - KB hit testing: test retrieval and answer quality without creating tickets
-  - KB visualization: view and visualize starred/general/historical KB entries
+  - Enhanced KB visualization and analytics for starred/general/historical KB entries
   - Knowledge graph visualization: entities, relations, and weights
   - Prompt customization: visualize and A/B test the agent workflow prompts
-  - Workflow orchestration: evolve the fixed workflow into a composable bot
+  - Workflow orchestration: improve composable bot workflows and advanced node integrations
 - Analytics
   - Ticket distribution: by category (pie), feedback tickets ratio (pie)
   - KB hit rate: trend and distribution
@@ -251,8 +252,8 @@ Todo summary:
 
 - [ ] Admin: Staff management and account binding (Sealos/Feishu)
 - [ ] Admin: General docs and historical ticket indexing (with schedules)
-- [ ] Admin: KB hit testing and visualization
-- [ ] Admin: Prompt customization and workflow orchestration
+- [ ] Admin: KB hit testing, visualization, and analytics enhancements
+- [ ] Admin: Prompt customization and advanced workflow orchestration
 - [ ] Analytics: Ticket distribution, hit rate, volume, and feedback trends
 - [ ] Agent: Hit testing and index visualization; personal metrics dashboard
 
