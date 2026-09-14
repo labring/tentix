@@ -101,6 +101,9 @@ export const Attachment = Node.create<AttachmentOptions>({
     isLocalFile: { default: false, rendered: false },
     originalFile: { default: null, rendered: false },
   }),
+  renderHTML({ HTMLAttributes }) {
+    return ["div", HTMLAttributes];
+  },
   addCommands() {
     return {
       setAttachments: (files, position) => ({ editor, commands }) => {
