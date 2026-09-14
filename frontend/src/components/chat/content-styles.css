@@ -12,6 +12,11 @@
   overflow-wrap: anywhere;
 }
 
+.ticket-chat-scroll-area [data-radix-scroll-area-viewport] > div {
+  display: block !important;
+  max-width: 100%;
+}
+
 .my-msg {
   color: #18181B;
 }

@@ -90,8 +90,7 @@ export function TicketInfoBox({ ticket }: { ticket: TicketType }) {
                     src={image.attrs?.src || ""}
                     alt={image.attrs?.alt || ""}
                     title={image.attrs?.title || ""}
-                    className="cursor-pointer rounded border border-gray-200 object-cover w-full"
-                    style={{ maxWidth: "100%", height: "170px" }}
+                    className="cursor-pointer rounded border border-gray-200 h-auto max-h-96 max-w-full object-contain"
                   />
                 </PhotoView>
               </div>

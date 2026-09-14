@@ -181,7 +181,7 @@ export function UserChat({
 
   return (
     <PhotoProvider>
-      <ScrollArea className="overflow-y-auto h-full relative w-full py-5 px-4">
+      <ScrollArea className="ticket-chat-scroll-area overflow-y-auto h-full relative w-full py-5 px-4">
         <TicketInfoBox ticket={ticket} />
         <MessageList
           messages={messages}
