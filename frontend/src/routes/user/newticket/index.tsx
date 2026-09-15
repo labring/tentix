@@ -32,7 +32,12 @@ import type { ticketInsertType, JSONContentZod } from "tentix-server/types";
 import { ticketPriorityEnumArray } from "tentix-server/constants";
 import { useTicketModules } from "@store/app-config";
 import { ArrowLeftIcon, TriangleAlertIcon } from "lucide-react";
-import { processFilesAndUpload } from "@comp/chat/upload-utils";
+import {
+  removeUploadedFiles,
+  processFilesAndUpload,
+  type UploadProgress,
+  type UploadResult,
+} from "@comp/chat/upload-utils";
 import { useSealos } from "src/_provider/sealos";
 import { RouteTransition } from "@comp/page-transition";
 import type { TFunction } from "i18next";
@@ -191,13 +196,6 @@ function TicketForm({
   );
 }
 
-// 上传进度接口
-interface UploadProgress {
-  uploaded: number;
-  total: number;
-  currentFile?: string;
-}
-
 // Custom hook for ticket creation logic
 function useTicketCreation() {
   const { t } = useTranslation();
@@ -253,13 +251,6 @@ function useTicketCreation() {
       toast({ title: t("ticket_created"), variant: "default" });
       navigate({ to: "/user/tickets/$id", params: { id: data.id.toString() } });
     },
-    onError: (error: Error) => {
-      toast({
-        title: t("ticket_create_failed"),
-        description: error.message,
-        variant: "destructive",
-      });
-    },
   });
 
   // 检查是否有需要上传的文件
@@ -301,6 +292,7 @@ function useTicketCreation() {
       return false;
     }
 
+    let uploadResult: UploadResult | undefined;
     try {
       const formData = form.getValues();
       let processedDescription = formData.description;
@@ -309,12 +301,12 @@ function useTicketCreation() {
       if (formData.description && hasFilesToUpload(formData.description)) {
         try {
           // 处理文件上传
-          const { processedContent } = await processFilesAndUpload(
+          uploadResult = await processFilesAndUpload(
             formData.description,
             (progress) => setUploadProgress(progress),
           );
 
-          processedDescription = processedContent;
+          processedDescription = uploadResult.processedContent;
           setUploadProgress(null);
         } catch (uploadError) {
           setUploadProgress(null);
@@ -338,9 +330,12 @@ function useTicketCreation() {
         description: processedDescription,
       };
 
-      createTicketMutation.mutate(finalFormData);
+      await createTicketMutation.mutateAsync(finalFormData);
       return true;
     } catch (error) {
+      if (uploadResult) {
+        await removeUploadedFiles(uploadResult.uploadedFiles);
+      }
       setUploadProgress(null);
       console.error(`${t("ticket_create_failed")}:`, error);
 
@@ -446,12 +441,9 @@ function RouteComponent() {
                   <div className="space-y-2">
                     <div>{t("are_you_sure_submit_ticket")}</div>
                     <div className="text-sm text-zinc-600">
-                      {t("uploading_files", {
-                        uploaded: uploadProgress.uploaded,
-                        total: uploadProgress.total,
-                      })}
-                      {uploadProgress.currentFile &&
-                        ` - ${uploadProgress.currentFile}`}
+                      {uploadProgress.phase === "checking"
+                        ? t("checking_file")
+                        : t("uploading")}
                     </div>
                   </div>
                 ) : (
@@ -469,7 +461,7 @@ function RouteComponent() {
                 disabled={isLoading}
               >
                 {uploadProgress
-                  ? `${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
+                  ? `${Math.round((uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100)}%`
                   : isLoading
                     ? "..."
                     : t("submit")}

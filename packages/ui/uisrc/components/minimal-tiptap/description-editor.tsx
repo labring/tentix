@@ -8,6 +8,7 @@ import { MeasuredContainer } from "./components/measured-container.tsx";
 // import { SectionFive } from "./components/section/five.tsx";
 // import { SectionFour } from "./components/section/four.tsx";
 import { SectionTwo } from "./components/section/two.tsx";
+import { AttachmentEditDialog } from "./components/attachment/attachment-edit-dialog.tsx";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 
@@ -26,6 +27,7 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
         ]}
         mainActionCount={4}
       />
+      <AttachmentEditDialog editor={editor} />
 
       {/* <Separator orientation="vertical" className="mx-2" />
 

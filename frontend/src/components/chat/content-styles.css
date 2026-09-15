@@ -12,6 +12,11 @@
   overflow-wrap: anywhere;
 }
 
+.ticket-chat-scroll-area [data-radix-scroll-area-viewport] > div {
+  display: block !important;
+  max-width: 100%;
+}
+
 .my-msg {
   color: #18181B;
 }
@@ -105,6 +110,105 @@
   cursor: pointer;
   transform: scale(1.001);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.content-video-container {
+  display: flex;
+  width: 100%;
+  max-width: 640px;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.content-video {
+  width: 100%;
+  max-height: 480px;
+  border-radius: 6px;
+  background: #18181b;
+}
+
+.content-video-download {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.content-attachment-container {
+  display: flex;
+  width: min(100%, 26rem);
+  min-height: 4.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.15rem 0;
+  padding: 0.75rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.75rem;
+  background: #fafafa;
+}
+
+.content-attachment-info {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.content-attachment-icon {
+  display: flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: #f4f4f5;
+  color: #52525b;
+}
+
+.content-attachment-text {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.content-attachment-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.content-attachment-meta {
+  color: #71717a;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.content-attachment-download {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.5rem;
+  color: #3f3f46;
+  text-decoration: none;
+}
+
+.content-attachment-download:hover {
+  background: #f4f4f5;
+  color: #18181b;
 }
 
 .content-bold {

@@ -36,7 +36,6 @@ import {
   ItemTitle,
   ItemDescription,
   Badge,
-  Checkbox,
   Select,
   SelectContent,
   SelectItem,
@@ -75,13 +74,22 @@ import {
   Database,
   Save,
   Sparkles,
+  FileUp,
 } from "lucide-react";
 import { uploadAvatar, deleteOldAvatar } from "@utils/avatar-manager";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import type { WorkflowBasicResponseType } from "tentix-server/rpc";
 import { CommonCombobox } from "@comp/common/combobox";
+import { FileImportDialog } from "@comp/staff/knowledge-base/file-import-dialog";
+import {
+  GENERAL_KNOWLEDGE_CATEGORY_VALUES,
+  KnowledgeFieldsEditor,
+  type GeneralKnowledgeCategory,
+  type KnowledgeFieldErrors,
+  type KnowledgeFieldValues,
+} from "@comp/staff/knowledge-base/knowledge-fields-editor";
 import { Tabs } from "@comp/common/tabs";
 import useDebounce from "@hook/use-debounce";
 import { useSettingsModal } from "@modal/use-settings-modal";
@@ -102,25 +110,6 @@ const createWorkflowFormSchema = z.object({
 });
 
 type CreateWorkflowFormData = z.infer<typeof createWorkflowFormSchema>;
-
-const GENERAL_KNOWLEDGE_CATEGORY_VALUES = [
-  "troubleshooting",
-  "feature",
-  "billing",
-  "operation",
-  "other",
-] as const;
-
-const GENERAL_KNOWLEDGE_CATEGORY_LABELS: Record<
-  (typeof GENERAL_KNOWLEDGE_CATEGORY_VALUES)[number],
-  string
-> = {
-  troubleshooting: "故障排查",
-  feature: "功能说明",
-  billing: "费用计费",
-  operation: "运营规则",
-  other: "其他",
-};
 
 const MANUAL_GENERAL_KNOWLEDGE_SOURCE_DOC_ID = "manual";
 const MANUAL_GENERAL_KNOWLEDGE_DOC_NAME = "手动添加";
@@ -155,6 +144,7 @@ const createGeneralKnowledgeFormSchema = z.object({
     .min(1, "至少选择一个模块")
     .max(10, "模块数量不能超过 10 个"),
   category: z.enum(GENERAL_KNOWLEDGE_CATEGORY_VALUES),
+  revision: z.string().trim().min(1, "版本不能为空").max(80),
   content: z.string().trim().min(1, "正文不能为空").max(20000),
   index1: z.string().trim().max(500, "召回索引不能超过 500 个字符").optional(),
   index2: z.string().trim().max(500, "召回索引不能超过 500 个字符").optional(),
@@ -164,9 +154,6 @@ const createGeneralKnowledgeFormSchema = z.object({
 type CreateGeneralKnowledgeFormData = z.infer<
   typeof createGeneralKnowledgeFormSchema
 >;
-
-type GeneralKnowledgeCategory =
-  (typeof GENERAL_KNOWLEDGE_CATEGORY_VALUES)[number];
 
 type GeneralKnowledgeCreatePayload = {
   sourceId: string;
@@ -190,6 +177,7 @@ function getDefaultGeneralKnowledgeFormValues(): CreateGeneralKnowledgeFormData 
     title: "",
     modules: [],
     category: "troubleshooting",
+    revision: getManualGeneralKnowledgeRevision(),
     content: "",
     index1: "",
     index2: "",
@@ -446,7 +434,7 @@ async function createGeneralKnowledge(
     modules: data.modules,
     category: data.category,
     docName: MANUAL_GENERAL_KNOWLEDGE_DOC_NAME,
-    revision: getManualGeneralKnowledgeRevision(),
+    revision: data.revision,
     content: data.content,
     indexes,
   });
@@ -1189,6 +1177,7 @@ function WorkflowsListSkeleton() {
 
 function KnowledgeBaseTab() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [keyword, setKeyword] = useState("");
   const debouncedKeyword = useDebounce(keyword, 300);
   const [sourceType, setSourceType] =
@@ -1201,12 +1190,72 @@ function KnowledgeBaseTab() {
   const [selectedKnowledge, setSelectedKnowledge] = useState<Pick<KnowledgeListItem, "sourceType" | "sourceId"> | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [fileImportDialogOpen, setFileImportDialogOpen] = useState(false);
   const [autoGenerateIndexes, setAutoGenerateIndexes] = useState(false);
   const ticketModules = useTicketModules();
   const createKnowledgeForm = useForm<CreateGeneralKnowledgeFormData>({
     resolver: zodResolver(createGeneralKnowledgeFormSchema),
     defaultValues: getDefaultGeneralKnowledgeFormValues(),
   });
+  const manualKnowledgeValues = useWatch({ control: createKnowledgeForm.control });
+  const knowledgeFieldValues: KnowledgeFieldValues = {
+    title: manualKnowledgeValues.title ?? "",
+    content: manualKnowledgeValues.content ?? "",
+    modules: manualKnowledgeValues.modules ?? [],
+    category: manualKnowledgeValues.category ?? "",
+    revision: manualKnowledgeValues.revision ?? "",
+    indexes: [
+      manualKnowledgeValues.index1 ?? "",
+      manualKnowledgeValues.index2 ?? "",
+      manualKnowledgeValues.index3 ?? "",
+    ],
+  };
+  const knowledgeFieldErrors: KnowledgeFieldErrors = {
+    title: createKnowledgeForm.formState.errors.title?.message,
+    modules: createKnowledgeForm.formState.errors.modules?.message,
+    category: createKnowledgeForm.formState.errors.category?.message,
+    revision: createKnowledgeForm.formState.errors.revision?.message,
+    content: createKnowledgeForm.formState.errors.content?.message,
+    indexes: [
+      createKnowledgeForm.formState.errors.index1?.message,
+      createKnowledgeForm.formState.errors.index2?.message,
+      createKnowledgeForm.formState.errors.index3?.message,
+    ],
+  };
+  const handleKnowledgeFieldChange = (value: KnowledgeFieldValues) => {
+    createKnowledgeForm.setValue("title", value.title, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    createKnowledgeForm.setValue("content", value.content, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    createKnowledgeForm.setValue("modules", value.modules, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    createKnowledgeForm.setValue("category", value.category as GeneralKnowledgeCategory, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    createKnowledgeForm.setValue("revision", value.revision, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    createKnowledgeForm.setValue("index1", value.indexes[0] ?? "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    createKnowledgeForm.setValue("index2", value.indexes[1] ?? "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    createKnowledgeForm.setValue("index3", value.indexes[2] ?? "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
   const moduleOptions = useMemo(
     () =>
       ticketModules.map((item) => ({
@@ -1461,7 +1510,7 @@ function KnowledgeBaseTab() {
     ]);
     if (!valid) {
       toast({
-        title: "请先填写标题、适用模块、分类和正文",
+        title: "请先填写标题、适用模块、知识类型和正文",
         variant: "destructive",
       });
       return;
@@ -1571,181 +1620,60 @@ function KnowledgeBaseTab() {
       <div className="border-b border-border px-6 py-5">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold">知识库</h2>
+            <h2 className="text-base font-semibold">{t("knowledge_base_entry.title")}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              管理 AI 客服回答时可召回的业务知识，保存后自动重建索引
+              {t("knowledge_base_entry.description")}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFileImportDialogOpen(true)}
+            >
+              <FileUp className="mr-2 h-4 w-4" />
+              {t("knowledge_base_entry.import_file")}
+            </Button>
             <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              添加通用知识
+              {t("knowledge_base_entry.add_general")}
             </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="mr-2 h-4 w-4" />
-              刷新
+              {t("knowledge_base_entry.refresh")}
             </Button>
           </div>
         </div>
 
         <Dialog open={createDialogOpen} onOpenChange={handleCreateDialogOpenChange}>
-          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] h-[min(860px,calc(100vh-2rem))] w-[min(1080px,calc(100vw-2rem))] sm:max-w-[1080px] overflow-hidden p-0">
+            <DialogHeader className="border-b border-border px-6 py-5">
               <DialogTitle>添加通用知识</DialogTitle>
             </DialogHeader>
             <Form {...createKnowledgeForm}>
               <form
-                className="space-y-5"
+                className="flex min-h-0 flex-1 flex-col"
                 onSubmit={createKnowledgeForm.handleSubmit(handleCreateGeneralKnowledge)}
               >
-                <FormField
-                  control={createKnowledgeForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>标题</FormLabel>
-                      <FormControl>
-                        <Input placeholder="例如：账号登录失败" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createKnowledgeForm.control}
-                  name="modules"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>适用模块</FormLabel>
-                      <div className="grid max-h-40 gap-2 overflow-auto rounded-md border border-border p-3 sm:grid-cols-2">
-                        {moduleOptions.length ? (
-                          moduleOptions.map((item) => {
-                            const checked = (field.value ?? []).includes(item.code);
-                            return (
-                              <label
-                                key={item.code}
-                                className="flex items-center gap-2 text-sm"
-                              >
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(value) => {
-                                    const nextChecked = value === true;
-                                    const current = field.value ?? [];
-                                    field.onChange(
-                                      nextChecked
-                                        ? Array.from(new Set([...current, item.code]))
-                                        : current.filter((module) => module !== item.code),
-                                    );
-                                  }}
-                                />
-                                <span>{item.label}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {item.code}
-                                </span>
-                              </label>
-                            );
-                          })
-                        ) : (
-                          <div className="text-sm text-muted-foreground">
-                            暂无可选模块
-                          </div>
-                        )}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createKnowledgeForm.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>分类</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="选择分类" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {GENERAL_KNOWLEDGE_CATEGORY_VALUES.map((value) => (
-                            <SelectItem key={value} value={value}>
-                              {GENERAL_KNOWLEDGE_CATEGORY_LABELS[value]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createKnowledgeForm.control}
-                  name="content"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>正式知识正文</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="填写会返回给 AI 的正式知识内容"
-                          className="min-h-[180px] max-w-full [field-sizing:fixed] [overflow-wrap:anywhere] [word-break:break-word]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid gap-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={autoGenerateIndexes}
-                        disabled={
-                          createGeneralKnowledgeMutation.isPending ||
-                          generateGeneralKnowledgeIndexesMutation.isPending
-                        }
-                        onCheckedChange={(value) =>
-                          setAutoGenerateIndexes(value === true)
-                        }
-                      />
-                      <span>召回索引自动生成</span>
-                    </label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        !autoGenerateIndexes ||
-                        createGeneralKnowledgeMutation.isPending ||
-                        generateGeneralKnowledgeIndexesMutation.isPending
-                      }
-                      onClick={handleGenerateGeneralKnowledgeIndexes}
-                    >
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      {generateGeneralKnowledgeIndexesMutation.isPending
-                        ? "生成中"
-                        : "生成"}
-                    </Button>
-                  </div>
-                  {(["index1", "index2", "index3"] as const).map((name, index) => (
-                    <FormField
-                      key={name}
-                      control={createKnowledgeForm.control}
-                      name={name}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>召回索引 {index + 1}</FormLabel>
-                          <FormControl>
-                            <Input placeholder="用户可能的问法，可留空" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  ))}
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                  <KnowledgeFieldsEditor
+                    value={knowledgeFieldValues}
+                    moduleOptions={moduleOptions}
+                    errors={knowledgeFieldErrors}
+                    onChange={handleKnowledgeFieldChange}
+                    showRevision
+                    showIndexFields
+                    showIndexGenerationControls
+                    autoGenerateIndexes={autoGenerateIndexes}
+                    onAutoGenerateIndexesChange={setAutoGenerateIndexes}
+                    onGenerateIndexes={handleGenerateGeneralKnowledgeIndexes}
+                    indexGenerationPending={
+                      generateGeneralKnowledgeIndexesMutation.isPending
+                    }
+                    disabled={createGeneralKnowledgeMutation.isPending}
+                  />
                 </div>
-                <DialogFooter>
+                <DialogFooter className="border-t border-border bg-background px-6 py-4">
                   <Button
                     type="button"
                     variant="outline"
@@ -1767,6 +1695,13 @@ function KnowledgeBaseTab() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        <FileImportDialog
+          open={fileImportDialogOpen}
+          onOpenChange={setFileImportDialogOpen}
+          moduleOptions={moduleOptions}
+          onImported={handleRefresh}
+        />
 
         <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
           <div className="grid grid-cols-4 divide-x divide-border">

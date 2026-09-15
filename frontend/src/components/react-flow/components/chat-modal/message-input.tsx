@@ -9,18 +9,17 @@ import {
   useToast,
   type WorkflowChatEditorRef,
 } from "tentix-ui";
-import { processFilesAndUpload } from "@comp/chat/upload-utils";
+import {
+  processFilesAndUpload,
+  removeUploadedFiles,
+  type UploadProgress,
+  type UploadResult,
+} from "@comp/chat/upload-utils";
 import {
   getErrorMessage,
   hasNodeContent,
   isLocalFileNode,
 } from "@comp/chat/utils";
-interface UploadProgress {
-  uploaded: number;
-  total: number;
-  currentFile?: string;
-}
-
 // 组件 Props 接口
 interface MessageInputProps {
   onSendMessage: (content: JSONContentZod) => Promise<void>;
@@ -93,15 +92,15 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
 
   // 处理文件上传流程
   const handleFileUpload = useCallback(
-    async (content: JSONContentZod): Promise<JSONContentZod> => {
-      const { processedContent } = await processFilesAndUpload(
+    async (content: JSONContentZod): Promise<UploadResult> => {
+      const result = await processFilesAndUpload(
         content,
         (progress) => setUploadProgress(progress),
       );
 
       setUploadProgress(null);
 
-      return processedContent;
+      return result;
     },
     [],
   );
@@ -120,18 +119,23 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
         latestContent?.content?.some(hasNodeContent) || false;
       if (!hasCurrentMessageContent) return;
 
+      let uploadResult: UploadResult | undefined;
       try {
         let contentToSend = latestContent;
 
         // 如果有文件需要上传，先处理上传（基于最新内容重新统计）
         const currentFileStats = analyzeFileContent(latestContent);
         if (currentFileStats.hasFiles) {
-          contentToSend = await handleFileUpload(latestContent);
+          uploadResult = await handleFileUpload(latestContent);
+          contentToSend = uploadResult.processedContent;
         }
 
         await onSendMessage(contentToSend);
         clearEditor();
       } catch (error) {
+        if (uploadResult) {
+          await removeUploadedFiles(uploadResult.uploadedFiles);
+        }
         console.error("发送消息失败:", error);
         setUploadProgress(null);
         showErrorToast(error);
@@ -189,7 +193,7 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
     if (!uploadProgress) return null;
 
     const progressPercent = Math.round(
-      (uploadProgress.uploaded / uploadProgress.total) * 100,
+      (uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100,
     );
 
     return (
@@ -198,8 +202,9 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
           <div className="flex items-center gap-2">
             <UploadIcon className="h-4 w-4 animate-pulse text-zinc-600" />
             <span className="text-zinc-600">
-              上传中 {uploadProgress.uploaded}/{uploadProgress.total}
-              {uploadProgress.currentFile && ` - ${uploadProgress.currentFile}`}
+              {uploadProgress.phase === "checking"
+                ? t("checking_file")
+                : t("uploading")}
             </span>
           </div>
           <div className="text-zinc-600">{progressPercent}%</div>

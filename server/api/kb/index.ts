@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver, validator as zValidator } from "hono-openapi/zod";
+import type { Context } from "hono";
 import { z } from "zod";
 import "zod-openapi/extend";
 import {
@@ -22,6 +23,7 @@ import {
 } from "../middleware.ts";
 import { emit, Events } from "@/utils/events/kb/bus";
 import { HTTPException } from "hono/http-exception";
+import { detectLocale } from "@/utils/i18n";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { logWarning } from "@/utils/log";
 import { OPENAI_CONFIG, SOURCE_WEIGHTS } from "@/utils/kb/config";
@@ -31,6 +33,16 @@ import {
 } from "@/utils/kb/kb-builder";
 import { getTextWithImageInfo } from "@/utils/kb/tools";
 import type { JSONContentZod } from "@/utils/types";
+import {
+  KNOWLEDGE_FILE_MAX_BYTES,
+  KNOWLEDGE_FILE_MAX_CANDIDATES,
+  KNOWLEDGE_FILE_MAX_CONTENT_LENGTH,
+  normalizeKnowledgeDuplicateContent,
+  splitKnowledgeFile,
+  KnowledgeFileParseError,
+  type KnowledgeFileCandidate,
+} from "@/utils/kb/file-import.ts";
+import { parseKnowledgeFile } from "@/utils/kb/file-parsers.ts";
 
 const createFavoritedSchema = z.object({
   ticketId: z.string(),
@@ -99,23 +111,20 @@ const createGeneralKnowledgeSchema = z
     sourceId: z
       .string()
       .trim()
-      .regex(
-        generalKnowledgeSourceIdRegex,
-        "知识 ID 格式应为 general_knowledge:{source_doc_id}:{entry_slug}",
-      )
+      .regex(generalKnowledgeSourceIdRegex)
       .max(200),
-    title: z.string().trim().min(1, "标题不能为空").max(200),
+    title: z.string().trim().min(1).max(200),
     modules: z
       .array(z.string().trim().min(1).max(80))
-      .min(1, "至少选择一个模块")
-      .max(10, "模块数量不能超过 10 个"),
+      .min(1)
+      .max(10),
     category: z.enum(generalKnowledgeCategoryValues),
     docName: z.string().trim().max(200).optional(),
-    revision: z.string().trim().min(1, "版本不能为空").max(80),
-    content: z.string().trim().min(1, "正文不能为空").max(20000),
+    revision: z.string().trim().min(1).max(80),
+    content: z.string().trim().min(1).max(20000),
     indexes: z
       .array(z.string().trim().min(1).max(500))
-      .max(3, "召回索引最多 3 条")
+      .max(3)
       .optional(),
   })
   .strict();
@@ -131,15 +140,131 @@ const createGeneralKnowledgeResponseSchema = z.object({
 
 const generateGeneralKnowledgeIndexesSchema = z
   .object({
-    title: z.string().trim().min(1, "标题不能为空").max(200),
+    title: z.string().trim().min(1).max(200),
     modules: z
       .array(z.string().trim().min(1).max(80))
-      .min(1, "至少选择一个模块")
-      .max(10, "模块数量不能超过 10 个"),
+      .min(1)
+      .max(10),
     category: z.enum(generalKnowledgeCategoryValues),
-    content: z.string().trim().min(1, "正文不能为空").max(20000),
+    content: z.string().trim().min(1).max(20000),
   })
   .strict();
+
+const knowledgeFilePreviewSchema = z
+  .object({
+    fileName: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .regex(/\.(?:md|txt|html|pdf|docx|csv|xlsx)$/i),
+    fileSizeBytes: z.number().int().positive().max(KNOWLEDGE_FILE_MAX_BYTES),
+    rawText: z.string(),
+    chunkSettingMode: z.enum(["auto", "custom"]),
+    chunkSplitMode: z.enum(["paragraph", "size", "char"]).optional(),
+    paragraphChunkDeep: z.number().int().min(1).max(8).optional(),
+    chunkSize: z.number().int().min(64).max(4000).optional(),
+    chunkSplitter: z.string().max(200).optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const actualTextBytes = new TextEncoder().encode(value.rawText).byteLength;
+    if (actualTextBytes > KNOWLEDGE_FILE_MAX_BYTES) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["rawText"],
+        message: "file_size",
+      });
+    }
+  });
+
+const knowledgeFileDuplicateSchema = z
+  .object({
+    candidates: z
+      .array(
+        z.object({
+          candidateId: z.string().min(1).max(80),
+          content: z.string().trim().min(1).max(KNOWLEDGE_FILE_MAX_CONTENT_LENGTH),
+        }),
+      )
+      .max(KNOWLEDGE_FILE_MAX_CANDIDATES),
+  })
+  .strict();
+
+type KnowledgeTranslator = (
+  key: string,
+  options?: Record<string, unknown>,
+) => string;
+
+type KnowledgeValidationIssue = {
+  path: readonly PropertyKey[];
+  code?: string;
+  maximum?: number | bigint;
+};
+
+type KnowledgeValidationResult =
+  | { success: true }
+  | {
+      success: false;
+      error: { issues: readonly KnowledgeValidationIssue[] };
+    };
+
+function getKnowledgeValidationMessage(
+  issue: KnowledgeValidationIssue,
+  t: KnowledgeTranslator,
+): string {
+  const path = issue.path.join(".");
+  if (path === "sourceId" && issue.code === "invalid_string") {
+    return t("knowledge_error.source_id");
+  }
+  if (path === "title" && issue.code === "too_small") {
+    return t("knowledge_error.title_required");
+  }
+  if (path === "modules" && issue.code === "too_small") {
+    return t("knowledge_error.modules_required");
+  }
+  if (path === "modules" && issue.code === "too_big") {
+    return t("knowledge_error.modules_max", { max: issue.maximum });
+  }
+  if (path === "category") return t("knowledge_error.category_required");
+  if (path === "revision" && issue.code === "too_small") {
+    return t("knowledge_error.revision_required");
+  }
+  if (path === "content" && issue.code === "too_small") {
+    return t("knowledge_error.content_required");
+  }
+  if (path === "indexes" && issue.code === "too_big") {
+    return t("knowledge_error.indexes_max");
+  }
+  if (path.startsWith("indexes.") && issue.code === "too_big") {
+    return t("knowledge_error.index_max", { max: issue.maximum });
+  }
+  if (path === "fileName" && issue.code === "invalid_string") {
+    return t("knowledge_error.file_extension");
+  }
+  if (path === "fileSizeBytes" || path === "rawText") {
+    return t("knowledge_error.file_size");
+  }
+  if (path === "title" && issue.code === "too_big") {
+    return t("knowledge_error.title_max", { max: issue.maximum });
+  }
+  if (path === "chunkSplitter" && issue.code === "too_big") {
+    return t("knowledge_error.chunk_splitter");
+  }
+  return t("knowledge_error.invalid_request");
+}
+
+function knowledgeValidationHook(
+  result: KnowledgeValidationResult,
+  c: Context,
+): void {
+  if (!result.success) {
+    const t = c.get("i18n").getFixedT(detectLocale(c));
+    throw new HTTPException(422, {
+      message: getKnowledgeValidationMessage(result.error.issues[0]!, t),
+    });
+  }
+}
 
 const generatedGeneralKnowledgeIndexesSchema = z.object({
   indexes: z
@@ -321,10 +446,11 @@ function normalizeGeneratedIndexes(values: string[] | undefined): string[] {
 
 async function generateGeneralKnowledgeRecallIndexes(
   payload: z.infer<typeof generateGeneralKnowledgeIndexesSchema>,
+  t: KnowledgeTranslator,
 ): Promise<string[]> {
   if (!OPENAI_CONFIG.apiKey || !OPENAI_CONFIG.summaryModel) {
     throw new HTTPException(503, {
-      message: "AI 召回索引生成未配置",
+      message: t("knowledge_error.index_not_configured"),
     });
   }
 
@@ -449,7 +575,7 @@ async function generateGeneralKnowledgeRecallIndexes(
       `[kb.admin.generateGeneralKnowledgeIndexes] failed: ${String(err)}`,
     );
     throw new HTTPException(502, {
-      message: "Failed to generate general knowledge recall indexes",
+      message: t("knowledge_error.index_generation_failed"),
     });
   }
 }
@@ -550,6 +676,150 @@ const kbRouter = factory
   .createApp()
   .use(authMiddleware)
   .use(staffOnlyMiddleware())
+  .post(
+    "/admin/general-knowledge/file/parse",
+    adminOnlyMiddleware(),
+    async (c) => {
+      const t = c.get("i18n").getFixedT(detectLocale(c));
+      let form: FormData;
+      try {
+        form = await c.req.formData();
+      } catch {
+        throw new HTTPException(422, { message: t("knowledge_error.file_parse_failed") });
+      }
+
+      const uploaded = form.get("file");
+      if (!(uploaded instanceof File)) {
+        throw new HTTPException(422, { message: t("knowledge_error.file_missing") });
+      }
+      const fileName = uploaded.name.trim();
+      if (uploaded.size > KNOWLEDGE_FILE_MAX_BYTES) {
+        throw new HTTPException(422, { message: t("knowledge_error.file_size") });
+      }
+      if (!fileName || fileName.length > 200) {
+        throw new HTTPException(422, { message: t("knowledge_error.file_name") });
+      }
+
+      let bytes: Uint8Array;
+      try {
+        bytes = new Uint8Array(await uploaded.arrayBuffer());
+      } catch {
+        throw new HTTPException(422, { message: t("knowledge_error.file_read") });
+      }
+
+      try {
+        const result = await parseKnowledgeFile({ fileName, bytes });
+        return c.json({
+          success: true,
+          data: {
+            fileName,
+            fileSizeBytes: uploaded.size,
+            rawText: result.rawText,
+            warnings: result.warningKeys.map((key) => t(key)),
+          },
+        });
+      } catch (error) {
+        if (error instanceof KnowledgeFileParseError) {
+          throw new HTTPException(422, { message: t(error.translationKey) });
+        }
+        throw error;
+      }
+    },
+  )
+  .post(
+    "/admin/general-knowledge/file/preview",
+    adminOnlyMiddleware(),
+    zValidator("json", knowledgeFilePreviewSchema, knowledgeValidationHook),
+    async (c) => {
+      const payload = c.req.valid("json");
+      let candidates: KnowledgeFileCandidate[];
+      try {
+        candidates = splitKnowledgeFile(payload.rawText, {
+          chunkSettingMode: payload.chunkSettingMode,
+          chunkSplitMode: payload.chunkSplitMode,
+          paragraphChunkDeep: payload.paragraphChunkDeep,
+          chunkSize: payload.chunkSize,
+          chunkSplitter: payload.chunkSplitter,
+        });
+      } catch (error) {
+        if (error instanceof KnowledgeFileParseError) {
+          const t = c.get("i18n").getFixedT(detectLocale(c));
+          throw new HTTPException(422, { message: t(error.translationKey) });
+        }
+        throw error;
+      }
+      if (!candidates.length) {
+        const t = c.get("i18n").getFixedT(detectLocale(c));
+        throw new HTTPException(422, { message: t("knowledge_error.file_no_text") });
+      }
+
+      return c.json({
+        success: true,
+        data: {
+          fileName: payload.fileName,
+          candidates: candidates.map((candidate: KnowledgeFileCandidate) => ({
+            candidateId: crypto.randomUUID(),
+            title: candidate.title,
+            content: candidate.content,
+          })),
+          total: candidates.length,
+        },
+      });
+    },
+  )
+  .post(
+    "/admin/general-knowledge/file/duplicates",
+    adminOnlyMiddleware(),
+    zValidator("json", knowledgeFileDuplicateSchema),
+    async (c) => {
+      const db = c.var.db;
+      const payload = c.req.valid("json");
+      const normalizedCandidates = payload.candidates.map((candidate) => ({
+        ...candidate,
+        normalizedContent: normalizeKnowledgeDuplicateContent(candidate.content),
+      }));
+      const existing = await db
+        .select({
+          sourceId: schema.knowledgeBase.sourceId,
+          title: schema.knowledgeBase.title,
+          content: schema.knowledgeBase.content,
+          metadata: schema.knowledgeBase.metadata,
+        })
+        .from(schema.knowledgeBase)
+        .where(
+          and(
+            eq(schema.knowledgeBase.sourceType, "general_knowledge"),
+            eq(schema.knowledgeBase.chunkId, 0),
+          ),
+        );
+      type ExistingKnowledge = (typeof existing)[number];
+      const existingByContent = new Map<string, ExistingKnowledge[]>();
+      for (const row of existing) {
+        const key = normalizeKnowledgeDuplicateContent(row.content);
+        const rows = existingByContent.get(key) ?? [];
+        rows.push(row);
+        existingByContent.set(key, rows);
+      }
+
+      return c.json({
+        success: true,
+        data: {
+          matches: normalizedCandidates.map((candidate) => ({
+            candidateId: candidate.candidateId,
+            existing: (existingByContent.get(candidate.normalizedContent) ?? []).map((row) => {
+              const metadata = row.metadata as Record<string, unknown>;
+              return {
+                sourceId: row.sourceId,
+                title: row.title,
+                modules: Array.isArray(metadata.modules) ? metadata.modules : [],
+                category: metadata.category ?? "other",
+              };
+            }),
+          })),
+        },
+      });
+    },
+  )
   .post(
     "/favorited",
     describeRoute({
@@ -680,10 +950,11 @@ const kbRouter = factory
         },
       },
     }),
-    zValidator("json", generateGeneralKnowledgeIndexesSchema),
+    zValidator("json", generateGeneralKnowledgeIndexesSchema, knowledgeValidationHook),
     async (c) => {
       const payload = c.req.valid("json");
-      const indexes = await generateGeneralKnowledgeRecallIndexes(payload);
+      const t = c.get("i18n").getFixedT(detectLocale(c));
+      const indexes = await generateGeneralKnowledgeRecallIndexes(payload, t);
       return c.json({
         success: true,
         data: { indexes },
@@ -708,7 +979,7 @@ const kbRouter = factory
         },
       },
     }),
-    zValidator("json", createGeneralKnowledgeSchema),
+    zValidator("json", createGeneralKnowledgeSchema, knowledgeValidationHook),
     async (c) => {
       const db = c.var.db;
       const payload = c.req.valid("json");

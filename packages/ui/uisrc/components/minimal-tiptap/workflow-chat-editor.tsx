@@ -5,7 +5,9 @@ import { cn } from "../../lib/utils";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
 import { MeasuredContainer } from "./components/measured-container.tsx";
 import { SectionTwo } from "./components/section/two.tsx";
+import { AttachmentEditDialog } from "./components/attachment/attachment-edit-dialog.tsx";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
+import { cleanupBlobUrls } from "./utils.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 import { forwardRef, useImperativeHandle } from "react";
 
@@ -22,6 +24,7 @@ const Toolbar = ({ editor }: { editor: Editor }) => (
         activeActions={["bold", "italic", "underline", "code"]}
         mainActionCount={4}
       />
+      <AttachmentEditDialog editor={editor} />
     </div>
   </div>
 );
@@ -48,6 +51,7 @@ export const WorkflowChatEditor = forwardRef<
 
     useImperativeHandle(ref, () => ({
       clearContent: () => {
+        if (editor) cleanupBlobUrls(editor);
         editor?.commands.clearContent();
       },
       getJSON: () => editor?.getJSON() as Content,

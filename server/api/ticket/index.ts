@@ -38,6 +38,11 @@ import { createSelectSchema } from "drizzle-zod";
 import { isFeishuConfigured } from "@/utils/tools";
 import { workflowCache } from "@/utils/kb/workflow-cache.ts";
 import { emit, Events } from "@/utils/events/ticket";
+import {
+  FileValidationError,
+  FileValidationUnavailableError,
+  validateContentAttachments,
+} from "@/utils/file-validation.ts";
 
 const createResponseSchema = z.array(
   z.object({
@@ -170,6 +175,17 @@ const ticketRouter = factory
         throw new HTTPException(422, {
           message: "Invalid description!",
         });
+      }
+      try {
+        await validateContentAttachments(payload.description);
+      } catch (error) {
+        if (error instanceof FileValidationError) {
+          throw new HTTPException(422, { message: error.message });
+        }
+        if (error instanceof FileValidationUnavailableError) {
+          throw new HTTPException(503, { message: error.message });
+        }
+        throw error;
       }
 
       const t = c.get("i18n").getFixedT(detectLocale(c));
@@ -532,7 +548,9 @@ const ticketRouter = factory
         ...ticket,
         messages: ticket.messages.map((message) => ({
           ...message,
-          content: getAbbreviatedText(message.content, 100),
+          content: getAbbreviatedText(message.content, 100, {
+            includeAttachments: true,
+          }),
         })),
       }));
 

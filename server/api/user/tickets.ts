@@ -367,7 +367,9 @@ async function getTicketsWithPagination(
         ...ticket,
         messages: ticket.messages.map((message) => ({
           ...message,
-          content: getAbbreviatedText(message.content, 100),
+          content: getAbbreviatedText(message.content, 100, {
+            includeAttachments: true,
+          }),
         })),
       })),
       totalCount,
@@ -457,7 +459,9 @@ async function getTicketsWithPagination(
         ...ticket,
         messages: ticket.messages.map((message) => ({
           ...message,
-          content: getAbbreviatedText(message.content, 100),
+          content: getAbbreviatedText(message.content, 100, {
+            includeAttachments: true,
+          }),
         })),
       })),
       totalCount,
@@ -640,7 +644,9 @@ async function getTicketsForAgent(
         ...ticket,
         messages: ticket.messages.map((message) => ({
           ...message,
-          content: getAbbreviatedText(message.content, 100),
+          content: getAbbreviatedText(message.content, 100, {
+            includeAttachments: true,
+          }),
         })),
       })),
       totalCount,
@@ -770,7 +776,9 @@ async function getTicketsForAgent(
       ...ticket,
       messages: ticket.messages.map((message) => ({
         ...message,
-        content: getAbbreviatedText(message.content, 100),
+        content: getAbbreviatedText(message.content, 100, {
+          includeAttachments: true,
+        }),
       })),
     })),
     totalCount,
@@ -888,7 +896,9 @@ async function getAllTickets(
     pendingReply: pendingReplyTicketIds.has(ticket.id),
     messages: ticket.messages.map((message) => ({
       ...message,
-      content: getAbbreviatedText(message.content, 100),
+      content: getAbbreviatedText(message.content, 100, {
+        includeAttachments: true,
+      }),
     })),
   }));
 

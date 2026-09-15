@@ -79,6 +79,7 @@ export const myFetch = ky.extend({
 
 const KB_ADMIN_SAVE_TIMEOUT_MS = 60_000;
 const KB_INDEX_GENERATE_TIMEOUT_MS = 60_000;
+const KB_FILE_PREVIEW_TIMEOUT_MS = 60_000;
 const HOT_ISSUES_ANALYTICS_TIMEOUT_MS = 90_000;
 
 export const kbAdminSaveFetch = myFetch.extend({
@@ -87,6 +88,10 @@ export const kbAdminSaveFetch = myFetch.extend({
 
 export const kbIndexGenerateFetch = myFetch.extend({
   timeout: KB_INDEX_GENERATE_TIMEOUT_MS,
+});
+
+export const kbFilePreviewFetch = myFetch.extend({
+  timeout: KB_FILE_PREVIEW_TIMEOUT_MS,
 });
 
 export const hotIssuesAnalyticsFetch = myFetch.extend({

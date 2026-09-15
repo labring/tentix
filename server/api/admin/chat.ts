@@ -22,6 +22,11 @@ import {
   JSONContentZod,
   validateJSONContent,
 } from "@/utils/types.ts";
+import {
+  FileValidationError,
+  FileValidationUnavailableError,
+  validateContentAttachments,
+} from "@/utils/file-validation.ts";
 
 // ===== 常量定义 =====
 const HEARTBEAT_INTERVAL = 30000; // 30秒
@@ -183,6 +188,7 @@ export async function saveMessageToDb(
     // Insert the message
     if (!validateJSONContent(content))
       throw new Error("[Workflow Chat WebSocket] Invalid content");
+    await validateContentAttachments(content);
     const [messageResult] = await db
       .insert(schema.workflowTestMessage)
       .values({
@@ -308,6 +314,7 @@ export const chatRouter = new Hono<AuthEnv>().get(
         },
 
         async onMessage(evt, ws) {
+          let messageTempId: number | undefined;
           heartbeat.markAlive();
           try {
             const data =
@@ -328,6 +335,10 @@ export const chatRouter = new Hono<AuthEnv>().get(
 
             const parsedMessage: workflowTestChatClientType =
               validationResult.data;
+            messageTempId =
+              parsedMessage.type === "client_message"
+                ? parsedMessage.tempId
+                : undefined;
 
             // 处理心跳
             if (parsedMessage.type === "pong") {
@@ -424,7 +435,12 @@ export const chatRouter = new Hono<AuthEnv>().get(
 
             sendWSMessage(ws, {
               type: "error",
-              error: "Failed to process message",
+              error:
+                error instanceof FileValidationError ||
+                error instanceof FileValidationUnavailableError
+                  ? error.message
+                  : "Failed to process message",
+              tempId: messageTempId,
             });
           }
         },

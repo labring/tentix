@@ -230,9 +230,19 @@ export const useWorkflowChatWebSocket = ({
           case "info":
             handleInfo(data.message);
             break;
-          case "error":
+          case "error": {
+            const tempId = data.tempId;
+            const pending = tempId !== undefined
+              ? pendingMessages.current.get(tempId)
+              : undefined;
+            if (pending && tempId !== undefined) {
+              clearTimeout(pending.timeoutId);
+              pending.reject(new Error(data.error));
+              pendingMessages.current.delete(tempId);
+            }
             handleError(data.error);
             break;
+          }
         }
       } catch (error) {
         console.error("消息处理错误:", error);

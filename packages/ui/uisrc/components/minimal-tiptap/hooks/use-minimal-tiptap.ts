@@ -13,16 +13,28 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import {
   Link,
   Image,
+  Video,
+  VIDEO_MAX_SIZE,
   HorizontalRule,
   CodeBlockLowlight,
   Selection,
   Color,
   UnsetAllMarks,
   FileHandler,
+  Attachment,
+  ATTACHMENT_MIME_TYPES,
+  getAttachmentMaxSize,
+  isGenericAttachmentMimeType,
+  normalizeGenericAttachmentFile,
   ChatKeyboardExtension,
 } from "../extensions/index.ts";
 import { cn } from "uisrc/lib/utils.ts";
-import { getOutput, randomId, cleanupBlobUrls } from "../utils.ts";
+import {
+  getOutput,
+  randomId,
+  cleanupBlobUrls,
+  type FileError,
+} from "../utils.ts";
 import { useToast } from "uisrc/hooks/use-toast.ts";
 import { useEffect, useMemo, useRef, useCallback } from "react";
 import { useThrottle } from "./use-throttle.ts";
@@ -54,16 +66,29 @@ const fileUploadErrorMapping: Record<FileUploadErrorReason, string> = {
   base64NotAllowed: "文件不是图片！",
 } as const;
 
-const mergePastedContentWithLocalImages = (
+const getFileUploadErrorMessage = (error: FileError): string => {
+  if (error.file instanceof File && error.file.type.startsWith("video/")) {
+    if (error.reason === "size") {
+      const sizeInMb = Math.ceil(error.file.size / (1024 * 1024));
+      return `视频大小为 ${sizeInMb} MB，超过 50 MB 上限，请压缩后重试`;
+    }
+    if (error.reason === "type") {
+      return "仅支持 MP4 视频文件";
+    }
+  }
+  return fileUploadErrorMapping[error.reason];
+};
+
+const mergePastedContentWithLocalMedia = (
   pastedContent: JSONContent[] | null,
-  imageNodes: JSONContent[],
+  mediaNodes: JSONContent[],
 ) => {
   let imageIndex = 0;
 
   const replaceImageNode = (node: JSONContent): JSONContent => {
     if (node.type === "image") {
-      const imageNode = imageNodes[imageIndex];
-      if (imageNode) {
+      const imageNode = mediaNodes[imageIndex];
+      if (imageNode?.type === "image") {
         imageIndex += 1;
         return imageNode;
       }
@@ -80,7 +105,7 @@ const mergePastedContentWithLocalImages = (
   };
 
   const content = (pastedContent ?? []).map(replaceImageNode);
-  return [...content, ...imageNodes.slice(imageIndex)];
+  return [...content, ...mediaNodes.slice(imageIndex)];
 };
 
 const createExtensions = (
@@ -116,62 +141,118 @@ const createExtensions = (
       toast({
         title: "图片验证错误",
         description: errors
-          .map((error) => fileUploadErrorMapping[error.reason])
+          .map(getFileUploadErrorMessage)
           .join(", "),
         variant: "destructive",
       });
     },
   }),
+  Video.configure({
+    allowedMimeTypes: ["video/mp4"],
+    maxFileSize: VIDEO_MAX_SIZE,
+    onValidationError(errors) {
+      toast({
+        title: "视频验证错误",
+        description: errors.map(getFileUploadErrorMessage).join(", "),
+        variant: "destructive",
+      });
+    },
+  }),
+  Attachment.configure({
+    allowedMimeTypes: [...ATTACHMENT_MIME_TYPES],
+    maxFileSize: getAttachmentMaxSize,
+    onValidationError: (errors) => toast({
+      title: "文件验证错误",
+      description: errors.map(getFileUploadErrorMessage).join(", "),
+      variant: "destructive",
+    }),
+    onLimitError: (message) => toast({
+      title: "附件数量或大小超限",
+      description: message,
+      variant: "destructive",
+    }),
+  }),
 
   // 🎯 优化的文件处理器
   FileHandler.configure({
     allowBase64: false,
+    normalizeFile: normalizeGenericAttachmentFile,
     allowedMimeTypes: [
       "image/*",
-      "application/*",
-      "video/*",
-      "text/*",
-      "audio/*",
+      ...ATTACHMENT_MIME_TYPES,
+      "video/mp4",
     ],
-    maxFileSize: 5 * 1024 * 1024,
+    maxFileSize: (mimeType) =>
+      mimeType === "video/mp4"
+        ? VIDEO_MAX_SIZE
+        : isGenericAttachmentMimeType(mimeType)
+          ? getAttachmentMaxSize(mimeType)
+          : 5 * 1024 * 1024,
     onDrop: (editor, files, pos) => {
       const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+      const videoFiles = files.filter((file) => file.type === "video/mp4");
+      const attachmentFiles = files.filter((file) => isGenericAttachmentMimeType(file.type));
 
-      imageFiles.forEach((file) => {
-        const blobUrl = URL.createObjectURL(file);
-        const id = randomId();
-
-        editor.commands.insertContentAt(pos, {
+      if (imageFiles.length > 0) {
+        const imageNodes = imageFiles.map((file) => ({
           type: "image",
           attrs: {
-            id,
-            src: blobUrl,
+            id: randomId(),
+            src: URL.createObjectURL(file),
             alt: file.name,
             title: file.name,
             fileName: file.name,
             isLocalFile: true,
             originalFile: file,
           },
-        });
-      });
+        }));
+
+        editor.commands.insertContentAt(pos, [
+          ...imageNodes,
+          { type: "paragraph" },
+        ]);
+      }
+
+      if (videoFiles.length > 0) {
+        editor.commands.insertContentAt(pos, [
+          ...videoFiles.map((file) => ({
+          type: "video",
+          attrs: {
+            id: randomId(),
+            src: URL.createObjectURL(file),
+            title: file.name,
+            fileName: file.name,
+            isLocalFile: true,
+            originalFile: file,
+          },
+          })),
+          { type: "paragraph" },
+        ]);
+      }
+      if (attachmentFiles.length > 0) {
+        editor.commands.setAttachments(attachmentFiles, pos ?? 0);
+      }
     },
     onPaste: (editor, files, pasteSlice) => {
       const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+      const videoFiles = files.filter((file) => file.type === "video/mp4");
+      const attachmentFiles = files.filter((file) => isGenericAttachmentMimeType(file.type));
+      const mediaFiles = [...imageFiles, ...videoFiles];
 
-      if (imageFiles.length === 0) {
+      if (mediaFiles.length === 0 && attachmentFiles.length === 0) {
         return false;
       }
 
-      const imageNodes = imageFiles.map((file) => {
+      const mediaNodes = mediaFiles.map((file) => {
         const blobUrl = URL.createObjectURL(file);
         const id = randomId();
 
         return {
-          type: "image",
+          type: file.type === "video/mp4" ? "video" : "image",
           attrs: {
             id,
             src: blobUrl,
-            alt: file.name,
+            ...(file.type === "video/mp4" ? {} : { alt: file.name }),
             title: file.name,
             fileName: file.name,
             isLocalFile: true,
@@ -180,19 +261,22 @@ const createExtensions = (
         };
       });
 
-      const pastedContent = mergePastedContentWithLocalImages(
+      const pastedContent = mergePastedContentWithLocalMedia(
         pasteSlice.content.toJSON(),
-        imageNodes,
+        mediaNodes,
       );
 
       editor.commands.insertContent([...pastedContent, { type: "paragraph" }]);
+      if (attachmentFiles.length > 0) {
+        editor.commands.setAttachments(attachmentFiles);
+      }
       return true;
     },
     onValidationError: (errors) => {
       toast({
         title: "文件验证错误",
         description: errors
-          .map((error) => fileUploadErrorMapping[error.reason])
+          .map(getFileUploadErrorMessage)
           .join(", "),
         variant: "destructive",
       });

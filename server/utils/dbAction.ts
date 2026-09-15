@@ -7,6 +7,11 @@ import {
 } from "./types.ts";
 import { eq, and } from "drizzle-orm";
 import { logError } from "./log.ts";
+import {
+  FileValidationError,
+  FileValidationUnavailableError,
+  validateContentAttachments,
+} from "./file-validation.ts";
 
 export function plainTextToJSONContent(text: string): JSONContentZod {
   return {
@@ -31,6 +36,7 @@ export async function saveMessageToDb(
     const db = connectDB();
     // Insert the message
     if (!validateJSONContent(content)) throw new Error("Invalid content");
+    await validateContentAttachments(content);
     const [messageResult] = await db
       .insert(schema.chatMessages)
       .values({
@@ -46,6 +52,12 @@ export async function saveMessageToDb(
     return messageResult;
   } catch (err) {
     logError("Error saving message to database:", err);
+    if (
+      err instanceof FileValidationError ||
+      err instanceof FileValidationUnavailableError
+    ) {
+      throw err;
+    }
     return null;
   }
 }

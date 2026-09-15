@@ -6,7 +6,9 @@ import { cn } from "uisrc/lib/utils.ts";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
 import { MeasuredContainer } from "./components/measured-container.tsx";
 import { SectionTwo } from "./components/section/two.tsx";
+import { AttachmentEditDialog } from "./components/attachment/attachment-edit-dialog.tsx";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
+import { cleanupBlobUrls } from "./utils.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 import type { EditorRef } from "./staff-chat-editor.tsx";
 
@@ -20,6 +22,7 @@ export const Toolbar = ({ editor }: { editor: Editor }) => (
         size="sm"
         className="!w-9 !h-9"
       />
+      <AttachmentEditDialog editor={editor} size="sm" />
     </div>
   </div>
 );
@@ -39,6 +42,7 @@ export const UserChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
     useImperativeHandle(ref, () => ({
       isInternal: false,
       clearContent: () => {
+        if (editor) cleanupBlobUrls(editor);
         editor?.commands.clearContent();
       },
       getJSON: () =>

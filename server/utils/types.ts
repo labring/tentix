@@ -47,7 +47,14 @@ export const userIdValidator = zValidator(
   }),
 );
 
-export function extractText(json: JSONContentZod) {
+type TextExtractionOptions = {
+  includeAttachments?: boolean;
+};
+
+export function extractText(
+  json: JSONContentZod,
+  options: TextExtractionOptions = {},
+) {
   // 结构化纯文本提取：保留段落/标题/列表/换行等边界，提升可读性与向量质量
   let out = "";
   let listCounter = 0; // 用于有序列表计数
@@ -129,6 +136,13 @@ export function extractText(json: JSONContentZod) {
         out += `[图片: ${description}${src ? ` (${src})` : ""}]`;
         break;
       }
+      case "attachment": {
+        if (options.includeAttachments) {
+          const fileName = String(node.attrs?.fileName || "未知文件");
+          out += `附件：${fileName}`;
+        }
+        break;
+      }
       default: {
         node.content?.forEach((child) => walk(child, isInList));
       }
@@ -145,8 +159,9 @@ export function extractText(json: JSONContentZod) {
 export function getAbbreviatedText(
   doc: JSONContentZod,
   maxLength: number = 100,
+  options: TextExtractionOptions = {},
 ): string {
-  const text = extractText(doc);
+  const text = extractText(doc, options);
   if (text.length <= maxLength) {
     return text;
   }
@@ -243,6 +258,7 @@ export const wsMsgServerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("error"),
     error: z.string(),
+    tempId: z.number().optional(),
   }),
   z.object({
     type: z.literal("message_withdrawn"),
@@ -516,6 +532,7 @@ export const workflowTestChatServerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("error"),
     error: z.string(),
+    tempId: z.number().optional(),
   }),
   z.object({
     type: z.literal("info"),

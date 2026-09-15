@@ -113,7 +113,16 @@ export function MessageList({
 
   // 初始加载完成后，立即滚动到底部（无动画）
   useLayoutEffect(() => {
-    if (!hasInitialScrolled && messagesEndRef.current && messages.length > 0) {
+    if (
+      !scrollContainerFound ||
+      hasInitialScrolled ||
+      messages.length === 0 ||
+      !messagesEndRef.current
+    ) {
+      return;
+    }
+
+    if (messagesEndRef.current) {
       isProgrammaticScroll.current = true;
       messagesEndRef.current.scrollIntoView({ block: "end", behavior: "auto" });
       setHasInitialScrolled(true);
@@ -123,7 +132,28 @@ export function MessageList({
         isProgrammaticScroll.current = false;
       }, 100);
     }
-  }, [hasInitialScrolled, messages.length]);
+  }, [hasInitialScrolled, messages.length, scrollContainerFound]);
+
+  // 媒体加载后内容高度变化时，保持自动跟随到底部
+  useEffect(() => {
+    if (!hasInitialScrolled || !scrollContainerFound) return;
+
+    const content = messagesListRef.current;
+    if (!content) return;
+
+    const observer = new ResizeObserver(() => {
+      if (!autoScrollEnabled || !messagesEndRef.current) return;
+
+      isProgrammaticScroll.current = true;
+      messagesEndRef.current.scrollIntoView({ block: "end", behavior: "auto" });
+      window.requestAnimationFrame(() => {
+        isProgrammaticScroll.current = false;
+      });
+    });
+
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [hasInitialScrolled, scrollContainerFound, autoScrollEnabled]);
 
   // 新消息到来时：如果启用了自动跟随，则自动滚动到底部
   useEffect(() => {

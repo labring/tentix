@@ -42,6 +42,10 @@ import {
 } from "@/utils/sealos-kubeconfig-session.ts";
 import { authMiddleware, factory } from "../middleware.ts";
 import { sendUnreadSSE, sendWsMessage, wsInstance } from "./tools.ts";
+import {
+  FileValidationError,
+  FileValidationUnavailableError,
+} from "@/utils/file-validation.ts";
 
 const msgEmitter = new MessageEmitter();
 const roomEmitter = new RoomEmitter();
@@ -883,6 +887,7 @@ const chatRouter = factory
           },
 
           async onMessage(evt, ws) {
+            let messageTempId: number | undefined;
             try {
               // Check if connection is alive
               const state = roomEmitter.connectionStates.get(clientId);
@@ -912,6 +917,10 @@ const chatRouter = factory
               }
 
               const parsedMessage: wsMsgClientType = validationResult.data;
+              messageTempId =
+                parsedMessage.type === "message"
+                  ? parsedMessage.tempId
+                  : undefined;
               // Handle different message types
               switch (parsedMessage.type) {
                 case "heartbeat":
@@ -1081,9 +1090,11 @@ const chatRouter = factory
               sendWsMessage(ws, {
                 type: "error",
                 error:
-                  error instanceof Error
+                  error instanceof FileValidationError ||
+                  error instanceof FileValidationUnavailableError
                     ? error.message
                     : "Internal server error",
+                tempId: messageTempId,
               });
             }
           },

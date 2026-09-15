@@ -13,6 +13,7 @@ type FileHandlePluginOptions = {
   onPaste?: (editor: Editor, files: File[], pasteSlice: Slice) => boolean | void;
   onDrop?: (editor: Editor, files: File[], pos: number) => void;
   onValidationError?: (errors: FileError[]) => void;
+  normalizeFile?: (file: File) => File;
 } & FileValidationOptions;
 
 const FileHandlePlugin = (options: FileHandlePluginOptions) => {
@@ -22,6 +23,7 @@ const FileHandlePlugin = (options: FileHandlePluginOptions) => {
     onPaste,
     onDrop,
     onValidationError,
+    normalizeFile,
     allowedMimeTypes,
     maxFileSize,
   } = options;
@@ -45,8 +47,9 @@ const FileHandlePlugin = (options: FileHandlePluginOptions) => {
           top: event.clientY,
         });
 
+        const files = Array.from(dataTransfer.files).map((file) => normalizeFile?.(file) ?? file);
         const [validFiles, errors] = filterFiles(
-          Array.from(dataTransfer.files),
+          files,
           {
             allowedMimeTypes,
             maxFileSize,
@@ -70,8 +73,9 @@ const FileHandlePlugin = (options: FileHandlePluginOptions) => {
           return false;
         }
 
+        const files = Array.from(clipboardData.files).map((file) => normalizeFile?.(file) ?? file);
         const [validFiles, errors] = filterFiles(
-          Array.from(clipboardData.files),
+          files,
           {
             allowedMimeTypes,
             maxFileSize,

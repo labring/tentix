@@ -400,7 +400,16 @@ export function useTicketWebSocket({
             }
             break;
 
-          case "error":
+          case "error": {
+            const tempId = data.tempId;
+            const pending = tempId !== undefined
+              ? pendingMessagesRef.current.get(tempId)
+              : undefined;
+            if (pending && tempId !== undefined) {
+              clearTimeout(pending.timeoutId);
+              pending.reject(new Error(data.error));
+              pendingMessagesRef.current.delete(tempId);
+            }
             console.error("WebSocket error:", data.error);
             toast({
               title: "WebSocket error",
@@ -415,6 +424,7 @@ export function useTicketWebSocket({
               attemptReconnect();
             }
             break;
+          }
         }
       } catch (error) {
         console.error("Error parsing WebSocket message:", error);

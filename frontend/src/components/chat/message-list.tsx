@@ -22,6 +22,7 @@ export function MessageList({
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesListRef = useRef<HTMLDivElement>(null);
+  const messagesContentRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true); // 是否启用自动跟随
@@ -122,7 +123,17 @@ export function MessageList({
 
   // 初始加载完成后，立即滚动到底部（无动画）
   useLayoutEffect(() => {
-    if (!isLoading && !hasInitialScrolled && messagesEndRef.current) {
+    if (
+      !scrollContainerFound ||
+      isLoading ||
+      hasInitialScrolled ||
+      visibleMessages.length === 0 ||
+      !messagesEndRef.current
+    ) {
+      return;
+    }
+
+    if (messagesEndRef.current) {
       isProgrammaticScroll.current = true;
       messagesEndRef.current.scrollIntoView({ block: "end", behavior: "auto" });
       setHasInitialScrolled(true);
@@ -132,7 +143,28 @@ export function MessageList({
         isProgrammaticScroll.current = false;
       }, 100);
     }
-  }, [isLoading, hasInitialScrolled]);
+  }, [isLoading, hasInitialScrolled, scrollContainerFound, visibleMessages.length]);
+
+  // 媒体加载后内容高度变化时，保持自动跟随到底部
+  useEffect(() => {
+    if (!hasInitialScrolled || !scrollContainerFound) return;
+
+    const content = messagesContentRef.current;
+    if (!content) return;
+
+    const observer = new ResizeObserver(() => {
+      if (!autoScrollEnabled || !messagesEndRef.current) return;
+
+      isProgrammaticScroll.current = true;
+      messagesEndRef.current.scrollIntoView({ block: "end", behavior: "auto" });
+      window.requestAnimationFrame(() => {
+        isProgrammaticScroll.current = false;
+      });
+    });
+
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [hasInitialScrolled, scrollContainerFound, autoScrollEnabled]);
 
   // 新消息到来时：如果启用了自动跟随，则自动滚动到底部
   useEffect(() => {
@@ -250,7 +282,7 @@ export function MessageList({
             </div>
           </div>
         ) : (
-          <div className="space-y-6 min-h-full">
+          <div ref={messagesContentRef} className="space-y-6 min-h-full">
             {messageGroups.map((group, groupIndex) => (
               <div
                 key={`group-${groupIndex}-${group.date}`}

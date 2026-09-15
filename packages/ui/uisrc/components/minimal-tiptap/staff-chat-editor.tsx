@@ -6,7 +6,9 @@ import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group.tsx";
 import { LinkBubbleMenu } from "./components/bubble-menu/link-bubble-menu.tsx";
 import { MeasuredContainer } from "./components/measured-container.tsx";
 import { SectionTwo } from "./components/section/two.tsx";
+import { AttachmentEditDialog } from "./components/attachment/attachment-edit-dialog.tsx";
 import { useMinimalTiptapEditor } from "./hooks/use-minimal-tiptap.ts";
+import { cleanupBlobUrls } from "./utils.ts";
 import type { MinimalTiptapProps } from "./minimal-tiptap.tsx";
 import "./styles/index.css";
 import { useTranslation } from "i18n";
@@ -40,6 +42,7 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
 
     useImperativeHandle(ref, () => ({
       clearContent: () => {
+        if (editor) cleanupBlobUrls(editor);
         editor?.commands.clearContent();
       },
       isInternal: messageType === "internal",
@@ -83,6 +86,7 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
               size="sm"
               className="!w-9 !h-9"
             />
+            <AttachmentEditDialog editor={editor} size="sm" />
           </div>
           <div className="w-full" />
           {/* <TemplateReplies onSelectTemplate={handleTemplateSelect} />

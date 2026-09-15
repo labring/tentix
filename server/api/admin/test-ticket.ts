@@ -10,6 +10,11 @@ import { type AuthEnv } from "../middleware.ts";
 import { createSelectSchema } from "drizzle-zod";
 import { testTicketInsertSchema } from "@/utils/types.ts";
 import { validateJSONContent } from "@/utils/index.ts";
+import {
+  FileValidationError,
+  FileValidationUnavailableError,
+  validateContentAttachments,
+} from "@/utils/file-validation.ts";
 
 const testTicketResponseSchema = createSelectSchema(schema.workflowTestTicket);
 const testMessageResponseSchema = createSelectSchema(
@@ -77,6 +82,17 @@ export const testTicketRouter = new Hono<AuthEnv>()
         throw new HTTPException(422, {
           message: "Invalid description!",
         });
+      }
+      try {
+        await validateContentAttachments(description);
+      } catch (error) {
+        if (error instanceof FileValidationError) {
+          throw new HTTPException(422, { message: error.message });
+        }
+        if (error instanceof FileValidationUnavailableError) {
+          throw new HTTPException(503, { message: error.message });
+        }
+        throw error;
       }
 
       // 验证 workflowId 是否存在

@@ -19,15 +19,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@lib/api-client";
 import type { testTicketInsertType, JSONContentZod } from "tentix-server/types";
 import { useTicketModules } from "@store/app-config";
-import { processFilesAndUpload } from "@comp/chat/upload-utils";
+import {
+  processFilesAndUpload,
+  removeUploadedFiles,
+  type UploadProgress,
+  type UploadResult,
+} from "@comp/chat/upload-utils";
 import { isLocalFileNode } from "@comp/chat/utils";
 import { useWorkflowTestChatStore } from "@store/workflow-test-chat";
-
-interface UploadProgress {
-  uploaded: number;
-  total: number;
-  currentFile?: string;
-}
 
 const getErrorMessage = (error: any, fallback: string): string => {
   if (typeof error?.message === "string") {
@@ -109,13 +108,6 @@ export function NewTestTicket({
       form.reset();
       onSuccess?.();
     },
-    onError: (error: Error) => {
-      toast({
-        title: t("ticket_create_failed"),
-        description: error.message,
-        variant: "destructive",
-      });
-    },
   });
 
   const hasFilesToUpload = (content: JSONContentZod): boolean => {
@@ -155,18 +147,19 @@ export function NewTestTicket({
       return false;
     }
 
+    let uploadResult: UploadResult | undefined;
     try {
       const formData = form.getValues();
       let processedDescription = formData.description;
 
       if (formData.description && hasFilesToUpload(formData.description)) {
         try {
-          const { processedContent } = await processFilesAndUpload(
+          uploadResult = await processFilesAndUpload(
             formData.description,
             (progress) => setUploadProgress(progress),
           );
 
-          processedDescription = processedContent;
+          processedDescription = uploadResult.processedContent;
           setUploadProgress(null);
         } catch (uploadError) {
           setUploadProgress(null);
@@ -189,9 +182,12 @@ export function NewTestTicket({
         description: processedDescription,
       };
 
-      createTicketMutation.mutate(finalFormData);
+      await createTicketMutation.mutateAsync(finalFormData);
       return true;
     } catch (error) {
+      if (uploadResult) {
+        await removeUploadedFiles(uploadResult.uploadedFiles);
+      }
       setUploadProgress(null);
       console.error(`${t("ticket_create_failed")}:`, error);
 
@@ -224,17 +220,15 @@ export function NewTestTicket({
       {uploadProgress && (
         <div className="p-3 bg-muted rounded-lg">
           <div className="text-sm text-muted-foreground">
-            {t("uploading_files", {
-              uploaded: uploadProgress.uploaded,
-              total: uploadProgress.total,
-            })}
-            {uploadProgress.currentFile && ` - ${uploadProgress.currentFile}`}
+            {uploadProgress.phase === "checking"
+              ? t("checking_file")
+              : t("uploading")}
           </div>
           <div className="mt-2 h-2 bg-background rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-300"
               style={{
-                width: `${(uploadProgress.uploaded / uploadProgress.total) * 100}%`,
+                width: `${(uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100}%`,
               }}
             />
           </div>
@@ -335,7 +329,7 @@ export function NewTestTicket({
           </Button>
           <Button type="submit" disabled={isLoading || !currentWorkflowId}>
             {uploadProgress
-              ? `${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
+              ? `${Math.round((uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100)}%`
               : isLoading
                 ? "..."
                 : t("submit")}

@@ -19,6 +19,23 @@ export function extractImageUrls(content: JSONContentZod): string[] {
   return images;
 }
 
+export function extractVideoInfos(
+  content: JSONContentZod,
+): Array<{ url: string; fileName: string }> {
+  const videos: Array<{ url: string; fileName: string }> = [];
+  function walk(node: JSONContentZod) {
+    if (node.type === "video" && node.attrs?.src) {
+      videos.push({
+        url: String(node.attrs.src),
+        fileName: String(node.attrs.fileName || node.attrs.title || "video.mp4"),
+      });
+    }
+    node.content?.forEach((child) => walk(child));
+  }
+  walk(content);
+  return videos;
+}
+
 /**
  * 创建纯文本版本（移除图片节点）
  */
@@ -161,12 +178,20 @@ export function convertToMultimodalMessage(
  */
 export function getTextWithImageInfo(content: JSONContentZod): string {
   const images = extractImageUrls(content);
+  const videos = extractVideoInfos(content);
   let text = extractTextWithoutImages(content);
 
   // 如果有图片，在文本末尾添加图片信息
   if (images.length > 0) {
     const imageInfo = images.map((url) => `[图片: ${url}]`).join(" ");
     text = text ? `${text} ${imageInfo}` : imageInfo;
+  }
+
+  if (videos.length > 0) {
+    const videoInfo = videos
+      .map(({ url, fileName }) => `[视频: ${fileName} (${url})]`)
+      .join(" ");
+    text = text ? `${text} ${videoInfo}` : videoInfo;
   }
 
   return text;

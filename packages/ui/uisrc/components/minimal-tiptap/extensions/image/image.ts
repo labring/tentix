@@ -94,7 +94,8 @@ export const Image = TiptapImage.extend<CustomImageOptions>({
 
           if (validImages.length > 0) {
             return commands.insertContent(
-              validImages.map((image) => {
+              [
+                ...validImages.map((image) => {
                 // 处理 File 类型
                 if (image instanceof File) {
                   const blobUrl = URL.createObjectURL(image);
@@ -127,7 +128,9 @@ export const Image = TiptapImage.extend<CustomImageOptions>({
                     },
                   };
                 }
-              }),
+                }),
+                { type: "paragraph" },
+              ],
             );
           }
 

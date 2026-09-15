@@ -13,7 +13,7 @@ export type FileError = {
 
 export type FileValidationOptions = {
   allowedMimeTypes: string[];
-  maxFileSize?: number;
+  maxFileSize?: number | ((mimeType: string) => number | undefined);
   allowBase64: boolean;
 };
 
@@ -165,13 +165,15 @@ const checkTypeAndSize = (
   const mimeType = input instanceof File ? input.type : base64MimeType(input);
   const size =
     input instanceof File ? input.size : atob(input.split(",")[1]!).length;
+  const sizeLimit =
+    typeof maxFileSize === "function" ? maxFileSize(mimeType) : maxFileSize;
 
   const isValidType =
     allowedMimeTypes.length === 0 ||
     allowedMimeTypes.includes(mimeType) ||
     allowedMimeTypes.includes(`${mimeType.split("/")[0]}/*`);
 
-  const isValidSize = !maxFileSize || size <= maxFileSize;
+  const isValidSize = !sizeLimit || size <= sizeLimit;
 
   return { isValidType, isValidSize };
 };
@@ -244,7 +246,9 @@ export const cleanupBlobUrls = (editor: Editor | null, beforeClear = false) => {
     // 收集需要清理的 blob URLs
     editor.state.doc.descendants((node) => {
       if (
-        node.type.name === "image" &&
+        (node.type.name === "image" ||
+          node.type.name === "video" ||
+          node.type.name === "attachment") &&
         node.attrs.src?.startsWith("blob:") &&
         node.attrs.isLocalFile
       ) {
