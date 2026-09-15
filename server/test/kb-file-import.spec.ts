@@ -8,6 +8,7 @@ import { unzipSync, zipSync } from "fflate";
 import * as XLSX from "xlsx";
 
 const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
 function bytes(value: string): Uint8Array {
   return textEncoder.encode(value);
@@ -55,6 +56,31 @@ function createXlsxFixture(includeMedia = false): Uint8Array {
 
   const files = unzipSync(workbookBytes);
   files["xl/media/image1.png"] = new Uint8Array([1, 2, 3]);
+  return zipSync(files);
+}
+
+function createXlsxCommentFixture(): Uint8Array {
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet([["Value"]]);
+  worksheet["A1"].c = [{ a: "test", t: "payload" }];
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet 1");
+
+  const files = unzipSync(
+    new Uint8Array(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" })),
+  );
+  const commentsPath = Object.keys(files).find((path) =>
+    path.startsWith("xl/comments"),
+  );
+  if (!commentsPath) {
+    throw new Error("XLSX comment part was not created");
+  }
+  files[commentsPath] = new Uint8Array(
+    textEncoder.encode(
+      textDecoder
+        .decode(files[commentsPath]!)
+        .replace(/ref="A1"/, 'ref="__proto__"'),
+    ),
+  );
   return zipSync(files);
 }
 
@@ -351,6 +377,33 @@ describe("knowledge file import parser", () => {
     });
     expect(xlsxResult.rawText).toContain("| Name | Value |");
     expect(xlsxResult.warningKeys).toEqual(["knowledge_warning.unsupported_content"]);
+  });
+
+  test("does not pollute Object.prototype when parsing xlsx comments", async () => {
+    const key = "c";
+    const objectPrototype = Object.prototype as Record<string, unknown>;
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      Object.prototype,
+      key,
+    );
+    delete objectPrototype[key];
+
+    try {
+      const result = await parseKnowledgeFile({
+        fileName: "comment.xlsx",
+        bytes: createXlsxCommentFixture(),
+      });
+      expect(result.rawText).toContain("| Value |");
+      expect(
+        Object.prototype.hasOwnProperty.call(Object.prototype, key),
+      ).toBe(false);
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(Object.prototype, key, originalDescriptor);
+      } else {
+        delete objectPrototype[key];
+      }
+    }
   });
 
   test("parses a text-layer pdf and rejects an empty-text pdf", async () => {

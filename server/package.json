@@ -50,7 +50,7 @@
     "pg": "^8.16.0",
     "pdfjs-dist": "4.10.38",
     "turndown": "^7.1.2",
-    "xlsx": "0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod-openapi": "^4.2.4"
   },
   "packageManager": "bun@1.2.16",
