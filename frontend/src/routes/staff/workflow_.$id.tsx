@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useCallback, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { RouteTransition } from "@comp/page-transition";
+import i18nBase, { useTranslation } from "i18n";
 import WorkflowEditor from "@comp/react-flow/workflow";
 import { useWorkflowStore } from "@store/workflow";
 import { useWorkflowTestChatStore } from "@store/workflow-test-chat";
@@ -75,13 +76,17 @@ function clearWorkflowTestEnv(workflowId: string) {
 
 export const Route = createFileRoute("/staff/workflow_/$id")({
   head: ({ params }) => ({
-    meta: [{ title: `工作流 #${params.id} | Tentix` }],
+    meta: [{ title: i18nBase.t("workflow_page_title", { id: params.id }) }],
   }),
   component: RouteComponent,
 });
 
 function RouteComponent() {
   const { id } = Route.useParams();
+  const { t } = useTranslation();
+  useEffect(() => {
+    document.title = t("workflow_page_title", { id });
+  }, [id, t]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isSaved = useWorkflowStore((s) => s.isSaved);
@@ -108,8 +113,8 @@ function RouteComponent() {
 
     if (!zone || !namespace) {
       toast({
-        title: "请填写 zone 和 namespace",
-        description: "这两个参数仅在“对话测试”中给 MCP 节点使用",
+        title: t("workflow_test_env_required"),
+        description: t("workflow_test_env_description"),
         variant: "destructive",
       });
       return;
@@ -117,55 +122,54 @@ function RouteComponent() {
 
     writeWorkflowTestEnv(id, { zone, namespace });
     toast({
-      title: "已保存",
-      description: "仅对对话测试生效（需要重新打开对话测试/重新连接后生效）",
+      title: t("workflow_test_env_saved"),
+      description: t("workflow_test_env_saved_description"),
     });
     setTestSettingsOpen(false);
-  }, [id, testZone, testNamespace, toast]);
+  }, [id, testZone, testNamespace, toast, t]);
 
   const handleClearTestSettings = useCallback(() => {
     clearWorkflowTestEnv(id);
     setTestZone("");
     setTestNamespace("");
     toast({
-      title: "已清空",
-      description: "已清空对话测试的 zone/namespace；之后对话测试将不再传参",
+      title: t("workflow_test_env_cleared"),
+      description: t("workflow_test_env_cleared_description"),
     });
-  }, [id, toast]);
+  }, [id, toast, t]);
 
   const nodeItems = useMemo(
     () => [
-      { id: NodeType.START, label: "开始", desc: "入口节点", icon: Play },
-      { id: NodeType.MCP, label: "MCP", desc: "写入 variables.mcp（stub）", 
-        icon: Bot },
+      { id: NodeType.START, label: t("rf.nodeType.start"), desc: t("workflow_node_start_description"), icon: Play },
+      { id: NodeType.MCP, label: "MCP", desc: t("workflow_node_mcp_description"), icon: Bot },
       {
         id: NodeType.SMART_CHAT,
-        label: "智能聊天",
-        desc: "AI 对话",
+        label: t("rf.nodeType.smartChat"),
+        desc: t("workflow_node_smart_chat_description"),
         icon: Bot,
       },
       {
         id: NodeType.RAG,
-        label: "检索增强生成",
-        desc: "RAG 检索",
+        label: t("rf.nodeType.rag"),
+        desc: t("workflow_node_rag_description"),
         icon: Database,
       },
       {
         id: NodeType.EMOTION_DETECTOR,
-        label: "情绪检测",
-        desc: "识别情绪",
+        label: t("rf.nodeType.emotionDetector"),
+        desc: t("workflow_node_emotion_description"),
         icon: Heart,
       },
       {
         id: NodeType.ESCALATION_OFFER,
-        label: "升级询问",
-        desc: "是否升级",
+        label: t("rf.nodeType.escalationOffer"),
+        desc: t("workflow_node_escalation_description"),
         icon: HelpCircle,
       },
-      { id: NodeType.HANDOFF, label: "转人工", desc: "人工接管", icon: Users },
-      { id: NodeType.END, label: "结束", desc: "终点", icon: Square },
+      { id: NodeType.HANDOFF, label: t("rf.nodeType.handoff"), desc: t("workflow_node_handoff_description"), icon: Users },
+      { id: NodeType.END, label: t("rf.nodeType.end"), desc: t("workflow_node_end_description"), icon: Square },
     ],
-    [],
+    [t],
   );
 
   const handleDragStart = useCallback((e: React.DragEvent, type: NodeType) => {
@@ -198,11 +202,11 @@ function RouteComponent() {
       // 保存成功后，标记为已保存并使查询失效
       setIsSaved(true);
       queryClient.invalidateQueries({ queryKey: ["admin-workflow", id] });
-      toast({ title: "工作流保存成功" });
+      toast({ title: t("workflow_save_success") });
     },
     onError: (error) => {
       console.error("Failed to save workflow:", error);
-      toast({ title: "工作流保存失败，请重试", variant: "destructive" });
+      toast({ title: t("workflow_save_failed"), variant: "destructive" });
     },
   });
 
@@ -258,7 +262,7 @@ function RouteComponent() {
       <div className="flex h-screen w-full items-center justify-center">
         <div className="text-center space-y-3">
           <div className="text-sm text-destructive">
-            {error instanceof Error ? error.message : "加载失败"}
+            {error instanceof Error ? error.message : t("workflow_load_failed")}
           </div>
           <Button
             variant="outline"
@@ -266,7 +270,7 @@ function RouteComponent() {
               navigate({ to: "/staff/ai", search: { tab: "workflow" } })
             }
           >
-            返回
+            {t("workflow_back")}
           </Button>
         </div>
       </div>
@@ -293,7 +297,7 @@ function RouteComponent() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
-                返回
+                {t("workflow_back")}
               </TooltipContent>
             </Tooltip>
 
@@ -311,7 +315,7 @@ function RouteComponent() {
                   </PopoverTrigger>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
-                  添加节点
+                  {t("workflow_add_node")}
                 </TooltipContent>
               </Tooltip>
               <PopoverContent
@@ -388,7 +392,7 @@ function RouteComponent() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={2}>
-                <p>对话测试</p>
+                <p>{t("workflow_test_chat")}</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -402,7 +406,7 @@ function RouteComponent() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={2}>
-                <p>设置</p>
+                <p>{t("workflow_settings")}</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -423,7 +427,7 @@ function RouteComponent() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={2}>
-                <p>保存</p>
+                <p>{t("workflow_save")}</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -443,12 +447,12 @@ function RouteComponent() {
       <Dialog open={testSettingsOpen} onOpenChange={setTestSettingsOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>对话测试设置</DialogTitle>
+            <DialogTitle>{t("workflow_test_settings_title")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="text-xs text-muted-foreground">
-              这里配置的 zone / namespace 仅在“对话测试”时传给 MCP 节点使用，不影响任何线上服务。
+              {t("workflow_test_settings_description")}
             </div>
 
             <div className="space-y-2">
@@ -456,7 +460,7 @@ function RouteComponent() {
               <Input
                 value={testZone}
                 onChange={(e) => setTestZone(e.target.value)}
-                placeholder="例如：cn-shanghai"
+                placeholder={t("workflow_test_zone_placeholder")}
               />
             </div>
 
@@ -465,7 +469,7 @@ function RouteComponent() {
               <Input
                 value={testNamespace}
                 onChange={(e) => setTestNamespace(e.target.value)}
-                placeholder="例如：ns-xxxxxx"
+                placeholder={t("workflow_test_namespace_placeholder")}
               />
             </div>
 
@@ -474,12 +478,12 @@ function RouteComponent() {
                 variant="outline"
                 onClick={() => setTestSettingsOpen(false)}
               >
-                取消
+                {t("cancel")}
               </Button>
               <Button variant="outline" onClick={handleClearTestSettings}>
-                清空
+                {t("workflow_test_settings_clear")}
               </Button>
-              <Button onClick={handleSaveTestSettings}>保存</Button>
+              <Button onClick={handleSaveTestSettings}>{t("workflow_save")}</Button>
             </div>
           </div>
         </DialogContent>

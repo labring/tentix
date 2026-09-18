@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ticketModulesConfigQueryOptions, appConfigQueryOptions } from "@lib/query";
 import { useAppConfigStore } from "@store/app-config";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "i18n";
 
 // TODO: 如何处理多种 oauth 登录方式
 export const Route = createFileRoute("/staff")({
@@ -119,6 +120,7 @@ export const Route = createFileRoute("/staff")({
 });
 
 function StaffLayout() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const setTicketModules = useAppConfigStore((state) => state.setTicketModules);
   const setForumUrl = useAppConfigStore((state) => state.setForumUrl);
@@ -159,7 +161,7 @@ function StaffLayout() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">正在验证身份...</p>
+          <p className="text-gray-600">{t("staff_identity_verifying")}</p>
         </div>
       </div>
     );

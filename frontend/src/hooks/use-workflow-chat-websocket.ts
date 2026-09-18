@@ -7,6 +7,7 @@ import {
 import { useWorkflowTestChatStore } from "../store/workflow-test-chat";
 import { useToast } from "tentix-ui";
 import useLocalUser from "./use-local-user";
+import i18nBase from "i18n";
 
 // 常量定义
 const MESSAGE_TIMEOUT = 5000; // 5秒消息发送超时
@@ -112,12 +113,12 @@ export const useWorkflowChatWebSocket = ({
     (message: workflowTestChatClientType) => {
       const ws = wsRef.current;
       if (!ws) {
-        showError("WebSocket 不存在", "请重新连接");
+        showError(i18nBase.t("workflow_ws_missing"), i18nBase.t("workflow_ws_reconnect"));
         return false;
       }
 
       if (ws.readyState !== WebSocket.OPEN) {
-        showError("WebSocket 连接未就绪", "请稍后再试");
+        showError(i18nBase.t("workflow_ws_not_ready"), i18nBase.t("workflow_ws_retry_later"));
         return false;
       }
 
@@ -126,8 +127,8 @@ export const useWorkflowChatWebSocket = ({
         return true;
       } catch (error) {
         showError(
-          "消息发送失败",
-          error instanceof Error ? error.message : "未知错误",
+          i18nBase.t("workflow_message_send_failed"),
+          error instanceof Error ? error.message : i18nBase.t("workflow_unknown_error"),
         );
         console.error("WebSocket message error:", error);
         return false;
@@ -167,7 +168,7 @@ export const useWorkflowChatWebSocket = ({
         console.warn(
           `消息 ticket 不匹配: 收到 ${data.ticketId}, 当前 ${currentTicketId}`,
         );
-        showError("消息错误", `收到的消息属于不同的 ticket: ${data.ticketId}`);
+        showError(i18nBase.t("workflow_message_error"), i18nBase.t("workflow_message_wrong_ticket", { ticketId: data.ticketId }));
         return;
       }
 
@@ -190,7 +191,7 @@ export const useWorkflowChatWebSocket = ({
   // 消息处理:信息提示
   const handleInfo = useCallback(
     (message: string) => {
-      toast({ title: "WebSocket 信息", description: message });
+      toast({ title: i18nBase.t("workflow_info"), description: message });
     },
     [toast],
   );
@@ -247,8 +248,8 @@ export const useWorkflowChatWebSocket = ({
       } catch (error) {
         console.error("消息处理错误:", error);
         showError(
-          "消息处理失败",
-          error instanceof Error ? error.message : "未知错误",
+          i18nBase.t("workflow_message_handle_failed"),
+          error instanceof Error ? error.message : i18nBase.t("workflow_unknown_error"),
         );
       }
     },
@@ -268,20 +269,20 @@ export const useWorkflowChatWebSocket = ({
     // 验证必需参数
     if (!currentTicketId) {
       console.error("无法连接: 缺少 ticketId");
-      showError("无法连接", "请选择一个测试 ticket");
+      showError(i18nBase.t("workflow_connect_failed"), i18nBase.t("workflow_select_test_ticket"));
       return;
     }
 
     if (!currentWorkflowId) {
       console.error("无法连接: 缺少 workflowId");
-      showError("无法连接", "需要 Workflow ID");
+      showError(i18nBase.t("workflow_connect_failed"), i18nBase.t("workflow_id_required"));
       return;
     }
 
     const token = localStorage.getItem("token");
     if (!token) {
       console.error("无法连接: 缺少 token");
-      showError("无法连接", "请先登录");
+      showError(i18nBase.t("workflow_connect_failed"), i18nBase.t("workflow_login_required"));
       return;
     }
 
@@ -307,15 +308,15 @@ export const useWorkflowChatWebSocket = ({
 
     ws.onclose = () => {
       resetState();
-      clearPendingMessages("连接已断开");
+      clearPendingMessages(i18nBase.t("websocket_connection_lost"));
     };
 
     ws.onerror = (event) => {
       console.error("WebSocket 连接错误:", event);
       resetState();
-      clearPendingMessages("WebSocket 连接错误");
+      clearPendingMessages(i18nBase.t("workflow_connection_error"));
       // Don't bubble raw Event into UI (it will crash if rendered).
-      if (onError) onError("WebSocket 连接失败，请检查网络/代理/端口转发");
+      if (onError) onError(i18nBase.t("workflow_connection_failed_detail"));
     };
   }, [
     currentTicketId,
@@ -347,7 +348,7 @@ export const useWorkflowChatWebSocket = ({
 
     wsRef.current = null;
     resetState();
-    clearPendingMessages("连接已关闭");
+    clearPendingMessages(i18nBase.t("websocket_connection_closed"));
   }, [resetState, clearPendingMessages]);
 
   // 发送消息
@@ -356,12 +357,12 @@ export const useWorkflowChatWebSocket = ({
       return new Promise((resolve, reject) => {
         // 验证前置条件
         if (!currentTicketId || !userId) {
-          reject(new Error("没有选择 test ticket"));
+          reject(new Error(i18nBase.t("workflow_no_test_ticket")));
           return;
         }
 
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-          reject(new Error("WebSocket 连接未就绪"));
+          reject(new Error(i18nBase.t("workflow_ws_not_ready")));
           return;
         }
 
@@ -369,7 +370,7 @@ export const useWorkflowChatWebSocket = ({
         const timeoutId = setTimeout(() => {
           pendingMessages.current.delete(tempId);
           setAiTyping(false);
-          reject(new Error("发送超时,请重试"));
+          reject(new Error(i18nBase.t("workflow_send_timeout")));
         }, MESSAGE_TIMEOUT);
 
         // 存储待处理消息
@@ -399,7 +400,7 @@ export const useWorkflowChatWebSocket = ({
           // 发送失败,清理
           clearTimeout(timeoutId);
           pendingMessages.current.delete(tempId);
-          reject(new Error("消息发送失败"));
+          reject(new Error(i18nBase.t("workflow_message_send_failed")));
         }
       });
     },

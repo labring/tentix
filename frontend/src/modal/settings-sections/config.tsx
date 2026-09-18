@@ -47,8 +47,8 @@ export const sectionsConfig: SectionConfig[] = [
   },
   {
     id: "userManagement",
-    getSidebarLabel: () => "用户管理",
-    getBreadcrumbLabel: () => "用户管理",
+    getSidebarLabel: (t) => t("user_management"),
+    getBreadcrumbLabel: (t) => t("user_management"),
     isVisible: (userInfo) => !["customer", "ai"].includes(userInfo.role),
     render: () => <UserManagementSection />,
   },
