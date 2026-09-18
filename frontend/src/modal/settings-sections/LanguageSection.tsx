@@ -19,10 +19,7 @@ export function LanguageSection() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h2 className="text-base font-medium text-zinc-900">
-          {t("language")}
-        </h2>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="text-sm text-zinc-500">
           {t("language_settings_description")}
         </p>
       </div>
@@ -34,12 +31,14 @@ export function LanguageSection() {
             setLanguagePreference(value);
           }
         }}
-        className="gap-3"
+        className="gap-2"
       >
         {languageOptions.map((option) => (
           <div
             key={option.value}
-            className="flex items-start gap-3 rounded-lg border p-4"
+            className={`flex items-start gap-3 rounded-md border p-3 ${
+              languagePreference === option.value ? "border-primary" : ""
+            }`}
           >
             <RadioGroupItem
               id={`language-${option.value}`}
@@ -48,13 +47,13 @@ export function LanguageSection() {
             />
             <Label
               htmlFor={`language-${option.value}`}
-              className="flex flex-1 cursor-pointer flex-col gap-1"
+              className="flex flex-1 cursor-pointer flex-col items-start gap-1"
             >
               <span className="text-sm font-medium text-zinc-900">
                 {t(option.labelKey)}
               </span>
               {option.descriptionKey && (
-                <span className="text-sm text-zinc-500">
+                <span className="text-xs leading-normal text-zinc-500">
                   {t(option.descriptionKey)}
                 </span>
               )}
