@@ -13,6 +13,7 @@ import { StaffRightSidebar } from "@comp/staff/staff-right-sidebar";
 import { StaffChat } from "@comp/chat/staff/index";
 import { StaffSidebar } from "@comp/staff/sidebar";
 import { RouteTransition } from "@comp/page-transition";
+import i18nBase, { useTranslation } from "i18n";
 
 export const Route = createFileRoute("/staff/tickets/$id")({
   loader: async ({ params, context: { queryClient, authContext } }) => {
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/staff/tickets/$id")({
   head: ({ params }) => ({
     meta: [
       {
-        title: `工单#${params.id} | Tentix`,
+        title: i18nBase.t("ticket_page_title", { id: params.id }),
       },
     ],
   }),
@@ -42,12 +43,17 @@ export const Route = createFileRoute("/staff/tickets/$id")({
 });
 
 function RouteComponent() {
+  const { t } = useTranslation();
   const { token: wsToken } = Route.useLoaderData();
   const { id: ticketId } = Route.useParams();
   const { setTicket } = useTicketStore();
   const { setSessionMembers } = useSessionMembersStore();
   const { setCurrentTicketId, clearMessages } = useChatStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    document.title = t("ticket_page_title", { id: ticketId });
+  }, [ticketId, t]);
 
   // 在组件中获取当前 ticket 数据，这样可以响应 invalidateQueries
   // enabled 确保只有在 wsToken 存在时才发起请求 （wsToken 存在时，说明已经认证）, 防止飞书认证时 api-client.ts 401 错误触发全局重定向
@@ -94,7 +100,7 @@ function RouteComponent() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">正在验证身份...</p>
+          <p className="text-gray-600">{t("staff_identity_verifying")}</p>
         </div>
       </div>
     );
