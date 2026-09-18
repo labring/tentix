@@ -18,6 +18,7 @@ import go from "highlight.js/lib/languages/go";
 import bash from "highlight.js/lib/languages/bash";
 import sql from "highlight.js/lib/languages/sql";
 import json from "highlight.js/lib/languages/json";
+import { useTranslation } from "i18n";
 
 hljs.registerLanguage("javascript", javascript);
 hljs.registerLanguage("typescript", typescript);
@@ -77,6 +78,7 @@ export const RenderContent = ({
 }: {
   content: JSONContent;
 }): ReactNode => {
+  const { t } = useTranslation();
   if (!content) return null;
 
   if (content.type === "doc") {
@@ -318,8 +320,8 @@ export const RenderContent = ({
             download={fileName}
             target="_blank"
             rel="noreferrer"
-            aria-label={`下载 ${fileName}`}
-            title={`下载 ${fileName}`}
+            aria-label={t("chat_download_file", { fileName })}
+            title={t("chat_download_file", { fileName })}
           >
             <DownloadIcon className="size-4" />
           </a>

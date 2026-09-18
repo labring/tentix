@@ -38,6 +38,7 @@ import {
 import { useToast } from "uisrc/hooks/use-toast.ts";
 import { useEffect, useMemo, useRef, useCallback } from "react";
 import { useThrottle } from "./use-throttle.ts";
+import { type TFunction, useTranslation } from "i18n";
 
 export interface UseMinimalTiptapEditorProps extends UseEditorOptions {
   value?: Content;
@@ -59,24 +60,26 @@ type FileUploadErrorReason =
   | "invalidBase64"
   | "base64NotAllowed";
 
-const fileUploadErrorMapping: Record<FileUploadErrorReason, string> = {
-  type: "文件类型不允许！",
-  size: "文件太大！",
-  invalidBase64: "文件不是图片！",
-  base64NotAllowed: "文件不是图片！",
-} as const;
+const fileUploadErrorMapping = (
+  t: TFunction,
+): Record<FileUploadErrorReason, string> => ({
+  type: t("attachment_file_type_invalid"),
+  size: t("attachment_file_too_large"),
+  invalidBase64: t("attachment_file_not_image"),
+  base64NotAllowed: t("attachment_file_not_image"),
+});
 
-const getFileUploadErrorMessage = (error: FileError): string => {
+const getFileUploadErrorMessage = (error: FileError, t: TFunction): string => {
   if (error.file instanceof File && error.file.type.startsWith("video/")) {
     if (error.reason === "size") {
       const sizeInMb = Math.ceil(error.file.size / (1024 * 1024));
-      return `视频大小为 ${sizeInMb} MB，超过 50 MB 上限，请压缩后重试`;
+      return t("attachment_video_too_large", { size: sizeInMb });
     }
     if (error.reason === "type") {
-      return "仅支持 MP4 视频文件";
+      return t("attachment_video_type_invalid");
     }
   }
-  return fileUploadErrorMapping[error.reason];
+  return fileUploadErrorMapping(t)[error.reason];
 };
 
 const mergePastedContentWithLocalMedia = (
@@ -111,6 +114,7 @@ const mergePastedContentWithLocalMedia = (
 const createExtensions = (
   placeholder: string,
   toast: (...args: any[]) => void,
+  t: TFunction,
 ) => [
   StarterKit.configure({
     horizontalRule: false,
@@ -139,9 +143,9 @@ const createExtensions = (
     maxFileSize: 5 * 1024 * 1024,
     onValidationError(errors) {
       toast({
-        title: "图片验证错误",
+        title: t("attachment_image_validation_error"),
         description: errors
-          .map(getFileUploadErrorMessage)
+          .map((error) => getFileUploadErrorMessage(error, t))
           .join(", "),
         variant: "destructive",
       });
@@ -152,8 +156,8 @@ const createExtensions = (
     maxFileSize: VIDEO_MAX_SIZE,
     onValidationError(errors) {
       toast({
-        title: "视频验证错误",
-        description: errors.map(getFileUploadErrorMessage).join(", "),
+        title: t("attachment_video_validation_error"),
+        description: errors.map((error) => getFileUploadErrorMessage(error, t)).join(", "),
         variant: "destructive",
       });
     },
@@ -162,12 +166,12 @@ const createExtensions = (
     allowedMimeTypes: [...ATTACHMENT_MIME_TYPES],
     maxFileSize: getAttachmentMaxSize,
     onValidationError: (errors) => toast({
-      title: "文件验证错误",
-      description: errors.map(getFileUploadErrorMessage).join(", "),
+      title: t("attachment_file_validation_error"),
+      description: errors.map((error) => getFileUploadErrorMessage(error, t)).join(", "),
       variant: "destructive",
     }),
     onLimitError: (message) => toast({
-      title: "附件数量或大小超限",
+      title: t("attachment_limit_error"),
       description: message,
       variant: "destructive",
     }),
@@ -274,9 +278,9 @@ const createExtensions = (
     },
     onValidationError: (errors) => {
       toast({
-        title: "文件验证错误",
+        title: t("attachment_file_validation_error"),
         description: errors
-          .map(getFileUploadErrorMessage)
+          .map((error) => getFileUploadErrorMessage(error, t))
           .join(", "),
         variant: "destructive",
       });
@@ -307,6 +311,7 @@ export const useMinimalTiptapEditor = ({
   ...props
 }: UseMinimalTiptapEditorProps) => {
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // 🎯 使用 useRef 避免闭包问题
   const onUpdateRef = useRef(onUpdate);
@@ -368,7 +373,7 @@ export const useMinimalTiptapEditor = ({
     };
 
     const baseConfig: UseEditorOptions = {
-      extensions: createExtensions(placeholder, toast),
+      extensions: createExtensions(placeholder, toast, t),
       editorProps: mergedEditorProps, // 🔥 使用合并后的 editorProps
       onUpdate: ({ editor }: { editor: Editor }) => handleUpdate(editor),
       onCreate: ({ editor }: { editor: Editor }) => handleCreate(editor),
@@ -395,6 +400,7 @@ export const useMinimalTiptapEditor = ({
   }, [
     placeholder,
     toast,
+    t,
     enablePerformanceMode,
     isSSR,
     editorClassName,
