@@ -1,6 +1,7 @@
 import { initClient } from "tentix-server/rpc";
 import ky from "ky";
 import { waitForSealosAuthReady } from "../_provider/sealos";
+import { getRequestLanguage } from "./language";
 
 // const baseUrl = import.meta.env.DEV
 //   ? "http://localhost:3000"
@@ -12,6 +13,7 @@ export const myFetch = ky.extend({
       async (request) => {
         await waitForSealosAuthReady(request.url);
         // dynamic get token, ensure the latest token is used for each request
+        request.headers.set("Accept-Language", getRequestLanguage());
         const token = window.localStorage.getItem("token");
         if (token) {
           request.headers.set("Authorization", `Bearer ${token}`);

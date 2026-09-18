@@ -432,6 +432,13 @@ export const translations = {
       no_agents_configured: "No agents configured",
       // Settings modal & Feishu binding
       settings: "Settings",
+      language: "Language",
+      language_settings_description: "Choose the language used by Tentix.",
+      language_follow_sealos: "Follow Sealos",
+      language_follow_sealos_description:
+        "Use Sealos when it provides a language; otherwise use your browser language.",
+      language_chinese: "Chinese",
+      language_english: "English",
       account_binding: "Account Binding",
       account_binding_manage: "Account Binding Management",
       change_avatar: "Change avatar",
@@ -1085,6 +1092,13 @@ export const translations = {
       no_agents_configured: "系统未配置客服人员",
       // Settings modal & Feishu binding
       settings: "设置",
+      language: "语言",
+      language_settings_description: "选择 Tentix 使用的语言。",
+      language_follow_sealos: "跟随 Sealos",
+      language_follow_sealos_description:
+        "Sealos 提供语言时跟随 Sealos；未提供时使用浏览器语言。",
+      language_chinese: "中文",
+      language_english: "English",
       account_binding: "账户绑定",
       account_binding_manage: "账户绑定管理",
       change_avatar: "更换头像",
