@@ -439,6 +439,8 @@ export const translations = {
         "Use Sealos when it provides a language; otherwise use your browser language.",
       language_chinese: "Chinese",
       language_english: "English",
+      language_manual_hint:
+        "Manually selected. It will not follow Sealos.",
       account_binding: "Account Binding",
       account_binding_manage: "Account Binding Management",
       change_avatar: "Change avatar",
@@ -1099,6 +1101,7 @@ export const translations = {
         "Sealos 提供语言时跟随 Sealos；未提供时使用浏览器语言。",
       language_chinese: "中文",
       language_english: "English",
+      language_manual_hint: "手动选择的语言，不随 Sealos 变化。",
       account_binding: "账户绑定",
       account_binding_manage: "账户绑定管理",
       change_avatar: "更换头像",
