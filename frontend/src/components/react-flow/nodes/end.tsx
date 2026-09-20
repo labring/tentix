@@ -12,6 +12,7 @@ import { useWorkflowStore } from "@store/workflow";
 
 import { WorkflowHandle } from "@comp/react-flow/ui/workflow-handle";
 import type { HandleConfig } from "tentix-server/types/utils/const.d";
+import { useTranslation } from "i18n";
 type EndNodeData = {
   name: string;
   handles?: HandleConfig[];
@@ -19,6 +20,7 @@ type EndNodeData = {
 };
 
 const EndNode: React.FC<NodeProps<Node<EndNodeData>>> = ({ id, data }) => {
+  const { t } = useTranslation();
   const removeNode = useWorkflowStore((s) => s.removeNode);
 
   const handleDelete = useCallback(
@@ -36,7 +38,7 @@ const EndNode: React.FC<NodeProps<Node<EndNodeData>>> = ({ id, data }) => {
           <BaseNodeHeaderTitle className="flex items-center justify-between text-sm font-medium">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-              结束节点
+              {t("rf.canvas.end_title")}
             </div>
             <button
               onClick={handleDelete}
@@ -49,11 +51,15 @@ const EndNode: React.FC<NodeProps<Node<EndNodeData>>> = ({ id, data }) => {
         <BaseNodeContent className="p-3 bg-white">
           <div className="text-sm flex flex-col gap-y-2 text-zinc-700">
             <p>
-              <span className="font-medium text-zinc-800">名称:</span>{" "}
+              <span className="font-medium text-zinc-800">
+                {t("rf.canvas.name_label")}
+              </span>{" "}
               <span className="text-zinc-600">{data.name}</span>
             </p>
             <p>
-              <span className="font-medium text-zinc-800">描述:</span>{" "}
+              <span className="font-medium text-zinc-800">
+                {t("rf.canvas.description_label")}
+              </span>{" "}
               <span className="text-zinc-600">{data.description}</span>
             </p>
           </div>

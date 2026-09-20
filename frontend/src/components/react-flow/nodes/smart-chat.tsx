@@ -26,6 +26,7 @@ import {
   ScrollBar,
 } from "tentix-ui";
 import { WorkflowTextarea } from "@comp/react-flow/components/workflow-textarea";
+import { useTranslation } from "i18n";
 type SmartChatNodeData = SmartChatConfig["config"] & {
   name: string;
   handles?: HandleConfig[];
@@ -36,6 +37,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
   id,
   data,
 }) => {
+  const { t } = useTranslation();
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const updateNode = useWorkflowStore((s) => s.updateNode);
 
@@ -112,7 +114,7 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
           <BaseNodeHeaderTitle className="flex items-center justify-between text-sm font-medium">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              智能聊天
+              {t("rf.nodeType.smartChat")}
             </div>
             <button
               onClick={handleDelete}
@@ -131,7 +133,9 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
 
               <div className="space-y-3 text-sm">
                 <div className="space-y-2">
-                  <div className="font-medium text-foreground">对话设置</div>
+                  <div className="font-medium text-foreground">
+                    {t("rf.panel.conversation_settings")}
+                  </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">System Prompt</Label>
                     <WorkflowTextarea
@@ -194,7 +198,9 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                 <Separator className="my-1" />
 
                 <div className="flex items-center justify-between">
-                  <div className="font-medium text-foreground">启用视觉</div>
+                  <div className="font-medium text-foreground">
+                    {t("rf.smartChat.enable_vision")}
+                  </div>
                   <Switch
                     className="nodrag"
                     checked={!!safeData.enableVision}
@@ -204,7 +210,9 @@ const SmartChat: React.FC<NodeProps<Node<SmartChatNodeData>>> = ({
                 {safeData.enableVision ? (
                   <div className="rounded-md border p-2 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="text-foreground">包含工单描述图片</div>
+                      <div className="text-foreground">
+                        {t("rf.smartChat.include_ticket_image")}
+                      </div>
                       <Switch
                         className="nodrag"
                         checked={

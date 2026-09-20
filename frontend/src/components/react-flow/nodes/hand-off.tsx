@@ -20,6 +20,7 @@ import {
 import { Label, Separator, ScrollArea, ScrollBar } from "tentix-ui";
 import { CommonCombobox } from "@comp/common/combobox";
 import { WorkflowTextarea } from "@comp/react-flow/components/workflow-textarea";
+import { useTranslation } from "i18n";
 
 type HandoffNodeData = HandoffConfig["config"] & {
   name: string;
@@ -33,18 +34,38 @@ type NotifyOption = {
   description?: string;
 };
 
-const NOTIFY_OPTIONS: NotifyOption[] = [
-  { id: "feishu", label: "飞书", description: "通过飞书发送通知" },
-  { id: "email", label: "邮箱", description: "通过邮件发送通知" },
-  { id: "wechat", label: "企业微信", description: "通过企业微信发送通知" },
-  { id: "sms", label: "短信", description: "通过短信发送通知" },
-];
-
 const HandOff: React.FC<NodeProps<Node<HandoffNodeData>>> = ({ id, data }) => {
+  const { t } = useTranslation();
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const updateNode = useWorkflowStore((s) => s.updateNode);
 
   const safeData = useMemo(() => data || ({} as HandoffNodeData), [data]);
+
+  const notifyOptions = useMemo<NotifyOption[]>(
+    () => [
+      {
+        id: "feishu",
+        label: t("rf.handoff.channel_lark"),
+        description: t("rf.handoff.channel_lark_desc"),
+      },
+      {
+        id: "email",
+        label: t("rf.handoff.channel_email"),
+        description: t("rf.handoff.channel_email_desc"),
+      },
+      {
+        id: "wechat",
+        label: t("rf.handoff.channel_wecom"),
+        description: t("rf.handoff.channel_wecom_desc"),
+      },
+      {
+        id: "sms",
+        label: t("rf.handoff.channel_sms"),
+        description: t("rf.handoff.channel_sms_desc"),
+      },
+    ],
+    [t],
+  );
 
   const patchConfig = useCallback(
     (patch: Partial<HandoffConfig["config"]>) => {
@@ -79,7 +100,7 @@ const HandOff: React.FC<NodeProps<Node<HandoffNodeData>>> = ({ id, data }) => {
           <BaseNodeHeaderTitle className="flex items-center justify-between text-sm font-medium">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-zinc-500 rounded-full animate-pulse"></div>
-              转人工
+              {t("rf.nodeType.handoff")}
             </div>
             <button
               onClick={handleDelete}
@@ -98,14 +119,18 @@ const HandOff: React.FC<NodeProps<Node<HandoffNodeData>>> = ({ id, data }) => {
 
               <div className="space-y-3 text-sm">
                 <div className="grid gap-1">
-                  <Label className="text-xs">消息模板</Label>
+                  <Label className="text-xs">
+                    {t("rf.handoff.message_template")}
+                  </Label>
                   <WorkflowTextarea
                     className="min-h-12"
                     value={safeData.messageTemplate || ""}
                     onChange={(value) =>
                       patchConfig({ messageTemplate: value })
                     }
-                    placeholder="输入消息模板..."
+                    placeholder={t(
+                      "rf.handoff.message_template_placeholder",
+                    )}
                     nodeId={id}
                   />
                 </div>
@@ -113,9 +138,11 @@ const HandOff: React.FC<NodeProps<Node<HandoffNodeData>>> = ({ id, data }) => {
                 <Separator className="my-1" />
 
                 <div className="grid gap-1">
-                  <Label className="text-xs">通知渠道</Label>
+                  <Label className="text-xs">
+                    {t("rf.handoff.channel")}
+                  </Label>
                   <CommonCombobox<NotifyOption>
-                    options={NOTIFY_OPTIONS}
+                    options={notifyOptions}
                     value={(safeData.notifyChannels as string) || null}
                     onChange={(v) =>
                       patchConfig({
@@ -123,7 +150,7 @@ const HandOff: React.FC<NodeProps<Node<HandoffNodeData>>> = ({ id, data }) => {
                           (v as HandoffNotifyChannel) || undefined,
                       })
                     }
-                    placeholder="请选择渠道"
+                    placeholder={t("rf.handoff.channel_placeholder")}
                     getOptionId={(o) => o.id}
                     getOptionLabel={(o) => o.label}
                     getOptionDescription={(o) => o.description}

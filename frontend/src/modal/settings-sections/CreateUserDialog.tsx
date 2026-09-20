@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,39 +26,41 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@lib/api-client";
 import { userRoleEnumArray } from "tentix-server/constants";
+import { type TFunction, useTranslation } from "i18n";
 import { JsonRecordEditor } from "../../components/common/JsonRecordEditor";
 
 // Form validation schema - matches backend createUserSchema
-const createUserFormSchema = z.object({
+const createUserFormSchema = (t: TFunction) =>
+  z.object({
   name: z
     .string()
     .trim()
-    .min(1, "用户名不能为空")
-    .min(3, "用户名至少3个字符")
-    .max(50, "用户名不能超过50个字符")
+    .min(1, t("username_required"))
+    .min(3, t("username_min"))
+    .max(50, t("username_max"))
     .regex(
       /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/,
-      "用户名只能包含字母、数字、下划线和中文字符",
+      t("username_pattern"),
     ),
   password: z
     .string()
-    .min(6, "密码至少6个字符")
-    .max(100, "密码不能超过100个字符"),
+    .min(6, t("password_min"))
+    .max(100, t("password_max")),
   realName: z
     .string()
     .trim()
-    .max(50, "真实姓名不能超过50个字符")
+    .max(50, t("real_name_max"))
     .optional(),
   phoneNum: z
     .string()
     .trim()
-    .regex(/^1[3-9]\d{9}$/, "手机号格式不正确")
+    .regex(/^1[3-9]\d{9}$/, t("phone_invalid"))
     .optional()
     .or(z.literal("")),
   nickname: z
     .string()
     .trim()
-    .max(30, "昵称不能超过30个字符")
+    .max(30, t("nickname_max"))
     .optional(),
   role: z
     .enum(userRoleEnumArray)
@@ -75,14 +77,14 @@ const createUserFormSchema = z.object({
   email: z
     .string()
     .trim()
-    .email("请输入有效的邮箱地址")
+    .email(t("email_invalid"))
     .optional()
     .or(z.literal("")),
   meta: z.record(z.any()).default({}),
 });
 
 // Use z.output to get the actual output type after defaults are applied
-type CreateUserFormData = z.output<typeof createUserFormSchema>;
+type CreateUserFormData = z.output<ReturnType<typeof createUserFormSchema>>;
 
 interface CreateUserDialogProps {
   children: React.ReactNode;
@@ -94,11 +96,13 @@ export function CreateUserDialog({
   onSuccess,
 }: CreateUserDialogProps) {
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<z.input<typeof createUserFormSchema>, unknown, CreateUserFormData>({
-    resolver: zodResolver(createUserFormSchema),
+  const schema = useMemo(() => createUserFormSchema(t), [t]);
+  const form = useForm<z.input<typeof schema>, unknown, CreateUserFormData>({
+    resolver: zodResolver(schema),
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
@@ -121,14 +125,14 @@ export function CreateUserDialog({
       });
       if (!res.ok) {
         const err = (await res.json()) as { message?: string };
-        throw new Error(err.message || "创建用户失败");
+        throw new Error(err.message || t("failed_create_user"));
       }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast({
-        title: "用户创建成功",
+        title: t("user_create_success"),
         variant: "default",
       });
       form.reset();
@@ -137,7 +141,7 @@ export function CreateUserDialog({
     },
     onError: (error: Error) => {
       toast({
-        title: "创建用户失败",
+        title: t("failed_create_user"),
         description: error.message,
         variant: "destructive",
       });
@@ -155,9 +159,9 @@ export function CreateUserDialog({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>创建新用户</DialogTitle>
+          <DialogTitle>{t("user_create_dialog_title")}</DialogTitle>
           <DialogDescription>
-            创建新的用户账号。标有 * 的字段为必填项。
+            {t("user_create_dialog_description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -166,13 +170,13 @@ export function CreateUserDialog({
             {/* 基本信息 */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-muted-foreground">
-                基本信息
+                {t("basic_info")}
               </h3>
 
               {/* 用户名 - 必填 */}
               <Field>
                 <FieldLabel>
-                  <span className="text-destructive">*</span> 用户名
+                  <span className="text-destructive">*</span> {t("username")}
                 </FieldLabel>
                 <Controller
                   control={form.control}
@@ -180,7 +184,7 @@ export function CreateUserDialog({
                   render={({ field, fieldState }) => (
                     <>
                       <Input
-                        placeholder="输入用户名"
+                        placeholder={t("user_create_name_placeholder")}
                         {...field}
                       />
                       <FieldError errors={fieldState.error ? [fieldState.error] : []} />
@@ -192,7 +196,7 @@ export function CreateUserDialog({
               {/* 密码 - 必填 */}
               <Field>
                 <FieldLabel>
-                  <span className="text-destructive">*</span> 密码
+                  <span className="text-destructive">*</span> {t("field_password")}
                 </FieldLabel>
                 <Controller
                   control={form.control}
@@ -201,7 +205,7 @@ export function CreateUserDialog({
                     <>
                       <Input
                         type="password"
-                        placeholder="输入密码（至少6位字符）"
+                        placeholder={t("user_create_password_placeholder")}
                         {...field}
                       />
                       <FieldError errors={fieldState.error ? [fieldState.error] : []} />
@@ -212,7 +216,7 @@ export function CreateUserDialog({
 
               {/* 角色 */}
               <Field>
-                <FieldLabel>角色</FieldLabel>
+                <FieldLabel>{t("role")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="role"
@@ -220,13 +224,13 @@ export function CreateUserDialog({
                     <>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <SelectTrigger>
-                          <SelectValue placeholder="选择用户角色" />
+                          <SelectValue placeholder={t("user_create_role_placeholder")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="customer">客户</SelectItem>
-                          <SelectItem value="agent">客服</SelectItem>
-                          <SelectItem value="technician">技术员</SelectItem>
-                          <SelectItem value="admin">管理员</SelectItem>
+                          <SelectItem value="customer">{t("user_role_customer")}</SelectItem>
+                          <SelectItem value="agent">{t("user_role_agent")}</SelectItem>
+                          <SelectItem value="technician">{t("user_role_technician")}</SelectItem>
+                          <SelectItem value="admin">{t("user_role_admin")}</SelectItem>
                           <SelectItem value="ai">AI</SelectItem>
                         </SelectContent>
                       </Select>
@@ -240,19 +244,19 @@ export function CreateUserDialog({
             {/* 详细信息 */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-muted-foreground">
-                详细信息
+                {t("user_create_section_details")}
               </h3>
 
               {/* 真实姓名 */}
               <Field>
-                <FieldLabel>真实姓名</FieldLabel>
+                <FieldLabel>{t("real_name")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="realName"
                   render={({ field, fieldState }) => (
                     <>
                       <Input
-                        placeholder="输入真实姓名"
+                        placeholder={t("user_create_real_name_placeholder")}
                         {...field}
                       />
                       <FieldError errors={fieldState.error ? [fieldState.error] : []} />
@@ -263,14 +267,14 @@ export function CreateUserDialog({
 
               {/* 昵称 */}
               <Field>
-                <FieldLabel>昵称</FieldLabel>
+                <FieldLabel>{t("user_nickname")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="nickname"
                   render={({ field, fieldState }) => (
                     <>
                       <Input
-                        placeholder="输入昵称"
+                        placeholder={t("user_create_nickname_placeholder")}
                         {...field}
                       />
                       <FieldError errors={fieldState.error ? [fieldState.error] : []} />
@@ -281,7 +285,7 @@ export function CreateUserDialog({
 
               {/* 邮箱 */}
               <Field>
-                <FieldLabel>邮箱</FieldLabel>
+                <FieldLabel>{t("email")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="email"
@@ -289,7 +293,7 @@ export function CreateUserDialog({
                     <>
                       <Input
                         type="email"
-                        placeholder="输入邮箱地址"
+                        placeholder={t("user_create_email_placeholder")}
                         {...field}
                       />
                       <FieldError errors={fieldState.error ? [fieldState.error] : []} />
@@ -300,14 +304,14 @@ export function CreateUserDialog({
 
               {/* 电话号码 */}
               <Field>
-                <FieldLabel>电话号码</FieldLabel>
+                <FieldLabel>{t("user_create_phone_label")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="phoneNum"
                   render={({ field, fieldState }) => (
                     <>
                       <Input
-                        placeholder="输入电话号码"
+                        placeholder={t("user_create_phone_placeholder")}
                         {...field}
                       />
                       <FieldError errors={fieldState.error ? [fieldState.error] : []} />
@@ -318,7 +322,7 @@ export function CreateUserDialog({
 
               {/* 级别 */}
               <Field>
-                <FieldLabel>级别</FieldLabel>
+                <FieldLabel>{t("user_level")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="level"
@@ -345,16 +349,12 @@ export function CreateUserDialog({
               name="meta"
               render={({ field, fieldState }) => (
                 <JsonRecordEditor
-                  label="Meta 数据"
-                  description="添加键值对来配置额外的用户数据"
+                  label={t("user_create_meta_label")}
+                  description={t("user_create_meta_description")}
                   value={field.value}
                   onChange={field.onChange}
                   error={fieldState.error}
-                  placeholder='输入 JSON 格式的数据，例如：
-{
-  "department": "技术部",
-  "customField": "自定义值"
-}'
+                  placeholder={t("user_create_meta_placeholder")}
                 />
               )}
             />
@@ -367,13 +367,13 @@ export function CreateUserDialog({
               onClick={() => setOpen(false)}
               disabled={isLoading}
             >
-              取消
+              {t("cancel")}
             </Button>
             <Button
               type="submit"
               disabled={isLoading}
             >
-              {isLoading ? "创建中..." : "创建用户"}
+              {isLoading ? t("user_creating") : t("user_create")}
             </Button>
           </DialogFooter>
         </form>

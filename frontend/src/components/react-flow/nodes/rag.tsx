@@ -26,6 +26,7 @@ import {
   ScrollBar,
 } from "tentix-ui";
 import { WorkflowTextarea } from "@comp/react-flow/components/workflow-textarea";
+import { useTranslation } from "i18n";
 
 type RagNodeData = RagConfig["config"] & {
   name: string;
@@ -34,6 +35,7 @@ type RagNodeData = RagConfig["config"] & {
 };
 
 const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
+  const { t } = useTranslation();
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const updateNode = useWorkflowStore((s) => s.updateNode);
 
@@ -118,7 +120,7 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
           <BaseNodeHeaderTitle className="flex items-center justify-between text-sm font-medium">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-              检索增强生成
+              {t("rf.nodeType.rag")}
             </div>
             <button
               onClick={handleDelete}
@@ -137,7 +139,9 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
 
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <div className="font-medium text-foreground">启用意图分析</div>
+                  <div className="font-medium text-foreground">
+                    {t("rf.rag.enable_intent_analysis")}
+                  </div>
                   <Switch
                     className="nodrag"
                     checked={!!safeData.enableIntentAnalysis}
@@ -152,7 +156,7 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                     <div className="space-y-2">
                       <div className="grid gap-1">
                         <Label className="text-xs">
-                          意图分析 System Prompt
+                          {t("rf.rag.intent_system_prompt")}
                         </Label>
                         <WorkflowTextarea
                           className="min-h-12"
@@ -169,7 +173,9 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                         />
                       </div>
                       <div className="grid gap-1">
-                        <Label className="text-xs">意图分析 User Prompt</Label>
+                        <Label className="text-xs">
+                          {t("rf.rag.intent_user_prompt")}
+                        </Label>
                         <WorkflowTextarea
                           className="min-h-12"
                           value={
@@ -186,7 +192,9 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                       </div>
 
                       <div className="grid gap-1">
-                        <Label className="text-xs">意图分析 LLM - Model</Label>
+                        <Label className="text-xs">
+                          {t("rf.rag.intent_llm_model")}
+                        </Label>
                         <Input
                           className="nodrag"
                           value={
@@ -202,7 +210,7 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                       </div>
                       <div className="grid gap-1">
                         <Label className="text-xs">
-                          意图分析 LLM - Base URL
+                          {t("rf.rag.intent_llm_base_url")}
                         </Label>
                         <Input
                           className="nodrag"
@@ -219,7 +227,7 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                       </div>
                       <div className="grid gap-1">
                         <Label className="text-xs">
-                          意图分析 LLM - API Key
+                          {t("rf.rag.intent_llm_api_key")}
                         </Label>
                         <Input
                           type="password"
@@ -242,10 +250,12 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                 <Separator className="my-1" />
 
                 <div className="space-y-2">
-                  <div className="font-medium text-foreground">生成检索语</div>
+                  <div className="font-medium text-foreground">
+                    {t("rf.rag.generate_query")}
+                  </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">
-                      生成检索语 System Prompt
+                      {t("rf.rag.query_system_prompt")}
                     </Label>
                     <WorkflowTextarea
                       className="min-h-12"
@@ -259,7 +269,9 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                     />
                   </div>
                   <div className="grid gap-1">
-                    <Label className="text-xs">生成检索语 User Prompt</Label>
+                    <Label className="text-xs">
+                      {t("rf.rag.query_user_prompt")}
+                    </Label>
                     <WorkflowTextarea
                       className="min-h-12"
                       value={safeData.generateSearchQueriesUserPrompt || ""}
@@ -273,7 +285,9 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                   </div>
 
                   <div className="grid gap-1">
-                    <Label className="text-xs">生成检索语 LLM - Model</Label>
+                    <Label className="text-xs">
+                      {t("rf.rag.query_llm_model")}
+                    </Label>
                     <Input
                       className="nodrag"
                       value={safeData.generateSearchQueriesLLM?.model || ""}
@@ -289,7 +303,7 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                   </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">
-                      生成检索语 LLM - Base URL
+                      {t("rf.rag.query_llm_base_url")}
                     </Label>
                     <Input
                       className="nodrag"
@@ -310,7 +324,9 @@ const Rag: React.FC<NodeProps<Node<RagNodeData>>> = ({ id, data }) => {
                     />
                   </div>
                   <div className="grid gap-1">
-                    <Label className="text-xs">生成检索语 LLM - API Key</Label>
+                    <Label className="text-xs">
+                      {t("rf.rag.query_llm_api_key")}
+                    </Label>
                     <Input
                       type="password"
                       className="nodrag"
