@@ -126,6 +126,7 @@ export const translations = {
       // Error and Not Found Pages
       error_title: "Error",
       error_message: "Sorry, something went wrong",
+      request_failed: "Request failed",
       not_found_title: "Not Found",
       not_found_message: "The page you're looking for doesn't exist",
       go_back: "Go back",
@@ -1041,6 +1042,7 @@ export const translations = {
       // Error and Not Found Pages
       error_title: "错误",
       error_message: "抱歉，出现了错误",
+      request_failed: "请求失败",
       not_found_title: "未找到",
       not_found_message: "您正在寻找的页面不存在",
       go_back: "返回",

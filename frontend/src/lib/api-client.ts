@@ -1,5 +1,6 @@
 import { initClient } from "tentix-server/rpc";
 import ky from "ky";
+import i18nBase from "i18n";
 import { waitForSealosAuthReady } from "../_provider/sealos";
 import { getRequestLanguage } from "./language";
 
@@ -63,10 +64,20 @@ export const myFetch = ky.extend({
           }
         };
         const data = (await parseError()) as Record<string, unknown> | undefined;
+        // Only text is displayable; a non-text payload (e.g. a validation error
+        // object) must fall back to a readable, localized message.
+        const asText = (value: unknown) =>
+          typeof value === "string" && value.trim() ? value : undefined;
+        const serverText =
+          asText(data?.message) ?? asText(data?.error) ?? asText(data?.msg);
+        const hasErrorDetail = [data?.message, data?.error, data?.msg].some(
+          (value) => value !== undefined && value !== null,
+        );
         const message =
-          (data &&
-            (String((data as any).message || (data as any).error || (data as any).msg))) ||
-          response.statusText;
+          serverText ??
+          (hasErrorDetail || !response.statusText
+            ? i18nBase.t("request_failed")
+            : response.statusText);
         throw {
           code: response.status,
           message,
