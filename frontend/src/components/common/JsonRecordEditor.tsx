@@ -11,6 +11,7 @@ import {
   Badge,
 } from "tentix-ui";
 import { CheckCircle2, XCircle, Wand2, Plus, X } from "lucide-react";
+import { useTranslation } from "i18n";
 
 /**
  * JsonRecordEditor - A generic JSON object editor component
@@ -55,10 +56,12 @@ export function JsonRecordEditor({
   value = {},
   onChange,
   error,
-  placeholder = '输入 JSON 格式的数据，例如：\n{\n  "key": "value"\n}',
+  placeholder,
   rows = 8,
   showPreview = true,
 }: JsonRecordEditorProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t("json_editor_placeholder");
   const [mode, setMode] = useState<"simple" | "json">("simple");
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -87,7 +90,7 @@ export function JsonRecordEditor({
         setJsonError(null);
         onChange(parsed);
       } else {
-        setJsonError("必须是对象格式");
+        setJsonError(t("json_editor_must_be_object"));
       }
     } catch (e) {
       setJsonError((e as Error).message);
@@ -100,7 +103,7 @@ export function JsonRecordEditor({
       setJsonText(JSON.stringify(parsed, null, 2));
       setJsonError(null);
     } catch {
-      setJsonError("JSON 格式错误");
+      setJsonError(t("json_editor_invalid"));
     }
   };
 
@@ -182,7 +185,7 @@ export function JsonRecordEditor({
               onClick={() => handleModeSwitch("simple")}
               className="h-7 text-xs"
             >
-              键值对
+              {t("json_editor_mode_pairs")}
             </Button>
             <Button
               type="button"
@@ -199,9 +202,10 @@ export function JsonRecordEditor({
 
       {description && (
         <FieldDescription>
-          {description || (mode === "simple"
-            ? "添加键值对来配置数据"
-            : "输入 JSON 格式的数据")}
+          {description ||
+            (mode === "simple"
+              ? t("json_editor_description_pairs")
+              : t("json_editor_description_json"))}
         </FieldDescription>
       )}
 
@@ -210,13 +214,13 @@ export function JsonRecordEditor({
           {keyValuePairs.map((pair, index) => (
             <div key={index} className="flex gap-2">
               <Input
-                placeholder="键名"
+                placeholder={t("json_editor_key_placeholder")}
                 value={pair.key}
                 onChange={(e) => handleKeyChange(index, e.target.value)}
                 className="flex-1"
               />
               <Input
-                placeholder="值"
+                placeholder={t("json_editor_value_placeholder")}
                 value={pair.value}
                 onChange={(e) => handleValueChange(index, e.target.value)}
                 className="flex-1"
@@ -241,14 +245,14 @@ export function JsonRecordEditor({
             className="w-full"
           >
             <Plus className="h-4 w-4 mr-2" />
-            添加字段
+            {t("json_editor_add_field")}
           </Button>
         </div>
       ) : (
         <div className="space-y-2">
           <div className="relative">
             <Textarea
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               rows={rows}
               className="font-mono text-sm"
               value={jsonText}
@@ -263,7 +267,7 @@ export function JsonRecordEditor({
                 className="h-7"
               >
                 <Wand2 className="h-3 w-3 mr-1" />
-                格式化
+                {t("json_editor_format")}
               </Button>
             </div>
           </div>
@@ -276,7 +280,7 @@ export function JsonRecordEditor({
           ) : jsonText && (
             <div className="flex items-center gap-2 text-sm text-green-600">
               <CheckCircle2 className="h-4 w-4" />
-              <span>JSON 格式正确</span>
+              <span>{t("json_editor_valid")}</span>
             </div>
           )}
         </div>

@@ -5,6 +5,7 @@ import { StaffSidebar } from "@comp/staff/sidebar";
 import { RouteTransition } from "@comp/page-transition";
 import { Suspense, useState, useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "i18n";
 
 interface FilterParams {
   startDate?: string;
@@ -19,11 +20,12 @@ export const Route = createFileRoute("/staff/analytics/")({
 
 //加载骨架屏
 function AnalyticsSkeleton() {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-center h-screen">
       <div className="text-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">正在加载数据分析...</p>
+        <p className="text-gray-600">{t("analytics_loading")}</p>
       </div>
     </div>
   );

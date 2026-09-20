@@ -6,6 +6,7 @@ import { allTicketsQueryOptions } from "@lib/query";
 import { Suspense } from "react";
 import { SkeletonTable } from "@comp/tickets-table/skeleton";
 import { RouteTransition } from "@comp/page-transition";
+import i18nBase from "i18n";
 
 export const Route = createFileRoute("/staff/tickets/all")({
   beforeLoad: () => {
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/staff/tickets/all")({
   head: () => ({
     meta: [
       {
-        title: "全部工单列表 | Tentix",
+        title: i18nBase.t("all_tickets_page_title"),
       },
     ],
   }),

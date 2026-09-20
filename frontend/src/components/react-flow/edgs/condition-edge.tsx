@@ -8,6 +8,7 @@ import {
 } from "@xyflow/react";
 import { Trash2 } from "lucide-react";
 import { type EdgeData, useWorkflowStore } from "@store/workflow";
+import { useTranslation } from "i18n";
 
 // 自定义边组件，带有增强的删除按钮
 export const ConditionEdge: React.FC<EdgeProps<Edge<EdgeData>>> = ({
@@ -21,6 +22,7 @@ export const ConditionEdge: React.FC<EdgeProps<Edge<EdgeData>>> = ({
   style,
   selected,
 }) => {
+  const { t } = useTranslation();
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
   const [isHovered, setIsHovered] = useState(false);
   const [isButtonHovered, setIsButtonHovered] = useState(false);
@@ -118,7 +120,7 @@ export const ConditionEdge: React.FC<EdgeProps<Edge<EdgeData>>> = ({
             <button
               onClick={handleDelete}
               className="relative w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white transition-colors shadow-md hover:shadow-lg"
-              title="删除连接"
+              title={t("rf.edge.delete_connection")}
             >
               <Trash2 className="w-3 h-3" />
             </button>

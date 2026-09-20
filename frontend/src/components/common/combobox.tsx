@@ -13,6 +13,7 @@ import {
 } from "tentix-ui";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@lib/utils";
+import { useTranslation } from "i18n";
 
 export type CommonComboboxProps<OptionType> = {
   options: OptionType[];
@@ -32,14 +33,15 @@ export type CommonComboboxProps<OptionType> = {
 export function CommonCombobox<OptionType>(
   props: CommonComboboxProps<OptionType>,
 ) {
+  const { t } = useTranslation();
   const {
     options,
     value,
     onChange,
     disabled = false,
-    placeholder = "请选择",
-    searchPlaceholder = "搜索...",
-    noneLabel = "不选择",
+    placeholder = t("combobox_placeholder"),
+    searchPlaceholder = t("combobox_search_placeholder"),
+    noneLabel = t("combobox_none_label"),
     showNoneOption = true,
     getOptionId,
     getOptionLabel,
@@ -71,7 +73,7 @@ export function CommonCombobox<OptionType>(
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
-            <CommandEmpty>未找到匹配项</CommandEmpty>
+            <CommandEmpty>{t("combobox_no_match")}</CommandEmpty>
             <CommandGroup>
               {showNoneOption ? (
                 <CommandItem

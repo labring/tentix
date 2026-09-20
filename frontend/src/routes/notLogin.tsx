@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PriorityBadge } from "tentix-ui";
+import { useTranslation } from "i18n";
 
 export const Route = createFileRoute("/notLogin")({
   beforeLoad: async ({ context: { authContext } }) => {
@@ -13,9 +14,10 @@ export const Route = createFileRoute("/notLogin")({
   component: RouteComponent,
 });
 function RouteComponent() {
+  const { t } = useTranslation();
   return (
     <div>
-      当前您未正常登录，请关闭应用。刷新页面后，重新进入此应用！
+      {t("not_login_message")}
       <PriorityBadge priority="urgent" />
     </div>
   );
