@@ -172,6 +172,7 @@ export const translations = {
         transfer: "$t(tkt) transferred to {{assignee}}",
         join: "{{member}} joined the ticket",
         first_reply: "First reply",
+        category: "$t(tkt) category changed to {{category}}",
       },
       info: "Information",
       assigned_to: "Assigned to",
@@ -185,6 +186,10 @@ export const translations = {
       assignees: "Assignees",
       activity: "Activity",
       system: "System",
+      contact_info: "Contact Info",
+      additional_info: "Additional Info",
+      registered_since: "Registered since",
+      no_assignees: "No assignees",
 
       // Form validation and ticket creation
       field_required: "This field is required",
@@ -456,7 +461,7 @@ export const translations = {
       please_select_image_file: "Please select an image file",
       image_size_limit: "Image size should be less than 5MB",
       failed_upload_avatar: "Failed to upload avatar",
-      feishu_account: "Feishu Account",
+      feishu_account: "Lark Account",
       bound: "Bound",
       unbound: "Unbound",
       unbinding: "Unbinding...",
@@ -466,18 +471,18 @@ export const translations = {
       feishu_bind_hint_desc:
         "You can bind third-party accounts for easier login",
       feishu_bind_tip_fast_login:
-        "After binding Feishu, you can quickly log in",
+        "After binding Lark, you can quickly log in",
       feishu_bind_tip_one_to_one:
-        "Each Feishu account can only bind to one system account",
-      feishu_unbound: "Feishu account unbound successfully",
-      failed_unbind_feishu: "Failed to unbind Feishu account",
-      failed_get_feishu_bind_url: "Failed to get Feishu bind URL",
-      failed_start_feishu_binding: "Failed to start Feishu binding",
+        "Each Lark account can only bind to one system account",
+      feishu_unbound: "Lark account unbound successfully",
+      failed_unbind_feishu: "Failed to unbind Lark account",
+      failed_get_feishu_bind_url: "Failed to get Lark bind URL",
+      failed_start_feishu_binding: "Failed to start Lark binding",
       // Server Feishu errors
-      feishu_not_configured: "Feishu is not configured.",
+      feishu_not_configured: "Lark is not configured.",
       invalid_state: "Invalid state.",
       feishu_identity_not_found:
-        "Feishu user identity not found. Please contact the administrator.",
+        "Lark user identity not found. Please contact the administrator.",
       user_not_found_admin: "User not found. Please contact the administrator.",
       invalid_or_expired_binding_session: "Invalid or expired binding session.",
       bound_user_not_found: "Bound user not found after binding",
@@ -515,7 +520,18 @@ export const translations = {
       // Data Analytics
       analytics: "Data Analytics",
       analytics_filter: "Analytics Filter",
+      today: "Today",
       all_staff:'All Staff',
+      request_timeout: "Request Timeout",
+      request_timeout_message: "The request timed out. Please try again later.",
+      data_loading_failed: "Failed to load data",
+      network_error_message: "Request failed. Please try again later.",
+      data_error: "Data Error",
+      last_7_days: "Last 7 Days",
+      ai_insights_unavailable: "AI insights are unavailable",
+      ai_insights_timeout_message:
+        "AI insights are temporarily unavailable. Please try again later.",
+      priority_updated: "Priority updated",
       // Ticket status analysis module translation keys
       hot_issues_analysis: "Hot Issues Analysis",
       tkt_backlog_rate_error:"Ticket Backlog Rate Error",
@@ -602,6 +618,9 @@ export const translations = {
 
       // Additional keys for module analysis
       uncategorized: "Uncategorized",
+      bug: "Bug",
+      feature: "Feature",
+      question: "Question",
 
       // react-flow i18n resources
       rf: {
@@ -1200,6 +1219,7 @@ export const translations = {
         transfer: "$t(tkt)被转交给{{assignee}}",
         join: "{{member}}加入了工单",
         first_reply: "首次回复",
+        category: "$t(tkt)分类修改为 {{category}}",
       },
       info: "信息",
       assigned_to: "指派给",
@@ -1213,6 +1233,10 @@ export const translations = {
       assignees: "负责人",
       activity: "活动记录",
       system: "系统",
+      contact_info: "联系信息",
+      additional_info: "附加信息",
+      registered_since: "注册于",
+      no_assignees: "暂无受理人",
 
       // Form validation and ticket creation
       field_required: "此字段为必填项",
@@ -1533,6 +1557,15 @@ export const translations = {
       analytics_filter: "筛选",
       today: "今天",
       all_staff: "全部员工",
+      request_timeout: "请求超时",
+      request_timeout_message: "请求超时，请稍后重试",
+      data_loading_failed: "数据加载失败",
+      network_error_message: "请求失败，请稍后重试",
+      data_error: "数据异常",
+      last_7_days: "近 7 天",
+      ai_insights_unavailable: "智能分析暂不可用",
+      ai_insights_timeout_message: "智能分析暂时无法生成，请稍后重试",
+      priority_updated: "优先级已更新",
       // 工单分析状态模块翻译键
       ticket_status_analysis: "工单状态分析",
       key_metrics: "关键指标",
@@ -1619,6 +1652,9 @@ export const translations = {
 
       // 模块分析额外键
       uncategorized: "未分类",
+      bug: "缺陷",
+      feature: "新功能",
+      question: "咨询",
 
       // react-flow i18n resources
       rf: {

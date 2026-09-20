@@ -560,7 +560,7 @@ export function KnowledgeBaseHits({
         <div className="flex items-center gap-4">
           <Select value={selectedModule} onValueChange={setSelectedModule}>
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={t("all_modules") || "All Modules"} />
+              <SelectValue placeholder={t("kb_all_modules") || "All Modules"} />
             </SelectTrigger>
             <SelectContent>
               {ticketModules.map((module) => (
