@@ -9,6 +9,14 @@ import React, {
 import { EVENT_NAME } from "@zjy365/sealos-desktop-sdk";
 import { createSealosApp, sealosApp } from "@zjy365/sealos-desktop-sdk/app";
 import { decodeJWT, extractAreaFromSealosToken } from "@lib/jwt";
+import {
+  applyApplicationLanguage,
+  getLanguagePreference,
+  normalizeSupportedLanguage,
+  persistLanguagePreference,
+  type LanguagePreference,
+  type SupportedLanguage,
+} from "@lib/language";
 import i18nClient, { useTranslation } from "i18n";
 import { getQueryClient } from "./tanstack";
 import {
@@ -129,6 +137,8 @@ interface SealosContextType {
   sealosNs: string | null;
   sealosKubeconfig: string | null;
   currentLanguage: string | null;
+  languagePreference: LanguagePreference;
+  setLanguagePreference: (preference: LanguagePreference) => void;
   refreshSealosSession: () => Promise<RefreshedSealosSession | null>;
 }
 
@@ -137,7 +147,7 @@ const SealosContext = createContext<SealosContextType | null>(null);
 export function SealosProvider({ children }: { children: React.ReactNode }) {
   const { i18n } = useTranslation();
   const [state, setState] = useState<
-    Omit<SealosContextType, "refreshSealosSession">
+    Omit<SealosContextType, "refreshSealosSession" | "setLanguagePreference">
   >({
     isInitialized: false,
     isLoading: true,
@@ -150,10 +160,23 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     sealosNs: null,
     sealosKubeconfig: null,
     currentLanguage: null,
+    languagePreference: getLanguagePreference(),
   });
 
   const initializationRef = useRef(false);
   const cleanupRef = useRef<(() => void) | null>(null);
+
+  const setLanguagePreference = useCallback(
+    (languagePreference: LanguagePreference) => {
+      persistLanguagePreference(languagePreference);
+      setState((prev) => ({ ...prev, languagePreference }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    applyApplicationLanguage(state.languagePreference, state.currentLanguage);
+  }, [state.currentLanguage, state.languagePreference]);
 
   const refreshSealosSession = useCallback(async () => {
     blockSealosAuthGate();
@@ -210,21 +233,20 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
 
         const cleanupApp = createSealosApp();
 
-        let currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+        let currentLanguage: SupportedLanguage | null = null;
         let hasReceivedLanguageChange = false;
 
-        const handleI18nChange = (data: { currentLanguage: string }) => {
+        const handleI18nChange = (data?: { currentLanguage?: string }) => {
           const currentLng = i18n.resolvedLanguage;
-          const newLng = data.currentLanguage;
+          const newLng = normalizeSupportedLanguage(data?.currentLanguage);
+          if (!newLng) return;
+
           hasReceivedLanguageChange = true;
           currentLanguage = newLng;
 
           console.info("Sealos language change:", { currentLng, newLng });
 
-          if (currentLng !== newLng) {
-            i18n.changeLanguage(newLng);
-            setState((prev) => ({ ...prev, currentLanguage: newLng }));
-          }
+          setState((prev) => ({ ...prev, currentLanguage: newLng }));
         };
 
         const cleanupEventListener = sealosApp?.addAppEventListen(
@@ -238,13 +260,13 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
             if (hasReceivedLanguageChange) {
               return;
             }
-            currentLanguage = lang.lng;
-            if (i18n.resolvedLanguage !== lang.lng) {
-              void i18n.changeLanguage(lang.lng);
-            }
+            const hostLanguage = normalizeSupportedLanguage(lang.lng);
+            if (!hostLanguage) return;
+
+            currentLanguage = hostLanguage;
             setState((prev) => ({
               ...prev,
-              currentLanguage: lang.lng,
+              currentLanguage: hostLanguage,
             }));
           })
           .catch((error) => {
@@ -271,7 +293,8 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
 
         console.info("Sealos data saved to localStorage");
 
-        setState({
+        setState((prev) => ({
+          ...prev,
           isInitialized: true,
           isLoading: false,
           isSealos: true,
@@ -282,8 +305,8 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
           sealosUserId,
           sealosNs,
           sealosKubeconfig,
-          currentLanguage,
-        });
+          currentLanguage: currentLanguage ?? prev.currentLanguage,
+        }));
 
         // cleanup
         cleanupRef.current = () => {
@@ -340,7 +363,9 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
   }, [state.isSealos, refreshSealosSession]);
 
   return (
-    <SealosContext.Provider value={{ ...state, refreshSealosSession }}>
+    <SealosContext.Provider
+      value={{ ...state, refreshSealosSession, setLanguagePreference }}
+    >
       {children}
     </SealosContext.Provider>
   );

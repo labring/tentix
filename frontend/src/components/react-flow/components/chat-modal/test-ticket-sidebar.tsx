@@ -16,12 +16,14 @@ import { useWorkflowTestChatStore } from "@store/workflow-test-chat";
 import { NewTestTicket } from "./new-test-ticket";
 import { cn } from "@lib/utils";
 import { useBoolean } from "ahooks";
+import { useTranslation } from "i18n";
 
 interface TestTicketSidebarProps {
   onTicketsLoaded?: (hasTickets: boolean) => void;
 }
 
 export function TestTicketSidebar({ onTicketsLoaded }: TestTicketSidebarProps) {
+  const { t } = useTranslation();
   const [collapsed, { toggle: toggleCollapsed }] = useBoolean(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -163,7 +165,7 @@ export function TestTicketSidebar({ onTicketsLoaded }: TestTicketSidebarProps) {
               <div className="flex flex-col items-center space-y-3 w-4/5 text-center">
                 <EmptyStateIcon className="w-24 h-24 [&_*]:transition-colors [&_*]:fill-zinc-400 group-hover:[&_[data-hover-fill]]:fill-zinc-700" />
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  暂无测试工单,点击创建第一个测试工单
+                  {t("test_ticket_sidebar_empty")}
                 </p>
               </div>
             </button>

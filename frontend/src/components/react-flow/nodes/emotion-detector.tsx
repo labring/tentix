@@ -28,6 +28,7 @@ import {
 } from "tentix-ui";
 import { WorkflowTextarea } from "@comp/react-flow/components/workflow-textarea";
 import { cn } from "@lib/utils";
+import { useTranslation } from "i18n";
 
 type EmotionDetectorNodeData = EmotionDetectionConfig["config"] & {
   name: string;
@@ -39,6 +40,7 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
   id,
   data,
 }) => {
+  const { t } = useTranslation();
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const updateNode = useWorkflowStore((s) => s.updateNode);
   const addHandleToNode = useWorkflowStore((s) => s.addHandleToNode);
@@ -192,7 +194,7 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
           <BaseNodeHeaderTitle className="flex items-center justify-between text-sm font-medium">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></div>
-              情绪检测
+              {t("rf.nodeType.emotionDetector")}
             </div>
             <button
               onClick={handleDelete}
@@ -211,7 +213,9 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
 
               <div className="space-y-3 text-sm">
                 <div className="space-y-2">
-                  <div className="font-medium text-foreground">检测配置</div>
+                  <div className="font-medium text-foreground">
+                    {t("rf.emotion.detection_settings")}
+                  </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">System Prompt</Label>
                     <WorkflowTextarea
@@ -239,7 +243,9 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
                 <Separator className="my-1" />
 
                 <div className="space-y-2">
-                  <div className="font-medium text-foreground">LLM 设置</div>
+                  <div className="font-medium text-foreground">
+                    {t("rf.panel.llm_settings")}
+                  </div>
                   <div className="grid gap-1">
                     <Label className="text-xs">LLM - Model</Label>
                     <Input
@@ -286,7 +292,9 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
       {/* 条件管理区域 */}
       <div className="mt-4 w-[300px] bg-muted rounded-md border border-border p-3">
         <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-medium text-foreground">输出条件</div>
+          <div className="text-sm font-medium text-foreground">
+            {t("rf.condition.output_conditions")}
+          </div>
           <Button
             size="sm"
             variant="outline"
@@ -294,7 +302,7 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
             className="h-7 px-2 text-xs nodrag"
           >
             <Plus className="w-3 h-3 mr-1" />
-            添加条件
+            {t("rf.condition.add")}
           </Button>
         </div>
 
@@ -307,7 +315,7 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
               style={{ height: `${CONDITION_ROW_HEIGHT}px` }}
             >
               <Input
-                placeholder="输入条件表达式"
+                placeholder={t("rf.condition.expression_placeholder")}
                 value={conditions[index] || handle.condition || ""}
                 onChange={(e) => updateCondition(index, e.target.value)}
                   className="flex-1 h-8 text-xs nodrag"
@@ -329,7 +337,7 @@ const EmotionDetector: React.FC<NodeProps<Node<EmotionDetectorNodeData>>> = ({
 
         {conditionHandles.length === 0 && (
           <div className="text-xs text-muted-foreground text-center py-4">
-            暂无输出条件，点击「添加条件」创建
+            {t("rf.condition.empty")}
           </div>
         )}
       </div>

@@ -27,6 +27,7 @@ import { ChevronLeft, ChevronRight, Search, Plus } from "lucide-react";
 import { apiClient } from "@lib/api-client";
 import useDebounce from "@hook/use-debounce";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { useTranslation } from "i18n";
 
 type AssignableUserRole = "customer" | "agent" | "technician" | "admin" | "ai";
 
@@ -58,6 +59,7 @@ function formatRegisterTime(timeStr: string) {
 }
 
 export function UserManagementSection() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -65,6 +67,15 @@ export function UserManagementSection() {
   type RoleFilter = "all" | AssignableUserRole;
   const [role, setRole] = useState<RoleFilter>("all");
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+  const roleLabels: Record<AssignableUserRole | "system", string> = {
+    customer: t("user_role_customer"),
+    agent: t("user_role_agent"),
+    technician: t("user_role_technician"),
+    admin: t("user_role_admin"),
+    ai: "AI",
+    system: t("system"),
+  };
+  const getRoleLabel = (role: AssignableUserRole | "system") => roleLabels[role];
 
   const usersQueryOptions = queryOptions<UsersResponse>({
     queryKey: ["admin-users", page, debouncedSearch, role],
@@ -118,7 +129,7 @@ export function UserManagementSection() {
         <div className="flex gap-4 mb-6">
           <div className="relative flex-1 max-w-sm">
             <Input
-              placeholder="搜索用户（姓名、ID、真实姓名）"
+              placeholder={t("user_search_placeholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -127,21 +138,21 @@ export function UserManagementSection() {
           </div>
           <Select value={role} onValueChange={(v) => setRole(v as RoleFilter)}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="按角色筛选" />
+              <SelectValue placeholder={t("user_filter_role")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部角色</SelectItem>
-              <SelectItem value="customer">客户</SelectItem>
-              <SelectItem value="agent">客服</SelectItem>
-              <SelectItem value="technician">技术员</SelectItem>
-              <SelectItem value="admin">管理员</SelectItem>
-              <SelectItem value="ai">AI</SelectItem>
+              <SelectItem value="all">{t("user_all_roles")}</SelectItem>
+              <SelectItem value="customer">{getRoleLabel("customer")}</SelectItem>
+              <SelectItem value="agent">{getRoleLabel("agent")}</SelectItem>
+              <SelectItem value="technician">{getRoleLabel("technician")}</SelectItem>
+              <SelectItem value="admin">{getRoleLabel("admin")}</SelectItem>
+              <SelectItem value="ai">{getRoleLabel("ai")}</SelectItem>
             </SelectContent>
           </Select>
           <CreateUserDialog>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              创建用户
+              {t("user_create")}
             </Button>
           </CreateUserDialog>
         </div>
@@ -152,9 +163,9 @@ export function UserManagementSection() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>用户名</TableHead>
-                    <TableHead>角色</TableHead>
-                    <TableHead>注册时间</TableHead>
+                    <TableHead>{t("username")}</TableHead>
+                    <TableHead>{t("role")}</TableHead>
+                    <TableHead>{t("register_time")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -203,20 +214,16 @@ export function UserManagementSection() {
                             <SelectTrigger className="w-28 h-8">
                               <SelectValue>
                                 <span className="text-xs">
-                                  {user.role === "customer" && "客户"}
-                                  {user.role === "agent" && "客服"}
-                                  {user.role === "technician" && "技术员"}
-                                  {user.role === "admin" && "管理员"}
-                                  {user.role === "ai" && "AI"}
+                                  {getRoleLabel(user.role)}
                                 </span>
                               </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="customer">客户</SelectItem>
-                              <SelectItem value="agent">客服</SelectItem>
-                              <SelectItem value="technician">技术员</SelectItem>
-                              <SelectItem value="admin">管理员</SelectItem>
-                              <SelectItem value="ai">AI</SelectItem>
+                              <SelectItem value="customer">{getRoleLabel("customer")}</SelectItem>
+                              <SelectItem value="agent">{getRoleLabel("agent")}</SelectItem>
+                              <SelectItem value="technician">{getRoleLabel("technician")}</SelectItem>
+                              <SelectItem value="admin">{getRoleLabel("admin")}</SelectItem>
+                              <SelectItem value="ai">{getRoleLabel("ai")}</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -243,16 +250,11 @@ export function UserManagementSection() {
                                       {user.name || "-"}
                                     </span>
                                     <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
-                                      {user.role === "customer" && "客户"}
-                                      {user.role === "agent" && "客服"}
-                                      {user.role === "technician" && "技术员"}
-                                      {user.role === "admin" && "管理员"}
-                                      {user.role === "ai" && "AI"}
-                                      {user.role === "system" && "系统"}
+                                      {getRoleLabel(user.role)}
                                     </span>
                                   </div>
                                   <div className="mt-1 text-xs text-zinc-500">
-                                    用户身份信息
+                                    {t("user_identity_information")}
                                   </div>
                                 </div>
                               </div>
@@ -260,7 +262,7 @@ export function UserManagementSection() {
                               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm text-zinc-700">
                                 <div className="min-w-0">
                                   <span className="text-zinc-500 mr-2">
-                                    用户 ID
+                                    {t("sealos_id")}
                                   </span>
                                   <span className="font-mono break-all">
                                     {user.sealosId || "-"}
@@ -274,25 +276,25 @@ export function UserManagementSection() {
                                 </div>
                                 <div className="min-w-0">
                                   <span className="text-zinc-500 mr-2">
-                                    用户名
+                                    {t("username")}
                                   </span>
                                   <span>{user.name || "-"}</span>
                                 </div>
                                 <div className="min-w-0">
                                   <span className="text-zinc-500 mr-2">
-                                    昵称
+                                    {t("user_nickname")}
                                   </span>
                                   <span>{user.nickname || "-"}</span>
                                 </div>
                                 <div className="min-w-0">
                                   <span className="text-zinc-500 mr-2">
-                                    真实姓名
+                                    {t("real_name")}
                                   </span>
                                   <span>{user.realName || "-"}</span>
                                 </div>
                                 <div className="min-w-0">
                                   <span className="text-zinc-500 mr-2">
-                                    邮箱
+                                    {t("email")}
                                   </span>
                                   <span className="font-mono break-all">
                                     {user.email || "-"}
@@ -300,7 +302,7 @@ export function UserManagementSection() {
                                 </div>
                                 <div className="min-w-0">
                                   <span className="text-zinc-500 mr-2">
-                                    手机号
+                                    {t("user_phone")}
                                   </span>
                                   <span className="font-mono">
                                     {user.phoneNum || "-"}
@@ -308,13 +310,13 @@ export function UserManagementSection() {
                                 </div>
                                 <div className="min-w-0">
                                   <span className="text-zinc-500 mr-2">
-                                    级别
+                                    {t("user_level")}
                                   </span>
                                   <span>{user.level ?? "-"}</span>
                                 </div>
                                 <div className="min-w-0">
                                   <span className="text-zinc-500 mr-2">
-                                    注册时间
+                                    {t("register_time")}
                                   </span>
                                   <span>
                                     {formatRegisterTime(user.registerTime) ||
@@ -334,9 +336,11 @@ export function UserManagementSection() {
 
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                显示 {(page - 1) * 10 + 1} -{" "}
-                {Math.min(page * 10, usersData.pagination.total)} 条，共{" "}
-                {usersData.pagination.total} 条
+                {t("user_page_summary", {
+                  from: (page - 1) * 10 + 1,
+                  to: Math.min(page * 10, usersData.pagination.total),
+                  total: usersData.pagination.total,
+                })}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -346,7 +350,7 @@ export function UserManagementSection() {
                   disabled={page <= 1}
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  上一页
+                  {t("previous_page")}
                 </Button>
                 <Button
                   variant="outline"
@@ -354,7 +358,7 @@ export function UserManagementSection() {
                   onClick={() => setPage(page + 1)}
                   disabled={page >= usersData.pagination.totalPages}
                 >
-                  下一页
+                  {t("next_page")}
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
@@ -362,7 +366,7 @@ export function UserManagementSection() {
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
-            加载中...
+            {t("loading")}
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import { ReactNodeViewRenderer } from "@tiptap/react";
 import { filterFiles, randomId, type FileError, type FileValidationOptions } from "../../utils.ts";
 import { AttachmentViewBlock } from "./components/attachment-view-block.tsx";
 import { VIDEO_MAX_SIZE } from "../video/video.ts";
+import i18nBase from "i18n";
 
 const ATTACHMENT_MIME_BY_EXTENSION: Record<string, string> = {
   pdf: "application/pdf",
@@ -124,11 +125,11 @@ export const Attachment = Node.create<AttachmentOptions>({
         );
         const incomingSize = validFiles.reduce((total, file) => total + file.size, 0);
         if (currentAttachments.length + validFiles.length > ATTACHMENT_MAX_COUNT) {
-          this.options.onLimitError?.("单条消息最多添加 5 个附件");
+          this.options.onLimitError?.(i18nBase.t("attachment_max_count"));
           return false;
         }
         if (currentSize + incomingSize > ATTACHMENT_MAX_TOTAL_SIZE) {
-          this.options.onLimitError?.("单条消息附件总大小不能超过 50 MB");
+          this.options.onLimitError?.(i18nBase.t("attachment_max_total_size"));
           return false;
         }
         if (validFiles.length === 0) return false;

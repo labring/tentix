@@ -353,9 +353,9 @@ export function PaginatedDataTable({
   const columns = React.useMemo<ColumnDef<TicketsListItemType>[]>(() => {
     const isStaffTable = character === "staff";
     const currentLang = i18n.language === "zh" ? "zh-CN" : "en-US";
-    const newestFirstText = i18n.language === "zh" ? "最新优先" : "Newest first";
-    const oldestFirstText = i18n.language === "zh" ? "最旧优先" : "Oldest first";
-    const defaultSortText = i18n.language === "zh" ? "默认排序" : "Default sort";
+    const newestFirstText = t("ticket_sort_newest");
+    const oldestFirstText = t("ticket_sort_oldest");
+    const defaultSortText = t("ticket_sort_default");
     const allText = t("all");
     const handleSort = (field: "createdAt" | "updatedAt") => {
       if (sortBy !== field) {

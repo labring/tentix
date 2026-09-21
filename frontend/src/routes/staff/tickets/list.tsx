@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PaginatedDataTable } from "@comp/tickets-table/paginated-table.tsx";
 import { StaffSidebar } from "@comp/staff/sidebar";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { SkeletonTable } from "@comp/tickets-table/skeleton";
 import { userTablePagination } from "@store/table-pagination";
 import { RouteTransition } from "@comp/page-transition";
+import i18nBase, { useTranslation } from "i18n";
 
 export const Route = createFileRoute("/staff/tickets/list")({
   beforeLoad: () => {
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/staff/tickets/list")({
   head: () => ({
     meta: [
       {
-        title: "工单列表 | Tentix",
+        title: i18nBase.t("ticket_list_page_title"),
       },
     ],
   }),
@@ -24,6 +25,12 @@ export const Route = createFileRoute("/staff/tickets/list")({
 });
 
 function RouteComponent() {
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    document.title = t("ticket_list_page_title");
+  }, [t]);
+
   return (
     <RouteTransition>
       <div className="flex h-screen w-full overflow-hidden">

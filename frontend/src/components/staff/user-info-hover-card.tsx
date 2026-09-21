@@ -204,7 +204,7 @@ export function UserInfoHoverCard({ user, children }: UserInfoHoverCardProps) {
                 )}
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="outline" className="text-xs">
-                    {t("customer") || "Customer"}
+                    {t("user_role_customer") || "Customer"}
                   </Badge>
                   <Badge variant="outline" className="text-xs">
                     Lv.{user.level}
@@ -227,7 +227,7 @@ export function UserInfoHoverCard({ user, children }: UserInfoHoverCardProps) {
                     <div className="flex items-center gap-2 text-sm">
                       <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span className="text-muted-foreground min-w-0 flex-shrink-0">
-                        {t("nickname") || "Nickname"}:
+                        {t("user_nickname") || "Nickname"}:
                       </span>
                       <span className="font-medium truncate">{user.nickname}</span>
                     </div>
@@ -247,7 +247,7 @@ export function UserInfoHoverCard({ user, children }: UserInfoHoverCardProps) {
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span className="text-muted-foreground min-w-0 flex-shrink-0">
-                        {t("phone") || "Phone"}:
+                        {t("user_phone") || "Phone"}:
                       </span>
                       <span className="font-medium">{user.phoneNum}</span>
                     </div>

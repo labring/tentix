@@ -8,6 +8,7 @@ import {
 } from "tentix-server/types";
 import { useChatStore } from "../store";
 import { useToast } from "tentix-ui";
+import i18nBase from "i18n";
 
 // WebSocket configuration
 const WS_HEARTBEAT_INTERVAL = 30000; // 30 seconds
@@ -152,7 +153,7 @@ export function useTicketWebSocket({
         rejectOpenConnectionRef.current = reject;
         connectTimeoutRef.current = setTimeout(() => {
           rejectOpenConnectionWaiter(
-            new Error("WebSocket 连接失败，请检查网络后重试"),
+            new Error(i18nBase.t("websocket_connection_failed")),
           );
         }, WS_CONNECT_TIMEOUT_MS);
       },
@@ -289,7 +290,7 @@ export function useTicketWebSocket({
     // 清理待发送消息
     pendingMessagesRef.current.forEach(({ reject, timeoutId }) => {
       clearTimeout(timeoutId);
-      reject(new Error("连接已关闭"));
+      reject(new Error(i18nBase.t("websocket_connection_closed")));
     });
     pendingMessagesRef.current.clear();
 
@@ -300,7 +301,7 @@ export function useTicketWebSocket({
     pendingWithdrawalsRef.current.clear();
 
     if (rejectWaitingConnection) {
-      rejectOpenConnectionWaiter(new Error("连接已关闭"));
+      rejectOpenConnectionWaiter(new Error(i18nBase.t("websocket_connection_closed")));
     }
 
     // 重置状态
@@ -439,7 +440,7 @@ export function useTicketWebSocket({
     if (reconnectCountRef.current >= MAX_RECONNECT_ATTEMPTS) {
       console.info("达到最大重连次数");
       rejectOpenConnectionWaiter(
-        new Error("WebSocket 连接失败，请检查网络后重试"),
+        new Error(i18nBase.t("websocket_connection_failed")),
       );
       return;
     }
@@ -501,8 +502,8 @@ export function useTicketWebSocket({
         event.reason === WS_TOKEN_EXPIRED_CLOSE_REASON;
       const closeError = new Error(
         isTokenExpired && !refreshConnectionAuthRef.current
-          ? "连接已过期，请刷新页面后重试"
-          : "连接已断开",
+          ? i18nBase.t("websocket_connection_expired")
+          : i18nBase.t("websocket_connection_lost"),
       );
 
       // 清理待发送消息
@@ -531,7 +532,7 @@ export function useTicketWebSocket({
 
   const ensureConnected = useCallback(async (): Promise<WebSocket> => {
     if (!ticketId) {
-      throw new Error("ticketId 未设置");
+      throw new Error(i18nBase.t("websocket_ticket_id_missing"));
     }
 
     if (!latestTokenRef.current) {
@@ -539,7 +540,7 @@ export function useTicketWebSocket({
     }
 
     if (!latestTokenRef.current) {
-      throw new Error("WebSocket token 未设置");
+      throw new Error(i18nBase.t("websocket_token_missing"));
     }
 
     const ws = wsRef.current;
@@ -586,7 +587,7 @@ export function useTicketWebSocket({
       isInternal: boolean = false,
     ): Promise<void> => {
       if (!ticketId) {
-        throw new Error("ticketId 未设置");
+        throw new Error(i18nBase.t("websocket_ticket_id_missing"));
       }
 
       const ws = await ensureConnected();
@@ -595,7 +596,7 @@ export function useTicketWebSocket({
         // 设置超时
         const timeoutId = setTimeout(() => {
           pendingMessagesRef.current.delete(tempId);
-          reject(new Error("发送超时，请重试"));
+          reject(new Error(i18nBase.t("websocket_send_timeout")));
         }, 5000);
 
         // 存储 Promise 回调
@@ -617,7 +618,7 @@ export function useTicketWebSocket({
         if (ws.readyState !== WebSocket.OPEN) {
           pendingMessagesRef.current.delete(tempId);
           clearTimeout(timeoutId);
-          reject(new Error("连接已断开"));
+          reject(new Error(i18nBase.t("websocket_connection_lost")));
           return;
         }
 
@@ -685,7 +686,7 @@ export function useTicketWebSocket({
         toast({
           title: "WebSocket error",
           description:
-            error instanceof Error ? error.message : "WebSocket 连接失败",
+            error instanceof Error ? error.message : i18nBase.t("websocket_connect_failed"),
           variant: "destructive",
         });
         return;

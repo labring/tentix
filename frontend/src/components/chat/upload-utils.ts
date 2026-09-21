@@ -6,6 +6,7 @@ import {
   getAttachmentMaxSize,
   isGenericAttachmentMimeType,
 } from "tentix-ui";
+import i18nBase from "i18n";
 
 // 错误处理工具函数
 const getErrorMessage = (error: unknown): string => {
@@ -200,7 +201,7 @@ const verifyUploadedGenericFile = async (
       body?.message === "Uploaded attachment content is invalid";
     const message =
       isLogContentError
-        ? "日志文件需要使用 UTF-8 编码，请转换后重试"
+        ? i18nBase.t("upload_utf8_log_required")
         : typeof body?.message === "string"
         ? body.message
         : response.status === 503

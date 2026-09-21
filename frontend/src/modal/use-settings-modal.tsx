@@ -12,14 +12,14 @@ import { useAuth } from "@hook/use-local-user.tsx";
 export function useSettingsModal() {
   const [state, { set, setTrue, setFalse }] = useBoolean(false);
   const [activeSection, setActiveSection] = useState<
-    "userInfo" | "accountBinding" | "userManagement" | "ticketModule"
+    "userInfo" | "language" | "accountBinding" | "userManagement" | "ticketModule"
   >("userInfo");
   const { t } = useTranslation();
   const { user } = useAuth();
 
   // Function to open the settings modal
   function openSettingsModal(
-    section?: "userInfo" | "accountBinding" | "userManagement" | "ticketModule",
+    section?: "userInfo" | "language" | "accountBinding" | "userManagement" | "ticketModule",
   ) {
     setTrue();
     setActiveSection(

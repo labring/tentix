@@ -1,12 +1,14 @@
 import type { TFunction } from "i18next";
 import type { ReactElement } from "react";
 import { AccountBindingSection } from "./AccountBindingSection";
+import { LanguageSection } from "./LanguageSection";
 import { UserInfoSection } from "./UserInfoSection";
 import { UserManagementSection } from "./UserManagementSection";
 import { TicketModuleSection } from "./TicketModuleSection";
 
 export type SectionId =
   | "userInfo"
+  | "language"
   | "accountBinding"
   | "userManagement"
   | "ticketModule";
@@ -30,6 +32,13 @@ export const sectionsConfig: SectionConfig[] = [
     render: () => <UserInfoSection />,
   },
   {
+    id: "language",
+    getSidebarLabel: (t) => t("language"),
+    getBreadcrumbLabel: (t) => t("language"),
+    isVisible: () => true,
+    render: () => <LanguageSection />,
+  },
+  {
     id: "accountBinding",
     getSidebarLabel: (t) => t("account_binding"),
     getBreadcrumbLabel: (t) => t("account_binding_manage"),
@@ -38,8 +47,8 @@ export const sectionsConfig: SectionConfig[] = [
   },
   {
     id: "userManagement",
-    getSidebarLabel: () => "用户管理",
-    getBreadcrumbLabel: () => "用户管理",
+    getSidebarLabel: (t) => t("user_management"),
+    getBreadcrumbLabel: (t) => t("user_management"),
     isVisible: (userInfo) => !["customer", "ai"].includes(userInfo.role),
     render: () => <UserManagementSection />,
   },

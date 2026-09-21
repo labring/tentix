@@ -53,6 +53,7 @@ import {
   useEffect,
 } from "react";
 import { useTranslation } from "i18n";
+import type { TFunction } from "i18next";
 import {
   useSuspenseQuery,
   useQuery,
@@ -96,7 +97,7 @@ import { useSettingsModal } from "@modal/use-settings-modal";
 import { useTicketModules } from "@store/app-config";
 import { cn } from "@lib/utils";
 
-function getErrorMessage(err: unknown, fallback = "操作失败"): string {
+function getErrorMessage(err: unknown, fallback: string): string {
   if (typeof err === "object" && err && "message" in err) {
     const m = (err as { message?: unknown }).message;
     return typeof m === "string" ? m : fallback;
@@ -104,22 +105,26 @@ function getErrorMessage(err: unknown, fallback = "操作失败"): string {
   return fallback;
 }
 
-const createWorkflowFormSchema = z.object({
-  name: z.string().min(1, "名称不能为空").trim(),
-  description: z.string().trim(),
-});
+const createWorkflowFormSchema = (t: TFunction) =>
+  z.object({
+    name: z.string().min(1, t("workflow_name_required")).trim(),
+    description: z.string().trim(),
+  });
 
-type CreateWorkflowFormData = z.infer<typeof createWorkflowFormSchema>;
+type CreateWorkflowFormData = z.infer<
+  ReturnType<typeof createWorkflowFormSchema>
+>;
 
 const MANUAL_GENERAL_KNOWLEDGE_SOURCE_DOC_ID = "manual";
 const MANUAL_GENERAL_KNOWLEDGE_DOC_NAME = "手动添加";
 
-const generalKnowledgeSourcePartSchema = z
-  .string()
-  .trim()
-  .min(1, "不能为空")
-  .max(80, "不能超过 80 个字符")
-  .regex(/^[A-Za-z0-9_-]+$/, "仅支持字母、数字、下划线和短横线");
+const generalKnowledgeSourcePartSchema = (t: TFunction) =>
+  z
+    .string()
+    .trim()
+    .min(1, t("source_part_required"))
+    .max(80, t("source_part_max", { count: 80 }))
+    .regex(/^[A-Za-z0-9_-]+$/, t("source_part_pattern"));
 
 function getManualGeneralKnowledgeRevision(): string {
   return `manual-${new Date().toISOString().slice(0, 10)}`;
@@ -136,23 +141,24 @@ function createManualGeneralKnowledgeEntrySlug(): string {
     .slice(0, 80);
 }
 
-const createGeneralKnowledgeFormSchema = z.object({
-  entrySlug: generalKnowledgeSourcePartSchema,
-  title: z.string().trim().min(1, "标题不能为空").max(200),
-  modules: z
-    .array(z.string().trim().min(1))
-    .min(1, "至少选择一个模块")
-    .max(10, "模块数量不能超过 10 个"),
-  category: z.enum(GENERAL_KNOWLEDGE_CATEGORY_VALUES),
-  revision: z.string().trim().min(1, "版本不能为空").max(80),
-  content: z.string().trim().min(1, "正文不能为空").max(20000),
-  index1: z.string().trim().max(500, "召回索引不能超过 500 个字符").optional(),
-  index2: z.string().trim().max(500, "召回索引不能超过 500 个字符").optional(),
-  index3: z.string().trim().max(500, "召回索引不能超过 500 个字符").optional(),
-});
+const createGeneralKnowledgeFormSchema = (t: TFunction) =>
+  z.object({
+    entrySlug: generalKnowledgeSourcePartSchema(t),
+    title: z.string().trim().min(1, t("kb_title_required")).max(200),
+    modules: z
+      .array(z.string().trim().min(1))
+      .min(1, t("kb_modules_required"))
+      .max(10, t("kb_modules_max", { count: 10 })),
+    category: z.enum(GENERAL_KNOWLEDGE_CATEGORY_VALUES),
+    revision: z.string().trim().min(1, t("kb_revision_required")).max(80),
+    content: z.string().trim().min(1, t("kb_content_required")).max(20000),
+    index1: z.string().trim().max(500, t("kb_index_length_max", { count: 500 })).optional(),
+    index2: z.string().trim().max(500, t("kb_index_length_max", { count: 500 })).optional(),
+    index3: z.string().trim().max(500, t("kb_index_length_max", { count: 500 })).optional(),
+  });
 
 type CreateGeneralKnowledgeFormData = z.infer<
-  typeof createGeneralKnowledgeFormSchema
+  ReturnType<typeof createGeneralKnowledgeFormSchema>
 >;
 
 type GeneralKnowledgeCreatePayload = {
@@ -321,11 +327,17 @@ type KnowledgeListResponse = {
   };
 };
 
-const SOURCE_TYPE_LABELS: Record<KnowledgeSourceType, string> = {
-  favorited_conversation: "精选案例",
-  historical_ticket: "历史工单",
-  general_knowledge: "通用知识",
-};
+function getSourceTypeLabel(
+  sourceType: KnowledgeSourceType,
+  t: TFunction,
+): string {
+  const labels: Record<KnowledgeSourceType, string> = {
+    favorited_conversation: t("kb_featured_cases"),
+    historical_ticket: t("kb_historical_tickets"),
+    general_knowledge: t("kb_all_knowledge"),
+  };
+  return labels[sourceType];
+}
 
 const SOURCE_DOT: Record<KnowledgeSourceType, string> = {
   favorited_conversation: "bg-orange-500",
@@ -377,6 +389,7 @@ const knowledgeDetailQueryOptions = (
 
 async function createGeneralKnowledgePayload(
   data: GeneralKnowledgeCreatePayload,
+  t: TFunction,
 ): Promise<{ success: boolean; data: { sourceType: "general_knowledge"; sourceId: string; chunkCount: number } }> {
   const res = await apiClient.kb.admin["general-knowledge"].$post({
     json: {
@@ -392,7 +405,7 @@ async function createGeneralKnowledgePayload(
   });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(getErrorMessage(errorData, "添加通用知识失败"));
+    throw new Error(getErrorMessage(errorData, t("kb_general_add_failed")));
   }
   return (await res.json()) as {
     success: boolean;
@@ -402,6 +415,7 @@ async function createGeneralKnowledgePayload(
 
 async function generateGeneralKnowledgeIndexes(
   data: CreateGeneralKnowledgeFormData,
+  t: TFunction,
 ): Promise<string[]> {
   const res = await apiClient.kb.admin["general-knowledge"].indexes.generate.$post(
     {
@@ -416,7 +430,7 @@ async function generateGeneralKnowledgeIndexes(
   );
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(getErrorMessage(errorData, "召回索引生成失败"));
+    throw new Error(getErrorMessage(errorData, t("kb_index_generate_failed")));
   }
   const body = (await res.json()) as GeneralKnowledgeIndexesResponse;
   return body.data.indexes;
@@ -424,20 +438,24 @@ async function generateGeneralKnowledgeIndexes(
 
 async function createGeneralKnowledge(
   data: CreateGeneralKnowledgeFormData,
+  t: TFunction,
 ): Promise<{ success: boolean; data: { sourceType: "general_knowledge"; sourceId: string; chunkCount: number } }> {
   const indexes = [data.index1, data.index2, data.index3]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));
-  return createGeneralKnowledgePayload({
-    sourceId: buildGeneralKnowledgeSourceId(data),
-    title: data.title,
-    modules: data.modules,
-    category: data.category,
-    docName: MANUAL_GENERAL_KNOWLEDGE_DOC_NAME,
-    revision: data.revision,
-    content: data.content,
-    indexes,
-  });
+  return createGeneralKnowledgePayload(
+    {
+      sourceId: buildGeneralKnowledgeSourceId(data),
+      title: data.title,
+      modules: data.modules,
+      category: data.category,
+      docName: MANUAL_GENERAL_KNOWLEDGE_DOC_NAME,
+      revision: data.revision,
+      content: data.content,
+      indexes,
+    },
+    t,
+  );
 }
 
 // 为列表图标提供一组可选的 Tailwind 色系（文本+浅色背景）
@@ -484,25 +502,28 @@ function formatDateTime(iso?: string): string {
 }
 
 // 将 ISO 时间格式化为相对时间（中文）
-function formatRelativeFromNow(iso?: string): string {
+function formatRelativeFromNow(
+  iso: string | undefined,
+  t: TFunction,
+): string {
   if (!iso) return "";
   const ts = new Date(iso).getTime();
   const now = Date.now();
   let diff = Math.floor((now - ts) / 1000);
   if (!isFinite(diff)) return "";
   if (diff < 0) diff = 0;
-  if (diff < 45) return "刚刚";
-  if (diff < 90) return "1 分钟前";
+  if (diff < 45) return t("relative_just_now");
+  if (diff < 90) return t("relative_minutes", { count: 1 });
   const m = Math.floor(diff / 60);
-  if (m < 60) return `${m} 分钟前`;
+  if (m < 60) return t("relative_minutes", { count: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} 小时前`;
+  if (h < 24) return t("relative_hours", { count: h });
   const d = Math.floor(h / 24);
-  if (d < 30) return `${d} 天前`;
+  if (d < 30) return t("relative_days", { count: d });
   const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo} 个月前`;
+  if (mo < 12) return t("relative_months", { count: mo });
   const y = Math.floor(mo / 12);
-  return `${y} 年前`;
+  return t("relative_years", { count: y });
 }
 
 export const Route = createFileRoute("/staff/ai")({
@@ -513,6 +534,7 @@ export const Route = createFileRoute("/staff/ai")({
 });
 
 export function RouteComponent() {
+  const { t } = useTranslation();
   const { tab: searchTab } = Route.useSearch();
   const [tab, setTab] = useState<"ai" | "workflow" | "knowledge">("ai");
 
@@ -530,7 +552,7 @@ export function RouteComponent() {
     () => [
       {
         key: "ai",
-        label: "AI角色",
+        label: t("ai_tab_roles"),
         content: (
           <Suspense fallback={<AiRolesSkeleton />}>
             <AiRolesTab />
@@ -539,16 +561,16 @@ export function RouteComponent() {
       },
       {
         key: "workflow",
-        label: "工作流",
+        label: t("ai_tab_workflows"),
         content: <WorkflowsTab />,
       },
       {
         key: "knowledge",
-        label: "知识库",
+        label: t("ai_tab_knowledge"),
         content: <KnowledgeBaseTab />,
       },
     ],
-    [],
+    [t],
   );
 
   return (
@@ -593,6 +615,7 @@ function AiRolesSkeleton() {
 
 // AI角色 Tab
 function AiRolesTab() {
+  const { t } = useTranslation();
   const [keyword, setKeyword] = useState("");
   const debouncedKeyword = useDebounce(keyword, 300);
 
@@ -601,7 +624,7 @@ function AiRolesTab() {
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Input
-            placeholder="搜索 AI 角色"
+            placeholder={t("ai_role_search")}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             className="pl-10"
@@ -623,7 +646,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
   const { data: aiUsers } = useSuspenseQuery(aiRoleConfigsQueryOptions(keyword));
   const { data: allWorkflows } = useSuspenseQuery(workflowsBasicQueryOptions());
   const ticketModules = useTicketModules();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const currentLang: "zh-CN" | "en-US" = i18n.language === "zh" ? "zh-CN" : "en-US";
   const fileInputsRef = useRef<Record<number, HTMLInputElement | null>>({});
   const [nameDrafts, setNameDrafts] = useState<Record<number, string>>({});
@@ -648,7 +671,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(getErrorMessage(errorData, "更新失败"));
+        throw new Error(getErrorMessage(errorData, t("workflow_update_failed")));
       }
       return res.json();
     },
@@ -659,7 +682,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
     },
     onError: (error) => {
       toast({
-        title: getErrorMessage(error, "更新失败"),
+        title: getErrorMessage(error, t("workflow_update_failed")),
         variant: "destructive",
       });
     },
@@ -680,7 +703,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(getErrorMessage(errorData, "更新失败"));
+        throw new Error(getErrorMessage(errorData, t("workflow_update_failed")));
       }
       return res.json();
     },
@@ -691,7 +714,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
     },
     onError: (error) => {
       toast({
-        title: getErrorMessage(error, "更新失败"),
+        title: getErrorMessage(error, t("workflow_update_failed")),
         variant: "destructive",
       });
     },
@@ -705,11 +728,11 @@ function AiRolesList({ keyword }: { keyword: string }) {
   const handleAvatarChange = async (id: number, file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast({ title: "请选择图片文件", variant: "destructive" });
+      toast({ title: t("ai_select_image"), variant: "destructive" });
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "图片大小不能超过5MB", variant: "destructive" });
+      toast({ title: t("ai_image_size_limit"), variant: "destructive" });
       return;
     }
     try {
@@ -723,10 +746,10 @@ function AiRolesList({ keyword }: { keyword: string }) {
           console.error("删除旧头像文件失败:", err);
         });
       }
-      toast({ title: "头像已更新" });
+      toast({ title: t("ai_avatar_updated") });
     } catch (e) {
       toast({
-        title: getErrorMessage(e, "头像更新失败"),
+        title: getErrorMessage(e, t("ai_avatar_update_failed")),
         variant: "destructive",
       });
     } finally {
@@ -741,10 +764,10 @@ function AiRolesList({ keyword }: { keyword: string }) {
     if (!name) return;
     try {
       await updateAiUserMutation.mutateAsync({ id, data: { name } });
-      toast({ title: "名称已更新" });
+      toast({ title: t("ai_name_updated") });
     } catch (e) {
       toast({
-        title: getErrorMessage(e, "名称更新失败"),
+        title: getErrorMessage(e, t("ai_name_update_failed")),
         variant: "destructive",
       });
     }
@@ -800,7 +823,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
                       }))
                     }
                     onBlur={() => handleNameBlur(u.id)}
-                    placeholder="输入名称"
+                    placeholder={t("ai_name_placeholder")}
                     className="h-10 bg-transparent px-0 rounded-none border-0 border-b border-border/70 focus:border-foreground/80 focus-visible:ring-0 focus:ring-0 focus:outline-none shadow-none"
                   />
                 </div>
@@ -809,13 +832,13 @@ function AiRolesList({ keyword }: { keyword: string }) {
             <CardContent className="space-y-6 pt-2 pb-5">
               <div className="space-y-4">
                 <div className="flex items-center gap-6">
-                  <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">回答范围</div>
+                  <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">{t("ai_answer_scope")}</div>
                   <div className="flex-1 max-w-[260px]">
                     <CommonCombobox<{ id: string; name: string; code: string }>
                       options={[
                         {
                           id: "default_all",
-                          name: currentLang === "zh-CN" ? "全部范围" : "All modules",
+                          name: t("ai_all_scope"),
                           code: "default_all",
                         },
                         ...ticketModules.map((m) => ({
@@ -828,12 +851,12 @@ function AiRolesList({ keyword }: { keyword: string }) {
                       onChange={(scope) =>
                         updateAiRoleConfigMutation.mutate(
                           { id: u.id, data: { scope: scope || "default_all" } },
-                          { onSuccess: () => toast({ title: "已更新回答范围" }) },
+                          { onSuccess: () => toast({ title: t("ai_scope_updated") }) },
                         )
                       }
                       disabled={updateAiRoleConfigMutation.isPending}
-                      placeholder={currentLang === "zh-CN" ? "选择范围" : "Select scope"}
-                      searchPlaceholder="搜索范围..."
+                      placeholder={t("ai_select_scope")}
+                      searchPlaceholder={t("ai_search_scope")}
                       noneLabel={undefined}
                       showNoneOption={false}
                       getOptionId={(o) => o.id}
@@ -845,7 +868,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
                 </div>
 
                 <div className="flex items-center gap-6">
-                  <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">工作流</div>
+                  <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">{t("ai_workflow_label")}</div>
                   <div className="flex-1 max-w-[260px]">
                     <CommonCombobox<WorkflowBasicResponseType>
                       options={allWorkflows}
@@ -855,15 +878,15 @@ function AiRolesList({ keyword }: { keyword: string }) {
                           { id: u.id, data: { workflowId } },
                           {
                             onSuccess: () => {
-                              toast({ title: "已更新工作流" });
+                              toast({ title: t("workflow_updated") });
                             },
                           },
                         );
                       }}
                       disabled={updateAiRoleConfigMutation.isPending}
-                      placeholder={currentLang === "zh-CN" ? "选择工作流" : "Select workflow"}
-                      searchPlaceholder="搜索工作流..."
-                      noneLabel="不绑定工作流"
+                      placeholder={t("ai_select_workflow")}
+                      searchPlaceholder={t("ai_search_workflow")}
+                      noneLabel={t("ai_no_workflow")}
                       showNoneOption
                       getOptionId={(o) => o.id}
                       getOptionLabel={(o) => o.name}
@@ -879,7 +902,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
               {u.aiRoleConfig?.createdAt || u.aiRoleConfig?.updatedAt ? (
                 <div className="flex items-center text-xs text-muted-foreground">
                   {u.aiRoleConfig?.createdAt ? (
-                    <span>创建：{formatDateTime(u.aiRoleConfig.createdAt)}</span>
+                    <span>{t("ai_created_at", { time: formatDateTime(u.aiRoleConfig.createdAt) })}</span>
                   ) : null}
                   {u.aiRoleConfig?.createdAt && u.aiRoleConfig?.updatedAt ? (
                     <span
@@ -888,13 +911,13 @@ function AiRolesList({ keyword }: { keyword: string }) {
                     />
                   ) : null}
                   {u.aiRoleConfig?.updatedAt ? (
-                    <span>更新：{formatDateTime(u.aiRoleConfig.updatedAt)}</span>
+                    <span>{t("ai_updated_at", { time: formatDateTime(u.aiRoleConfig.updatedAt) })}</span>
                   ) : null}
                 </div>
               ) : null}
 
               <div className="flex items-center">
-                <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">激活状态</div>
+                <div className="w-16 shrink-0 text-right text-[13px] text-muted-foreground">{t("ai_active_status")}</div>
                 <div className="flex-1" />
                 <Switch
                   checked={u.aiRoleConfig?.isActive ?? false}
@@ -904,7 +927,7 @@ function AiRolesList({ keyword }: { keyword: string }) {
                       { id: u.id, data: { isActive: checked } },
                       {
                         onSuccess: () => {
-                          toast({ title: "已更新激活状态" });
+                          toast({ title: t("ai_status_updated") });
                         },
                       },
                     );
@@ -924,6 +947,7 @@ function WorkflowsTab() {
   const [keyword, setKeyword] = useState("");
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const debouncedKeyword = useDebounce(keyword, 300);
 
@@ -934,12 +958,12 @@ function WorkflowsTab() {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(getErrorMessage(errorData, "删除失败"));
+        throw new Error(getErrorMessage(errorData, t("workflow_delete_failed")));
       }
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "已删除" });
+      toast({ title: t("workflow_deleted") });
       queryClient.invalidateQueries({ queryKey: ["admin-workflows-basic"] });
       queryClient.invalidateQueries({
         queryKey: ["admin-ai-role-configs-all"],
@@ -947,7 +971,7 @@ function WorkflowsTab() {
     },
     onError: (error) => {
       toast({
-        title: getErrorMessage(error, "删除失败"),
+        title: getErrorMessage(error, t("workflow_delete_failed")),
         variant: "destructive",
       });
     },
@@ -964,7 +988,7 @@ function WorkflowsTab() {
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Input
-            placeholder="搜索工作流"
+            placeholder={t("workflow_search")}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             className="pl-10"
@@ -987,7 +1011,7 @@ function WorkflowsTab() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新建工作流</DialogTitle>
+              <DialogTitle>{t("workflow_create_title")}</DialogTitle>
           </DialogHeader>
           <CreateWorkflowForm onCreated={handleCreateSuccess} />
         </DialogContent>
@@ -997,8 +1021,10 @@ function WorkflowsTab() {
 }
 
 function CreateWorkflowForm({ onCreated }: { onCreated: () => void }) {
+  const { t } = useTranslation();
+  const schema = useMemo(() => createWorkflowFormSchema(t), [t]);
   const form = useForm<CreateWorkflowFormData>({
-    resolver: zodResolver(createWorkflowFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: "",
       description: "",
@@ -1017,18 +1043,18 @@ function CreateWorkflowForm({ onCreated }: { onCreated: () => void }) {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(getErrorMessage(errorData, "创建失败"));
+        throw new Error(getErrorMessage(errorData, t("workflow_create_failed")));
       }
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "创建成功" });
+      toast({ title: t("workflow_create_success") });
       form.reset();
       onCreated();
     },
     onError: (error) => {
       toast({
-        title: getErrorMessage(error, "创建失败"),
+        title: getErrorMessage(error, t("workflow_create_failed")),
         variant: "destructive",
       });
     },
@@ -1046,9 +1072,9 @@ function CreateWorkflowForm({ onCreated }: { onCreated: () => void }) {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>名称</FormLabel>
+              <FormLabel>{t("workflow_name")}</FormLabel>
               <FormControl>
-                <Input placeholder="请输入名称" {...field} />
+                <Input placeholder={t("workflow_name_placeholder")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1059,9 +1085,9 @@ function CreateWorkflowForm({ onCreated }: { onCreated: () => void }) {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>描述</FormLabel>
+              <FormLabel>{t("workflow_description")}</FormLabel>
               <FormControl>
-                <Input placeholder="可选" {...field} />
+                <Input placeholder={t("workflow_optional")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1069,7 +1095,7 @@ function CreateWorkflowForm({ onCreated }: { onCreated: () => void }) {
         />
         <DialogFooter>
           <Button type="submit" disabled={createWorkflowMutation.isPending}>
-            {createWorkflowMutation.isPending ? "创建中..." : "提交"}
+            {createWorkflowMutation.isPending ? t("workflow_creating") : t("workflow_create_submit")}
           </Button>
         </DialogFooter>
       </form>
@@ -1089,6 +1115,7 @@ function WorkflowsList({
   const { data: workflows } = useSuspenseQuery(
     workflowsBasicQueryOptions(keyword),
   );
+  const { t } = useTranslation();
   return (
     <ItemGroup>
       {workflows.map((wf) => (
@@ -1113,7 +1140,7 @@ function WorkflowsList({
             <ItemContent>
               <ItemTitle>{wf.name}</ItemTitle>
               <ItemDescription>
-                最近编辑于 {formatRelativeFromNow(wf.updatedAt)}
+                {t("workflow_last_edited", { time: formatRelativeFromNow(wf.updatedAt, t) })}
               </ItemDescription>
             </ItemContent>
             <ItemActions>
@@ -1135,14 +1162,14 @@ function WorkflowsList({
                     }
                   >
                     <Pencil className="mr-2 h-4 w-4" />
-                    编辑
+                    {t("workflow_edit")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
                     onClick={() => onDelete(wf.id)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    删除
+                    {t("workflow_delete")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1178,6 +1205,7 @@ function WorkflowsListSkeleton() {
 function KnowledgeBaseTab() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const schema = useMemo(() => createGeneralKnowledgeFormSchema(t), [t]);
   const [keyword, setKeyword] = useState("");
   const debouncedKeyword = useDebounce(keyword, 300);
   const [sourceType, setSourceType] =
@@ -1194,7 +1222,7 @@ function KnowledgeBaseTab() {
   const [autoGenerateIndexes, setAutoGenerateIndexes] = useState(false);
   const ticketModules = useTicketModules();
   const createKnowledgeForm = useForm<CreateGeneralKnowledgeFormData>({
-    resolver: zodResolver(createGeneralKnowledgeFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: getDefaultGeneralKnowledgeFormValues(),
   });
   const manualKnowledgeValues = useWatch({ control: createKnowledgeForm.control });
@@ -1353,14 +1381,14 @@ function KnowledgeBaseTab() {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(getErrorMessage(errorData, "保存失败"));
+        throw new Error(getErrorMessage(errorData, t("kb_save_failed")));
       }
       return res.json();
     },
     onSuccess: invalidateKnowledgeQueries,
     onError: (error) => {
       toast({
-        title: getErrorMessage(error, "保存失败"),
+        title: getErrorMessage(error, t("kb_save_failed")),
         variant: "destructive",
       });
     },
@@ -1374,13 +1402,13 @@ function KnowledgeBaseTab() {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(getErrorMessage(errorData, "更新片段状态失败"));
+        throw new Error(getErrorMessage(errorData, t("kb_chunk_update_failed")));
       }
       return res.json();
     },
     onSuccess: invalidateKnowledgeQueries,
     onError: (error) => {
-      toast({ title: getErrorMessage(error, "更新片段状态失败"), variant: "destructive" });
+      toast({ title: getErrorMessage(error, t("kb_chunk_update_failed")), variant: "destructive" });
     },
   });
 
@@ -1397,26 +1425,27 @@ function KnowledgeBaseTab() {
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(getErrorMessage(errorData, "删除失败"));
+        throw new Error(getErrorMessage(errorData, t("kb_delete_failed")));
       }
       return res.json();
     },
     onSuccess: () => {
       setDeleteDialogOpen(false);
       setSelectedKnowledge(null);
-      toast({ title: "已删除" });
+      toast({ title: t("kb_deleted") });
       queryClient.invalidateQueries({ queryKey: ["admin-knowledge-base"] });
     },
     onError: (error) => {
       toast({
-        title: getErrorMessage(error, "删除失败"),
+        title: getErrorMessage(error, t("kb_delete_failed")),
         variant: "destructive",
       });
     },
   });
 
   const createGeneralKnowledgeMutation = useMutation({
-    mutationFn: createGeneralKnowledge,
+    mutationFn: (data: CreateGeneralKnowledgeFormData) =>
+      createGeneralKnowledge(data, t),
     onSuccess: (_result, values) => {
       const sourceId = buildGeneralKnowledgeSourceId(values);
       setCreateDialogOpen(false);
@@ -1439,21 +1468,22 @@ function KnowledgeBaseTab() {
           sourceId,
         ],
       });
-      toast({ title: "通用知识已添加" });
+      toast({ title: t("kb_general_added") });
     },
     onError: (error) => {
       toast({
-        title: getErrorMessage(error, "添加通用知识失败"),
+        title: getErrorMessage(error, t("kb_general_add_failed")),
         variant: "destructive",
       });
     },
   });
 
   const generateGeneralKnowledgeIndexesMutation = useMutation({
-    mutationFn: generateGeneralKnowledgeIndexes,
+    mutationFn: (data: CreateGeneralKnowledgeFormData) =>
+      generateGeneralKnowledgeIndexes(data, t),
     onSuccess: (indexes) => {
       if (indexes.length === 0) {
-        toast({ title: "未生成有效召回索引" });
+        toast({ title: t("kb_no_valid_indexes") });
         return;
       }
       const fields = ["index1", "index2", "index3"] as const;
@@ -1471,14 +1501,14 @@ function KnowledgeBaseTab() {
         filledCount += 1;
       }
       if (filledCount === 0) {
-        toast({ title: "召回索引已存在，未覆盖" });
+        toast({ title: t("kb_index_exists") });
         return;
       }
-      toast({ title: "召回索引已生成" });
+      toast({ title: t("kb_index_generated") });
     },
     onError: (error) => {
       toast({
-        title: getErrorMessage(error, "召回索引生成失败"),
+        title: getErrorMessage(error, t("kb_index_generate_failed")),
         variant: "destructive",
       });
     },
@@ -1510,7 +1540,7 @@ function KnowledgeBaseTab() {
     ]);
     if (!valid) {
       toast({
-        title: "请先填写标题、适用模块、知识类型和正文",
+        title: t("kb_required_fields"),
         variant: "destructive",
       });
       return;
@@ -1530,13 +1560,13 @@ function KnowledgeBaseTab() {
       const hasContentChunkChange = changedChunks.some((chunk) => chunk.chunkId === 0);
       if (hasContentChunkChange) {
         toast({
-          title: "通用知识正文暂不支持在此保存",
+          title: t("kb_content_not_editable"),
           variant: "destructive",
         });
         return;
       }
       if (changedIndexChunks.length === 0) {
-        toast({ title: "没有需要保存的召回索引改动" });
+        toast({ title: t("kb_no_index_changes") });
         return;
       }
       const invalidIndexChunk = changedIndexChunks.find((chunk) => {
@@ -1545,7 +1575,7 @@ function KnowledgeBaseTab() {
       });
       if (invalidIndexChunk) {
         toast({
-          title: "召回索引不能为空且不能超过 500 个字符",
+          title: t("kb_index_too_long"),
           variant: "destructive",
         });
         return;
@@ -1562,12 +1592,12 @@ function KnowledgeBaseTab() {
             })),
           },
         },
-        { onSuccess: () => toast({ title: "召回索引已保存并重建" }) },
+        { onSuccess: () => toast({ title: t("kb_index_saved") }) },
       );
       return;
     }
     if (changedChunks.length === 0) {
-      toast({ title: "没有需要保存的改动" });
+      toast({ title: t("kb_no_changes") });
       return;
     }
 
@@ -1584,14 +1614,14 @@ function KnowledgeBaseTab() {
             : undefined,
         },
       },
-      { onSuccess: () => toast({ title: "已保存并重建索引" }) },
+      { onSuccess: () => toast({ title: t("kb_saved_rebuilt") }) },
     );
   };
 
   const handleToggleChunkDisabled = (chunk: KnowledgeChunk) => {
     updateKnowledgeChunkMutation.mutate(
       { id: chunk.id, isDeleted: !chunk.isDeleted },
-      { onSuccess: () => toast({ title: chunk.isDeleted ? "已解除禁用" : "已禁用" }) },
+      { onSuccess: () => toast({ title: chunk.isDeleted ? t("kb_reenabled") : t("kb_disabled_status") }) },
     );
   };
 
@@ -1608,8 +1638,8 @@ function KnowledgeBaseTab() {
   const isGeneralKnowledgeDetail = detail?.sourceType === "general_knowledge";
   const detailModuleText =
     isGeneralKnowledgeDetail && detail.modules?.length
-      ? detail.modules.join("、")
-      : detail?.module || "未分模块";
+      ? detail.modules.join(t("list_separator"))
+      : detail?.module || t("kb_unmodularized");
   const isMutating =
     updateKnowledgeMutation.isPending ||
     updateKnowledgeChunkMutation.isPending ||
@@ -1648,7 +1678,7 @@ function KnowledgeBaseTab() {
         <Dialog open={createDialogOpen} onOpenChange={handleCreateDialogOpenChange}>
           <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] h-[min(860px,calc(100vh-2rem))] w-[min(1080px,calc(100vw-2rem))] sm:max-w-[1080px] overflow-hidden p-0">
             <DialogHeader className="border-b border-border px-6 py-5">
-              <DialogTitle>添加通用知识</DialogTitle>
+              <DialogTitle>{t("kb_add_general_title")}</DialogTitle>
             </DialogHeader>
             <Form {...createKnowledgeForm}>
               <form
@@ -1679,7 +1709,7 @@ function KnowledgeBaseTab() {
                     variant="outline"
                     onClick={() => handleCreateDialogOpenChange(false)}
                   >
-                    取消
+                    {t("cancel")}
                   </Button>
                   <Button
                     type="submit"
@@ -1688,7 +1718,7 @@ function KnowledgeBaseTab() {
                       generateGeneralKnowledgeIndexesMutation.isPending
                     }
                   >
-                    {createGeneralKnowledgeMutation.isPending ? "添加中" : "添加"}
+                    {createGeneralKnowledgeMutation.isPending ? t("kb_adding") : t("kb_add_general")}
                   </Button>
                 </DialogFooter>
               </form>
@@ -1706,12 +1736,12 @@ function KnowledgeBaseTab() {
         <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
           <div className="grid grid-cols-4 divide-x divide-border">
             <KbStatCell
-              label="可用知识"
+              label={t("kb_available")}
               value={summary?.enabledCount ?? 0}
               onClick={resetStatusFilters}
             />
             <KbStatCell
-              label="知识片段"
+              label={t("kb_chunks")}
               value={summary?.chunkCount ?? 0}
               onClick={resetStatusFilters}
             />
@@ -1730,14 +1760,14 @@ function KnowledgeBaseTab() {
               )}
             >
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                已禁用
+                {t("kb_disabled_status")}
               </div>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-xl font-semibold tabular-nums leading-none">
                   {summary?.disabledCount ?? 0}
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  {status === "disabled" ? "筛选中" : "点击筛选"}
+                  {status === "disabled" ? t("kb_filtering") : t("kb_click_filter")}
                 </span>
               </div>
             </button>
@@ -1755,7 +1785,7 @@ function KnowledgeBaseTab() {
             )}
           >
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              同步失败
+              {t("kb_sync_failed")}
             </div>
             <div className="mt-1 flex items-baseline gap-2">
               <span
@@ -1769,10 +1799,10 @@ function KnowledgeBaseTab() {
               {(summary?.failedSyncCount ?? 0) === 0 ? (
                 <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  正常
+                  {t("kb_normal")}
                 </span>
               ) : (
-                <span className="text-[11px] text-destructive">点击筛选</span>
+                <span className="text-[11px] text-destructive">{t("kb_click_filter")}</span>
               )}
             </div>
           </button>
@@ -1783,7 +1813,7 @@ function KnowledgeBaseTab() {
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         <div className="relative min-w-[260px] flex-1">
           <Input
-            placeholder="搜索标题、内容、标签、知识 ID、工单 ID..."
+            placeholder={t("kb_search_placeholder")}
             value={keyword}
             onChange={(e) => {
               setKeyword(e.target.value);
@@ -1803,13 +1833,13 @@ function KnowledgeBaseTab() {
           }}
         >
           <SelectTrigger className="h-9 w-[120px]">
-            <SelectValue placeholder="来源" />
+            <SelectValue placeholder={t("kb_source")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部来源</SelectItem>
-            <SelectItem value="favorited_conversation">精选案例</SelectItem>
-            <SelectItem value="historical_ticket">历史工单</SelectItem>
-            <SelectItem value="general_knowledge">通用知识</SelectItem>
+            <SelectItem value="all">{t("kb_all_sources")}</SelectItem>
+            <SelectItem value="favorited_conversation">{t("kb_featured_cases")}</SelectItem>
+            <SelectItem value="historical_ticket">{t("kb_historical_tickets")}</SelectItem>
+            <SelectItem value="general_knowledge">{t("kb_all_knowledge")}</SelectItem>
           </SelectContent>
         </Select>
         <Select
@@ -1821,12 +1851,12 @@ function KnowledgeBaseTab() {
           }}
         >
           <SelectTrigger className="h-9 w-[120px]">
-            <SelectValue placeholder="模块">
-              {module === "all" ? "全部模块" : module}
+            <SelectValue placeholder={t("module")}>
+              {module === "all" ? t("kb_all_modules") : module}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部模块</SelectItem>
+            <SelectItem value="all">{t("kb_all_modules")}</SelectItem>
             {(listQuery.data?.filters.modules ?? []).filter((item) => item !== "all").map((item) => (
               <SelectItem key={item} value={item}>
                 {item}
@@ -1844,12 +1874,12 @@ function KnowledgeBaseTab() {
           }}
         >
           <SelectTrigger className="h-9 w-[120px]">
-            <SelectValue placeholder="状态" />
+            <SelectValue placeholder={t("status")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value="enabled">启用</SelectItem>
-            <SelectItem value="disabled">禁用</SelectItem>
+            <SelectItem value="all">{t("kb_all_statuses")}</SelectItem>
+            <SelectItem value="enabled">{t("kb_enabled_status")}</SelectItem>
+            <SelectItem value="disabled">{t("kb_filter_disabled")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1858,13 +1888,13 @@ function KnowledgeBaseTab() {
         <KnowledgeBaseSkeleton />
       ) : listQuery.isError ? (
         <div className="flex flex-1 items-center justify-center text-sm text-destructive">
-          {getErrorMessage(listQuery.error, "知识库加载失败")}
+          {getErrorMessage(listQuery.error, t("kb_loading_failed"))}
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
           <Database className="h-10 w-10" />
           <div className="text-sm">
-            {failedOnly ? "暂无同步失败内容" : "暂无知识内容"}
+            {failedOnly ? t("kb_no_failed_content") : t("kb_no_knowledge")}
           </div>
         </div>
       ) : (
@@ -1876,8 +1906,8 @@ function KnowledgeBaseTab() {
                 const moduleText =
                   item.sourceType === "general_knowledge" &&
                   item.modules?.length
-                    ? item.modules.join("、")
-                    : item.module || "未分模块";
+                    ? item.modules.join(t("list_separator"))
+                    : item.module || t("kb_unmodularized");
                 const active = selectedKnowledge
                   ? key === makeKnowledgeKey(selectedKnowledge)
                   : false;
@@ -1906,18 +1936,18 @@ function KnowledgeBaseTab() {
                       )}
                     />
                     <span className="text-[11px] font-medium text-muted-foreground">
-                      {SOURCE_TYPE_LABELS[item.sourceType]}
+                      {getSourceTypeLabel(item.sourceType, t)}
                     </span>
                     {item.disabledChunkCount === item.chunkCount && item.chunkCount > 0 ? (
                       <span className="ml-auto rounded border border-destructive/30 bg-destructive/10 px-1.5 py-px text-[10px] text-destructive">
-                        已禁用
+                        {t("kb_disabled_status")}
                       </span>
                     ) : item.disabledChunkCount > 0 ? (
                       <span className="ml-auto rounded border border-amber-500/30 bg-amber-50 px-1.5 py-px text-[10px] text-amber-700">
-                        有禁用
+                        {t("kb_has_disabled")}
                       </span>
                     ) : item.syncFailed ? (
-                      <span className="ml-auto text-[11px] text-destructive">同步失败</span>
+                      <span className="ml-auto text-[11px] text-destructive">{t("kb_sync_failed")}</span>
                     ) : null}
                   </div>
                   <div className="line-clamp-2 mb-1.5 font-medium leading-snug">
@@ -1931,11 +1961,11 @@ function KnowledgeBaseTab() {
                       {moduleText}
                     </span>
                     <span className="text-muted-foreground/50">·</span>
-                    <span>{item.chunkCount} 片段</span>
+                    <span>{t("kb_chunk_count", { count: item.chunkCount })}</span>
                     <span className="text-muted-foreground/50">·</span>
-                    <span>{item.accessCount} 命中</span>
+                    <span>{t("kb_hit_count", { count: item.accessCount })}</span>
                     <span className="ml-auto text-muted-foreground/70">
-                      {formatRelativeFromNow(item.updatedAt)}
+                      {formatRelativeFromNow(item.updatedAt, t)}
                     </span>
                   </div>
                   </button>
@@ -1944,7 +1974,7 @@ function KnowledgeBaseTab() {
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
               <span>
-                共 {pagination?.total ?? 0} 条 · 第 {currentPage} / {totalPages} 页
+                {t("kb_pagination", { total: pagination?.total ?? 0, current: currentPage, totalPages })}
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -1954,7 +1984,7 @@ function KnowledgeBaseTab() {
                   disabled={!canGoPrevious || listQuery.isFetching}
                   onClick={() => setPage((value) => Math.max(1, value - 1))}
                 >
-                  上一页
+                  {t("previous_page")}
                 </Button>
                 <Button
                   variant="outline"
@@ -1963,7 +1993,7 @@ function KnowledgeBaseTab() {
                   disabled={!canGoNext || listQuery.isFetching}
                   onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
                 >
-                  下一页
+                  {t("next_page")}
                 </Button>
               </div>
             </div>
@@ -1972,19 +2002,19 @@ function KnowledgeBaseTab() {
           <div className="min-h-0 overflow-auto p-5">
             {!selectedKnowledge ? (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                请选择一条知识
+                {t("kb_select_knowledge")}
               </div>
             ) : detailQuery.isLoading ? (
               <KnowledgeDetailSkeleton />
             ) : detailQuery.isError ? (
               <div className="flex h-full items-center justify-center text-sm text-destructive">
-                {getErrorMessage(detailQuery.error, "知识详情加载失败")}
+                {getErrorMessage(detailQuery.error, t("kb_detail_failed"))}
               </div>
             ) : detail ? (
               <div className="space-y-5">
                 {detail.syncFailed ? (
                   <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    同步失败。请查看导入失败的原始内容，确认后可打开工单处理或删除失败记录。
+                    {t("kb_sync_failed_detail")}
                   </div>
                 ) : null}
                 <div className="flex items-center gap-2 text-xs">
@@ -1996,8 +2026,8 @@ function KnowledgeBaseTab() {
                   />
                   <span className="text-muted-foreground">
                     {detail.sourceType === "favorited_conversation"
-                      ? "工单 ID"
-                      : SOURCE_TYPE_LABELS[detail.sourceType]}
+                      ? t("kb_ticket_id")
+                      : getSourceTypeLabel(detail.sourceType, t)}
                   </span>
                   <span className="text-muted-foreground/50">·</span>
                   <span className="font-mono text-muted-foreground">
@@ -2007,7 +2037,7 @@ function KnowledgeBaseTab() {
                     <Button variant="ghost" size="sm" asChild className="ml-auto h-7">
                       <Link to="/staff/tickets/$id" params={{ id: detail.ticketId }}>
                         <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                        打开工单
+                        {t("kb_open_ticket")}
                       </Link>
                     </Button>
                   ) : null}
@@ -2019,38 +2049,38 @@ function KnowledgeBaseTab() {
 
                 {isFailureView ? (
                   <div className="grid grid-cols-3 gap-x-6 gap-y-2 border-y border-border py-3">
-                    <KbDetailMeta label="模块" value={detailModuleText} />
+                    <KbDetailMeta label={t("module")} value={detailModuleText} />
                     <KbDetailMeta
-                      label="分类"
-                      value={detail.category || "未分类"}
+                      label={t("category")}
+                      value={detail.category || t("kb_uncategorized")}
                       muted
                     />
                     <KbDetailMeta
-                      label="导入范围"
+                      label={t("kb_import_scope")}
                       value={
                         detail.selectionMode === "entire_conversation"
-                          ? "整段对话"
-                          : "选中消息"
+                          ? t("kb_entire_conversation")
+                          : t("kb_selected_messages")
                       }
                     />
                   </div>
                 ) : (
                   <div className="grid grid-cols-4 gap-x-6 gap-y-2 border-y border-border py-3">
-                    <KbDetailMeta label="模块" value={detailModuleText} />
+                    <KbDetailMeta label={t("module")} value={detailModuleText} />
                     <KbDetailMeta
-                      label="分类"
-                      value={detail.category || "未分类"}
+                      label={t("category")}
+                      value={detail.category || t("kb_uncategorized")}
                       muted
                     />
-                    <KbDetailMeta label="片段" value={String(draftChunks.length)} />
-                    <KbDetailMeta label="命中" value={String(detail.accessCount)} />
+                    <KbDetailMeta label={t("kb_chunks_label")} value={String(draftChunks.length)} />
+                    <KbDetailMeta label={t("kb_hits_label")} value={String(detail.accessCount)} />
                   </div>
                 )}
 
                 {detail.tags.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="mr-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                      标签
+                      {t("kb_tags")}
                     </span>
                     {detail.tags.map((tag) => (
                       <Badge key={tag} variant="outline">
@@ -2065,11 +2095,11 @@ function KnowledgeBaseTab() {
                 ) : (
                   <div className="border-t border-border pt-5">
                     <div className="mb-3 flex items-center justify-between">
-                      <div className="text-sm font-medium">内容片段</div>
+                      <div className="text-sm font-medium">{t("kb_content_chunks")}</div>
                       <div className="text-xs text-muted-foreground">
                         {isGeneralKnowledgeDetail
-                          ? "仅召回索引可编辑，正式知识正文保持只读"
-                          : "未点击保存前不会写入数据库"}
+                          ? t("kb_recall_only_editable")
+                          : t("kb_not_saved_to_db")}
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -2081,7 +2111,7 @@ function KnowledgeBaseTab() {
                                 variant="outline"
                                 className="border-emerald-500/30 bg-emerald-50 text-emerald-700"
                               >
-                                {chunk.chunkId === 0 ? "正式知识" : "召回索引"}
+                                {chunk.chunkId === 0 ? t("kb_formal_knowledge") : t("kb_recall_index")}
                               </Badge>
                             ) : chunk.chunkId === 0 ? (
                               <Badge
@@ -2089,11 +2119,11 @@ function KnowledgeBaseTab() {
                                 className="gap-1 border-orange-500/30 bg-orange-50 text-orange-700"
                               >
                                 <Sparkles className="h-3 w-3" />
-                                AI 摘要
+                                {t("kb_ai_summary")}
                               </Badge>
                             ) : (
                               <span className="text-xs font-medium text-muted-foreground">
-                                原始内容 {index}
+                                {t("kb_original_content", { index })}
                               </span>
                             )}
                             {chunk.isDeleted ? (
@@ -2101,7 +2131,7 @@ function KnowledgeBaseTab() {
                                 variant="outline"
                                 className="border-destructive/30 bg-destructive/10 text-destructive"
                               >
-                                已禁用
+                                {t("kb_disabled_status")}
                               </Badge>
                             ) : null}
                             {isGeneralKnowledgeDetail ? (
@@ -2115,7 +2145,7 @@ function KnowledgeBaseTab() {
                                 onClick={() => handleToggleChunkDisabled(chunk)}
                                 disabled={isMutating}
                               >
-                                {chunk.isDeleted ? "解除禁用" : "禁用"}
+                                {chunk.isDeleted ? t("kb_reenable") : t("kb_disable")}
                               </Button>
                             )}
                           </div>
@@ -2148,7 +2178,7 @@ function KnowledgeBaseTab() {
                   {isFailureView || (isGeneralKnowledgeDetail && !draftChunks.some((chunk) => chunk.chunkId > 0)) ? null : (
                     <Button onClick={handleSave} disabled={isMutating} className="shadow-sm">
                       <Save className="mr-2 h-4 w-4" />
-                      保存并重建索引
+                      {t("kb_save_and_rebuild")}
                     </Button>
                   )}
                   <Button
@@ -2161,25 +2191,25 @@ function KnowledgeBaseTab() {
                     disabled={isMutating}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    {isFailureView ? "删除失败记录" : "删除"}
+                    {isFailureView ? t("kb_delete_failed_record") : t("delete")}
                   </Button>
                 </div>
 
                 <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>确认删除知识</DialogTitle>
+                      <DialogTitle>{t("kb_confirm_delete")}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-2 text-sm text-muted-foreground">
                       {isFailureView ? (
                         <>
-                          <p>删除后会移除这条同步失败记录。</p>
-                          <p>如果这条记录没有成功生成过知识内容，不会影响现有可用知识。</p>
+                          <p>{t("kb_delete_failed_description")}</p>
+                          <p>{t("kb_delete_no_knowledge")}</p>
                         </>
                       ) : (
                         <>
-                          <p>删除后会移除这条知识的全部片段。</p>
-                          <p>相关命中记录会被级联删除，历史命中分析数据会减少。</p>
+                          <p>{t("kb_delete_all_chunks")}</p>
+                          <p>{t("kb_cascade_warning")}</p>
                         </>
                       )}
                     </div>
@@ -2189,7 +2219,7 @@ function KnowledgeBaseTab() {
                         variant="outline"
                         onClick={() => setDeleteDialogOpen(false)}
                       >
-                        取消
+                        {t("cancel")}
                       </Button>
                       <Button
                         type="button"
@@ -2197,7 +2227,7 @@ function KnowledgeBaseTab() {
                         onClick={handleConfirmDelete}
                         disabled={deleteKnowledgeMutation.isPending}
                       >
-                        确定删除
+                        {t("kb_confirm_delete_button")}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -2288,17 +2318,18 @@ function KnowledgeSourceMessages({
 }: {
   messages: KnowledgeSourceMessage[];
 }) {
+  const { t } = useTranslation();
   return (
     <div className="border-t border-border pt-5">
       <div className="mb-3 flex items-center justify-between">
-        <div className="text-sm font-medium">导入失败的内容</div>
+        <div className="text-sm font-medium">{t("kb_failed_content")}</div>
         <div className="text-xs text-muted-foreground">
-          原始消息全文
+          {t("kb_original_message_full")}
         </div>
       </div>
       {messages.length === 0 ? (
         <div className="rounded-md border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
-          未找到原始消息内容
+          {t("kb_no_original_message")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -2312,14 +2343,14 @@ function KnowledgeSourceMessages({
                 <span className="text-muted-foreground/50">·</span>
                 <span>{formatDateTime(message.createdAt)}</span>
                 {message.isInternal ? (
-                  <Badge variant="outline">内部</Badge>
+                  <Badge variant="outline">{t("internal")}</Badge>
                 ) : null}
                 {message.withdrawn ? (
-                  <Badge variant="outline">已撤回</Badge>
+                  <Badge variant="outline">{t("message_recalled")}</Badge>
                 ) : null}
               </div>
               <div className="whitespace-pre-wrap break-words text-sm leading-6">
-                {message.contentText || "（空消息）"}
+                {message.contentText || t("kb_empty_message")}
               </div>
             </div>
           ))}
@@ -2358,6 +2389,7 @@ function KnowledgeDetailSkeleton() {
 }
 
 function AiRolesEmptyState() {
+  const { t } = useTranslation();
   const { openSettingsModal, settingsModal } = useSettingsModal();
 
   const handleOpenUserManagement = () => {
@@ -2371,7 +2403,7 @@ function AiRolesEmptyState() {
           className="flex w-full h-full flex-col items-center justify-center rounded-2xl text-center cursor-pointer group -mt-24 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           role="button"
           tabIndex={0}
-          aria-label="前往用户管理，设置AI角色"
+          aria-label={t("ai_manage_users")}
           onClick={handleOpenUserManagement}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -2383,10 +2415,10 @@ function AiRolesEmptyState() {
           <EmptyStateIcon className="w-24 h-24 [&_*]:transition-colors [&_*]:fill-zinc-400 group-hover:[&_[data-hover-fill]]:fill-zinc-700" />
           <div className="space-y-3 mt-4">
             <h3 className="text-2xl font-semibold text-foreground">
-              暂无AI角色
+              {t("ai_no_roles")}
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              还没有配置任何AI角色。点击前往用户管理，将用户设置为AI角色。
+              {t("ai_no_roles_description")}
             </p>
           </div>
         </div>

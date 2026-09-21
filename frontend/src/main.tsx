@@ -1,4 +1,5 @@
 import { apiClient } from "@lib/api-client.ts";
+import { initializeApplicationLanguage } from "@lib/language.ts";
 import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
@@ -8,6 +9,8 @@ import { getQueryClient } from "./_provider/tanstack.tsx";
 import reportWebVitals from "./reportWebVitals.ts";
 import { router } from "./router.tsx";
 import "./styles.css";
+
+initializeApplicationLanguage();
 
 // Render the app
 const rootElement = document.getElementById("app");
