@@ -71,7 +71,7 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
           editor={editor}
           className={cn("minimal-tiptap-editor", editorContentClassName)}
         />
-        <div className="border-border flex h-17 shrink-0 overflow-x-auto border-t px-3 items-center">
+        <div className="border-border flex h-17 shrink-0 overflow-x-auto border-t px-3 items-center max-lg:h-auto max-lg:flex-wrap max-lg:py-4">
           <div className="flex w-max items-center gap-px">
             <SectionTwo
               editor={editor}
@@ -88,10 +88,10 @@ export const StaffChatEditor = forwardRef<EditorRef, MinimalTiptapProps>(
             />
             <AttachmentEditDialog editor={editor} size="sm" />
           </div>
-          <div className="w-full" />
+          <div className="w-full max-lg:hidden" />
           {/* <TemplateReplies onSelectTemplate={handleTemplateSelect} />
           <KnowledgeBase /> */}
-          <div className="flex items-center justify-between gap-1  mr-13">
+          <div className="flex items-center justify-between gap-1  mr-13 max-lg:ml-auto max-lg:min-h-9">
             <ToggleGroup
               type="single"
               className="gap-2"
