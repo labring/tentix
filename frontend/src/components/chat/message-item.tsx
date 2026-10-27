@@ -180,16 +180,16 @@ const OtherMessage = ({
             )}
           >
             {/* name and time */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-2 flex-wrap gap-y-1">
+              <span className="text-xs font-medium text-muted-foreground max-sm:truncate">
                 {messageSender?.name ?? "Unknown"}
               </span>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1 max-sm:whitespace-nowrap">
                 {dateTimeFmt(message.createdAt)}
               </span>
               {notCustomer && (
                 <>
-                  <div className="w-px h-[18px] bg-zinc-200"></div>
+                  <div className="w-px h-[18px] bg-zinc-200 max-sm:hidden"></div>
                   <Badge
                     className={cn(
                       "border-zinc-200 bg-zinc-50  gap-1 justify-center items-center rounded border hover:bg-zinc-50",
@@ -215,7 +215,7 @@ const OtherMessage = ({
                   </Badge>
                   {message.isInternal && (
                     <>
-                      <div className="w-px h-[18px] bg-zinc-200"></div>
+                      <div className="w-px h-[18px] bg-zinc-200 max-sm:hidden"></div>
                       <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5 hover:bg-violet-100">
                         <EyeOffIcon className="h-3 w-3 text-zinc-500" />
                         <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">
@@ -499,13 +499,13 @@ const MyMessage = ({
           )}
         >
           {/* name and time */}
-          <div className="flex gap-3 items-center">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
+          <div className="flex gap-3 items-center flex-wrap gap-y-1">
+            <div className="flex items-center gap-2 max-sm:flex-wrap max-sm:gap-y-1 max-sm:min-w-0">
+              <span className="text-xs font-medium text-muted-foreground max-sm:truncate">
                 {messageSender?.name ?? "Unknown"}
               </span>
 
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1 max-sm:whitespace-nowrap">
                 {isMessageSending(message.id) && (
                   <Loader2Icon className="h-3 w-3 animate-spin" />
                 )}
@@ -514,7 +514,7 @@ const MyMessage = ({
             </div>
             {message.isInternal && (
               <>
-                <div className="w-px h-[18px] bg-zinc-200"></div>
+                <div className="w-px h-[18px] bg-zinc-200 max-sm:hidden"></div>
                 <Badge className="flex items-center justify-center gap-1 rounded border-[0.5px] border-violet-200 bg-violet-100 px-1.5 hover:bg-violet-100">
                   <EyeOffIcon className="h-3 w-3 text-zinc-500" />
                   <span className="text-zinc-900 font-medium text-[12.8px] leading-[140%]">

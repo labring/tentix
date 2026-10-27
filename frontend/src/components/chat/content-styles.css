@@ -211,6 +211,31 @@
   color: #18181b;
 }
 
+@media (max-width: 639px) {
+  .content-attachment-container {
+    flex-wrap: wrap;
+  }
+
+  .content-attachment-info {
+    flex-basis: 6rem;
+  }
+
+  .content-attachment-icon {
+    display: none;
+  }
+
+  .content-attachment-meta {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .content-attachment-download {
+    margin-left: auto;
+  }
+}
+
 .content-bold {
   font-weight: 600;
 }
