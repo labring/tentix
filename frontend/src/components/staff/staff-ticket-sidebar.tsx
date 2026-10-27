@@ -542,8 +542,8 @@ export function StaffTicketSidebar({
                     )}
 
                     {/* First part: Status + Time */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-x-2 gap-y-1">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <statusDisplay.icon
                           className={`h-4 w-4 ${statusDisplay.color}`}
                         />
@@ -551,7 +551,7 @@ export function StaffTicketSidebar({
                           {statusDisplay.label}
                         </span>
                       </div>
-                      <span className="text-sm font-normal text-[#3F3F46] leading-5">
+                      <span className="text-xs font-normal text-[#3F3F46] leading-5 whitespace-nowrap ml-auto">
                         {new Date(ticket.updatedAt).toLocaleString()}
                       </span>
                     </div>
