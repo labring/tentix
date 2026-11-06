@@ -374,6 +374,14 @@ namespace aiHandler {
         2000,
         async (result) => {
           try {
+            if (
+              typeof result.response !== "string" ||
+              result.response.trim() === ""
+            ) {
+              logError(`Invalid or empty AI response skipped for ticket ${ticketId}`);
+              return;
+            }
+
             const JSONContent = textToTipTapJSON(result.response);
             const savedAIMessage = await saveMessageToDb(
               ticketId,
