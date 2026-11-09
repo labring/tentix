@@ -11,8 +11,18 @@ import {
   saveMessageReadStatus,
   saveMessageToDb,
   withdrawMessage,
+  isFeishuConfigured,
 } from "@/utils/index.ts";
 import { getAIResponse, workflowCache } from "@/utils/kb/workflow-cache.ts";
+import {
+  AI_FAILURE_HANDOFF_REASON,
+  getAIFailureNoticeText,
+  shouldSkipAIForHandoff,
+} from "@/utils/kb/ai-failure-handoff.ts";
+import {
+  emitHandoffEvent,
+  HandoffEventTypes,
+} from "@/utils/events/handoff/handoff-events.ts";
 import { parseSealosJWT } from "@/utils/jwt.ts";
 import type { RagTrace, RagTraceHit } from "@/utils/kb/types.ts";
 import { runWithInterval } from "@/utils/runtime.ts";
@@ -286,6 +296,79 @@ namespace aiHandler {
     return currentCount;
   }
 
+  // AI 最终生成失败：转人工，并只给客户发一次固定说明；之后该工单不再自动回复
+  async function handoffAfterAIFailure(
+    ticketId: string,
+    aiUserId: number,
+    beforeCount: number,
+  ) {
+    const db = connectDB();
+    const ticket = await db.query.tickets.findFirst({
+      where: (t, { eq }) => eq(t.id, ticketId),
+    });
+    // 处理期间工单被解决，或工作人员已进入对话：不打扰
+    if (!ticket || ticket.status === "resolved") return;
+    if (hasNonCustomerHumanInRoom(ticketId)) return;
+
+    // 唯一约束保证同一工单只插入一次；已有转人工记录说明处理过，静默结束
+    const [record] = await db
+      .insert(schema.handoffRecords)
+      .values({
+        ticketId: ticket.id,
+        handoffReason: AI_FAILURE_HANDOFF_REASON,
+        customerId: ticket.customerId,
+        assignedAgentId: ticket.agentId,
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (!record) {
+      logInfo(`Ticket ${ticketId} already has a handoff record, skip AI failure notice.`);
+      return;
+    }
+
+    if (ticket.status !== "pending") {
+      await db
+        .update(schema.tickets)
+        .set({
+          status: "pending",
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(schema.tickets.id, ticket.id));
+    }
+
+    const savedNotice = await saveMessageToDb(
+      ticketId,
+      aiUserId,
+      plainTextToTipTapJSON(
+        getAIFailureNoticeText(isFeishuConfigured(), (key, options) =>
+          global.i18n!.t(key, options),
+        ),
+      ),
+      false,
+    );
+    if (savedNotice) {
+      const latest = aiResponseCountCache.get<number>(ticketId) ?? beforeCount;
+      aiResponseCountCache.set(ticketId, latest + 1);
+      broadcastToRoom(ticketId, {
+        type: "new_message",
+        messageId: savedNotice.id,
+        roomId: ticketId,
+        userId: aiUserId,
+        content: savedNotice.content,
+        timestamp: new Date(savedNotice.createdAt).getTime(),
+        isInternal: false,
+      });
+    }
+
+    setImmediate(() => {
+      emitHandoffEvent(HandoffEventTypes.NOTIFICATION_SENT, {
+        record,
+        ticket,
+        channel: "feishu",
+      });
+    });
+  }
+
   export async function handleAIResponse(
     ws: wsInstance,
     ticketId: string,
@@ -334,13 +417,13 @@ namespace aiHandler {
         columns: {
           id: true,
           notificationSent: true,
-          handoffReason: false,
+          handoffReason: true,
           priority: false,
           sentiment: false,
         },
       });
 
-      if (handoffRecord?.notificationSent) {
+      if (shouldSkipAIForHandoff(handoffRecord)) {
         logInfo(`Ticket ${ticketId} has already been handoff, skip AI response.`);
         clearAIInFlight(ticketId);
         return;
@@ -374,6 +457,14 @@ namespace aiHandler {
         2000,
         async (result) => {
           try {
+            if (
+              typeof result.response !== "string" ||
+              result.response.trim() === ""
+            ) {
+              logError(`Invalid or empty AI response skipped for ticket ${ticketId}`);
+              return;
+            }
+
             const JSONContent = textToTipTapJSON(result.response);
             const savedAIMessage = await saveMessageToDb(
               ticketId,
@@ -424,14 +515,16 @@ namespace aiHandler {
             clearAIInFlight(ticketId);
           }
         },
-        (error: unknown) => {
+        async (error: unknown) => {
           logError("Error handling AI response:", error);
-          // Clear lock and timeout on error
-          clearAIInFlight(ticketId);
-          sendWsMessage(ws, {
-            type: "error",
-            error: "Some error occurred in AI response.",
-          });
+          try {
+            await handoffAfterAIFailure(ticketId, aiUserId, beforeCount);
+          } catch (handoffError) {
+            logError("Error handing off after AI failure:", handoffError);
+          } finally {
+            // Clear lock and timeout on error
+            clearAIInFlight(ticketId);
+          }
         },
       );
     } catch (error) {

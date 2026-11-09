@@ -627,7 +627,7 @@ type MessageWithSender = Pick<
  * 【错误与边界】
  * - 找不到 workflow：抛出 Error（包含可用的 scopes 列表）
  * - workflow.invoke() 失败：logError，重试最多 3 次
- * - 返回空字符串：重试最多 3 次后返回 ""
+ * - Empty or whitespace-only responses: retry up to 3 times, then throw.
  */
 export async function getAIResponse(
   ticket: Pick<
@@ -757,7 +757,7 @@ export async function getAIResponse(
     try {
       const result = (await workflow.invoke(initialState)) as WorkflowState;
       const response = result.response ?? "";
-      if (response !== "") {
+      if (typeof response === "string" && response.trim() !== "") {
         return { response, ragTrace: result.ragTrace };
       }
     } catch (e) {
@@ -771,7 +771,7 @@ export async function getAIResponse(
     }
   }
 
-  return { response: "" };
+  throw new Error("AI response generation failed after retries");
 }
 
 /**
