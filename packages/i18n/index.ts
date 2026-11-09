@@ -1058,6 +1058,10 @@ export const translations = {
       relative_days_one: "1 day ago",
       relative_months_one: "1 month ago",
       relative_years_one: "1 year ago",
+      ai_failure_notice_handoff:
+        "Sorry, the AI assistant is temporarily unavailable. You have been transferred to a human agent, please wait a moment.",
+      ai_failure_notice_leave_message:
+        "Sorry, the AI assistant is temporarily unavailable. Please leave a message and our staff will reply as soon as possible.",
     },
   },
   zh: {
@@ -2085,6 +2089,10 @@ export const translations = {
       analytics_loading: "正在加载数据分析...",
       all_tickets_page_title: "全部工单列表 | Tentix",
       test_ticket_sidebar_empty: "暂无测试工单,点击创建第一个测试工单",
+      ai_failure_notice_handoff:
+        "抱歉，智能助手暂时无法回复，已为您转接人工客服，请稍候。",
+      ai_failure_notice_leave_message:
+        "抱歉，智能助手暂时无法回复，您可以继续留言，工作人员会尽快回复您。",
     },
   },
 };
