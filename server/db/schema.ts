@@ -147,6 +147,7 @@ export const users = tentix.table(
     level: smallint("level").default(0).notNull(),
     email: varchar("email", { length: 254 }).default("").notNull(),
     forceRelogin: boolean("force_relogin").default(false).notNull(),
+    tokenVersion: integer("token_version").default(0).notNull(),
     // 新增 meta 字段
     meta: jsonb("meta")
       .$type<Record<string, unknown>>()
@@ -435,9 +436,16 @@ export const userSession = tentix.table(
       .notNull(),
     userAgent: text("user_agent").notNull(),
     ip: text("ip").notNull(),
-    token: text("token").notNull(),
+    sessionId: uuid("session_id").notNull(),
+    tokenHash: char("token_hash", { length: 64 }).notNull(),
+    tokenVersion: integer("token_version").notNull(),
+    expiresAt: timestamp("expires_at", { mode: "string", withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { mode: "string", withTimezone: true }),
   },
   (table) => [
+    uniqueIndex("user_session_session_id_unique").on(table.sessionId),
+    uniqueIndex("user_session_token_hash_unique").on(table.tokenHash),
+    index("user_session_user_id_idx").on(table.userId),
     foreignKey({
       columns: [table.userId],
       foreignColumns: [users.id],

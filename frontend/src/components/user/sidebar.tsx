@@ -2,7 +2,7 @@ import { MessagesSquare, Plus, Settings, LogOut } from "lucide-react";
 
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "i18n";
-import { Button, LayersIcon } from "tentix-ui";
+import { Button, LayersIcon, toast } from "tentix-ui";
 import { useSettingsModal } from "@modal/use-settings-modal";
 import { useSealos } from "src/_provider/sealos";
 import { useAuth } from "@hook/use-local-user.tsx";
@@ -82,11 +82,12 @@ export function Sidebar() {
           <Button
             variant="ghost"
             className="flex w-10 h-10 justify-center items-center gap-2 flex-shrink-0 rounded-lg border border-zinc-200 bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] hover:bg-zinc-100 text-zinc-500 hover:text-zinc-500"
-            onClick={() => {
+            onClick={async () => {
               try {
-                authContext.logout();
-              } finally {
+                await authContext.logout();
                 window.location.replace("/login");
+              } catch {
+                toast({ title: "退出失败，请重试", variant: "destructive" });
               }
             }}
           >

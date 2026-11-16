@@ -14,7 +14,7 @@ test("generateAesKey should create a valid AES key", async () => {
   const key = await generateAesKey();
   expect(key).toBeDefined();
   expect(key.type).toBe("secret");
-  expect(key.algorithm.name).toBe("AES-CBC");
+  expect(key.algorithm.name).toBe("AES-GCM");
 });
 
 test("key export and import should work correctly", async () => {
@@ -27,7 +27,7 @@ test("key export and import should work correctly", async () => {
   const importedKey = await importKeyFromString(exportedKey);
   expect(importedKey).toBeDefined();
   expect(importedKey.type).toBe("secret");
-  expect(importedKey.algorithm.name).toBe("AES-CBC");
+  expect(importedKey.algorithm.name).toBe("AES-GCM");
 });
 
 test("arrayBufferToBase64 and base64ToArrayBuffer should be inverses", () => {
@@ -67,4 +67,22 @@ test("string-based encryption and decryption should work correctly", async () =>
   
   const decrypted = await aesDecryptFromString(encrypted.ciphertext, encrypted.iv, key);
   expect(decrypted).toBe(plaintext);
+});
+
+test("GCM rejects changed nonce, ciphertext, tag and wrong key", async () => {
+  const key = await generateAesKey();
+  const a = await aesEncryptToString("session-test", key);
+  const b = await aesEncryptToString("session-test", key);
+  expect(a.iv).not.toBe(b.iv);
+  for (const field of ["iv", "ciphertext"] as const) {
+    const bytes = Buffer.from(a[field], "base64");
+    for (const index of [0, bytes.length - 1]) {
+      const changed = Buffer.from(bytes);
+      changed[index] = changed[index]! ^ 1;
+      const sample = { ...a, [field]: changed.toString("base64") };
+      await expect(aesDecryptFromString(sample.ciphertext, sample.iv, key)).rejects.toThrow();
+    }
+  }
+  await expect(aesDecryptFromString(a.ciphertext, a.iv, await generateAesKey())).rejects.toThrow();
+  await expect(importKeyFromString(Buffer.alloc(16).toString("base64"))).rejects.toThrow();
 });

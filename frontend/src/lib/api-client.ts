@@ -1,7 +1,8 @@
 import { initClient } from "tentix-server/rpc";
 import ky from "ky";
 import i18nBase from "i18n";
-import { waitForSealosAuthReady } from "../_provider/sealos";
+import { waitForSealosAuthReady, hasSealosDesktopSession, sealosAuthenticationUrl } from "../_provider/sealos";
+import { clearTentixSessionStorageOnly } from "../hooks/use-local-user";
 import { getRequestLanguage } from "./language";
 
 // const baseUrl = import.meta.env.DEV
@@ -30,18 +31,12 @@ export const myFetch = ky.extend({
         if (response.status === 401) {
           const url = request?.url || "";
           const isAuthEndpoint =
-            url.includes("/auth/login") || url.includes("/auth/register");
+            new URL(url).pathname.startsWith("/api/auth/");
 
           // Avoid redirecting on login/register so the page can show proper toasts
           if (!isAuthEndpoint) {
-            window.localStorage.removeItem("sealosToken");
-            window.localStorage.removeItem("sealosArea");
-            window.localStorage.removeItem("sealosNs");
-            window.localStorage.removeItem("token");
-            window.localStorage.removeItem("role");
-            window.localStorage.removeItem("id");
-            window.localStorage.removeItem("user");
-            window.location.href = "/";
+            clearTentixSessionStorageOnly();
+            window.location.href = hasSealosDesktopSession() ? sealosAuthenticationUrl() : "/";
           }
         }
 

@@ -28,6 +28,10 @@ const envSchema = z.object({
   SEALOS_APP_TOKEN: z.string().trim().optional(),
   TENTIX_INSPECTOR_API_KEY: z.string().trim().optional(),
 
+  TENTIX_AI_EMOTION_KEY: z.string().trim().min(1).optional(),
+  TENTIX_AI_ESCALATION_KEY: z.string().trim().min(1).optional(),
+  TENTIX_AI_SEARCH_KEY: z.string().trim().min(1).optional(),
+  TENTIX_AI_INTENT_KEY: z.string().trim().min(1).optional(),
   OPENAI_BASE_URL: z.string().url().trim().optional(),
   OPENAI_API_KEY: z.string().trim().optional(),
   SUMMARY_MODEL: z.string().trim().optional(),
@@ -56,7 +60,7 @@ try {
   global.customEnv = envSchema.parse(process.env);
 } catch (error) {
   const { logError } = await import("@/utils/log.ts");
-  logError("Invalid environment variables", error);
+  logError("Invalid environment variables");
   process.exit(1);
 }
 

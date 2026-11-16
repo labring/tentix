@@ -21,6 +21,10 @@ import {
 } from "tentix-ui";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  validateSearch: (search: Record<string, unknown>): Record<string, unknown> & { returnTo?: string } => ({
+    ...search,
+    returnTo: typeof search.returnTo === "string" ? search.returnTo : undefined,
+  }),
   head: () => ({
     meta: [
       {
@@ -59,7 +63,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const navigate = useNavigate();
     const authContext = useAuth();
     const resetLogin = () => {
-      authContext.logout();
+      authContext.clearTentixSessionOnly();
       navigate({ to: "." });
     };
 

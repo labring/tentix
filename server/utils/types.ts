@@ -1,3 +1,4 @@
+import { WorkflowNodesSchema, WorkflowEdgesSchema } from "./workflow-schema";
 import * as schema from "@db/schema.ts";
 import { zValidator } from "@hono/zod-validator";
 import type { JSONContent } from "@tiptap/react";
@@ -488,16 +489,16 @@ export const WorkflowCreateSchema = z
   .object({
     name: z.string().min(1),
     description: z.string().default(""),
-    nodes: z.array(z.any()).default([]),
-    edges: z.array(z.any()).default([]),
+    nodes: WorkflowNodesSchema.default([]),
+    edges: WorkflowEdgesSchema.default([]),
   })
   .strict();
 
 export const WorkflowPatchSchema = z
   .object({
     description: z.string().optional(),
-    nodes: z.array(z.any()).optional(),
-    edges: z.array(z.any()).optional(),
+    nodes: WorkflowNodesSchema.optional(),
+    edges: WorkflowEdgesSchema.optional(),
   })
   .strict();
 

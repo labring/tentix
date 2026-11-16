@@ -1,3 +1,4 @@
+import { hasSealosDesktopSession, isSealosAuthenticated, sealosAuthenticationUrl, waitForSealosInit } from "../_provider/sealos";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { areaEnumArray } from "tentix-server/constants";
@@ -16,6 +17,14 @@ export const Route = createFileRoute("/staff")({
     })
     .passthrough(),
   beforeLoad: async ({ search, context, location }) => {
+    await waitForSealosInit();
+    if (hasSealosDesktopSession()) {
+      if (!isSealosAuthenticated()) {
+        window.location.replace(sealosAuthenticationUrl(location.href));
+        throw new Error("Sealos authentication pending");
+      }
+    }
+
     // 如果有token参数，处理飞书登录回调
     if (search.token) {
       window.localStorage.setItem("token", search.token);
@@ -48,7 +57,7 @@ export const Route = createFileRoute("/staff")({
       } catch (error) {
         console.error("Failed to fetch user info during callback:", error);
         window.localStorage.removeItem("token");
-        context.authContext.logout();
+        context.authContext.clearTentixSessionOnly();
         context.authContext.setIsAuthenticated(false);
         context.authContext.setIsLoading(false);
         window.location.href = `/api/feishu/login?redirect=${location.href}`;
@@ -93,7 +102,7 @@ export const Route = createFileRoute("/staff")({
         console.error("Failed to fetch user info:", error);
         // 用户信息获取失败，可能token已过期，重新认证
         window.localStorage.removeItem("token");
-        context.authContext.logout();
+        context.authContext.clearTentixSessionOnly();
         context.authContext.setIsAuthenticated(false);
         context.authContext.setIsLoading(false);
         window.location.href = `/api/feishu/login?redirect=${location.href}`;

@@ -8,7 +8,7 @@ const crypto = globalThis.crypto;
 async function generateAesKey(length = 256): Promise<CryptoKey> {
   const key = await crypto.subtle.generateKey(
     {
-      name: "AES-CBC",
+      name: "AES-GCM",
       length,
     },
     true,
@@ -31,12 +31,13 @@ async function exportKeyToString(key: CryptoKey): Promise<string> {
 async function importKeyFromString(keyStr: string): Promise<CryptoKey> {
   try {
     const keyBuffer = base64ToArrayBuffer(keyStr);
-    return crypto.subtle.importKey("raw", keyBuffer, "AES-CBC", false, [
+    if (keyBuffer.byteLength !== 32) throw new Error("Invalid encryption key length");
+    return crypto.subtle.importKey("raw", keyBuffer, "AES-GCM", false, [
       "encrypt",
       "decrypt",
     ]);
   } catch (error) {
-    logError("Failed to import encryption key from base64 string:", error);
+    logError("Failed to import encryption key");
     throw error;
   }
 }
@@ -46,21 +47,12 @@ async function importKeyFromString(keyStr: string): Promise<CryptoKey> {
  */
 async function getEncryptionKey(): Promise<CryptoKey> {
   const envKey = global.customEnv.ENCRYPTION_KEY;
-  if (envKey) {
-    try {
-      return await importKeyFromString(envKey);
-    } catch (error) {
-      logError(
-        "Failed to import encryption key from environment variable:",
-        error,
-      );
-    }
-  }
+  if (envKey) return importKeyFromString(envKey);
   return generateAesKey();
 }
 
 /**
- * Encrypts plaintext using AES-CBC
+ * Encrypts plaintext using AES-GCM
  */
 async function aesEncrypt(
   plaintext: string,
@@ -70,11 +62,13 @@ async function aesEncrypt(
   ciphertext: ArrayBuffer;
 }> {
   const ec = new TextEncoder();
-  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
 
   const ciphertext = await crypto.subtle.encrypt(
     {
-      name: "AES-CBC",
+      name: "AES-GCM",
+      tagLength: 128,
+      additionalData: new TextEncoder().encode("tentix-session:v2"),
       iv,
     },
     key,
@@ -105,7 +99,7 @@ async function aesEncryptToString(
 }
 
 /**
- * Decrypts ciphertext using AES-CBC
+ * Decrypts ciphertext using AES-GCM
  */
 async function aesDecrypt(
   ciphertext: ArrayBuffer,
@@ -115,7 +109,9 @@ async function aesDecrypt(
   const dec = new TextDecoder();
   const plaintext = await crypto.subtle.decrypt(
     {
-      name: "AES-CBC",
+      name: "AES-GCM",
+      tagLength: 128,
+      additionalData: new TextEncoder().encode("tentix-session:v2"),
       iv: new Uint8Array(iv),
     },
     key,
@@ -165,7 +161,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
     }
     return bytes.buffer;
   } catch (error) {
-    logError("Failed to convert base64 to ArrayBuffer:", base64);
+    logError("Failed to convert base64 to ArrayBuffer");
     throw error;
   }
 }

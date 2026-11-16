@@ -120,6 +120,13 @@
       "when": 1761810633843,
       "tag": "0016_fluffy_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794805200000,
+      "tag": "0017_session_security",
+      "breakpoints": true
     }
   ]
 }
