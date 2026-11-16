@@ -43,6 +43,15 @@ test("graph validation checks duplicate edges and unreachable malicious branches
   expect(() => compileCondition("x".repeat(1025))).toThrow();
   expect(() => compileCondition("!".repeat(17) + "true")).toThrow();
 });
+test("smartChat saves default-disabled vision without inserting configuration", () => {
+  const draft = [{ id: "chat", name: "Chat", type: NodeType.SMART_CHAT as const,
+    config: { systemPrompt: "System", userPrompt: "User" } }];
+  const parsed = WorkflowNodesSchema.parse(draft);
+  expect(parsed).toEqual(draft);
+  expect(parsed[0]!.config).not.toHaveProperty("enableVision");
+  expect(WorkflowNodesSchema.safeParse([{ ...draft[0],
+    config: { ...draft[0]!.config, enableVision: "false" } }]).success).toBe(false);
+});
 test("schema preserves editor fields and absent start/end configuration", () => {
   const fixture = nodes.map((node) => ({ ...node, position: { x: 1, y: 2 },
     handles: [{ id: "h", position: "bottom" as const, type: "source" as const, condition: "" }] }));

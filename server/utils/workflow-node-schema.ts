@@ -34,7 +34,7 @@ export const WorkflowNodeSchema = z.discriminatedUnion("type", [
   z.object({ ...common, type: z.literal(NodeType.ESCALATION_OFFER),
     config: z.object({ ...prompt, llm: llmSchema.optional(), escalationOfferMessageTemplate: z.string() }).strict() }).strict(),
   z.object({ ...common, type: z.literal(NodeType.SMART_CHAT),
-    config: z.object({ ...prompt, enableVision: z.boolean(), llm: llmSchema.optional(),
+    config: z.object({ ...prompt, enableVision: z.boolean().optional(), llm: llmSchema.optional(),
       visionConfig: z.object({ includeTicketDescriptionImages: z.boolean() }).strict().optional() }).strict() }).strict(),
   z.object({ ...common, type: z.literal(NodeType.RAG),
     config: z.object({
