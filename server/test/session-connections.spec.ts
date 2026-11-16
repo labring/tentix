@@ -12,6 +12,68 @@ afterEach(() => {
   global.db = originalDb;
 });
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+test("workflow test socket closes during verification without unhandled rejection or restarted heartbeat", async () => {
+  // 子进程隔离初次认证及外部依赖 mock，真实后台路由、Hono 回调和 guard 均参与执行。
+  const script = `
+    import { mock } from "bun:test";
+    import { Hono } from "hono";
+    import * as session from "./utils/session";
+    import { websocket } from "./utils/websocket";
+    const real = { ...session };
+    const identity = { v: 2, userId: 1, role: "admin", sessionId: crypto.randomUUID(),
+      tokenVersion: 0, expireTime: Math.floor(Date.now() / 1000) + 60 };
+    mock.module("./utils/session", () => ({ ...real, authenticateSession: async () => identity }));
+    mock.module("./utils/index.ts", () => ({ detectLocale: () => "en", logInfo: () => {},
+      logError: () => {}, logWarning: () => {}, textToTipTapJSON: () => {} }));
+    mock.module("./utils/file-validation.ts", () => ({ FileValidationError: Error,
+      FileValidationUnavailableError: Error, validateContentAttachments: () => {} }));
+    mock.module("./utils/kb/workflow-cache.ts", () => ({ workflowCache: {}, getAIResponse: () => {} }));
+    const { chatRouter } = await import("./api/admin/chat.ts");
+    process.on("unhandledRejection", (error) => { console.error(error); process.exit(2); });
+    setTimeout(() => { console.error("verification did not finish"); process.exit(3); }, 2000);
+    let release, entered, data;
+    let closed = false;
+    let intervalsAfterClose = 0;
+    const sent = [];
+    const originalSetInterval = globalThis.setInterval;
+    globalThis.setInterval = (...args) => {
+      if (closed) intervalsAfterClose += 1;
+      return originalSetInterval(...args);
+    };
+    const pending = new Promise((resolve) => { release = resolve; });
+    const started = new Promise((resolve) => { entered = resolve; });
+    global.db = { select: () => ({ from: () => ({ innerJoin: () => ({ where: async () => {
+      entered(); await pending;
+      return [{ user: { role: "admin", tokenVersion: 0, forceRelogin: false },
+        session: { tokenVersion: 0, revokedAt: null, expiresAt: new Date(identity.expireTime * 1000).toISOString() } }];
+    } }) }) }) };
+    const app = new Hono().use("*", async (c, next) => {
+      c.set("db", global.db); c.set("cryptoKey", () => null);
+      c.set("i18n", { getFixedT: () => (value) => value }); await next();
+    }).route("/", chatRouter);
+    await app.request("/chat?workflowId=test&ticketId=test&token=test", {}, {
+      server: { upgrade: (_request, options) => { data = options.data; return true; } },
+    });
+    const raw = { data, readyState: 1, close() {}, send(value) { sent.push(value); } };
+    websocket.open(raw);
+    await started;
+    closed = true;
+    raw.readyState = 3;
+    websocket.close(raw, 1000, "page closed");
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    console.log(JSON.stringify({ messages: sent.length, intervalsAfterClose }));
+    process.exit(0);
+  `;
+  const child = Bun.spawn([process.execPath, "--eval", script], {
+    cwd: `${import.meta.dir}/..`, stdout: "pipe", stderr: "pipe",
+  });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited, new Response(child.stdout).text(), new Response(child.stderr).text(),
+  ]);
+  expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(stdout)).toEqual({ messages: 0, intervalsAfterClose: 0 });
+});
 test.each(["session", "authorization"] as const)("closing during %s verification cannot leave a staff member in the room", async (phase) => {
   const expireTime = Math.floor(Date.now() / 1000) + 60;
   let release!: () => void;

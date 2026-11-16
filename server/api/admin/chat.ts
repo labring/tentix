@@ -253,6 +253,7 @@ export const chatRouter = new Hono<AuthEnv>().get(
       const identity = await authenticateSession(c.var.db, cryptoKey, token!);
       const { userId, role } = identity;
       let guardedSocket: WSContext<ServerWebSocket<undefined>> | undefined;
+      let connectionClosed = false;
       const guard = (ws: WSContext<ServerWebSocket<undefined>>) => {
         guardedSocket ??= createGuardedSocket(ws, identity, async (current) => current.role === "customer" ? "close" : "deliver");
         return guardedSocket;
@@ -297,8 +298,15 @@ export const chatRouter = new Hono<AuthEnv>().get(
 
       return {
         async onOpen(_evt, ws) {
+          if (connectionClosed) return;
           ws = guard(ws);
-          await refreshGuardedSocket(ws);
+          try {
+            await refreshGuardedSocket(ws);
+          } catch (error) {
+            if (connectionClosed) return;
+            throw error;
+          }
+          if (connectionClosed) return;
           // 启动心跳检测
           heartbeat.start(ws, String(userId));
 
@@ -445,6 +453,7 @@ export const chatRouter = new Hono<AuthEnv>().get(
         },
 
         async onClose(evt, _ws) {
+          connectionClosed = true;
           disposeGuardedSocket(guardedSocket);
           // 清理心跳定时器
           heartbeat.stop();
@@ -457,6 +466,7 @@ export const chatRouter = new Hono<AuthEnv>().get(
         },
 
         async onError(evt, _ws) {
+          connectionClosed = true;
           disposeGuardedSocket(guardedSocket);
           _ws.close();
           heartbeat.stop();
