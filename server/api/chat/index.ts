@@ -1,3 +1,5 @@
+import { assertActiveSession, SessionError, type SessionIdentity, type SessionPayload } from "@/utils/session";
+import { canAccessTicket, createGuardedSocket, disposeGuardedSocket, isInternalMessage, refreshGuardedSocket } from "@/utils/session-connection";
 /* eslint-disable drizzle/enforce-delete-with-where */
 import * as schema from "@/db/schema.ts";
 import { MyCache } from "@/utils/cache.ts";
@@ -34,6 +36,7 @@ import { and, count, eq, desc } from "drizzle-orm";
 import { describeRoute } from "hono-openapi";
 import { resolver } from "hono-openapi/zod";
 import { streamSSE } from "hono/streaming";
+import { HTTPException } from "hono/http-exception";
 import NodeCache from "node-cache";
 import { z } from "zod";
 import {
@@ -64,7 +67,7 @@ function hasNonCustomerHumanInRoom(roomId: string): boolean {
 // Token management
 interface TokenData {
   userId: number;
-  role: userRoleType;
+  session: SessionPayload;
   expiresAt: number;
   sealosArea?: string;
 }
@@ -73,13 +76,13 @@ const tokenMap = new Map<string, TokenData>();
 
 const generateToken = (
   userId: number,
-  role: userRoleType,
+  session: SessionPayload,
   sealosArea?: string,
 ): string => {
   const token = crypto.randomUUID();
   tokenMap.set(token, {
     userId,
-    role,
+    session,
     ...(sealosArea ? { sealosArea } : {}),
     expiresAt: Date.now() + WS_TOKEN_EXPIRY_TIME,
   });
@@ -773,7 +776,7 @@ const chatRouter = factory
       }
 
       // Generate WebSocket token
-      const wsToken = generateToken(userId, role, sealosArea);
+      const wsToken = generateToken(userId, { v: 2, userId, sessionId: c.var.sessionId, tokenVersion: c.var.tokenVersion, expireTime: c.var.expireTime }, sealosArea);
       return c.json({
         token: wsToken,
         expiresIn: WS_TOKEN_EXPIRY_TIME / 1000, // Convert to seconds
@@ -836,7 +839,7 @@ const chatRouter = factory
       const tokenData = validateToken(token!);
       if (!tokenData) {
         logError(
-          `WebSocket token validation failed - ticketId: ${ticketId}, token: ${token?.substring(0, 8)}..., clientId: ${clientId}`,
+          `WebSocket token validation failed - ticketId: ${ticketId}, clientId: ${clientId}`,
         );
         return {
           onOpen(_evt, ws) {
@@ -848,7 +851,25 @@ const chatRouter = factory
         };
       }
 
-      const { userId, role, sealosArea } = tokenData;
+      let parentIdentity: SessionIdentity;
+      try {
+        parentIdentity = await assertActiveSession(c.var.db, tokenData.session);
+      } catch (error) {
+        return { onOpen(_event, ws) {
+          ws.close(error instanceof SessionError ? WS_CLOSE_CODE.UNAUTHORIZED : WS_CLOSE_CODE.SERVER_ERROR, "Session unavailable");
+        } };
+      }
+      const { userId, sealosArea } = tokenData;
+      let role = parentIdentity.role;
+      let guardedSocket: wsInstance | undefined;
+      let connectionClosed = false;
+      const guard = (ws: wsInstance) => {
+        guardedSocket ??= createGuardedSocket(ws, tokenData.session, async (current, message) => {
+          if (!(await canAccessTicket(current, ticketId))) return "close";
+          return current.role === "customer" && isInternalMessage(message) ? "skip" : "deliver";
+        });
+        return guardedSocket;
+      };
 
       // Check if user has permission to access this ticket
       const roomMembers = await MyCache.getTicketMembers(ticketId);
@@ -870,6 +891,15 @@ const chatRouter = factory
       try {
         return {
           async onOpen(_evt, ws) {
+            if (connectionClosed) return;
+            ws = guard(ws);
+            try {
+              role = (await refreshGuardedSocket(ws)).role;
+            } catch (error) {
+              if (connectionClosed) return;
+              throw error;
+            }
+            if (connectionClosed) return;
             logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
 
             roomEmitter.emit("user_join", {
@@ -887,8 +917,12 @@ const chatRouter = factory
           },
 
           async onMessage(evt, ws) {
+            ws = guard(ws);
             let messageTempId: number | undefined;
             try {
+              role = (await refreshGuardedSocket(ws)).role;
+              const roomRole = roomEmitter.roomUserRoles.get(ticketId)?.get(clientId);
+              if (roomRole) roomRole.role = role;
               // Check if connection is alive
               const state = roomEmitter.connectionStates.get(clientId);
               if (!state?.isAlive) {
@@ -1099,6 +1133,8 @@ const chatRouter = factory
             }
           },
           onClose(_evt, ws) {
+            connectionClosed = true;
+            disposeGuardedSocket(guardedSocket);
             // 如果是 customer 离开首先检查 房间是否有 agent，如果没有 agent 则将 ticket 状态变为 pending，如果有 检查ticket 最近一条消息是否是自己发的，如果是则 pending
             // 如果不是 customer 离开，则检查 ticket 最近一条消息是否是自己发的，如果是自己发的 则状态改为 in progress
             handleUserLeaveStatusUpdate(ticketId, userId, role);
@@ -1155,32 +1191,35 @@ const chatRouter = factory
       },
     }),
     async (c) => {
-      return streamSSE(
-        c,
-        async (stream) => {
-          roomObserveEmitter.register(c.var.userId, stream);
-
-          stream.onAbort(function () {
-            roomObserveEmitter.unregister(c.var.userId);
-          });
-
-          const id = 0;
-          while (true) {
-            await sendUnreadSSE(stream, String(id), "heartbeat", {
-              text: "hello",
-            });
+      const identity: SessionPayload = { v: 2, userId: c.var.userId, sessionId: c.var.sessionId,
+        tokenVersion: c.var.tokenVersion, expireTime: c.var.expireTime };
+      let connectionId: string | undefined;
+      const cleanup = () => {
+        if (connectionId) roomObserveEmitter.unregister(identity.userId, connectionId);
+      };
+      return streamSSE(c, async (stream) => {
+        connectionId = roomObserveEmitter.register(identity.userId, stream, async (roomId, internal) => {
+          try {
+            const current = await assertActiveSession(c.var.db, identity);
+            if (!(await canAccessTicket(current, roomId))) return "close";
+            return current.role === "customer" && internal ? "skip" : "deliver";
+          } catch { return "close"; }
+        });
+        stream.onAbort(cleanup);
+        try {
+          while (!stream.closed && !stream.aborted) {
+            await assertActiveSession(c.var.db, identity);
+            await sendUnreadSSE(stream, "0", "heartbeat", { text: "hello" });
             await stream.sleep(10000);
           }
-        },
-        async function (err, stream) {
-          roomObserveEmitter.unregister(c.var.userId);
-          await stream.writeSSE({
-            data: "An error occurred!",
-            event: "error",
-          });
-          logError(err.message, err);
-        },
-      );
+        } finally {
+          cleanup();
+          if (!stream.closed && !stream.aborted) await stream.close();
+        }
+      }, async (_error, stream) => {
+        cleanup();
+        stream.abort();
+      });
     },
   )
   .post(
@@ -1198,7 +1237,14 @@ const chatRouter = factory
     ),
     async (c) => {
       const { roomId } = c.req.valid("json");
+      const identity: SessionPayload = { v: 2, userId: c.var.userId, sessionId: c.var.sessionId,
+        tokenVersion: c.var.tokenVersion, expireTime: c.var.expireTime };
+      const current = await assertActiveSession(c.var.db, identity);
+      for (const id of roomId) {
+        if (!(await canAccessTicket(current, id))) throw new HTTPException(403, { message: "Forbidden" });
+      }
       roomObserveEmitter.observe(c.var.userId, roomId);
+      return c.body(null, 204);
     },
   );
 

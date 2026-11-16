@@ -9,6 +9,8 @@ import React, {
 import { EVENT_NAME } from "@zjy365/sealos-desktop-sdk";
 import { createSealosApp, sealosApp } from "@zjy365/sealos-desktop-sdk/app";
 import { decodeJWT, extractAreaFromSealosToken } from "@lib/jwt";
+import type { UserType } from "tentix-server/rpc";
+import { getRequestLanguage } from "@lib/language";
 import {
   applyApplicationLanguage,
   getLanguagePreference,
@@ -33,6 +35,77 @@ interface SealosUserInfo {
 }
 
 let sealosInitPromise: Promise<void> | null = null;
+
+let desktopLaunch = false;
+let targetPlatform: "sealos" | "generic" | null = null;
+let resolveSealosInitialization: (() => void) | null = null;
+const sealosInitializationReady = new Promise<void>((resolve) => { resolveSealosInitialization = resolve; });
+export function getTentixTargetPlatform() { return targetPlatform; }
+let verifiedSealosUserId: string | null = null;
+let currentSealosUserId: string | null = null;
+let authenticationFlight: { userId: string; promise: Promise<UserType> } | null = null;
+
+export function hasSealosDesktopSession() { return desktopLaunch; }
+export function isSealosAuthenticated() {
+  return desktopLaunch && !!verifiedSealosUserId &&
+    verifiedSealosUserId === currentSealosUserId &&
+    !!window.localStorage.getItem("token");
+}
+export function sealosAuthenticationUrl(returnTo = window.location.pathname + window.location.search) {
+  return "/?returnTo=" + encodeURIComponent(returnTo);
+}
+export function safeSealosReturnTo(value: string | null, role: string) {
+  if (!value) return null;
+  const url = new URL(value, window.location.origin);
+  const prefix = role === "customer" ? "/user/" : "/staff/";
+  if (url.origin !== window.location.origin || !url.pathname.startsWith(prefix)) return null;
+  for (const key of ["token", "returnTo"]) url.searchParams.delete(key);
+  return url.pathname + url.search + url.hash;
+}
+export function markSealosAuthenticated(userId: string) {
+  if (!userId || userId !== currentSealosUserId) throw new Error("Sealos identity changed");
+  verifiedSealosUserId = userId;
+  releaseSealosAuthGate();
+}
+
+// 仅用于启动认证；普通业务请求继续等待 gate。
+export function exchangeSealosSession(
+  userId: string,
+  userInfo: { name: string; avatar: string },
+): Promise<UserType> {
+  if (authenticationFlight?.userId === userId) return authenticationFlight.promise;
+  const promise = (async () => {
+    const token = window.localStorage.getItem("sealosToken");
+    if (!token || !userId || currentSealosUserId !== userId) throw new Error("Sealos session unavailable");
+    const response = await fetch("/api/auth/sealos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept-Language": getRequestLanguage() },
+      body: JSON.stringify({ token, userInfo }),
+    });
+    if (!response.ok) throw new Error("Sealos authentication failed");
+    const session: { token: string; id: number; role: string } = await response.json();
+    const info = await fetch("/api/user/info", {
+      headers: { Authorization: "Bearer " + session.token, "Accept-Language": getRequestLanguage() },
+    });
+    if (!info.ok) throw new Error("Tentix session verification failed");
+    const user: UserType = await info.json();
+    if (currentSealosUserId !== userId || user.sealosId !== userId || Number(session.id) !== user.id) {
+      throw new Error("Sealos identity changed");
+    }
+    window.localStorage.setItem("token", session.token);
+    window.localStorage.setItem("id", String(user.id));
+    window.localStorage.setItem("role", user.role);
+    window.localStorage.setItem(TENTIX_SEALOS_USER_ID_KEY, userId);
+    markSealosAuthenticated(userId);
+    return user;
+  })();
+  authenticationFlight = { userId, promise };
+  void promise.finally(() => {
+    if (authenticationFlight?.promise === promise) authenticationFlight = null;
+  }).catch(() => {});
+  return promise;
+}
+
 
 const SEALOS_AUTH_GATE_TIMEOUT_MS = 10000;
 
@@ -100,20 +173,17 @@ function clearStaleTentixSessionForSealos() {
 }
 
 function syncTentixSessionForSealos(sealosUserId: string | null) {
-  const tentixToken = window.localStorage.getItem("token");
-  if (!sealosUserId || !tentixToken) {
-    blockSealosAuthGate();
+  currentSealosUserId = sealosUserId;
+  if (sealosUserId && verifiedSealosUserId === sealosUserId &&
+      window.localStorage.getItem("token") && getStoredSealosUserId() === sealosUserId) {
+    releaseSealosAuthGate();
     return;
   }
-
-  const storedSealosUserId = getStoredSealosUserId();
-  if (!storedSealosUserId || storedSealosUserId !== sealosUserId) {
-    blockSealosAuthGate();
-    clearStaleTentixSessionForSealos();
-    return;
-  }
-
-  releaseSealosAuthGate();
+  blockSealosAuthGate();
+  const changed = !!verifiedSealosUserId && verifiedSealosUserId !== sealosUserId;
+  verifiedSealosUserId = null;
+  clearStaleTentixSessionForSealos();
+  if (changed) window.location.assign(sealosAuthenticationUrl());
 }
 
 interface RefreshedSealosSession {
@@ -185,6 +255,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
       const sealosToken = sealosSession.token as unknown as string;
       const sealosArea = extractAreaFromSealosToken(sealosToken ?? "");
       const sealosUserId = getSealosUserIdFromToken(sealosToken ?? "");
+      desktopLaunch = true;
       const sealosNs = sealosSession.user.nsid;
       const sealosKubeconfig =
         typeof sealosSession.kubeconfig === "string"
@@ -199,6 +270,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
       setState((prev) => ({
         ...prev,
         isSealos: true,
+        error: null,
         sealosToken,
         sealosArea,
         sealosUser: sealosSession.user,
@@ -216,9 +288,8 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
         sealosKubeconfig,
       };
     } catch (error) {
-      console.warn("Refresh sealos session failed:", error);
-      releaseSealosAuthGate();
-      return null;
+      setState((prev) => ({ ...prev, error: "Sealos session refresh failed" }));
+      throw error;
     }
   }, []);
 
@@ -230,6 +301,13 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     const initializeSealos = async () => {
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+        const platform = await fetch("/api/auth/platform").then(async (response) => {
+          if (!response.ok) throw new Error("Platform check failed");
+          return response.json() as Promise<{ targetPlatform: string }>;
+        });
+        if (!["sealos", "generic"].includes(platform.targetPlatform)) throw new Error("Unknown platform");
+        targetPlatform = platform.targetPlatform as "sealos" | "generic";
 
         const cleanupApp = createSealosApp();
 
@@ -280,6 +358,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
         const sealosToken = sealosSession.token as unknown as string;
         const sealosArea = extractAreaFromSealosToken(sealosToken ?? "");
         const sealosUserId = getSealosUserIdFromToken(sealosToken ?? "");
+      desktopLaunch = true;
         const sealosNs = sealosSession.user.nsid;
         const sealosKubeconfig =
           typeof sealosSession.kubeconfig === "string"
@@ -322,7 +401,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           isInitialized: true,
           isLoading: false,
-          isSealos: false,
+          isSealos: desktopLaunch,
           error: error instanceof Error ? error.message : "Unknown error",
         }));
         releaseSealosAuthGate();
@@ -330,6 +409,7 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     };
 
     sealosInitPromise = initializeSealos().finally(() => {
+      resolveSealosInitialization?.();
       console.info("##### sealos app and sealos info init completed #####");
     });
 
@@ -342,7 +422,9 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     if (!state.isSealos) return;
 
     const refreshCurrentSealosSession = () => {
-      void refreshSealosSession();
+      void refreshSealosSession().catch(() => {
+        // refreshSealosSession 已保存可见错误，gate 保持关闭。
+      });
     };
     const refreshVisibleSealosSession = () => {
       if (document.visibilityState === "visible") {
@@ -366,7 +448,21 @@ export function SealosProvider({ children }: { children: React.ReactNode }) {
     <SealosContext.Provider
       value={{ ...state, refreshSealosSession, setLanguagePreference }}
     >
-      {children}
+      {desktopLaunch && state.error && (
+        <div role="alert" className="p-6">
+          <p>{state.error}</p>
+          <button onClick={() => {
+            if (!state.sealosUserId) {
+              window.location.reload();
+              return;
+            }
+            void refreshSealosSession().then(() => {
+              setState((prev) => ({ ...prev, error: null }));
+            }).catch(() => {});
+          }}>重试 Sealos 认证</button>
+        </div>
+      )}
+      <div hidden={desktopLaunch && !!state.error}>{children}</div>
     </SealosContext.Provider>
   );
 }
@@ -380,16 +476,6 @@ export function useSealos() {
 }
 
 export async function waitForSealosInit(): Promise<void> {
-  if (!sealosInitPromise) {
-    // if not initialized, return a resolved promise (maybe server-side rendering or test environment)
-    console.warn(
-      "Sealos initialization promise not found, resolving immediately",
-    );
-    return Promise.resolve();
-  }
-  return sealosInitPromise.catch((error) => {
-    console.error("Sealos initialization failed:", error);
-    // even if initialization fails, do not throw an error, let the application continue running
-    return Promise.resolve();
-  });
+  await sealosInitializationReady;
+  await sealosInitPromise;
 }

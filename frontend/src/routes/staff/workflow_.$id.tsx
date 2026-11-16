@@ -38,6 +38,7 @@ import {
   Database,
 } from "lucide-react";
 import { NodeType } from "tentix-server/constants";
+import { WorkflowNodesSchema } from "tentix-server/workflow-node-schema";
 import { cn } from "@lib/utils";
 import { useAiChatModal } from "@comp/react-flow/components/chat-modal/use-chat-modal";
 import { createAndAddNode } from "@comp/react-flow/tools";
@@ -192,7 +193,7 @@ function RouteComponent() {
       const response = await apiClient.admin.workflow[":id"].$patch({
         param: { id },
         json: {
-          nodes,
+          nodes: WorkflowNodesSchema.parse(nodes),
           edges,
         },
       });

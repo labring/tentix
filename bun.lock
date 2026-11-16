@@ -218,6 +218,7 @@
     "server": {
       "name": "tentix-server",
       "dependencies": {
+        "acorn": "8.15.0",
         "@faker-js/faker": "^9.8.0",
         "@hono/zod-openapi": "^0.19.8",
         "@hono/zod-validator": "^0.7.0",

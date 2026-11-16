@@ -86,7 +86,11 @@ interface roomObserveEventMap extends MyEventMap {
 }
 
 export class RoomObserveEmitter extends MyEventEmitter<roomObserveEventMap> {
-  private userSSEInstanceMap: Map<number, SSEStreamingApi> = new Map(); // userId -> SSEClient
+  private userSSEInstanceMap = new Map<number, Map<string, {
+    stream: SSEStreamingApi;
+    authorize: (roomId: string, internal: boolean) => Promise<"deliver" | "skip" | "close">;
+    tail: Promise<void>;
+  }>>();
   /**
    * RoomId -> Set of userId, equals to `Map<string, Set<number>>`
    */
@@ -108,26 +112,49 @@ export class RoomObserveEmitter extends MyEventEmitter<roomObserveEventMap> {
       const roomObserverSet = this.roomObserverMap.get<Set<number>>(msg.roomId);
       if (!roomObserverSet) return;
       for (const userId of roomObserverSet) {
-        const sse = this.userSSEInstanceMap.get(userId);
-        if (!sse) continue;
-        await sendUnreadSSE(sse, RoomObserveEmitter.idGenerator(), "newMsg", {
-          messageId: msg.messageId,
-          roomId: msg.roomId,
-          userId: msg.userId,
-          content: msg.content,
-          timestamp: msg.timestamp,
-          isInternal: msg.isInternal,
-        });
+        const connections = this.userSSEInstanceMap.get(userId);
+        if (!connections) continue;
+        for (const [connectionId, connection] of connections) {
+          connection.tail = connection.tail.then(async () => {
+            if (connection.stream.closed || connection.stream.aborted) return;
+            const decision = await connection.authorize(msg.roomId, msg.isInternal);
+            if (decision === "skip") return;
+            if (decision === "close") {
+              this.unregister(userId, connectionId);
+              await connection.stream.close();
+              return;
+            }
+            await sendUnreadSSE(connection.stream, RoomObserveEmitter.idGenerator(), "newMsg", {
+              messageId: msg.messageId, roomId: msg.roomId, userId: msg.userId,
+              content: msg.content, timestamp: msg.timestamp, isInternal: msg.isInternal,
+            });
+          }).catch(() => {
+            this.unregister(userId, connectionId);
+            connection.stream.abort();
+          });
+        }
       }
     });
   }
 
-  public register(userId: number, sse: SSEStreamingApi) {
-    this.userSSEInstanceMap.set(userId, sse);
+  public register(
+    userId: number, stream: SSEStreamingApi,
+    authorize: (roomId: string, internal: boolean) => Promise<"deliver" | "skip" | "close">,
+  ) {
+    const connectionId = crypto.randomUUID();
+    let connections = this.userSSEInstanceMap.get(userId);
+    if (!connections) {
+      connections = new Map();
+      this.userSSEInstanceMap.set(userId, connections);
+    }
+    connections.set(connectionId, { stream, authorize, tail: Promise.resolve() });
+    return connectionId;
   }
 
-  public unregister(userId: number) {
-    this.userSSEInstanceMap.delete(userId);
+  public unregister(userId: number, connectionId: string) {
+    const connections = this.userSSEInstanceMap.get(userId);
+    connections?.delete(connectionId);
+    if (connections?.size === 0) this.userSSEInstanceMap.delete(userId);
   }
 
   public isOnline(userId: number) {
@@ -264,8 +291,8 @@ export class RoomEmitter extends MyEventEmitter<RoomEventMap> {
     });
 
     this.on("user_leave", ({ clientId, roomId, userId }) => {
-      const room = this.roomsMap.get(roomId)!;
-      room.delete(clientId);
+      const room = this.roomsMap.get(roomId);
+      if (!room?.delete(clientId)) return;
 
       // 清理用户角色信息
       const roomUsers = this._roomUserRoles.get(roomId);

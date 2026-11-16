@@ -30,6 +30,8 @@ import {
 } from "@langchain/langgraph";
 
 import { logError } from "@/utils/log.ts";
+import { validateWorkflow } from "../workflow-schema";
+import type { Condition } from "./workflow-condition";
 
 export class WorkflowBuilder {
   // workflow 配置（来自 DB）
@@ -56,6 +58,7 @@ export class WorkflowBuilder {
 
 
   build() {
+    const compiledConditions = validateWorkflow(this.config.nodes, this.config.edges, undefined, this.config.id);
     // 1) 找出所有可达节点（从 START 可达的节点）
     const reachableNodes = this.findReachableNodes();
 
@@ -180,7 +183,7 @@ export class WorkflowBuilder {
           // 检查条件边（按顺序遍历）
           // 为什么按顺序：可能存在多个条件都满足，优先匹配第一个
           for (const item of conditions) {
-            if (evaluateCondition(item.cond, variables)) {
+            if (evaluateCondition(variables, compiledConditions.get(item.cond)!)) {
               const targetNode = this.nodeMap.get(item.edge.target);
               return targetNode?.type === NodeType.END ? END : item.edge.target;
             }
@@ -300,18 +303,13 @@ export class WorkflowBuilder {
 }
 
 function evaluateCondition(
-  expression: string,
-  variables: Record<string, any>,
+  variables: Record<string, unknown>,
+  evaluate: Condition,
 ): boolean {
   try {
-    const func = new Function(
-      ...Object.keys(variables),
-      `return ${expression}`,
-    );
-    const result = func(...Object.values(variables));
-    return result;
-  } catch (error) {
-    logError(`[Condition] Failed to evaluate: ${expression}`, error);
+    return evaluate(variables);
+  } catch {
+    logError("[Condition] Failed to evaluate scalar condition");
     return false;
   }
 }

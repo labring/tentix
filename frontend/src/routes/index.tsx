@@ -5,12 +5,15 @@ import {
 } from "@tanstack/react-router";
 import { areaEnumArray } from "tentix-server/constants";
 import {
-  TENTIX_SEALOS_USER_ID_KEY,
   useAuth,
 } from "../hooks/use-local-user";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   releaseSealosAuthGate,
+  hasSealosDesktopSession,
+  getTentixTargetPlatform,
+  exchangeSealosSession,
+  safeSealosReturnTo,
   useSealos,
   waitForSealosInit,
 } from "../_provider/sealos";
@@ -30,10 +33,18 @@ function AuthGuard() {
   const routeContext = useRouteContext({ from: "/" });
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const authenticationStarted = useRef(false);
 
   // 根据角色导航到对应页面
   const navigateByRole = useCallback(
     (role: string) => {
+      const returnTo = hasSealosDesktopSession()
+        ? safeSealosReturnTo(new URL(window.location.href).searchParams.get("returnTo"), role)
+        : null;
+      if (returnTo) {
+        void router.navigate({ to: returnTo, replace: true });
+        return;
+      }
       const isStaff = ["admin", "technician", "agent"].includes(role);
       router.navigate({
         to: isStaff ? "/staff/tickets/list" : "/user/tickets/list",
@@ -69,60 +80,21 @@ function AuthGuard() {
     [routeContext.apiClient, authContext, navigateByRole],
   );
 
-  // 处理 Sealos 登录
+  // 桌面每次启动均以服务端验证后的身份进入。
   const handleSealosLogin = useCallback(async () => {
-    const sealosToken = window.localStorage.getItem("sealosToken");
+    if (!sealosUserId) throw new Error("Sealos user id is missing");
+    const user = await exchangeSealosSession(sealosUserId, {
+      name: sealosUser?.name ?? "", avatar: sealosUser?.avatar ?? "",
+    });
     const sealosArea = window.localStorage.getItem("sealosArea");
-
-    if (!sealosToken || !sealosArea) {
-      router.navigate({ to: "/notLogin", replace: true });
-      return;
-    }
-
-    const apiClient = routeContext.apiClient;
-    const res = await apiClient.auth.sealos
-      .$post({
-        json: {
-          token: sealosToken,
-          userInfo: {
-            name: sealosUser?.name ?? "",
-            avatar: sealosUser?.avatar ?? "",
-          },
-        },
-      })
-      .then((r) => r.json());
-
-    // 保存认证信息
-    window.localStorage.setItem("role", res.role);
-    window.localStorage.setItem("id", res.id.toString());
-    window.localStorage.setItem("token", res.token);
-    if (!sealosUserId) {
-      throw new Error("Sealos user id is missing");
-    }
-    window.localStorage.setItem(TENTIX_SEALOS_USER_ID_KEY, sealosUserId);
-    releaseSealosAuthGate();
-
-    // 获取并更新用户信息
-    const userData = await apiClient.user.info.$get().then((r) => r.json());
-    authContext.updateUser(
-      userData,
-      sealosArea as (typeof areaEnumArray)[number],
-      sealosUser?.nsid ?? "",
-    );
+    authContext.updateUser(user, sealosArea as (typeof areaEnumArray)[number], sealosUser?.nsid ?? "");
     authContext.setIsAuthenticated(true);
-
-    // 导航
-    navigateByRole(res.role);
-  }, [
-    router,
-    routeContext.apiClient,
-    sealosUser,
-    sealosUserId,
-    authContext,
-    navigateByRole,
-  ]);
+    navigateByRole(user.role);
+  }, [sealosUserId, sealosUser, authContext, navigateByRole]);
 
   useEffect(() => {
+    if (!isInitialized || authenticationStarted.current) return;
+    authenticationStarted.current = true;
     const initializeAndAuthenticate = async () => {
       try {
         await waitForSealosInit();
@@ -140,35 +112,12 @@ function AuthGuard() {
           return;
         }
 
-        const storedSealosUserId = window.localStorage.getItem(
-          TENTIX_SEALOS_USER_ID_KEY,
-        );
-        const hasTentixToken = window.localStorage.getItem("token") !== null;
-        const sealosUserMismatch = Boolean(
-          isSealos &&
-            sealosUserId &&
-            storedSealosUserId &&
-            storedSealosUserId !== sealosUserId,
-        );
-
-        if (sealosUserMismatch) {
-          authContext.clearTentixSessionOnly();
-        }
-
-        // 2. 处理 Sealos 环境登录
-        if (
-          isSealos &&
-          (!hasTentixToken ||
-            !authContext.isAuthenticated ||
-            !authContext.user ||
-            sealosUserMismatch)
-        ) {
+        if (isSealos) {
           await handleSealosLogin();
           return;
         }
-
-        if (isSealos) {
-          releaseSealosAuthGate();
+        if (getTentixTargetPlatform() !== "generic") {
+          throw new Error(sealosContext.error || "Sealos session unavailable");
         }
 
         // 3. 处理普通环境
@@ -180,14 +129,13 @@ function AuthGuard() {
         // 4. 已认证用户：导航
         navigateByRole(authContext.user.role);
       } catch (error) {
-        releaseSealosAuthGate();
         console.error("Authentication error:", error);
         setError(error instanceof Error ? error.message : "Unknown error");
-        authContext.logout();
-        router.navigate({
-          to: isSealos ? "/notLogin" : "/login",
-          replace: true,
-        });
+        authContext.clearTentixSessionOnly();
+        if (getTentixTargetPlatform() === "generic" && !hasSealosDesktopSession()) {
+          releaseSealosAuthGate();
+          router.navigate({ to: "/login", replace: true });
+        }
       } finally {
         setIsInitializing(false);
       }
@@ -198,7 +146,6 @@ function AuthGuard() {
     isInitialized,
     authContext.isAuthenticated,
     authContext.user,
-    authContext.logout,
     authContext.clearTentixSessionOnly,
     isSealos,
     sealosUserId,
@@ -217,6 +164,10 @@ function AuthGuard() {
             {t("auth_failed")}
           </h2>
           <p className="text-sm text-muted-foreground">{error}</p>
+          <button onClick={() => {
+            // 首次认证阶段尚未打开工单表单，显式重试保持桌面渠道。
+            window.location.reload();
+          }}>重试认证</button>
         </div>
       </div>
     );

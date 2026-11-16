@@ -1,3 +1,4 @@
+import { hasSealosDesktopSession, isSealosAuthenticated, sealosAuthenticationUrl, waitForSealosInit } from "../_provider/sealos";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -7,7 +8,15 @@ import { useAuth } from "../hooks/use-local-user";
 import { RouteTransition } from "@comp/page-transition";
 
 export const Route = createFileRoute("/user")({
-  beforeLoad: async ({ context: { authContext } }) => {
+  beforeLoad: async ({ context: { authContext }, location }) => {
+    await waitForSealosInit();
+    if (hasSealosDesktopSession()) {
+      if (!isSealosAuthenticated()) {
+        window.location.replace(sealosAuthenticationUrl(location.href));
+        throw new Error("Sealos authentication pending");
+      }
+    }
+
     const currentUser = authContext.user;
 
     if (currentUser?.id === undefined || currentUser === null) {

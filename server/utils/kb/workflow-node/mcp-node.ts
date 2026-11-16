@@ -1,3 +1,4 @@
+import { resolveWorkflowApiKey } from "@/utils/workflow-secret";
 import { WorkflowState, getVariables, buildMultimodalUserContent } from "./workflow-tools";
 import { DEFAULT_API_KEY, DEFAULT_BASE_URL, DEFAULT_MODEL } from "./workflow-tools";
 import { type McpConfig } from "@/utils/const";
@@ -258,7 +259,7 @@ const userPrompt = await renderLiquidTemplate(
   // 2) 调 LLM
   try {
     const chat = new ChatOpenAI({
-      apiKey: (config as any)?.llm?.apiKey || DEFAULT_API_KEY,
+      apiKey: resolveWorkflowApiKey((config as any)?.llm?.apiKey) || DEFAULT_API_KEY,
       model: (config as any)?.llm?.model || DEFAULT_MODEL,
       configuration: {
         baseURL: (config as any)?.llm?.baseURL || DEFAULT_BASE_URL,

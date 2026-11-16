@@ -1,3 +1,4 @@
+import { revokeUserSessions } from "@/utils/session";
 import * as schema from "@db/schema.ts";
 import {
   inArray,
@@ -343,16 +344,13 @@ const adminRouter = factory
         return c.json({ error: "User not found" }, 404);
       }
 
-      // Update user role and set forceRelogin to true
-      const [updatedUser] = await db
-        .update(schema.users)
-        .set({ role, forceRelogin: true })
-        .where(eq(schema.users.id, id))
-        .returning({
-          id: schema.users.id,
-          name: schema.users.name,
-          role: schema.users.role,
-        });
+      const updatedUser = await db.transaction(async (tx) => {
+        await revokeUserSessions(tx, id);
+        const [updated] = await tx.update(schema.users)
+          .set({ role, forceRelogin: true }).where(eq(schema.users.id, id))
+          .returning({ id: schema.users.id, name: schema.users.name, role: schema.users.role });
+        return updated;
+      });
 
       // refresh staff map
       if (updatedUser?.role && !["customer", "ai"].includes(updatedUser.role)) {

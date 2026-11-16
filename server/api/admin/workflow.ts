@@ -29,6 +29,17 @@ import {
   WorkflowPatchSchema,
 } from "@/utils/types.ts";
 import { workflowCache } from "@/utils/kb/workflow-cache.ts";
+import { auditConditionSignals, validateWorkflow } from "@/utils/workflow-schema";
+import { securityAudit } from "@/utils/security-audit";
+
+function workflowValidationHook(result: { success: boolean; data: unknown }) {
+  const data = result.data as { edges?: Array<{ condition?: unknown }> };
+  if (Array.isArray(data?.edges)) data.edges.forEach((edge, index) => auditConditionSignals(edge?.condition, undefined, index));
+  if (!result.success) {
+    securityAudit({ event: "workflow.condition_rejected", outcome: "rejected", reason: "schema" });
+    throw new HTTPException(422, { message: "Invalid workflow configuration" });
+  }
+}
 
 const aiRoleConfigResponseSchema = createSelectSchema(schema.aiRoleConfig).pick(
   {
@@ -597,7 +608,7 @@ export const workflowRouter = new Hono<AuthEnv>()
   .post(
     "/workflow",
     describeRoute({ description: "Create workflow", tags: ["Admin"] }),
-    zValidator("json", WorkflowCreateSchema),
+    zValidator("json", WorkflowCreateSchema, workflowValidationHook),
     async (c) => {
       const db = c.get("db");
       const t = c.get("i18n").getFixedT(detectLocale(c));
@@ -620,6 +631,7 @@ export const workflowRouter = new Hono<AuthEnv>()
 
       // 刷新 workflow 缓存，因为新增了 workflow
       await workflowCache.refresh();
+      securityAudit({ event: "workflow.saved", outcome: "success", userId: c.var.userId, workflowId: created!.id });
       return c.json(created);
     },
   )
@@ -629,7 +641,7 @@ export const workflowRouter = new Hono<AuthEnv>()
     "/workflow/:id",
     describeRoute({ description: "Update workflow", tags: ["Admin"] }),
     zValidator("param", z.object({ id: z.string() })),
-    zValidator("json", WorkflowPatchSchema),
+    zValidator("json", WorkflowPatchSchema, workflowValidationHook),
     async (c) => {
       const db = c.get("db");
       const t = c.get("i18n").getFixedT(detectLocale(c));
@@ -662,6 +674,7 @@ export const workflowRouter = new Hono<AuthEnv>()
       // 刷新 workflow 缓存，因为 workflow 定义发生了变化
       await workflowCache.refresh();
 
+      securityAudit({ event: "workflow.saved", outcome: "success", userId: c.var.userId, workflowId: id });
       return c.json(updated);
     },
   )
@@ -705,6 +718,7 @@ export const workflowRouter = new Hono<AuthEnv>()
       // 刷新 workflow 缓存
       await workflowCache.refresh();
 
+      securityAudit({ event: "workflow.deleted", outcome: "success", userId: c.var.userId, workflowId: id });
       return c.json({ success: true });
     },
   );
@@ -720,61 +734,9 @@ function assertWorkflowNodesAndEdges(
   edges: WorkflowEdge[],
   t: (k: string, vars?: Record<string, unknown>) => string,
 ) {
-  // nodes
-  const nodeIds = new Set<string>();
-  for (const n of nodes) {
-    if (!n || typeof n !== "object") {
-      throw new HTTPException(422, { message: t("invalid_nodes") });
-    }
-    if (typeof n.id !== "string" || n.id.length === 0) {
-      throw new HTTPException(422, { message: t("invalid_nodes") });
-    }
-    if (nodeIds.has(n.id)) {
-      throw new HTTPException(422, { message: t("duplicate_node_id") });
-    }
-    nodeIds.add(n.id);
-    if (!Object.values(NodeType).includes(n.type)) {
-      throw new HTTPException(422, { message: t("invalid_node_type") });
-    }
-  }
-
-  // edges
-  const validIds = new Set(nodeIds);
-  for (const e of edges) {
-    if (!e || typeof e !== "object") {
-      throw new HTTPException(422, { message: t("invalid_edges") });
-    }
-    if (typeof e.source !== "string" || typeof e.target !== "string") {
-      throw new HTTPException(422, { message: t("invalid_edges") });
-    }
-    if (!validIds.has(e.source) || !validIds.has(e.target)) {
-      throw new HTTPException(422, { message: t("invalid_edge_reference") });
-    }
-  }
-
-  // cycle detection
-  const adj = new Map<string, string[]>();
-  for (const id of validIds) adj.set(id, []);
-  for (const e of edges) adj.get(e.source)!.push(e.target);
-  const visitingSet = new Set<string>();
-  const visitedSet = new Set<string>();
-
-  const hasCycle = (u: string): boolean => {
-    if (visitingSet.has(u)) return true;
-    if (visitedSet.has(u)) return false;
-    visitingSet.add(u);
-    for (const v of adj.get(u) || []) {
-      if (hasCycle(v)) return true;
-    }
-    // avoid linter false positive matching db.delete
-    visitingSet["delete"](u);
-    visitedSet.add(u);
-    return false;
-  };
-
-  for (const id of validIds) {
-    if (hasCycle(id)) {
-      throw new HTTPException(422, { message: t("invalid_edge_cycle") });
-    }
+  try {
+    validateWorkflow(nodes, edges, t);
+  } catch (error) {
+    throw new HTTPException(422, { message: error instanceof Error ? error.message : "Invalid workflow" });
   }
 }

@@ -1,3 +1,4 @@
+import { resolveWorkflowApiKey } from "@/utils/workflow-secret";
 import {
   WorkflowState,
   getVariables,
@@ -38,7 +39,7 @@ export async function escalationOfferNode(
   const mm = buildMultimodalUserContent(userPrompt, state, false);
 
   const chat = new ChatOpenAI({
-    apiKey: config.llm?.apiKey || DEFAULT_API_KEY,
+    apiKey: resolveWorkflowApiKey(config.llm?.apiKey) || DEFAULT_API_KEY,
     model: config.llm?.model || DEFAULT_MODEL,
     configuration: {
       baseURL: config.llm?.baseURL || DEFAULT_BASE_URL,

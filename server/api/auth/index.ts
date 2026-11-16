@@ -1,5 +1,4 @@
 import {
-  aesEncryptToString,
   hashPassword,
   verifyPassword,
 } from "@/utils/crypto";
@@ -18,40 +17,37 @@ import { resolver, validator as zValidator } from "hono-openapi/zod";
 import { getConnInfo } from "hono/bun";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
-import { factory, MyEnv } from "../middleware";
+import { factory, MyEnv, authMiddleware } from "../middleware";
+import {
+  createSession, createSessionInTransaction, lockSessionUser,
+  revokeCurrentSession, revokeUserSessions, type SessionTransaction,
+} from "@/utils/session";
 import { isJWTExpired, parseSealosJWT, parseThirdPartyJWT } from "@/utils/jwt";
 
 export async function signBearerToken(
   c: Context<MyEnv>,
   id: number,
   role: string,
+  transaction?: SessionTransaction,
 ) {
-  const cryptoKey = c.get("cryptoKey")();
-  const now = new Date();
-  const expireTime = Math.floor(now.getTime() / 1000) + 60 * 60 * 24 * 30;
-  const ciphertext = await aesEncryptToString(
-    `${id}##${role}##${expireTime}`,
-    cryptoKey,
-  );
-  const token = `${ciphertext.ciphertext}+Tx*${ciphertext.iv}`;
-  const connInfo = getConnInfo(c);
-  const ip = connInfo.remote.address ?? "unknown";
-  const db = c.get("db");
-  await db.insert(schema.userSession).values({
-    userId: id,
-    loginTime: now.toUTCString(),
+  // 授权角色以数据库当前值为准，保留调用参数兼容既有入口。
+  void role;
+  const client = {
+    ip: getConnInfo(c).remote.address ?? "unknown",
     userAgent: String(c.req.header("User-Agent")),
-    ip,
-    token,
-  });
-  return {
-    token,
-    expireTime,
   };
+  return transaction
+    ? createSessionInTransaction(transaction, c.get("cryptoKey")(), id, client)
+    : createSession(c.get("db"), c.get("cryptoKey")(), id, client);
 }
 
 const authRouter = factory
   .createApp()
+  .get("/platform", (c) => c.json({ targetPlatform: global.customEnv.TARGET_PLATFORM }))
+  .post("/logout", authMiddleware, async (c) => {
+    await revokeCurrentSession(c.var.db, c.var.sessionId);
+    return c.body(null, 204);
+  })
   .post(
     "/login",
     describeRoute({
@@ -101,56 +97,26 @@ const authRouter = factory
       }
 
       const { name, password } = payload;
-
-      // Find user identity with password provider
-      const userIdentity = await db.query.userIdentities.findFirst({
-        where: and(
-          eq(schema.userIdentities.provider, "password"),
-          eq(schema.userIdentities.providerUserId, name),
-        ),
-        with: {
-          user: true,
-        },
+      const lookup = await db.query.userIdentities.findFirst({
+        where: and(eq(schema.userIdentities.provider, "password"), eq(schema.userIdentities.providerUserId, name)),
+        columns: { userId: true },
       });
-
-      if (!userIdentity) {
-        const t = c.get("i18n").getFixedT(detectLocale(c));
-        throw new HTTPException(404, {
-          message: t("user_not_found"),
+      if (!lookup) throw new HTTPException(404, { message: "User not found" });
+      return db.transaction(async (tx) => {
+        const user = await lockSessionUser(tx, lookup.userId);
+        const identity = await tx.query.userIdentities.findFirst({
+          where: and(eq(schema.userIdentities.provider, "password"),
+            eq(schema.userIdentities.providerUserId, name), eq(schema.userIdentities.userId, user.id)),
         });
-      }
-
-      const passwordHash = userIdentity.metadata?.password?.passwordHash;
-      if (!passwordHash || !(await verifyPassword(password, passwordHash))) {
-        const t = c.get("i18n").getFixedT(detectLocale(c));
-        throw new HTTPException(401, {
-          message: t("invalid_credentials"),
-        });
-      }
-
-      // Check if user needs password reset
-      if (
-        userIdentity.metadata?.password?.needReset
-      ) {
-        return c.json({
-          needReset: true,
-          id: userIdentity.user.id,
-          name: userIdentity.user.name,
-          role: userIdentity.user.role,
-        });
-      }
-
-      const tokenInfo = await signBearerToken(
-        c,
-        userIdentity.user.id,
-        userIdentity.user.role,
-      );
-
-      return c.json({
-        id: userIdentity.user.id,
-        name: userIdentity.user.name,
-        role: userIdentity.user.role,
-        ...tokenInfo,
+        const passwordHash = identity?.metadata?.password?.passwordHash;
+        if (!passwordHash || !(await verifyPassword(password, passwordHash))) {
+          throw new HTTPException(401, { message: c.get("i18n").getFixedT(detectLocale(c))("invalid_credentials") });
+        }
+        if (identity?.metadata?.password?.needReset) {
+          return c.json({ needReset: true, id: user.id, name: user.name, role: user.role });
+        }
+        const tokenInfo = await signBearerToken(c, user.id, user.role, tx);
+        return c.json({ id: user.id, name: user.name, role: user.role, ...tokenInfo });
       });
     },
   )
@@ -685,44 +651,23 @@ const authRouter = factory
         });
       }
 
-      const passwordHash = userIdentity.metadata?.password?.passwordHash;
-      if (
-        !passwordHash ||
-        !(await verifyPassword(currentPassword, passwordHash))
-      ) {
-        const t = c.get("i18n").getFixedT(detectLocale(c));
-        throw new HTTPException(401, {
-          message: t("invalid_credentials"),
+      return db.transaction(async (tx) => {
+        const user = await lockSessionUser(tx, userIdentity.user.id);
+        const currentIdentity = await tx.query.userIdentities.findFirst({
+          where: and(eq(schema.userIdentities.id, userIdentity.id), eq(schema.userIdentities.userId, user.id)),
         });
-      }
-
-      // Update password and clear needReset flag
-      const newPasswordHash = await hashPassword(newPassword);
-      const updatedMetadata = {
-        ...userIdentity.metadata,
-        password: {
-          passwordHash: newPasswordHash,
-          needReset: false,
-        },
-      };
-
-      await db
-        .update(schema.userIdentities)
-        .set({ metadata: updatedMetadata })
-        .where(eq(schema.userIdentities.id, userIdentity.id));
-
-      // Generate token for immediate login
-      const tokenInfo = await signBearerToken(
-        c,
-        userIdentity.user.id,
-        userIdentity.user.role,
-      );
-
-      return c.json({
-        id: userIdentity.user.id,
-        name: userIdentity.user.name,
-        role: userIdentity.user.role,
-        ...tokenInfo,
+        const passwordHash = currentIdentity?.metadata?.password?.passwordHash;
+        if (!currentIdentity || !passwordHash || !(await verifyPassword(currentPassword, passwordHash))) {
+          throw new HTTPException(401, { message: c.get("i18n").getFixedT(detectLocale(c))("invalid_credentials") });
+        }
+        await tx.update(schema.userIdentities).set({
+          metadata: { ...currentIdentity.metadata, password: {
+            passwordHash: await hashPassword(newPassword), needReset: false,
+          } },
+        }).where(eq(schema.userIdentities.id, currentIdentity.id));
+        await revokeUserSessions(tx, user.id);
+        const tokenInfo = await signBearerToken(c, user.id, user.role, tx);
+        return c.json({ id: user.id, name: user.name, role: user.role, ...tokenInfo });
       });
     },
   );

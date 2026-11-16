@@ -2,7 +2,8 @@
 import { describeRoute } from "hono-openapi";
 import { validator as zValidator } from "hono-openapi/zod";
 import { z } from "zod";
-import { decryptToken, factory } from "../middleware.ts";
+import { factory } from "../middleware.ts";
+import { authenticateSession } from "@/utils/session";
 import {
   getFeishuAppAccessToken,
   sendFeishuMsg,
@@ -45,7 +46,7 @@ const playgroundRouter = factory
         userId: decryptedUserId,
         role: decryptedRole,
         expireTime: decryptedExpireTime,
-      } = await decryptToken(tokenInfo.token, c.var.cryptoKey());
+      } = await authenticateSession(c.var.db, c.var.cryptoKey(), tokenInfo.token);
       return c.json({
         success: true,
         ...tokenInfo,

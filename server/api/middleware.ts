@@ -20,9 +20,8 @@ import {
   incrementTodayTicketCount,
   ensureGlobalVariables,
 } from "./initApp";
-import { aesDecryptFromString } from "@/utils/crypto";
-import * as schema from "@db/schema.ts";
-import { eq } from "drizzle-orm";
+import { authenticateSession, decryptSessionPayload, tokenDigest, SessionError } from "@/utils/session";
+import { securityAudit } from "@/utils/security-audit";
 
 export class S3Error extends Error {
   constructor(message: string, cause?: Error) {
@@ -100,77 +99,44 @@ export interface AuthEnv extends MyEnv {
   Variables: BasicVariables & {
     userId: number;
     role: userRoleType;
+    sessionId: string;
+    tokenVersion: number;
+    expireTime: number;
   };
 }
 
-export async function decryptToken(token: string, cryptoKey: CryptoKey) {
-  if (token.startsWith("Bearer ")) {
-    token = token.slice(7);
-  }
-  token = token.trim();
-  const [ciphertext, iv] = token.split("+Tx*") as [string, string];
-  const decrypted = await aesDecryptFromString(ciphertext, iv, cryptoKey);
-  const [userId, role, expireTime] = decrypted.split("##") as [
-    string,
-    userRoleType,
-    string,
-  ];
-  return { userId, role, expireTime };
+export function decryptToken(token: string, cryptoKey: CryptoKey) {
+  return decryptSessionPayload(token, cryptoKey);
 }
 
 export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
+  let identity;
   try {
-    const authHeader = c.req.header("Authorization");
-    if (!authHeader) {
-      console.error("Unauthorized", authHeader);
-      const t = c.get("i18n").getFixedT(detectLocale(c));
-      throw new HTTPException(401, { message: t("unauthorized") });
-    }
-    const cryptoKey = c.get("cryptoKey")();
-    const { userId, role, expireTime } = await decryptToken(
-      authHeader,
-      cryptoKey,
-    );
-    if (parseInt(expireTime) < Date.now() / 1000) {
-      const t = c.get("i18n").getFixedT(detectLocale(c));
-      throw new HTTPException(401, { message: t("token_expired") });
-    }
-
-    // Check if user is forced to relogin
-    const db = c.get("db");
-    const user = await db.query.users.findFirst({
-      where: eq(schema.users.id, parseInt(userId)),
-      columns: {
-        forceRelogin: true,
-      },
-    });
-
-    if (user?.forceRelogin) {
-      // Update forceRelogin to false
-      await db
-        .update(schema.users)
-        .set({ forceRelogin: false })
-        .where(eq(schema.users.id, parseInt(userId)));
-
-      const t = c.get("i18n").getFixedT(detectLocale(c));
-      const body: ApiErrorResponse = {
-        code: 401,
-        timeUTC: new Date().toUTCString(),
-        message: t("force_relogin_required"),
-      };
-      return c.json(body, { status: 401 });
-    }
-
-    c.set("userId", parseInt(userId));
-    c.set("role", role);
-    await next();
+    const token = c.req.header("Authorization");
+    if (!token) throw new SessionError("missing");
+    identity = await authenticateSession(c.var.db, c.var.cryptoKey(), token);
   } catch (error) {
-    if (error instanceof HTTPException) {
-      throw error;
+    const invalid = error instanceof SessionError;
+    const raw = c.req.header("Authorization")?.replace(/^Bearer\s+/i, "").trim();
+    if (invalid && raw && raw.length <= 4096) {
+      const parts = raw.split("+Tx*");
+      if (parts.length === 2 && parts.every((part) => /^[A-Za-z0-9+/=]+$/.test(part))) {
+        securityAudit({ event: "auth.legacy_cbc", outcome: "rejected",
+          ciphertextHash: await tokenDigest(parts[0]!), ivHash: await tokenDigest(parts[1]!) });
+      }
     }
-    const t = c.get("i18n").getFixedT(detectLocale(c));
-    throw new HTTPException(401, { message: t("unauthorized") });
+    securityAudit({ event: "auth.rejected", outcome: invalid ? "rejected" : "error",
+      reason: invalid ? error.reason : "service" });
+    throw new HTTPException(invalid ? 401 : 503, {
+      message: invalid ? c.get("i18n").getFixedT(detectLocale(c))("unauthorized") : "Authentication service unavailable",
+    });
   }
+  c.set("userId", identity.userId);
+  c.set("role", identity.role);
+  c.set("sessionId", identity.sessionId);
+  c.set("tokenVersion", identity.tokenVersion);
+  c.set("expireTime", identity.expireTime);
+  await next();
 });
 
 export function staffOnlyMiddleware(

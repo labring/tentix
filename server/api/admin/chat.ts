@@ -1,7 +1,10 @@
 import * as schema from "@db/schema.ts";
 import { Hono } from "hono";
 import type { WSContext } from "hono/ws";
-import { type AuthEnv, decryptToken } from "../middleware.ts";
+import type { ServerWebSocket } from "bun";
+import { type AuthEnv } from "../middleware.ts";
+import { authenticateSession } from "@/utils/session";
+import { createGuardedSocket, disposeGuardedSocket, refreshGuardedSocket } from "@/utils/session-connection";
 import { zValidator } from "@hono/zod-validator";
 import { describeRoute } from "hono-openapi";
 import { z } from "zod";
@@ -247,21 +250,14 @@ export const chatRouter = new Hono<AuthEnv>().get(
 
     try {
       const cryptoKey = c.get("cryptoKey")();
-      const { userId, role, expireTime } = await decryptToken(
-        token!,
-        cryptoKey,
-      );
-
-      if (parseInt(expireTime) < Date.now() / 1000) {
-        logWarning(
-          `[Workflow Chat WebSocket] Token expired - User: ${userId}, Ticket: ${ticketId}`,
-        );
-        return {
-          onOpen(_evt, ws) {
-            ws.close(WS_CLOSE_CODE.TOKEN_EXPIRED, t("token_expired"));
-          },
-        };
-      }
+      const identity = await authenticateSession(c.var.db, cryptoKey, token!);
+      const { userId, role } = identity;
+      let guardedSocket: WSContext<ServerWebSocket<undefined>> | undefined;
+      let connectionClosed = false;
+      const guard = (ws: WSContext<ServerWebSocket<undefined>>) => {
+        guardedSocket ??= createGuardedSocket(ws, identity, async (current) => current.role === "customer" ? "close" : "deliver");
+        return guardedSocket;
+      };
 
       if (!role || role === "customer") {
         logWarning(
@@ -302,8 +298,17 @@ export const chatRouter = new Hono<AuthEnv>().get(
 
       return {
         async onOpen(_evt, ws) {
+          if (connectionClosed) return;
+          ws = guard(ws);
+          try {
+            await refreshGuardedSocket(ws);
+          } catch (error) {
+            if (connectionClosed) return;
+            throw error;
+          }
+          if (connectionClosed) return;
           // 启动心跳检测
-          heartbeat.start(ws, userId);
+          heartbeat.start(ws, String(userId));
 
           // 发送连接成功消息
           sendWSMessage(ws, {
@@ -314,9 +319,11 @@ export const chatRouter = new Hono<AuthEnv>().get(
         },
 
         async onMessage(evt, ws) {
+          ws = guard(ws);
           let messageTempId: number | undefined;
           heartbeat.markAlive();
           try {
+            await refreshGuardedSocket(ws);
             const data =
               typeof evt.data === "string" ? JSON.parse(evt.data) : evt.data;
             const validationResult =
@@ -371,7 +378,7 @@ export const chatRouter = new Hono<AuthEnv>().get(
                   // 保存用户消息但不触发 AI 响应
                   const messageResult = await saveMessageToDb(
                     ticketId,
-                    parseInt(userId),
+                    userId,
                     parsedMessage.content,
                   );
 
@@ -394,7 +401,7 @@ export const chatRouter = new Hono<AuthEnv>().get(
                 // save message to database
                 const messageResult = await saveMessageToDb(
                   ticketId,
-                  parseInt(userId),
+                  userId,
                   parsedMessage.content,
                 );
 
@@ -446,6 +453,8 @@ export const chatRouter = new Hono<AuthEnv>().get(
         },
 
         async onClose(evt, _ws) {
+          connectionClosed = true;
+          disposeGuardedSocket(guardedSocket);
           // 清理心跳定时器
           heartbeat.stop();
 
@@ -457,6 +466,9 @@ export const chatRouter = new Hono<AuthEnv>().get(
         },
 
         async onError(evt, _ws) {
+          connectionClosed = true;
+          disposeGuardedSocket(guardedSocket);
+          _ws.close();
           heartbeat.stop();
           logError(
             `[Workflow Chat WebSocket] Error occurred - User: ${userId}, Ticket: ${ticketId}:`,

@@ -108,7 +108,7 @@ app.use(
             type: "http",
             scheme: "bearer",
             description:
-              "Bearer token for authentication. Contains userId##role##expireTime(timestamp, seconds). It be encrypted by AES-CBC.",
+              "Versioned AES-GCM bearer token backed by an active server-side session. Authorization uses the current database role.",
           },
         },
       },

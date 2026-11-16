@@ -1,3 +1,4 @@
+import { resolveWorkflowApiKey } from "@/utils/workflow-secret";
 import {
   WorkflowState,
   getVariables,
@@ -60,7 +61,7 @@ export async function chatNode(
 
     // 以 system + user 的顺序调用模型（符合 LangChain 规范）
     const chat = new ChatOpenAI({
-      apiKey: config.llm?.apiKey || DEFAULT_API_KEY,
+      apiKey: resolveWorkflowApiKey(config.llm?.apiKey) || DEFAULT_API_KEY,
       model: config.llm?.model || DEFAULT_MODEL,
       configuration: {
         baseURL: config.llm?.baseURL || DEFAULT_BASE_URL,

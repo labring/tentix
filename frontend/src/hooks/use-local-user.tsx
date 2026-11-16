@@ -37,7 +37,7 @@ export interface AuthContext {
   setIsAuthenticated: (isAuthenticated: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
   clearTentixSessionOnly: () => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContext | null>(null);
@@ -65,7 +65,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const logout = React.useCallback(() => {
+  const logout = React.useCallback(async () => {
+    const token = window.localStorage.getItem("token");
+    if (token) {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST", headers: { Authorization: "Bearer " + token },
+      });
+      if (response.status !== 204 && response.status !== 401) throw new Error("退出失败，请重试");
+    }
     window.localStorage.removeItem("sealosToken");
     window.localStorage.removeItem("sealosArea");
     window.localStorage.removeItem("sealosNs");

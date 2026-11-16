@@ -1,3 +1,4 @@
+import { resolveWorkflowApiKey } from "@/utils/workflow-secret";
 import {
   WorkflowState,
   getVariables,
@@ -61,7 +62,7 @@ export async function ragNode(
     // 快速判断未命中，才创建 LLM 实例
     const chat = new ChatOpenAI({
       apiKey:
-        config.intentAnalysisConfig?.intentAnalysisLLM?.apiKey ||
+        resolveWorkflowApiKey(config.intentAnalysisConfig?.intentAnalysisLLM?.apiKey) ||
         DEFAULT_API_KEY,
       model:
         config.intentAnalysisConfig?.intentAnalysisLLM?.model || DEFAULT_MODEL,
@@ -118,7 +119,7 @@ export async function ragNode(
     let queries: string[] = [];
     const moduleFilter = variables.currentTicket?.module;
     const chat = new ChatOpenAI({
-      apiKey: config.generateSearchQueriesLLM?.apiKey || DEFAULT_API_KEY,
+      apiKey: resolveWorkflowApiKey(config.generateSearchQueriesLLM?.apiKey) || DEFAULT_API_KEY,
       model: config.generateSearchQueriesLLM?.model || DEFAULT_MODEL,
       configuration: {
         baseURL: config.generateSearchQueriesLLM?.baseURL || DEFAULT_BASE_URL,
