@@ -862,6 +862,7 @@ const chatRouter = factory
       const { userId, sealosArea } = tokenData;
       let role = parentIdentity.role;
       let guardedSocket: wsInstance | undefined;
+      let connectionClosed = false;
       const guard = (ws: wsInstance) => {
         guardedSocket ??= createGuardedSocket(ws, tokenData.session, async (current, message) => {
           if (!(await canAccessTicket(current, ticketId))) return "close";
@@ -890,8 +891,15 @@ const chatRouter = factory
       try {
         return {
           async onOpen(_evt, ws) {
+            if (connectionClosed) return;
             ws = guard(ws);
-            role = (await refreshGuardedSocket(ws)).role;
+            try {
+              role = (await refreshGuardedSocket(ws)).role;
+            } catch (error) {
+              if (connectionClosed) return;
+              throw error;
+            }
+            if (connectionClosed) return;
             logInfo(`Client connected: ${clientId}, UserId: ${userId}`);
 
             roomEmitter.emit("user_join", {
@@ -1125,6 +1133,7 @@ const chatRouter = factory
             }
           },
           onClose(_evt, ws) {
+            connectionClosed = true;
             disposeGuardedSocket(guardedSocket);
             // 如果是 customer 离开首先检查 房间是否有 agent，如果没有 agent 则将 ticket 状态变为 pending，如果有 检查ticket 最近一条消息是否是自己发的，如果是则 pending
             // 如果不是 customer 离开，则检查 ticket 最近一条消息是否是自己发的，如果是自己发的 则状态改为 in progress

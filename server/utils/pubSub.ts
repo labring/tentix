@@ -291,8 +291,8 @@ export class RoomEmitter extends MyEventEmitter<RoomEventMap> {
     });
 
     this.on("user_leave", ({ clientId, roomId, userId }) => {
-      const room = this.roomsMap.get(roomId)!;
-      room.delete(clientId);
+      const room = this.roomsMap.get(roomId);
+      if (!room?.delete(clientId)) return;
 
       // 清理用户角色信息
       const roomUsers = this._roomUserRoles.get(roomId);

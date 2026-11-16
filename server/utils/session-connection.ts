@@ -38,7 +38,9 @@ export function createGuardedSocket<T>(ws: WSContext<T>, identity: SessionPayloa
   const verify = async (message?: unknown) => {
     if (stopped) throw new SessionError("connection_closed");
     const current = await assertActiveSession(connectDB(), identity);
+    if (stopped) throw new SessionError("connection_closed");
     const decision = await authorize(current, message);
+    if (stopped) throw new SessionError("connection_closed");
     if (decision === "close") throw new SessionError("forbidden");
     return { current, decision };
   };
