@@ -52,6 +52,18 @@ test("smartChat saves default-disabled vision without inserting configuration", 
   expect(WorkflowNodesSchema.safeParse([{ ...draft[0],
     config: { ...draft[0]!.config, enableVision: "false" } }]).success).toBe(false);
 });
+test("smartChat preserves legacy RAG metadata without allowing unknown fields", () => {
+  const config = { systemPrompt: "System", userPrompt: "User", enableRAG: true,
+    ragConfig: { enableIntentAnalysis: false, intentAnalysisUserPrompt: "Intent user",
+      intentAnalysisSystemPrompt: "Intent system", generateSearchQueriesUserPrompt: "Search user",
+      generateSearchQueriesSystemPrompt: "Search system" } };
+  const draft = [{ id: "chat", name: "Chat", type: NodeType.SMART_CHAT as const, config }];
+  expect(WorkflowNodesSchema.parse(draft)).toEqual(draft);
+  expect(WorkflowNodesSchema.safeParse([{ ...draft[0],
+    config: { ...config, enableRAG: "true" } }]).success).toBe(false);
+  expect(WorkflowNodesSchema.safeParse([{ ...draft[0],
+    config: { ...config, ragConfig: { ...config.ragConfig, unknown: "value" } } }]).success).toBe(false);
+});
 test("schema preserves editor fields and absent start/end configuration", () => {
   const fixture = nodes.map((node) => ({ ...node, position: { x: 1, y: 2 },
     handles: [{ id: "h", position: "bottom" as const, type: "source" as const, condition: "" }] }));
